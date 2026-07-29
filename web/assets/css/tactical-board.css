@@ -61,13 +61,50 @@
 .swatch { width: 12px; height: 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,.25); flex-shrink: 0; }
 .tb-colorlbl input[type="color"] { margin-left: 2px; }
 
-/* Outils compacts (barre latérale étroite) */
-.tb-toolbar .tb-tool { min-width: 30px; height: 30px; padding: 0 7px; font-size: .82rem; }
-.tb-toolbar .tb-equip { font-size: .72rem; padding: 0 6px; gap: 4px; }
-.tb-toolbar .tb-colorlbl { font-size: .72rem; }
-.tb-toolbar input[type="color"] { width: 26px; height: 26px; }
-.tb-toolbar select { height: 30px; font-size: .8rem; max-width: 100%; }
-.tb-toolbar .tb-btns { gap: 4px; }
+/* ---------- Barre latérale : tout aligné sur une grille régulière ----------
+   Une seule hauteur de contrôle (--tb-h) et une seule taille de police,
+   pour que les groupes ne soient plus « bancals ». */
+.tb-toolbar { --tb-h: 30px; }
+.tb-toolbar .tb-tool,
+.tb-toolbar select,
+.tb-toolbar input[type="color"] {
+  height: var(--tb-h); font-size: .74rem; font-weight: 500;
+  border-radius: 7px; box-sizing: border-box;
+}
+.tb-toolbar .tb-tool { min-width: 0; padding: 0 8px; }
+.tb-toolbar input[type="color"] { width: var(--tb-h); padding: 2px; }
+.tb-toolbar select { width: 100%; padding: 0 8px; }
+
+/* Groupes en grille : chaque bouton occupe une cellule égale. */
+.tb-toolbar .tb-btns { display: grid; gap: 4px; align-items: stretch; }
+#viewGroup .tb-btns { grid-template-columns: repeat(3, 1fr); }          /* Terrain */
+#toolGroup .tb-btns { grid-template-columns: repeat(2, 1fr); }          /* Sélection & pions */
+#toolGroup .tb-tool[data-tool="select"] { grid-column: 1 / -1; }        /* Sélect. sur toute la largeur */
+#drawGroup .tb-btns { grid-template-columns: repeat(5, 1fr); }          /* Tracés : icônes carrées */
+#drawGroup .tb-tool { padding: 0; font-size: .78rem; }
+#equipGroup .tb-btns { grid-template-columns: repeat(2, 1fr); }         /* Matériel : icône + libellé */
+#styleGroup .tb-btns,
+#seanceGroup .tb-btns { grid-template-columns: repeat(2, 1fr); }
+
+/* Le séparateur vertical n'a pas de sens dans une grille */
+.tb-toolbar .tb-sep { display: none; }
+
+/* Boutons matériel : icône + texte alignés, texte tronqué proprement */
+.tb-toolbar .tb-equip { justify-content: flex-start; gap: 5px; padding: 0 6px; overflow: hidden; }
+.tb-toolbar .tb-equip .eqi { width: 13px; height: 13px; }
+
+/* Lignes de couleur : libellé + pastille + sélecteur sur une seule rangée */
+.tb-toolbar .tb-colorlbl {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: 13px 1fr var(--tb-h); align-items: center; gap: 6px;
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .03em;
+}
+.tb-toolbar .tb-colorlbl input[type="color"] { margin-left: 0; }
+
+/* Contrôles qui doivent occuper toute la largeur */
+#styleGroup #toggleNumbers { grid-column: 1 / -1; }
+#styleGroup #fontSelect,
+#seanceGroup #formationSelect { grid-column: 1 / -1; }
 
 /* Le terrain occupe toute la largeur disponible */
 #pitch { max-width: 100%; }
@@ -97,11 +134,13 @@
 .tb-tool.active { background: rgba(201,168,76,.16); border-color: var(--gold); color: var(--gold); }
 .tb-tool.danger:hover { color: var(--danger); border-color: rgba(244,67,54,.4); }
 
+/* Apparence commune des sélecteurs de couleur (la taille est fixée plus haut
+   par la grille de la barre latérale, à ne pas réimposer ici). */
 .tb-toolbar input[type="color"] {
-  width: 34px; height: 34px; padding: 2px; border-radius: 8px; border: 1px solid var(--border);
+  padding: 2px; border: 1px solid var(--border);
   background: var(--bg-surface); cursor: pointer;
 }
-.tb-toolbar select, .tb-selbar select { width: auto; padding: 7px 9px; height: 34px; }
+.tb-selbar select { width: auto; padding: 7px 9px; height: 34px; }
 
 /* Barre sélection */
 .tb-selbar {

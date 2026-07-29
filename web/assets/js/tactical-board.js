@@ -17,7 +17,7 @@ const state = {
   view: 'complet', tool: 'select',
   items: [], selIds: [],
   drawColor: '#C9A84C', jersey: '#E03131', opp: '#1f6feb',
-  showNumbers: true, nextNum: 1, nextOpp: 1, tokenR: 18, textFont: 'Inter, sans-serif',
+  showNumbers: true, nextNum: 1, nextOpp: 1, tokenR: 18, equipR: 16, textFont: 'Inter, sans-serif',
   steps: [], history: [],
   // Cadrage d'export (mode « Screen ») : {x, y, w, h} en coordonnées paysage, ou null = plein terrain.
   screen: null,
@@ -551,7 +551,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (state.tool === 'player') { addToken('player', p, state.jersey); commit(); }
   else if (state.tool === 'opponent') { addToken('opponent', p, state.opp); commit(); }
   else if (state.tool.startsWith('equip-')) {
-    const it = { id: nid(), type: 'equip', kind: state.tool.slice(6), x: p.x, y: p.y, r: 16 };
+    const it = { id: nid(), type: 'equip', kind: state.tool.slice(6), x: p.x, y: p.y, r: state.equipR };
     state.items.push(it); state.selIds = [it.id]; commit();
   }
   else if (state.tool === 'text') {
@@ -1132,6 +1132,24 @@ async function saveToDB(validate) {
   finally { if (btn) btn.disabled = false; }
 }
 
+/* Applique les préférences utilisateur (page Paramètres) aux valeurs
+   par défaut du tableau : couleurs, tailles, police, vue, numéros. */
+function applyPrefs(prefs) {
+  if (!prefs) return;
+  if (prefs.jersey) { state.jersey = prefs.jersey; const el = $('#jerseyColor'); if (el) el.value = prefs.jersey; }
+  if (prefs.opp)    { state.opp = prefs.opp;       const el = $('#oppColor');    if (el) el.value = prefs.opp; }
+  if (prefs.draw)   { state.drawColor = prefs.draw; const el = $('#drawColor');  if (el) el.value = prefs.draw; }
+  if (prefs.tokenR) state.tokenR = Number(prefs.tokenR);
+  if (prefs.equipR) state.equipR = Number(prefs.equipR);
+  if (prefs.font)   { state.textFont = prefs.font; const el = $('#fontSelect');  if (el) el.value = prefs.font; }
+  if (typeof prefs.showNumbers === 'boolean') state.showNumbers = prefs.showNumbers;
+  // La vue par défaut ne s'applique qu'à un nouveau schéma (sinon on écraserait
+  // la vue enregistrée avec le schéma).
+  if (prefs.view && !PROC) state.view = prefs.view;
+  updatePionDots();
+  $$('#viewGroup .tb-tool').forEach(x => x.classList.toggle('active', x.dataset.view === state.view));
+}
+
 /* ============================================================
    CHARGEMENT INITIAL
    ============================================================ */
@@ -1140,6 +1158,7 @@ async function boot() {
   if (!ctx) return;
   CAN_EDIT = canEdit(ctx.profile.role);
   CLUB_ID = ctx.profile.club_id;
+  applyPrefs(ctx.profile.prefs);
   document.getElementById('uName') && (document.getElementById('uName').textContent = ctx.profile.nom || 'Utilisateur');
   document.getElementById('uRole') && (document.getElementById('uRole').textContent = (ROLE_LABELS[ctx.profile.role] || ctx.profile.role).toUpperCase());
   document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });

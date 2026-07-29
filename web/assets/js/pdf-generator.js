@@ -100,9 +100,22 @@ window.generateSessionPDF = async function (sessionId) {
     else doc.text(lines, x + w / 2, y + h / 2, { align: 'center', baseline: 'middle' });
   };
 
-  /* En-tête commun (logo club + titre) réutilisé sur chaque page. */
+  /* En-tête commun (logo club + titre + sous-titre).
+     La hauteur s'adapte au nombre de lignes du sous-titre pour que la ligne
+     dorée ne chevauche jamais le texte. */
   const pageHeader = (title, subtitle) => {
-    const ty = 7;
+    const ty = 7, subFs = 8.5, subLineH = 4.4;
+    let subLines = [];
+    if (subtitle) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(subFs);
+      subLines = doc.splitTextToSize(subtitle, CW * 0.66).slice(0, 3);
+    }
+    const titleY = ty + 6;
+    const subStartY = titleY + 6.5;
+    // Bas du bloc texte, puis marge avant le filet doré.
+    const textBottom = subLines.length ? subStartY + (subLines.length - 1) * subLineH + 2 : titleY + 4;
+    const ruleY = Math.max(ty + 16, textBottom + 4);
+
     if (s.club_logo) {
       try { doc.addImage(s.club_logo, M, ty, 16, 15); } catch (e) { fill(M, ty, 16, 14, NAVY); }
     } else {
@@ -111,16 +124,15 @@ window.generateSessionPDF = async function (sessionId) {
       doc.text(initials(s.coach_club), M + 8, ty + 7, { align: 'center', baseline: 'middle' });
     }
     doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
-    doc.text(String(title).toUpperCase(), W / 2, ty + (subtitle ? 5 : 7), { align: 'center', baseline: 'middle' });
-    if (subtitle) {
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUT);
-      const lines = doc.splitTextToSize(subtitle, CW * 0.62);
-      doc.text(lines.slice(0, 2), W / 2, ty + 11, { align: 'center', baseline: 'middle' });
+    doc.text(String(title).toUpperCase(), W / 2, titleY, { align: 'center', baseline: 'middle' });
+    if (subLines.length) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(subFs); doc.setTextColor(...MUT);
+      subLines.forEach((ln, i) => doc.text(ln, W / 2, subStartY + i * subLineH, { align: 'center', baseline: 'middle' }));
     }
     doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
     doc.text([s.categorie ? 'Phase : ' + s.categorie : '', s.coach_nom ? 'Coach : ' + s.coach_nom : ''].filter(Boolean), W - M, ty + 3, { align: 'right' });
-    doc.setDrawColor(...gold); doc.setLineWidth(0.8); doc.line(M, ty + 16, W - M, ty + 16);
-    return ty + 20;
+    doc.setDrawColor(...gold); doc.setLineWidth(0.8); doc.line(M, ruleY, W - M, ruleY);
+    return ruleY + 4;
   };
 
   const footer = (left, right) => {

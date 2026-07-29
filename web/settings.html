@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Paramètres</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
+      <a class="nav-item" href="sessions.html"><span class="nav-dot"></span>Mes séances</a>
+      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Mes joueurs</a>
+      <a class="nav-item" href="tactical-board.html"><span class="nav-dot"></span>Tableau tactique</a>
+      <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
+      <a class="nav-item" href="club.html"><span class="nav-dot"></span>Mon club</a>
+      <a class="nav-item active" href="settings.html"><span class="nav-dot"></span>Paramètres</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Paramètres</h1>
+        <p class="subtitle" id="settingsSub">Votre compte et vos préférences de travail.</p>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <!-- Mon compte -->
+      <div class="card">
+        <h3>Mon compte</h3>
+        <div class="field"><label>Nom affiché</label><input id="p-nom" placeholder="Votre nom"></div>
+        <div class="field"><label>Email</label><input id="p-email" disabled></div>
+        <div class="field"><label>Rôle dans le club</label><input id="p-role" disabled></div>
+        <button class="btn btn-primary btn-sm" id="saveAccount" type="button">Enregistrer</button>
+      </div>
+
+      <!-- Sécurité -->
+      <div class="card">
+        <h3>Mot de passe</h3>
+        <p class="text-muted" style="font-size:.85rem;">Votre navigateur vous garde connecté : vous n'avez pas à ressaisir votre mot de passe à chaque visite.</p>
+        <div class="field"><label>Nouveau mot de passe (6+ caractères)</label><input id="p-pass" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+        <div class="field"><label>Confirmer</label><input id="p-pass2" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+        <button class="btn btn-primary btn-sm" id="savePassword" type="button">Changer le mot de passe</button>
+      </div>
+    </div>
+
+    <!-- Préférences du tableau tactique -->
+    <div class="card" style="margin-top:18px;">
+      <h3>Préférences du tableau tactique</h3>
+      <p class="text-muted" style="font-size:.85rem;">Ces réglages sont appliqués automatiquement à chaque nouveau schéma.</p>
+      <div class="field-row">
+        <div class="field"><label>Couleur des joueurs</label><input id="pf-jersey" type="color" value="#E03131" style="height:40px;"></div>
+        <div class="field"><label>Couleur des adversaires</label><input id="pf-opp" type="color" value="#1f6feb" style="height:40px;"></div>
+        <div class="field"><label>Couleur des tracés / zones</label><input id="pf-draw" type="color" value="#C9A84C" style="height:40px;"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Taille des pions <span class="text-muted" id="pf-tokenVal">18</span></label>
+          <input id="pf-token" type="range" min="10" max="40" value="18">
+        </div>
+        <div class="field">
+          <label>Taille du matériel <span class="text-muted" id="pf-equipVal">16</span></label>
+          <input id="pf-equip" type="range" min="8" max="40" value="16">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Vue de terrain par défaut</label>
+          <select id="pf-view">
+            <option value="complet">Complet</option>
+            <option value="demi">Demi</option>
+            <option value="vierge">Vierge</option>
+            <option value="futsal">Futsal</option>
+            <option value="horizontal">Portrait</option>
+          </select>
+        </div>
+        <div class="field"><label>Police des textes</label>
+          <select id="pf-font">
+            <option value="Inter, sans-serif">Inter</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="'Times New Roman', serif">Times</option>
+            <option value="'Courier New', monospace">Courier</option>
+            <option value="Impact, sans-serif">Impact</option>
+            <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+          </select>
+        </div>
+        <div class="field"><label>Numéros des pions</label>
+          <select id="pf-numbers">
+            <option value="1">Affichés</option>
+            <option value="0">Masqués</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="savePrefs" type="button">Enregistrer les préférences</button>
+    </div>
+
+    <!-- Administration (visible pour les admins uniquement) -->
+    <div class="card hidden" id="adminCard" style="margin-top:18px;">
+      <h3>Administration du club</h3>
+      <p class="text-muted" style="font-size:.85rem;">Réservé aux administrateurs.</p>
+      <div id="adminStats" class="kpi-grid" style="margin-bottom:14px;"></div>
+      <div class="flex gap-sm" style="flex-wrap:wrap;">
+        <a class="btn btn-sm" href="club.html">Gérer les membres &amp; l'identité du club</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/settings-page.js"></script>
+</body>
+</html>

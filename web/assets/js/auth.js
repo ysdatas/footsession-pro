@@ -17,11 +17,20 @@ async function requireAuth(opts = {}) {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.href = 'index.html'; return null; }
 
-  const { data: profile, error } = await sb
+  let { data: profile, error } = await sb
     .from('profiles')
-    .select('id, nom, role, club_id, clubs(nom, color, logo_path, join_code)')
+    .select('id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code)')
     .eq('id', session.user.id)
     .single();
+
+  // Repli si la colonne « prefs » n'a pas encore été ajoutée en base.
+  if (error) {
+    ({ data: profile, error } = await sb
+      .from('profiles')
+      .select('id, nom, role, club_id, clubs(nom, color, logo_path, join_code)')
+      .eq('id', session.user.id)
+      .single());
+  }
 
   if (error) { console.error(error); window.location.href = 'index.html'; return null; }
 
