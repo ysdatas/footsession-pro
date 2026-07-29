@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Bienvenue</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/auth.css">
+  <style>
+    .onb-card { width: 100%; max-width: 460px; }
+    .onb-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .onb-tabs button {
+      flex: 1; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border);
+      background: var(--bg-surface); color: var(--text-secondary); font-weight: 600; font-size: .88rem;
+    }
+    .onb-tabs button.active { background: rgba(201,168,76,.14); border-color: var(--gold); color: var(--gold); }
+  </style>
+</head>
+<body class="auth">
+  <div class="auth-card onb-card">
+    <div class="auth-logo">Foot<span class="g">Session</span><span class="auth-pro">Pro</span></div>
+    <div class="auth-sub">Bienvenue ! Rejoignez ou créez votre club.</div>
+    <div id="authError" class="auth-error hidden"></div>
+
+    <div class="onb-tabs">
+      <button id="tabCreate" class="active" type="button">Créer un club</button>
+      <button id="tabJoin" type="button">Rejoindre un club</button>
+    </div>
+
+    <form id="createForm">
+      <div class="field"><label>Nom du club</label><input id="c-nom" required placeholder="Ex: Union Sportive…"></div>
+      <p class="text-muted" style="font-size:.8rem;margin-bottom:14px;">Vous deviendrez administrateur de ce club et pourrez inviter votre staff avec un code.</p>
+      <button class="btn btn-primary" type="submit" style="width:100%;">Créer le club</button>
+    </form>
+
+    <form id="joinForm" class="hidden">
+      <div class="field"><label>Code d'invitation</label><input id="j-code" required placeholder="Ex: A1B2C3" style="text-transform:uppercase;"></div>
+      <p class="text-muted" style="font-size:.8rem;margin-bottom:14px;">Demandez ce code à l'administrateur de votre club. Vous rejoindrez en lecture seule ; il ajustera votre rôle ensuite.</p>
+      <button class="btn btn-primary" type="submit" style="width:100%;">Rejoindre le club</button>
+    </form>
+
+    <div class="auth-foot"><a href="#" id="logoutLink">Déconnexion</a></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script>
+    const tabCreate = document.getElementById('tabCreate'), tabJoin = document.getElementById('tabJoin');
+    const createForm = document.getElementById('createForm'), joinForm = document.getElementById('joinForm');
+    const errBox = document.getElementById('authError');
+    const showErr = (m) => { errBox.textContent = m; errBox.classList.remove('hidden'); };
+
+    tabCreate.addEventListener('click', () => {
+      tabCreate.classList.add('active'); tabJoin.classList.remove('active');
+      createForm.classList.remove('hidden'); joinForm.classList.add('hidden');
+    });
+    tabJoin.addEventListener('click', () => {
+      tabJoin.classList.add('active'); tabCreate.classList.remove('active');
+      joinForm.classList.remove('hidden'); createForm.classList.add('hidden');
+    });
+
+    createForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errBox.classList.add('hidden');
+      const nom = document.getElementById('c-nom').value.trim();
+      const { error } = await sb.rpc('create_club', { p_nom: nom });
+      if (error) return showErr(error.message);
+      window.location.href = 'dashboard.html';
+    });
+
+    joinForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errBox.classList.add('hidden');
+      const code = document.getElementById('j-code').value.trim();
+      const { error } = await sb.rpc('join_club', { p_code: code });
+      if (error) return showErr(error.message || 'Code invalide.');
+      window.location.href = 'dashboard.html';
+    });
+
+    document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+    // Garde : connecté mais SANS exiger de club (c'est justement le but de cette page).
+    // Si l'utilisateur a déjà un club, on l'envoie direct au dashboard.
+    (async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { window.location.href = 'index.html'; return; }
+      const { data: profile } = await sb.from('profiles').select('club_id').eq('id', session.user.id).single();
+      if (profile && profile.club_id) window.location.href = 'dashboard.html';
+    })();
+  </script>
+</body>
+</html>

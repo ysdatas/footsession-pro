@@ -1,0 +1,58 @@
+/* ============================================================
+   FootSession Pro — players.css
+   ============================================================ */
+
+.players-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px;
+}
+.player-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 16px; cursor: pointer; transition: var(--transition);
+}
+.player-card:hover { border-color: var(--border-gold); box-shadow: var(--shadow-gold); }
+.pc-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.pc-avatar {
+  width: 46px; height: 46px; border-radius: var(--radius-md); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; color: #0A0A0A;
+}
+.pc-name { font-weight: 600; font-size: .95rem; }
+.pc-poste { font-size: .74rem; color: var(--gold); }
+.pc-num {
+  margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--text-secondary);
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px;
+}
+.pc-stat { display: flex; align-items: center; justify-content: space-between; font-size: .82rem; }
+.pc-bar { height: 6px; background: var(--bg-surface); border-radius: 999px; overflow: hidden; margin-top: 8px; }
+.pc-bar span { display: block; height: 100%; background: linear-gradient(90deg, #9c7f30, var(--gold)); }
+.pc-foot { font-size: .74rem; color: var(--text-secondary); margin-top: 8px; }
+
+/* Couleurs d'avatar (rotation) */
+.av0 { background: linear-gradient(135deg,#E2C97E,#C9A84C); }
+.av1 { background: linear-gradient(135deg,#7e6cff,#5a47d6); }
+.av2 { background: linear-gradient(135deg,#3aa0ff,#1d7fd6); }
+.av3 { background: linear-gradient(135deg,#4CAF50,#2e8b35); }
+.av4 { background: linear-gradient(135deg,#ff8a5b,#e0632f); }
+.av5 { background: linear-gradient(135deg,#ff6b9d,#d63a73); }
+
+/* Matrice de présence */
+.matrix-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.matrix { border-collapse: collapse; width: 100%; min-width: 600px; }
+.matrix th, .matrix td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: center; font-size: .82rem; }
+.matrix th.player-col, .matrix td.player-col {
+  text-align: left; position: sticky; left: 0; background: var(--bg-card); z-index: 1; min-width: 160px;
+}
+.matrix thead th { color: var(--text-secondary); font-size: .72rem; white-space: nowrap; }
+.matrix-cell {
+  width: 26px; height: 26px; border-radius: 7px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: .8rem;
+  border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-muted);
+}
+.matrix-cell.present { background: rgba(76,175,80,.18); border-color: var(--success); color: var(--success); }
+.matrix-cell.absent  { color: var(--danger); }
+.matrix-cell.readonly { cursor: default; }
+
+/* Détail joueur */
+.detail-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.detail-list { max-height: 320px; overflow-y: auto; }
+.detail-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: .85rem; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }

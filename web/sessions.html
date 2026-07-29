@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Mes séances</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
+      <a class="nav-item active" href="sessions.html"><span class="nav-dot"></span>Mes séances</a>
+      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Mes joueurs</a>
+      <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
+      <a class="nav-item" href="club.html"><span class="nav-dot"></span>Mon club</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Mes séances</h1>
+        <p class="subtitle" id="sessSub">Chargement…</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-primary hidden" id="btnNew" href="session-edit.html">+ Nouvelle séance</a>
+      </div>
+    </div>
+
+    <div class="field" style="max-width:340px;">
+      <input id="searchSession" placeholder="Rechercher une séance…">
+    </div>
+
+    <div id="listWrap"><div class="empty">Chargement…</div></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/pdf-generator.js"></script>
+  <script src="assets/js/sessions-list-page.js"></script>
+</body>
+</html>

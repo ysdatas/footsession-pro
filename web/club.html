@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Mon club</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+  <link rel="stylesheet" href="assets/css/club.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
+      <a class="nav-item" href="sessions.html"><span class="nav-dot"></span>Mes séances</a>
+      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Mes joueurs</a>
+      <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
+      <a class="nav-item active" href="club.html"><span class="nav-dot"></span>Mon club</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Mon club</h1>
+        <p class="subtitle" id="clubSub">Chargement…</p>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="card">
+        <h3>Identité du club</h3>
+        <div class="field"><label>Nom du club</label><input id="clubName" disabled></div>
+        <div class="field-row">
+          <div class="field"><label>Couleur d'accent</label><input id="clubColor" type="color" style="height:40px;" disabled></div>
+          <div class="field"><label>Logo</label><input id="clubLogoFile" type="file" accept="image/*" disabled></div>
+        </div>
+        <div id="logoPreviewWrap" class="hidden" style="margin-bottom:12px;"><img id="logoPreview" class="club-logo-preview"></div>
+        <button class="btn btn-primary hidden" id="saveClub" type="button">Enregistrer</button>
+        <p class="text-muted hidden" id="viewerNote" style="font-size:.82rem;">Seul l'administrateur du club peut modifier ces informations.</p>
+      </div>
+
+      <div class="card hidden" id="inviteCard">
+        <h3>Inviter des membres</h3>
+        <p class="text-muted" style="font-size:.85rem;">Partagez ce code à votre staff pour qu'il rejoigne le club (Réglages → Rejoindre un club).</p>
+        <div class="join-code-box">
+          <code id="joinCode">------</code>
+          <button class="btn btn-sm" id="copyCode" type="button">Copier</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h3>Membres de la cellule</h3>
+      <div id="memberList"><p class="text-muted">Chargement…</p></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/club-page.js"></script>
+</body>
+</html>

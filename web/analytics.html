@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Bilan &amp; Analytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+  <link rel="stylesheet" href="assets/css/analytics.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
+      <a class="nav-item" href="sessions.html"><span class="nav-dot"></span>Mes séances</a>
+      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Mes joueurs</a>
+      <a class="nav-item active" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
+      <a class="nav-item" href="club.html"><span class="nav-dot"></span>Mon club</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Bilan &amp; Analytics</h1>
+        <p class="subtitle">Volume de travail, présence et tendances de vos séances.</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn" id="btnExportAnalytics" type="button">Exporter PDF</button>
+      </div>
+    </div>
+
+    <div class="flex-between" style="margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+      <div class="segmented" id="periodSwitch">
+        <button data-period="week">Semaine</button>
+        <button data-period="month" class="active">Mois</button>
+        <button data-period="season">Saison</button>
+        <button data-period="custom">Personnalisé</button>
+      </div>
+      <div id="customRange" class="hidden" style="display:flex;gap:10px;align-items:center;">
+        <input type="date" id="customFrom"><span class="text-muted">→</span><input type="date" id="customTo">
+        <button class="btn btn-sm" id="applyCustom" type="button">Appliquer</button>
+      </div>
+    </div>
+
+    <div id="analyticsContent">
+      <div class="kpi-grid" id="analyticsKpis">
+        <div class="card kpi"><div class="kpi-num" id="kpiSessions">—</div><div class="kpi-label">Séances réalisées</div></div>
+        <div class="card kpi"><div class="kpi-num" id="kpiProcedures">—</div><div class="kpi-label">Procédés travaillés</div></div>
+        <div class="card kpi"><div class="kpi-num" id="kpiPresence">—</div><div class="kpi-label">Présence moyenne</div></div>
+        <div class="card kpi gold"><div class="kpi-num" id="kpiVolume">—</div><div class="kpi-label">Volume de travail</div></div>
+      </div>
+
+      <div id="chartsArea" class="charts-grid">
+        <div class="card chart-card"><h3>Volume par catégorie</h3><div class="chart-box"><canvas id="chartCategory"></canvas></div></div>
+        <div class="card chart-card"><h3>Séances par mois (6 mois)</h3><div class="chart-box"><canvas id="chartMonths"></canvas></div></div>
+        <div class="card chart-card"><h3>Espaces de jeu utilisés</h3><div class="chart-box"><canvas id="chartEspaces"></canvas></div></div>
+        <div class="card chart-card"><h3>Volume par séance (min)</h3><div class="chart-box"><canvas id="chartVolume"></canvas></div></div>
+        <div class="card chart-card"><h3>Principes de jeu récurrents</h3><div class="chart-box"><canvas id="chartPrincipes"></canvas></div></div>
+        <div class="card chart-card"><h3>Effectifs utilisés</h3><div class="chart-box"><canvas id="chartEffectifs"></canvas></div></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/analytics-page.js"></script>
+</body>
+</html>

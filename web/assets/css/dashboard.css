@@ -1,0 +1,59 @@
+/* ============================================================
+   FootSession Pro — dashboard.css
+   ============================================================ */
+
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px; margin-bottom: 18px;
+}
+.kpi { position: relative; overflow: hidden; }
+.kpi-num { font-size: 2.4rem; font-weight: 700; line-height: 1; color: var(--gold); }
+.kpi.gold .kpi-num { color: var(--gold-light); }
+.kpi-label { font-size: .95rem; font-weight: 600; margin-top: 6px; }
+.kpi-sub { font-size: .78rem; color: var(--text-secondary); margin-top: 2px; }
+.kpi-ico {
+  position: absolute; top: 16px; right: 16px; font-size: 1.4rem;
+  opacity: .35; filter: grayscale(.2);
+}
+
+.dash-grid {
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px;
+}
+
+/* Séances récentes */
+.recent-list { display: flex; flex-direction: column; gap: 6px; }
+.recent-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 10px; border-radius: var(--radius-md);
+  cursor: pointer; transition: var(--transition);
+}
+.recent-item:hover { background: var(--bg-surface); }
+.recent-bar { width: 3px; align-self: stretch; background: var(--gold); border-radius: 3px; opacity: .7; }
+.recent-main { flex: 1; min-width: 0; }
+.recent-title { font-weight: 600; font-size: .92rem; }
+.recent-meta { font-size: .78rem; color: var(--text-secondary); margin-top: 2px; }
+
+/* Accès rapide */
+.quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.quick-tile {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); background: var(--bg-surface);
+  font-weight: 500; font-size: .88rem; transition: var(--transition);
+}
+.quick-tile:hover { border-color: var(--border-gold); background: var(--bg-hover); }
+.qt-dot { width: 9px; height: 9px; border-radius: 3px; }
+
+/* Récap */
+.recap { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.recap-row { display: grid; grid-template-columns: 140px 1fr auto; gap: 14px; align-items: center; }
+.recap-label { font-size: .85rem; color: var(--text-secondary); }
+.recap-track { height: 8px; background: var(--bg-surface); border-radius: 999px; overflow: hidden; }
+.recap-fill { display: block; height: 100%; background: linear-gradient(90deg, #9c7f30, var(--gold)); border-radius: 999px; }
+.recap-val { font-size: .8rem; color: var(--text-secondary); white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .recap-row { grid-template-columns: 100px 1fr auto; }
+}

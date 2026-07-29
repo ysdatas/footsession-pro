@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Mes joueurs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/players.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
+      <a class="nav-item" href="sessions.html"><span class="nav-dot"></span>Mes séances</a>
+      <a class="nav-item active" href="players.html"><span class="nav-dot"></span>Mes joueurs</a>
+      <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
+      <a class="nav-item" href="club.html"><span class="nav-dot"></span>Mon club</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Mes joueurs</h1>
+        <p class="subtitle" id="playersSub">Chargement…</p>
+      </div>
+      <div class="page-actions">
+        <div class="segmented" id="viewSwitch">
+          <button data-view="grid" class="active">Grille</button>
+          <button data-view="matrix">Présence</button>
+        </div>
+        <button class="btn btn-primary hidden" id="btnAddPlayer" type="button">+ Ajouter</button>
+      </div>
+    </div>
+
+    <div class="field" style="max-width:340px;">
+      <input id="searchPlayer" placeholder="Rechercher…">
+    </div>
+
+    <div id="gridView"><div class="empty">Chargement…</div></div>
+    <div id="matrixView" class="hidden"></div>
+  </main>
+
+  <!-- Modale ajout/édition -->
+  <div class="modal-backdrop" id="playerModal">
+    <div class="modal">
+      <h3 id="playerModalTitle">Nouveau joueur</h3>
+      <input type="hidden" id="m-id">
+      <div class="field-row">
+        <div class="field"><label>Prénom</label><input id="m-prenom"></div>
+        <div class="field"><label>Nom</label><input id="m-nom" required></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Numéro</label><input id="m-numero" type="number" min="0"></div>
+        <div class="field"><label>Poste</label>
+          <input id="m-poste" list="poste-list" placeholder="Ex: MC, DC, AT…">
+          <datalist id="poste-list">
+            <option>GB</option><option>DC</option><option>DD</option><option>DG</option>
+            <option>MDF</option><option>MC</option><option>MO</option>
+            <option>AD</option><option>AG</option><option>BU</option><option>RW</option><option>LW</option>
+          </datalist>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close="playerModal">Annuler</button>
+        <button class="btn btn-primary" id="m-save" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale détail -->
+  <div class="modal-backdrop" id="detailModal">
+    <div class="modal" id="detailBody"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/players-page.js"></script>
+</body>
+</html>

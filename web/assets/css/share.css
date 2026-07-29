@@ -1,0 +1,11 @@
+body { padding: 24px; }
+.share-wrap { max-width: 900px; margin: 0 auto; }
+.share-head { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; }
+.share-head img { max-height: 48px; }
+.ro-badge { font-size: .7rem; color: var(--gold); border: 1px solid var(--gold-border); border-radius: 6px; padding: 3px 8px; }
+.sp-meta { display: flex; gap: 18px; flex-wrap: wrap; color: var(--text-secondary); font-size: .85rem; margin-bottom: 20px; }
+.sp-proc { margin-bottom: 16px; }
+.sp-proc h3 { display: flex; justify-content: space-between; }
+.sp-proc img { width: 100%; max-width: 520px; border-radius: 10px; border: 1px solid var(--border); margin: 8px 0; }
+.sp-field { font-size: .88rem; margin: 4px 0; }
+.sp-field b { color: var(--gold); font-weight: 600; }

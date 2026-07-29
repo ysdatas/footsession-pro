@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Connexion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/auth.css">
+</head>
+<body class="auth">
+  <div class="auth-card">
+    <div class="auth-logo">Foot<span class="g">Session</span><span class="auth-pro">Pro</span></div>
+    <div class="auth-sub" id="authSub">Espace cellule vidéo &amp; coaching</div>
+
+    <div id="authError" class="auth-error hidden"></div>
+    <div id="authOk" class="auth-ok hidden"></div>
+
+    <!-- Formulaire connexion -->
+    <form id="loginForm">
+      <div class="field">
+        <label for="l-email">Email</label>
+        <input type="email" id="l-email" required autofocus placeholder="vous@club.fr">
+      </div>
+      <div class="field">
+        <label for="l-password">Mot de passe</label>
+        <input type="password" id="l-password" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary">Se connecter</button>
+    </form>
+
+    <!-- Formulaire inscription (masqué par défaut) -->
+    <form id="signupForm" class="hidden">
+      <div class="field">
+        <label for="s-nom">Nom complet</label>
+        <input type="text" id="s-nom" required placeholder="Jean Dupont">
+      </div>
+      <div class="field">
+        <label for="s-email">Email</label>
+        <input type="email" id="s-email" required placeholder="vous@club.fr">
+      </div>
+      <div class="field">
+        <label for="s-password">Mot de passe (6+ caractères)</label>
+        <input type="password" id="s-password" required minlength="6" placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary">Créer mon compte</button>
+    </form>
+
+    <div class="auth-foot">
+      <a href="#" id="toggleMode">Pas encore de compte ? Créer un compte</a>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script>
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const toggleLink = document.getElementById('toggleMode');
+    const errBox = document.getElementById('authError');
+    const okBox = document.getElementById('authOk');
+    const sub = document.getElementById('authSub');
+    let mode = 'login';
+
+    function showError(msg) { errBox.textContent = msg; errBox.classList.remove('hidden'); okBox.classList.add('hidden'); }
+    function showOk(msg) { okBox.textContent = msg; okBox.classList.remove('hidden'); errBox.classList.add('hidden'); }
+    function clearMsgs() { errBox.classList.add('hidden'); okBox.classList.add('hidden'); }
+
+    toggleLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      clearMsgs();
+      mode = mode === 'login' ? 'signup' : 'login';
+      loginForm.classList.toggle('hidden', mode !== 'login');
+      signupForm.classList.toggle('hidden', mode !== 'signup');
+      toggleLink.textContent = mode === 'login' ? 'Pas encore de compte ? Créer un compte' : 'Déjà un compte ? Se connecter';
+      sub.textContent = mode === 'login' ? 'Espace cellule vidéo & coaching' : 'Créez votre compte cellule';
+    });
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearMsgs();
+      const email = document.getElementById('l-email').value.trim();
+      const password = document.getElementById('l-password').value;
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) return showError('Identifiants incorrects ou compte inexistant.');
+      window.location.href = 'dashboard.html';
+    });
+
+    signupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearMsgs();
+      const nom = document.getElementById('s-nom').value.trim();
+      const email = document.getElementById('s-email').value.trim();
+      const password = document.getElementById('s-password').value;
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nom } } });
+      if (error) return showError(error.message || 'Inscription impossible.');
+      if (data.session) { window.location.href = 'onboarding.html'; return; }
+      showOk('Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.');
+    });
+
+    // Déjà connecté ? on saute direct à l'app.
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = 'dashboard.html';
+    });
+  </script>
+</body>
+</html>

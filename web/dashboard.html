@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Tableau de bord</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav">
+      <a class="nav-item active" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
+      <a class="nav-item" href="sessions.html"><span class="nav-dot"></span>Mes séances</a>
+      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Mes joueurs</a>
+      <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
+      <a class="nav-item" href="club.html"><span class="nav-dot"></span>Mon club</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1 id="greeting">Bonjour</h1>
+        <p class="subtitle" id="clubLine">Chargement du club…</p>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="card kpi"><div class="kpi-num" id="kSessions">—</div><div class="kpi-label">Séances</div></div>
+      <div class="card kpi"><div class="kpi-num" id="kPlayers">—</div><div class="kpi-label">Joueurs</div></div>
+      <div class="card kpi gold"><div class="kpi-num" id="kMembers">—</div><div class="kpi-label">Membres de la cellule</div></div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h3>Membres de la cellule</h3>
+      <div id="memberList"><p class="text-muted">Chargement…</p></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (async () => {
+      const ctx = await requireAuth();
+      if (!ctx) return;
+      const { profile } = ctx;
+
+      document.getElementById('greeting').textContent = 'Bonjour, ' + (profile.nom || 'Utilisateur');
+      document.getElementById('clubLine').textContent = (profile.clubs?.nom || 'Club') + ' · ' + (ROLE_LABELS[profile.role] || profile.role);
+      document.getElementById('uName').textContent = profile.nom || 'Utilisateur';
+      document.getElementById('uRole').textContent = (ROLE_LABELS[profile.role] || profile.role).toUpperCase();
+      document.getElementById('uAvatar').textContent = (profile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+      const [{ count: nbSessions }, { count: nbPlayers }, { data: members }] = await Promise.all([
+        sb.from('sessions').select('id', { count: 'exact', head: true }),
+        sb.from('players').select('id', { count: 'exact', head: true }),
+        sb.from('profiles').select('nom, role').eq('club_id', profile.club_id),
+      ]);
+
+      document.getElementById('kSessions').textContent = nbSessions ?? 0;
+      document.getElementById('kPlayers').textContent = nbPlayers ?? 0;
+      document.getElementById('kMembers').textContent = members?.length ?? 0;
+
+      document.getElementById('memberList').innerHTML = (members || []).map(m =>
+        `<div class="recent-item"><div class="recent-main"><div class="recent-title">${escapeHtmlSafe(m.nom || 'Membre')}</div></div><span class="badge badge-gold">${escapeHtmlSafe(ROLE_LABELS[m.role] || m.role)}</span></div>`
+      ).join('') || '<p class="text-muted">Aucun membre.</p>';
+    })();
+
+    function escapeHtmlSafe(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  </script>
+</body>
+</html>

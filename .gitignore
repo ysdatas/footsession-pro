@@ -1,0 +1,18 @@
+# Dépendances / build
+node_modules/
+dist/
+
+# Environnement & secrets
+.env
+.env.*
+CLAUDE.local.md
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Logs / temporaire
+*.log
+*.tmp
+
+# IMPORTANT : supprimer setup.php après création du premier admin

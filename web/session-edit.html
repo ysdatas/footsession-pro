@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Séance</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/session.css">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
+      <a class="nav-item active" href="sessions.html"><span class="nav-dot"></span>Mes séances</a>
+      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Mes joueurs</a>
+      <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
+      <a class="nav-item" href="club.html"><span class="nav-dot"></span>Mon club</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1 id="editorTitle">Créer une séance</h1>
+        <p class="subtitle" id="editorSubtitle">Renseignez les informations puis ajoutez vos procédés.</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn" href="sessions.html">← Mes séances</a>
+        <button class="btn hidden" id="btnExportPdf" type="button">Exporter PDF</button>
+        <button class="btn btn-primary" id="btnSave" type="button">Sauvegarder</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Informations de la séance</h3>
+      <div class="field-row">
+        <div class="field" style="flex:2;"><label for="f-titre">Titre</label>
+          <input id="f-titre" placeholder="Ex: Travail des transitions" required></div>
+        <div class="field"><label for="f-date">Date</label>
+          <input id="f-date" type="date"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="f-categorie">Catégorie</label>
+          <input id="f-categorie" placeholder="Ex: Transitions" list="cat-list">
+          <datalist id="cat-list">
+            <option>Transitions</option><option>Possession</option><option>Pressing</option>
+            <option>Finition</option><option>Tactique</option><option>Physique</option>
+            <option>Coups de pied arrêtés</option><option>Technique</option>
+          </datalist>
+        </div>
+        <div class="field"><label for="f-equipe">Équipe</label>
+          <input id="f-equipe" placeholder="Ex: U17"></div>
+        <div class="field"><label for="f-duree">Durée totale (min)</label>
+          <input id="f-duree" type="number" min="0" step="5" value="90"></div>
+      </div>
+      <div class="editor-meta" id="editorMeta">0 procédé · 0 min au total</div>
+    </div>
+
+    <div class="editor-section">
+      <div class="flex-between" style="margin:22px 0 12px;">
+        <h2 style="margin:0;">Procédés (<span id="procCount">0</span>)</h2>
+        <div class="page-actions">
+          <button class="btn" id="btnLibrary" type="button">Bibliothèque</button>
+          <button class="btn" id="btnAddProc" type="button">+ Ajouter un procédé</button>
+        </div>
+      </div>
+      <div id="proceduresList"></div>
+      <button class="btn add-proc-wide" id="btnAddProc2" type="button">+ Ajouter un procédé</button>
+    </div>
+
+    <div class="card attendance" style="margin-top:18px;">
+      <button class="attendance-head" id="attendanceToggle" type="button">
+        <span>Présence des joueurs <span class="badge" id="presentCount">0 marqué</span></span>
+        <span class="chevron">▾</span>
+      </button>
+      <div id="attendanceBody" class="attendance-body">
+        <div id="attendanceList" class="attendance-grid"></div>
+      </div>
+    </div>
+
+    <div class="dash-grid" style="margin-top:18px;">
+      <div class="card">
+        <h3>Commentaires de la cellule</h3>
+        <div id="commentList" class="comment-list"><p class="text-muted">Chargement…</p></div>
+        <div class="field" style="margin-top:10px;">
+          <textarea id="commentInput" placeholder="Ajouter une note (analyste, prépa, coach…)" rows="2"></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" id="commentSend" type="button">Publier</button>
+      </div>
+      <div class="card">
+        <h3>Partage lecture seule</h3>
+        <p class="text-muted" style="font-size:.85rem;">Générez un lien consultable sans compte (staff, joueurs).</p>
+        <div id="shareArea">
+          <button class="btn btn-primary" id="shareToggle" type="button">Générer un lien</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modale bibliothèque d'exercices -->
+  <div class="modal-backdrop" id="libraryModal">
+    <div class="modal" style="max-width:620px;">
+      <div class="flex-between" style="margin-bottom:14px;">
+        <h3 style="margin:0;">Bibliothèque d'exercices</h3>
+        <button class="btn btn-sm" type="button" data-close="libraryModal">Fermer</button>
+      </div>
+      <div id="libraryList" class="library-grid"><p class="text-muted">Chargement…</p></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/pdf-generator.js"></script>
+  <script src="assets/js/session-edit-page.js"></script>
+</body>
+</html>

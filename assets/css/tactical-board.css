@@ -1,0 +1,136 @@
+/* ============================================================
+   FootSession Pro — tactical-board.css
+   ============================================================ */
+
+.tb-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.tb-title { font-weight: 600; font-size: 1.05rem; }
+.tb-top-actions { display: flex; gap: 10px; }
+
+/* Boutons pions (Joueur / Adversaire) : pastille de couleur bien visible */
+.tb-tool.tb-pion { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.pion-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #E03131; border: 2px solid rgba(255,255,255,.85);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4); flex-shrink: 0;
+}
+#pionDotBlue, #pionDotBlue2 { background: #1f6feb; }
+.tb-colorlbl {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .78rem; color: var(--text-secondary);
+}
+.tb-colorlbl input[type="color"] { width: 30px; height: 26px; padding: 0; }
+
+/* Étiquette de mesure (largeur × hauteur) pendant le tracé d'une zone */
+.tb-sizetag {
+  position: fixed; z-index: 300; display: none;
+  background: var(--gold); color: #0A0A0A;
+  font: 600 12px/1 var(--font-main);
+  padding: 5px 9px; border-radius: 6px; pointer-events: none;
+  box-shadow: var(--shadow);
+}
+
+/* Barres d'outils */
+.tb-toolbar, .tb-bottombar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 8px 10px; margin-bottom: 10px;
+}
+.tb-bottombar { justify-content: space-between; margin-top: 10px; align-items: center; }
+/* Chaque groupe = un intitulé au-dessus + une rangée de boutons (plus lisible) */
+.tb-group { display: flex; flex-direction: column; gap: 5px; padding: 2px 12px 2px 0; border-right: 1px solid var(--border); }
+.tb-group:last-child { border-right: none; padding-right: 0; }
+.tb-bottombar .tb-group { flex-direction: row; align-items: center; gap: 6px; }
+.tb-glabel { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); padding-left: 2px; }
+.tb-btns { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.tb-sep { width: 1px; height: 22px; background: var(--border); margin: 0 3px; }
+.tb-mini { font-size: .7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+.swatch { width: 13px; height: 13px; border-radius: 4px; border: 1px solid rgba(255,255,255,.25); flex-shrink: 0; }
+.tb-colorlbl input[type="color"] { margin-left: 2px; }
+
+.tb-tool {
+  min-width: 34px; height: 34px; padding: 0 9px;
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-primary); font-size: .9rem; display: inline-flex; align-items: center; justify-content: center;
+  transition: var(--transition); cursor: pointer;
+}
+.tb-tool:hover { background: var(--bg-hover); border-color: #3a3a3a; }
+.tb-tool.active { background: rgba(201,168,76,.16); border-color: var(--gold); color: var(--gold); }
+.tb-tool.danger:hover { color: var(--danger); border-color: rgba(244,67,54,.4); }
+
+.tb-toolbar input[type="color"] {
+  width: 34px; height: 34px; padding: 2px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-surface); cursor: pointer;
+}
+.tb-toolbar select, .tb-selbar select { width: auto; padding: 7px 9px; height: 34px; }
+
+/* Barre sélection */
+.tb-selbar {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(201,168,76,.08); border: 1px solid var(--gold-border);
+  border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 10px;
+  min-height: 50px;   /* toujours présente : pas de saut de mise en page à la sélection */
+}
+.tb-selbar input[type="color"] { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); }
+/* Rien de sélectionné : on garde la hauteur, on masque juste les contrôles (visibility, pas display). */
+.tb-selbar.empty { background: transparent; border-color: var(--border); }
+.tb-selbar.empty > *:not(#selLabel) { visibility: hidden; }
+.tb-selbar.empty #selLabel { color: var(--text-muted); font-style: italic; }
+
+/* Menu contextuel (clic droit) */
+.tb-menu {
+  position: fixed; z-index: 400; width: 210px;
+  background: var(--bg-card); border: 1px solid var(--gold-border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow);
+  padding: 8px; display: flex; flex-direction: column; gap: 7px;
+}
+.tb-menu.hidden { display: none; }
+.tbm-title { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--gold); padding: 2px 2px 6px; border-bottom: 1px solid var(--border); }
+.tbm-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .82rem; color: var(--text-secondary); }
+.tbm-row.hidden { display: none; }
+.tbm-row input[type="text"], .tbm-row input[type="number"] { width: 118px; padding: 6px 8px; }
+.tbm-row input[type="color"] { width: 40px; height: 28px; padding: 0; border-radius: 6px; }
+.tbm-del {
+  background: rgba(244,67,54,.12); color: var(--danger);
+  border: 1px solid rgba(244,67,54,.35); border-radius: 8px;
+  padding: 8px; font-weight: 600; font-size: .85rem;
+}
+.tbm-del:hover { background: rgba(244,67,54,.2); }
+.tbm-btn {
+  background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary);
+  border-radius: 7px; padding: 5px 10px; font-size: .8rem;
+}
+.tbm-btn:hover { border-color: var(--border-gold); }
+.tbm-seg { display: inline-flex; gap: 3px; }
+.tbm-seg button {
+  background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-secondary);
+  border-radius: 6px; padding: 4px 8px; font-size: .8rem; min-width: 28px;
+}
+.tbm-seg button.on { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,.12); }
+
+/* Boutons Matériel */
+.tb-equip { font-size: .78rem; gap: 5px; }
+.eqi { width: 15px; height: 15px; flex-shrink: 0; display: block; }
+
+/* Terrain — uniquement la pelouse, sans cadre noir, coins arrondis */
+.tb-stage {
+  background: transparent; border: none; padding: 0;
+  display: flex; justify-content: center; overflow: visible;
+}
+#pitch {
+  width: 100%; max-width: 1040px; cursor: crosshair; touch-action: none; display: block;
+  border-radius: 16px;                    /* rebords légèrement arrondis */
+  box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+#pitch.tool-select { cursor: default; }
+
+/* Mode présentation plein écran (vestiaire) */
+.tb-stage.presenting { background: #060606; padding: 0; align-items: center; }
+.tb-stage.presenting #pitch { max-width: 96vw; max-height: 95vh; width: auto; height: 95vh; }
+.tb-stage:fullscreen { display: flex; align-items: center; justify-content: center; }
+
+@media (max-width: 760px) {
+  .tb-group { border-right: none; }
+}

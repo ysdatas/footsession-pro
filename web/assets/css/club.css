@@ -1,0 +1,7 @@
+.club-logo-preview { max-height: 64px; max-width: 180px; border-radius: 8px; border: 1px solid var(--border); background: #fff; padding: 6px; }
+.join-code-box { display: flex; align-items: center; gap: 10px; }
+.join-code-box code { font-size: 1.3rem; font-weight: 700; letter-spacing: .08em; color: var(--gold); background: var(--bg-surface); border: 1px solid var(--gold-border); border-radius: var(--radius-md); padding: 8px 16px; }
+.member-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.member-row:last-child { border-bottom: none; }
+.member-name { flex: 1; font-weight: 500; }
+.member-row select { width: auto; padding: 6px 8px; height: 32px; }
