@@ -16,3 +16,7 @@ Thumbs.db
 *.tmp
 
 # IMPORTANT : supprimer setup.php après création du premier admin
+
+# Cloudflare / Wrangler
+.wrangler/
+.dev.vars

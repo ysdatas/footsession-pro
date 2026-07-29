@@ -1,0 +1,11 @@
+{
+  // Configuration Cloudflare (déploiement du dossier web/ en site statique).
+  // Générée par Wrangler lors du premier déploiement, versionnée pour garder
+  // un déploiement reproductible.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "footsession-pro",
+  "compatibility_date": "2026-07-29",
+  "observability": { "enabled": true },
+  "assets": { "directory": "web" },
+  "compatibility_flags": ["nodejs_compat"]
+}
