@@ -24,7 +24,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
     if (club.logo_path) logoUrl = sb.storage.from('logos').getPublicUrl(club.logo_path).data.publicUrl;
 
     const metaParts = [
-      `<span>Date : ${escapeHtml(s.date_seance)}</span>`,
+      `<span>Date : ${escapeHtml(fmtDateFrLong(s.date_seance))}</span>`,
       s.equipe ? `<span>Équipe : ${escapeHtml(s.equipe)}</span>` : '',
       `<span>Durée séance : ${s.duree_min} min</span>`,
       `<span>Travail : ${fmtMin(sessionWorkMin(procedures))} min</span>`,
@@ -46,12 +46,32 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       </div>`;
     }).join('');
 
-    const present = attendance.filter(a => a.present).length;
+    // Présents regroupés, absents à part : on cherchait les pastilles vertes
+    // une par une quand tout était mélangé.
+    const presents = attendance.filter(a => a.present);
+    const absents = attendance.filter(a => !a.present);
+    const nameOf = (a) => `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ' #' + a.numero : '');
+    const pills = (list, color) => `<div class="tag-row" style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${list.map(a => `<span class="pill" style="border-color:${color};">${escapeHtml(nameOf(a))}</span>`).join('')}
+      </div>`;
+
     const attHtml = attendance.length ? `<div class="card">
-      <h3>Présence — ${present}/${attendance.length}</h3>
-      <div class="tag-row" style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${attendance.map(a => `<span class="pill" style="border-color:${a.present ? 'var(--success)' : 'var(--border)'};">${escapeHtml((a.prenom || '') + ' ' + a.nom)}${a.numero != null ? ' #' + a.numero : ''}</span>`).join('')}
-      </div>
+      <h3>Présents — ${presents.length}/${attendance.length}</h3>
+      ${presents.length ? pills(presents, 'var(--success)') : '<p class="text-muted">Aucun.</p>'}
+      ${absents.length ? `<h3 style="margin-top:16px;">Absents — ${absents.length}</h3>${pills(absents, 'var(--border)')}` : ''}
+    </div>` : '';
+
+    // Équipes de travail (chasubles) déclarées sur la séance.
+    const equipes = (Array.isArray(s.equipes) ? s.equipes : []).filter(t => (t.player_ids || []).length);
+    const teamsHtml = equipes.length ? `<div class="card">
+      <h3>Équipes de travail</h3>
+      ${equipes.map(t => {
+        const noms = (t.player_ids || [])
+          .map(id => presents.find(a => a.id === id))
+          .filter(Boolean).map(nameOf).join(', ');
+        return `<div class="sp-field" style="border-left:3px solid ${escapeHtml(t.couleur || '#888')};padding-left:8px;margin-bottom:8px;">
+          <b>${escapeHtml(t.nom || 'Équipe')} :</b> ${escapeHtml(noms || '—')}</div>`;
+      }).join('')}
     </div>` : '';
 
     wrap.innerHTML = `
@@ -66,6 +86,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       <div class="sp-meta">${metaParts}</div>
       ${procsHtml}
       ${attHtml}
+      ${teamsHtml}
       <p class="text-muted" style="text-align:center;margin-top:24px;font-size:.8rem;">Généré par FootSession Pro</p>`;
   } catch (e) {
     wrap.innerHTML = `<div class="empty">Erreur de chargement : ${escapeHtml(e.message)}</div>`;

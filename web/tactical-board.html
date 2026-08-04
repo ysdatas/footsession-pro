@@ -67,15 +67,11 @@
       <div class="tb-group" id="drawGroup">
         <span class="tb-glabel">Tracés</span>
         <div class="tb-btns">
-          <button class="tb-tool" data-tool="arrow-solid" title="Flèche (déplacement)">→</button>
-          <button class="tb-tool" data-tool="arrow-curved" title="Flèche courbée">⤳</button>
+          <button class="tb-tool" data-tool="arrow-solid" title="Flèche (déplacement) — sélectionnez-la puis tirez la poignée du milieu pour créer un angle">→</button>
           <button class="tb-tool" data-tool="arrow-dashed" title="Passe (pointillés)">⇢</button>
           <button class="tb-tool" data-tool="line" title="Trait">╱</button>
-          <span class="tb-sep"></span>
-          <button class="tb-tool" data-tool="rect" title="Rectangle (zone)">▭</button>
           <button class="tb-tool" data-tool="square" title="Carré (zone)">□</button>
           <button class="tb-tool" data-tool="circle" title="Cercle (zone)">◯</button>
-          <button class="tb-tool" data-tool="triangle" title="Triangle (zone)">△</button>
           <button class="tb-tool" data-tool="text" title="Texte">T</button>
         </div>
       </div>
@@ -138,8 +134,9 @@
         <span id="selLabel">Sélectionnez un élément</span>
         <input type="color" id="selColor" title="Couleur">
         <label class="tb-mini">Taille</label>
-        <input type="range" id="selSize" min="8" max="80" value="22">
+        <input type="range" id="selSize" min="6" max="80" value="22">
         <input type="text" id="selText" class="hidden" placeholder="Texte / n°" style="width:120px;">
+        <button class="tb-tool hidden" id="selBend" title="Ajouter ou retirer un point d'angle au milieu du tracé">Angle</button>
         <button class="tb-tool danger" id="selDelete">Supprimer</button>
       </div>
       <div class="tb-stage">

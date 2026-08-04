@@ -44,7 +44,7 @@ async function loadList() {
           ${sessions.map(s => `
             <tr data-search="${escapeHtml((s.titre + ' ' + (s.equipe || '')).toLowerCase())}">
               <td><a class="text-gold" href="session-edit.html?id=${s.id}">${escapeHtml(s.titre)}</a></td>
-              <td>${escapeHtml(s.date_seance)}</td>
+              <td>${escapeHtml(fmtDateFr(s.date_seance))}</td>
               <td>${escapeHtml(s.equipe || '—')}</td>
               <td>${s.duree_min} min</td>
               <td>${fmtMin(sessionWorkMin(s.procedures))} min</td>

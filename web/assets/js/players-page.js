@@ -92,7 +92,7 @@ async function loadMatrix() {
     const map = {};
     (att || []).forEach(a => { (map[a.player_id] ||= {})[a.session_id] = a.present ? 1 : 0; });
 
-    const head = sessions.map(s => `<th title="${escapeHtml(s.titre)}">${escapeHtml((s.date_seance || '').slice(5))}</th>`).join('');
+    const head = sessions.map(s => `<th title="${escapeHtml(s.titre)}">${escapeHtml(fmtDateFr(s.date_seance).slice(0, 5))}</th>`).join('');
     const rows = players.map(p => {
       const name = escapeHtml(`${p.prenom || ''} ${p.nom}`.trim());
       const cells = sessions.map(s => {
@@ -190,7 +190,7 @@ window.showDetail = async (id) => {
       ? `<div class="tag-row">${themes.map(x => `<span class="badge badge-gold">${escapeHtml(x)}</span>`).join('')}</div>`
       : '<p class="text-muted">Aucun type de procédé renseigné.</p>';
     const histHtml = (history || []).length ? history.map(h => `
-      <div class="detail-row"><span>${escapeHtml(h.sessions?.titre || '')} <span class="text-muted">${escapeHtml(h.sessions?.date_seance || '')}</span></span>
+      <div class="detail-row"><span>${escapeHtml(h.sessions?.titre || '')} <span class="text-muted">${escapeHtml(fmtDateFr(h.sessions?.date_seance))}</span></span>
        <span class="${h.present ? 'text-success' : 'text-danger'}">${h.present ? '✓ Présent' : '✗ Absent'}</span></div>`
     ).join('') : '<p class="text-muted">Aucune séance.</p>';
 

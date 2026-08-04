@@ -12,8 +12,18 @@ let procedures = [];   // {_uid, id?, nom, duree_min, objectif, effectif, taille
                         //  consignes, principes_jeu, comportements_individuels, temps_recup_min,
                         //  canvas_image?, expanded}
 let attendance = [];   // {player_id, nom, prenom, numero, poste, present}
+let teams = [];        // [{nom, couleur, player_ids:[]}] — chasubles de la séance
+let activeTeam = 0;    // équipe qui reçoit les joueurs cliqués dans le vivier
 let uidSeq = 1;
 const nextUid = () => 'p' + (uidSeq++);
+
+/* Couleurs proposées dans l'ordre pour les nouvelles équipes. */
+const TEAM_PRESETS = [
+  { nom: 'Bleus', couleur: '#1f6feb' },
+  { nom: 'Rouges', couleur: '#E03131' },
+  { nom: 'Jaunes', couleur: '#F2B21E' },
+  { nom: 'Verts', couleur: '#2FA84F' },
+];
 
 (async () => {
   const ctx = await requireAuth();
@@ -38,7 +48,16 @@ const nextUid = () => 'p' + (uidSeq++);
   document.getElementById('btnAddProc').addEventListener('click', () => addProcedure());
   document.getElementById('btnAddProc2').addEventListener('click', () => addProcedure());
   document.getElementById('btnSave').addEventListener('click', save);
-  document.getElementById('attendanceToggle').addEventListener('click', () => document.querySelector('.attendance').classList.toggle('open'));
+  // Second bouton d'enregistrement au niveau des procédés : évite de
+  // remonter en haut de page après chaque modification.
+  document.getElementById('btnSaveHere')?.addEventListener('click', save);
+  if (!CAN_WRITE) document.getElementById('btnSaveHere')?.classList.add('hidden');
+
+  // Deux blocs dépliables (présences, équipes) : on cible celui du bouton cliqué.
+  document.querySelectorAll('#attendanceToggle, #teamsToggle').forEach(btn =>
+    btn.addEventListener('click', () => btn.closest('.attendance').classList.toggle('open')));
+  document.getElementById('btnAddTeam').addEventListener('click', addTeam);
+  if (!CAN_WRITE) document.getElementById('btnAddTeam').classList.add('hidden');
   document.getElementById('proceduresList').addEventListener('input', (e) => {
     if (e.target.classList.contains('proc-duree') || e.target.classList.contains('proc-name')) updateMeta();
     // Les temps se recalculent à la frappe. On met à jour les champs concernés
@@ -65,6 +84,7 @@ const nextUid = () => 'p' + (uidSeq++);
   }
   renderProcedures();
   renderAttendance();
+  renderTeams();
   updateMeta();
   if (EDITOR_MODE === 'edit' && document.getElementById('commentList')) initCellule();
 })();
@@ -155,6 +175,11 @@ async function loadSession() {
     const { data: s, error: e1 } = await sb.from('sessions').select('*').eq('id', SESSION_ID).single();
     if (e1 || !s) { toast('Séance introuvable.', 'error'); setTimeout(() => location.href = 'sessions.html', 1200); return; }
     shareToken = s.share_token || null;
+    // Les équipes sont stockées en JSON sur la séance.
+    teams = Array.isArray(s.equipes) ? s.equipes.map(t => ({
+      nom: t.nom || 'Équipe', couleur: t.couleur || '#1f6feb',
+      player_ids: Array.isArray(t.player_ids) ? t.player_ids : [],
+    })) : [];
 
     document.getElementById('f-titre').value = s.titre || '';
     document.getElementById('f-date').value = s.date_seance || '';
@@ -424,6 +449,103 @@ window.moveProc = (uid, dir) => {
 window.openBoard = (procId) => { window.open('tactical-board.html?procedure_id=' + procId, '_blank'); };
 
 /* ---------- Présences ---------- */
+/* ============================================================
+   ÉQUIPES DE TRAVAIL (chasubles)
+   ============================================================ */
+const playerName = (a) => `${a.prenom || ''} ${a.nom}`.trim();
+
+function addTeam() {
+  const preset = TEAM_PRESETS[teams.length % TEAM_PRESETS.length];
+  teams.push({ nom: preset.nom, couleur: preset.couleur, player_ids: [] });
+  activeTeam = teams.length - 1;
+  renderTeams();
+}
+
+window.removeTeam = (i) => {
+  teams.splice(i, 1);
+  if (activeTeam >= teams.length) activeTeam = Math.max(0, teams.length - 1);
+  renderTeams();
+};
+
+window.setActiveTeam = (i) => { activeTeam = i; renderTeams(); };
+
+/* Affecte un joueur à l'équipe active. Un joueur n'appartient qu'à une
+   seule équipe : on le retire d'abord de toutes les autres. */
+window.assignToTeam = (playerId) => {
+  if (!teams.length) { toast('Ajoutez d\'abord une équipe.', 'error'); return; }
+  teams.forEach(t => t.player_ids = t.player_ids.filter(id => id !== playerId));
+  teams[activeTeam].player_ids.push(playerId);
+  renderTeams();
+};
+
+window.unassignPlayer = (playerId) => {
+  teams.forEach(t => t.player_ids = t.player_ids.filter(id => id !== playerId));
+  renderTeams();
+};
+
+function renderTeams() {
+  const wrap = document.getElementById('teamsList');
+  if (!wrap) return;
+  const dis = CAN_WRITE ? '' : 'disabled';
+  const presents = attendance.filter(a => a.present);
+
+  // Un joueur devenu absent ne doit pas rester dans une équipe.
+  const presentIds = presents.map(a => a.player_id);
+  teams.forEach(t => t.player_ids = t.player_ids.filter(id => presentIds.includes(id)));
+
+  const assigned = new Set(teams.flatMap(t => t.player_ids));
+  const pool = presents.filter(a => !assigned.has(a.player_id));
+
+  const chip = (a, onclick) => {
+    const num = a.numero != null ? `<span class="num">#${a.numero}</span>` : '';
+    return `<span class="pchip" ${CAN_WRITE ? `onclick="${onclick}"` : ''}>${escapeHtml(playerName(a))}${num}</span>`;
+  };
+
+  const blocks = teams.map((t, i) => {
+    const members = t.player_ids
+      .map(id => presents.find(a => a.player_id === id))
+      .filter(Boolean);
+    return `
+    <div class="team-block ${i === activeTeam ? 'active' : ''}" onclick="setActiveTeam(${i})">
+      <div class="team-head">
+        <span class="team-dot" style="background:${escapeHtml(t.couleur)}"></span>
+        <input type="text" data-team="${i}" data-tfield="nom" value="${escapeHtml(t.nom)}" placeholder="Nom de l'équipe" ${dis}>
+        <input type="color" data-team="${i}" data-tfield="couleur" value="${escapeHtml(t.couleur)}" title="Couleur de la chasuble" ${dis}>
+        <span class="team-count">${members.length} joueur${members.length > 1 ? 's' : ''}</span>
+        ${CAN_WRITE ? `<button class="btn btn-sm btn-danger" type="button" onclick="event.stopPropagation();removeTeam(${i})">Suppr.</button>` : ''}
+      </div>
+      <div class="team-chips">
+        ${members.map(a => chip(a, `event.stopPropagation();unassignPlayer(${a.player_id})`)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  const poolHtml = !presents.length
+    ? `<p class="text-muted" style="font-size:.85rem;">Marquez d'abord des joueurs présents ci-dessus.</p>`
+    : `<div class="team-pool">
+         <div class="team-pool-label">Vivier — présents non affectés (${pool.length})</div>
+         <div class="team-chips">${pool.map(a => chip(a, `assignToTeam(${a.player_id})`)).join('')}</div>
+       </div>`;
+
+  wrap.innerHTML = (blocks || `<p class="text-muted" style="font-size:.85rem;">Aucune équipe. Cliquez sur « Ajouter une équipe ».</p>`) + poolHtml;
+
+  const n = teams.length;
+  document.getElementById('teamsCount').textContent = `${n} équipe${n > 1 ? 's' : ''}`;
+
+  // Nom et couleur : on écrit dans l'état sans re-générer le HTML à chaque frappe.
+  wrap.querySelectorAll('[data-tfield]').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', () => {
+      const t = teams[Number(inp.dataset.team)];
+      if (!t) return;
+      t[inp.dataset.tfield] = inp.value;
+      if (inp.dataset.tfield === 'couleur') {
+        inp.closest('.team-head').querySelector('.team-dot').style.background = inp.value;
+      }
+    });
+  });
+}
+
 function renderAttendance() {
   const list = document.getElementById('attendanceList');
   if (!attendance.length) {
@@ -445,6 +567,7 @@ window.toggleAtt = (i) => {
   attendance[i].present = !attendance[i].present;
   document.querySelectorAll('#attendanceList .att-item')[i].classList.toggle('present', attendance[i].present);
   updatePresentCount();
+  renderTeams();   // le vivier suit les présences
 };
 function updatePresentCount() {
   const n = attendance.filter(a => a.present).length;
@@ -474,6 +597,7 @@ async function save() {
   const sessionRow = {
     titre, date_seance,
     equipe: document.getElementById('f-equipe').value.trim() || null,
+    equipes: teams.map(t => ({ nom: (t.nom || '').trim() || 'Équipe', couleur: t.couleur, player_ids: t.player_ids })),
     duree_min: Number(document.getElementById('f-duree').value) || 0,
   };
 

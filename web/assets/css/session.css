@@ -111,3 +111,32 @@
 @media (max-width: 820px) {
   .proc.expanded .proc-body { grid-template-columns: 1fr; }
 }
+
+/* ---------- Équipes de travail (chasubles) ---------- */
+.team-block {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 10px; margin-bottom: 10px; background: var(--bg-surface);
+  transition: var(--transition);
+}
+/* L'équipe active reçoit les joueurs cliqués dans le vivier. */
+.team-block.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-border) inset; }
+.team-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.team-head input[type="text"] { flex: 1; max-width: 220px; }
+.team-head input[type="color"] { width: 34px; height: 30px; padding: 2px; flex-shrink: 0; }
+.team-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,.3); }
+.team-count { font-size: .74rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.team-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; }
+.team-chips:empty::after {
+  content: 'Aucun joueur — cliquez sur un nom du vivier ci-dessous';
+  font-size: .78rem; color: var(--text-muted); font-style: italic;
+}
+.pchip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg-card);
+  font-size: .8rem; color: var(--text-primary); transition: var(--transition);
+}
+.pchip:hover { border-color: var(--gold); }
+.pchip .num { color: var(--text-muted); font-size: .72rem; }
+.team-pool { border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 4px; }
+.team-pool-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: 6px; }

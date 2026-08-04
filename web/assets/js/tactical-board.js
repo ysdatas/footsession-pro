@@ -270,19 +270,37 @@ function drawShape(it) {
   }
 }
 
+/* Point d'angle d'un segment : renvoie le sommet saisi par l'utilisateur,
+   ou null si la flèche est droite. Sert à accentuer un angle en 2D
+   (course qui casse, passe qui contourne un adversaire). */
+function bendOf(it) {
+  return (typeof it.mx === 'number' && typeof it.my === 'number') ? { x: it.mx, y: it.my } : null;
+}
+/* Milieu géométrique : position par défaut de la poignée d'angle. */
+function midOf(it) {
+  return bendOf(it) || { x: (it.x1 + it.x2) / 2, y: (it.y1 + it.y2) / 2 };
+}
+
 function drawArrow(it) {
+  const bend = bendOf(it);
   ctx.strokeStyle = it.color; ctx.lineWidth = 3;
   ctx.setLineDash(it.style === 'dashed' ? [10, 8] : []);
+  ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(it.x1, it.y1);
-  if (it.style === 'curved') {
+  if (bend) {
+    ctx.lineTo(bend.x, bend.y); ctx.lineTo(it.x2, it.y2);
+  } else if (it.style === 'curved') {
+    // Ancien style conservé pour que les schémas déjà enregistrés
+    // continuent de s'afficher, même si l'outil n'est plus proposé.
     const cx = (it.x1 + it.x2) / 2, cy = Math.min(it.y1, it.y2) - 70;
     ctx.quadraticCurveTo(cx, cy, it.x2, it.y2);
   } else {
     ctx.lineTo(it.x2, it.y2);
   }
   ctx.stroke(); ctx.setLineDash([]);
-  // pointe
-  const ang = Math.atan2(it.y2 - it.y1, it.x2 - it.x1);
+  // Pointe : orientée par le dernier segment parcouru.
+  const from = bend || { x: it.x1, y: it.y1 };
+  const ang = Math.atan2(it.y2 - from.y, it.x2 - from.x);
   ctx.beginPath();
   ctx.moveTo(it.x2, it.y2);
   ctx.lineTo(it.x2 - 16 * Math.cos(ang - 0.4), it.y2 - 16 * Math.sin(ang - 0.4));
@@ -290,8 +308,12 @@ function drawArrow(it) {
   ctx.closePath(); ctx.fillStyle = it.color; ctx.fill();
 }
 function drawLine(it) {
+  const bend = bendOf(it);
   ctx.strokeStyle = it.color; ctx.lineWidth = 3; ctx.setLineDash([]);
-  ctx.beginPath(); ctx.moveTo(it.x1, it.y1); ctx.lineTo(it.x2, it.y2); ctx.stroke();
+  ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(it.x1, it.y1);
+  if (bend) ctx.lineTo(bend.x, bend.y);
+  ctx.lineTo(it.x2, it.y2); ctx.stroke();
 }
 function drawText(it) {
   ctx.fillStyle = it.color; ctx.font = `600 ${it.size}px ${it.font || 'Inter, sans-serif'}`;
@@ -392,20 +414,30 @@ function drawSelection() {
   const sels = selectedItems(); if (!sels.length) return;
   ctx.strokeStyle = '#C9A84C'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
   for (const it of sels) {
-    if (it.type === 'arrow' || it.type === 'line') { ctx.beginPath(); ctx.moveTo(it.x1, it.y1); ctx.lineTo(it.x2, it.y2); ctx.stroke(); }
+    if (it.type === 'arrow' || it.type === 'line') {
+      const bend = bendOf(it);
+      ctx.beginPath(); ctx.moveTo(it.x1, it.y1);
+      if (bend) ctx.lineTo(bend.x, bend.y);
+      ctx.lineTo(it.x2, it.y2); ctx.stroke();
+    }
     else { const b = bounds(it); withRotation(it, () => ctx.strokeRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4)); }
   }
   ctx.setLineDash([]);
   // Poignées de redimensionnement uniquement en sélection unique
   const one = selected();
   if (one) {
-    if (one.type === 'arrow' || one.type === 'line') { handle(one.x1, one.y1); handle(one.x2, one.y2); }
+    if (one.type === 'arrow' || one.type === 'line') {
+      handle(one.x1, one.y1); handle(one.x2, one.y2);
+      // Poignée d'angle : pleine si l'angle est posé, creuse sinon (invitation à la saisir).
+      const m = midOf(one); handle(m.x, m.y, !bendOf(one));
+    }
     else { const b = bounds(one); withRotation(one, () => [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].forEach(c => handle(c[0], c[1]))); }
   }
 }
-function handle(x, y) {
-  ctx.fillStyle = '#C9A84C'; ctx.beginPath(); ctx.arc(x, y, HANDLE - 2, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+function handle(x, y, hollow) {
+  ctx.beginPath(); ctx.arc(x, y, HANDLE - 2, 0, Math.PI * 2);
+  ctx.fillStyle = hollow ? 'rgba(201,168,76,.25)' : '#C9A84C'; ctx.fill();
+  ctx.strokeStyle = hollow ? '#C9A84C' : '#000'; ctx.lineWidth = hollow ? 1.6 : 1; ctx.stroke();
 }
 
 /* ============================================================
@@ -430,16 +462,24 @@ function hitItem(p) {
   }
   return null;
 }
-function distSeg(p, it) {
-  const A = { x: it.x1, y: it.y1 }, B = { x: it.x2, y: it.y2 };
+function distToSegment(p, A, B) {
   const dx = B.x - A.x, dy = B.y - A.y, l2 = dx * dx + dy * dy || 1;
   let t = ((p.x - A.x) * dx + (p.y - A.y) * dy) / l2; t = Math.max(0, Math.min(1, t));
   return Math.hypot(p.x - (A.x + t * dx), p.y - (A.y + t * dy));
+}
+/* Distance au tracé : une flèche coudée compte ses deux segments, sinon
+   un clic sur la seconde branche ne sélectionnerait rien. */
+function distSeg(p, it) {
+  const A = { x: it.x1, y: it.y1 }, B = { x: it.x2, y: it.y2 }, bend = bendOf(it);
+  if (!bend) return distToSegment(p, A, B);
+  return Math.min(distToSegment(p, A, bend), distToSegment(p, bend, B));
 }
 function hitHandle(p, it) {
   if (it.type === 'arrow' || it.type === 'line') {
     if (Math.hypot(p.x - it.x1, p.y - it.y1) <= HANDLE + 2) return 'p1';
     if (Math.hypot(p.x - it.x2, p.y - it.y2) <= HANDLE + 2) return 'p2';
+    const m = midOf(it);
+    if (Math.hypot(p.x - m.x, p.y - m.y) <= HANDLE + 2) return 'pm';
     return null;
   }
   const lp = localPoint(p, it);
@@ -453,8 +493,13 @@ const selected = () => state.selIds.length === 1 ? (state.items.find(i => i.id =
 const isSel = (id) => state.selIds.includes(id);
 /* Boîte englobante tous types (pour la sélection marquee). */
 function itemBounds(it) {
-  if (it.type === 'arrow' || it.type === 'line')
-    return { x: Math.min(it.x1, it.x2), y: Math.min(it.y1, it.y2), w: Math.abs(it.x2 - it.x1), h: Math.abs(it.y2 - it.y1) };
+  if (it.type === 'arrow' || it.type === 'line') {
+    const bend = bendOf(it);
+    const xs = [it.x1, it.x2], ys = [it.y1, it.y2];
+    if (bend) { xs.push(bend.x); ys.push(bend.y); }   // l'angle fait partie de l'encombrement
+    const x = Math.min(...xs), y = Math.min(...ys);
+    return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+  }
   return bounds(it);
 }
 
@@ -474,7 +519,9 @@ function localPoint(p, it) {
 function rotateItem(it, deg) {
   if (it.type === 'arrow' || it.type === 'line') {
     const cx = (it.x1 + it.x2) / 2, cy = (it.y1 + it.y2) / 2, rad = deg * Math.PI / 180;
-    for (const [xk, yk] of [['x1', 'y1'], ['x2', 'y2']]) {
+    const keys = [['x1', 'y1'], ['x2', 'y2']];
+    if (bendOf(it)) keys.push(['mx', 'my']);   // l'angle suit la rotation
+    for (const [xk, yk] of keys) {
       const dx = it[xk] - cx, dy = it[yk] - cy;
       it[xk] = cx + dx * Math.cos(rad) - dy * Math.sin(rad);
       it[yk] = cy + dx * Math.sin(rad) + dy * Math.cos(rad);
@@ -536,7 +583,7 @@ canvas.addEventListener('pointerdown', (e) => {
       if (!isSel(it.id)) state.selIds = [it.id];   // clic simple sur un élément hors sélection → lui seul
       pushHistory();
       drag = { mode: 'move-group', ox: p.x, oy: p.y,
-               orig: selectedItems().map(o => ({ it: o, x: o.x, y: o.y, x1: o.x1, y1: o.y1, x2: o.x2, y2: o.y2 })) };
+               orig: selectedItems().map(o => ({ it: o, x: o.x, y: o.y, x1: o.x1, y1: o.y1, x2: o.x2, y2: o.y2, mx: o.mx, my: o.my })) };
       syncSelBar(); render(); return;
     }
     // 3) espace vide → rectangle de sélection multiple
@@ -576,14 +623,19 @@ canvas.addEventListener('pointermove', (e) => {
     const dx = p.x - drag.ox, dy = p.y - drag.oy;
     for (const o of drag.orig) {
       const it = o.it;
-      if (it.type === 'arrow' || it.type === 'line') { it.x1 = o.x1 + dx; it.y1 = o.y1 + dy; it.x2 = o.x2 + dx; it.y2 = o.y2 + dy; }
+      if (it.type === 'arrow' || it.type === 'line') {
+        it.x1 = o.x1 + dx; it.y1 = o.y1 + dy; it.x2 = o.x2 + dx; it.y2 = o.y2 + dy;
+        if (typeof o.mx === 'number') { it.mx = o.mx + dx; it.my = o.my + dy; }
+      }
       else { it.x = o.x + dx; it.y = o.y + dy; }
     }
   } else if (drag.mode === 'marquee' || drag.mode === 'screen') {
     drag.x1 = p.x; drag.y1 = p.y;
   } else if (drag.mode === 'create-seg' || drag.mode === 'handle' && (drag.it.type === 'arrow' || drag.it.type === 'line')) {
     if (drag.mode === 'create-seg') { drag.it.x2 = p.x; drag.it.y2 = p.y; }
-    else { if (drag.h === 'p1') { drag.it.x1 = p.x; drag.it.y1 = p.y; } else { drag.it.x2 = p.x; drag.it.y2 = p.y; } }
+    else if (drag.h === 'p1') { drag.it.x1 = p.x; drag.it.y1 = p.y; }
+    else if (drag.h === 'pm') { drag.it.mx = p.x; drag.it.my = p.y; }   // pose ou déplace l'angle
+    else { drag.it.x2 = p.x; drag.it.y2 = p.y; }
   } else if (drag.mode === 'create-box') {
     drag.it.w = p.x - drag.ox; drag.it.h = p.y - drag.oy;
     showSizeTag(e, drag.it);
@@ -854,7 +906,31 @@ function syncSelBar() {
   if (it.type === 'text') { textInput.value = it.text || ''; textInput.placeholder = 'Texte'; }
   else if (isToken) { textInput.value = it.number ?? ''; textInput.placeholder = 'n°'; }
   else if (it.type === 'shape') { textInput.value = it.label || ''; textInput.placeholder = 'Nom de la zone'; }
+
+  // Bouton d'angle : réservé aux tracés, il pose ou retire le coude.
+  const bendBtn = $('#selBend');
+  const isSeg = it.type === 'arrow' || it.type === 'line';
+  bendBtn.classList.toggle('hidden', !isSeg);
+  if (isSeg) {
+    const has = !!bendOf(it);
+    bendBtn.textContent = has ? 'Redresser' : 'Angle';
+    bendBtn.classList.toggle('active', has);
+  }
 }
+$('#selBend').addEventListener('click', () => {
+  const it = selected(); if (!it || (it.type !== 'arrow' && it.type !== 'line')) return;
+  pushHistory();
+  if (bendOf(it)) { delete it.mx; delete it.my; }
+  else {
+    // On décale légèrement le coude perpendiculairement au tracé, sinon il
+    // resterait sur la droite et l'angle serait invisible.
+    const dx = it.x2 - it.x1, dy = it.y2 - it.y1, len = Math.hypot(dx, dy) || 1;
+    const off = Math.min(60, len * 0.28);
+    it.mx = (it.x1 + it.x2) / 2 - (dy / len) * off;
+    it.my = (it.y1 + it.y2) / 2 + (dx / len) * off;
+  }
+  syncSelBar(); render(); scheduleSave();
+});
 $('#selColor').addEventListener('input', e => {
   const sels = selectedItems(); if (!sels.length) return;
   sels.forEach(it => it.color = e.target.value); render(); scheduleSave();   // s'applique à toute la sélection
@@ -895,7 +971,10 @@ function pasteClipboard() {
   const off = 34;
   const added = clipboard.map(c => {
     const it = { ...c, id: nid() };
-    if (it.type === 'arrow' || it.type === 'line') { it.x1 += off; it.y1 += off; it.x2 += off; it.y2 += off; }
+    if (it.type === 'arrow' || it.type === 'line') {
+      it.x1 += off; it.y1 += off; it.x2 += off; it.y2 += off;
+      if (typeof it.mx === 'number') { it.mx += off; it.my += off; }
+    }
     else { it.x = (it.x || 0) + off; it.y = (it.y || 0) + off; }
     if (it.type === 'logo' && it.src) { const img = new Image(); img.src = it.src; it._img = img; }
     return it;
@@ -959,7 +1038,7 @@ function importLogo(e) {
    ============================================================ */
 function snapshot() {
   const s = {};
-  for (const it of state.items) s[it.id] = { x: it.x, y: it.y, x1: it.x1, y1: it.y1, x2: it.x2, y2: it.y2 };
+  for (const it of state.items) s[it.id] = { x: it.x, y: it.y, x1: it.x1, y1: it.y1, x2: it.x2, y2: it.y2, mx: it.mx, my: it.my };
   return s;
 }
 function addStep() { state.steps.push(snapshot()); updateStepInfo(); scheduleSave(); toast('Étape ' + state.steps.length + ' enregistrée', 'success'); }

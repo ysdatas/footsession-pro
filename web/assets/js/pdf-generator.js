@@ -192,7 +192,7 @@ window.generateSessionPDF = async function (sessionId) {
   const total = sessionTotalMin(procedures);
   y = infoTable(y,
     ['DATE', 'ÉQUIPE', 'DURÉE SÉANCE', 'NB PROCÉDÉS', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL'],
-    [s.date_seance || '-', s.equipe || '-', (s.duree_min || 0) + "'",
+    [fmtDateFr(s.date_seance), s.equipe || '-', (s.duree_min || 0) + "'",
      String(procedures.length), fmtMin(travail) + "'", fmtMin(total) + "'"],
     [1.1, 1, 1.15, 1, 1.25, 1.1]);
 
@@ -274,29 +274,86 @@ window.generateSessionPDF = async function (sessionId) {
     });
   }
 
-  /* Présences sur la même page récap */
-  const present = attendance.filter(a => a.present).length;
+  /* Présences : présents regroupés d'abord, absents à part.
+     Éparpiller les deux dans une même grille obligeait à chercher les
+     pastilles vertes une par une. */
+  const presents = attendance.filter(a => a.present);
+  const absents = attendance.filter(a => !a.present);
+
   const perCol = 4, colW = CW / perCol, rowH = 6;
-  const attRows = Math.ceil(attendance.length / perCol);
-  const attBlockH = attendance.length ? attRows * rowH + 4 : 12;
-  if (y + 4 + 7 + attBlockH > BOTTOM) y = newPage('Suite');
-  y += 4;
-  header(M, y, CW, 7, `Présence des joueurs — ${present} / ${attendance.length}`, 6.5);
-  y += 7;
+  const listH = (n) => n ? Math.ceil(n / perCol) * rowH + 4 : 10;
+  const nameOf = (a) => `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ` #${a.numero}` : '');
+
+  /* Bloc de noms en 4 colonnes. `dim` grise les absents. */
+  const nameBlock = (yy, list, dim) => {
+    const h = listH(list.length);
+    fill(M, yy, CW, h, dim ? [248, 249, 250] : LIGHT); box(M, yy, CW, h);
+    if (!list.length) {
+      doc.setTextColor(...MUT); doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5);
+      doc.text('Aucun', M + 4, yy + 6);
+      doc.setFont('helvetica', 'normal');
+      return h;
+    }
+    list.forEach((a, i) => {
+      const col = i % perCol, row = Math.floor(i / perCol);
+      const x = M + col * colW + 3, ty2 = yy + 4 + row * rowH;
+      doc.setFillColor(dim ? 200 : 76, dim ? 200 : 175, dim ? 205 : 80);
+      doc.circle(x + 1.5, ty2 - 0.8, 1.4, 'F');
+      doc.setTextColor(...(dim ? MUT : DARK)); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      doc.text(short(nameOf(a), 28), x + 5, ty2);
+    });
+    return h;
+  };
+
   if (!attendance.length) {
+    if (y + 4 + 7 + 12 > BOTTOM) y = newPage('Suite');
+    y += 4;
+    header(M, y, CW, 7, 'Présence des joueurs', 6.5); y += 7;
     cell(M, y, CW, 12, 'Aucun joueur enregistré.', { fs: 9 });
   } else {
-    fill(M, y, CW, attBlockH, LIGHT); box(M, y, CW, attBlockH);
-    attendance.forEach((a, i) => {
-      const col = i % perCol, row = Math.floor(i / perCol);
-      const x = M + col * colW + 3, ty2 = y + 4 + row * rowH;
-      const ok = !!a.present;
-      doc.setFillColor(ok ? 76 : 200, ok ? 175 : 200, ok ? 80 : 205);
-      doc.circle(x + 1.5, ty2 - 0.8, 1.4, 'F');
-      doc.setTextColor(...(ok ? DARK : MUT)); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-      const name = `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ` #${a.numero}` : '');
-      doc.text(short(name, 28), x + 5, ty2);
-    });
+    // Bloc « Présents »
+    if (y + 4 + 7 + listH(presents.length) > BOTTOM) y = newPage('Suite');
+    y += 4;
+    header(M, y, CW, 7, `Présents — ${presents.length} / ${attendance.length}`, 6.5); y += 7;
+    y += nameBlock(y, presents, false);
+
+    // Bloc « Absents », uniquement s'il y en a
+    if (absents.length) {
+      if (y + 3 + 7 + listH(absents.length) > BOTTOM) y = newPage('Suite');
+      y += 3;
+      header(M, y, CW, 7, `Absents — ${absents.length}`, 6.5); y += 7;
+      y += nameBlock(y, absents, true);
+    }
+
+    /* Équipes de travail (chasubles) : une ligne par équipe, avec sa
+       couleur et les noms de ses joueurs. */
+    const equipes = (Array.isArray(s.equipes) ? s.equipes : []).filter(t => (t.player_ids || []).length);
+    if (equipes.length) {
+      const rowFs = 8.5, rowLineH = 4;
+      const rows = equipes.map(t => {
+        const noms = (t.player_ids || [])
+          .map(id => presents.find(a => a.player_id === id))
+          .filter(Boolean).map(nameOf).join(', ');
+        doc.setFontSize(rowFs);
+        return { t, lines: doc.splitTextToSize(noms || '—', CW - 46) };
+      });
+      const blockH = rows.reduce((sum, r) => sum + Math.max(8, r.lines.length * rowLineH + 3), 0);
+      if (y + 3 + 7 + blockH > BOTTOM) y = newPage('Suite');
+      y += 3;
+      header(M, y, CW, 7, 'Équipes de travail', 6.5); y += 7;
+      rows.forEach(r => {
+        const h = Math.max(8, r.lines.length * rowLineH + 3);
+        fill(M, y, CW, h, LIGHT); box(M, y, CW, h);
+        // Pastille de couleur + nom de l'équipe, puis les joueurs.
+        const rgb = hexRgb(r.t.couleur) || [120, 120, 120];
+        fill(M, y, 2.2, h, rgb);
+        doc.setTextColor(...DARK); doc.setFont('helvetica', 'bold'); doc.setFontSize(rowFs);
+        doc.text(short(r.t.nom || 'Équipe', 16), M + 4.5, y + 5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(r.lines, M + 42, y + 5);
+        y += h;
+      });
+    }
   }
   footer(`FootSession Pro · ${s.titre || ''}`, 'Récapitulatif');
 

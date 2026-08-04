@@ -80,7 +80,7 @@
 #viewGroup .tb-btns { grid-template-columns: repeat(3, 1fr); }          /* Terrain */
 #toolGroup .tb-btns { grid-template-columns: repeat(2, 1fr); }          /* Sélection & pions */
 #toolGroup .tb-tool[data-tool="select"] { grid-column: 1 / -1; }        /* Sélect. sur toute la largeur */
-#drawGroup .tb-btns { grid-template-columns: repeat(5, 1fr); }          /* Tracés : icônes carrées */
+#drawGroup .tb-btns { grid-template-columns: repeat(3, 1fr); }          /* Tracés : icônes carrées */
 #drawGroup .tb-tool { padding: 0; font-size: .78rem; }
 #equipGroup .tb-btns { grid-template-columns: repeat(2, 1fr); }         /* Matériel : icône + libellé */
 #styleGroup .tb-btns,

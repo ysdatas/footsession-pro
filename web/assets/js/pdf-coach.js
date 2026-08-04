@@ -1,23 +1,17 @@
 /* ============================================================
    FootSession Pro — pdf-coach.js
-   « Fiche coach » : tout le déroulé sur UNE SEULE feuille A4
-   paysage, à distribuer au staff juste avant la séance.
+   « Fiche coach » : à distribuer au staff juste avant la séance.
 
-   Priorité au texte (principe de jeu, consignes) ; les schémas
-   sont réduits à des vignettes. Si le contenu ne tient pas, on
-   resserre par paliers puis on tronque les consignes en dernier.
+   Un procédé par QUART de page A4 paysage, soit 4 procédés par
+   feuille — au-delà, on passe en recto verso (8 procédés = 2 pages).
+   Le schéma occupe l'essentiel du quart ; le texte se limite au
+   nom, à la structure des séquences et au principe de jeu.
 
    Exposé : window.generateCoachPDF(sessionId)
    ============================================================ */
 
-/* Paliers d'ajustement, du plus confortable au plus dense.
-   On retient le premier qui permet de tenir sur une page. */
-const COACH_STEPS = [
-  { fs: 9,   lineH: 3.9, thumb: 34, gap: 3.4, pad: 2.6 },
-  { fs: 8,   lineH: 3.4, thumb: 30, gap: 2.6, pad: 2.2 },
-  { fs: 7,   lineH: 3.0, thumb: 26, gap: 2.0, pad: 1.8 },
-  { fs: 6.5, lineH: 2.7, thumb: 22, gap: 1.6, pad: 1.5 },
-];
+const COACH_PER_PAGE = 4;          // 2 colonnes × 2 rangées
+const SCHEMA_SHARE = 0.65;         // part de la largeur du quart pour le schéma
 
 window.generateCoachPDF = async function (sessionId) {
   const lib = window.jspdf;
@@ -28,141 +22,151 @@ window.generateCoachPDF = async function (sessionId) {
   if (!loaded) return;
   const { s, procedures } = loaded;
 
-  const { NAVY, LIGHT, LINE, DARK, MUT } = window.PDF_THEME;
+  const { NAVY, LIGHT, LINE, DARK, MUT, imgSize, hexRgb, GOLD } = window.PDF_THEME;
   const { jsPDF } = lib;
   const doc = new jsPDF('l', 'mm', 'a4');
-  const W = 297, H = 210, M = 8;
-  const { CW, fill, box, header, pageHeader, footer, infoTable } = window.pdfHelpers(doc, s, W, H, M);
+  const W = 297, H = 210, M = 7;
+  const gold = hexRgb(s.club_color) || GOLD;
 
-  fill(0, 0, W, H, [255, 255, 255]);
-  let top = pageHeader(s.titre || 'Séance', null);
+  const fill = (x, y, w, h, rgb) => { doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(x, y, w, h, 'F'); };
+  const box = (x, y, w, h) => { doc.setDrawColor(LINE[0], LINE[1], LINE[2]); doc.setLineWidth(0.3); doc.rect(x, y, w, h); };
 
-  const travail = sessionWorkMin(procedures);
-  const total = sessionTotalMin(procedures);
-  top = infoTable(top,
-    ['DATE', 'ÉQUIPE', 'NB PROCÉDÉS', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL'],
-    [s.date_seance || '-', s.equipe || '-', String(procedures.length),
-     fmtMin(travail) + "'", fmtMin(total) + "'"],
-    [1.2, 1, 1, 1.3, 1.1]);
-  top += 4;
+  /* Bandeau haut de page, volontairement bas : chaque millimètre gagné
+     ici profite aux schémas. */
+  const banner = (pageNo, nbPages) => {
+    const h = 11;
+    fill(0, 0, W, H, [255, 255, 255]);
+    fill(M, M, W - 2 * M, h, NAVY);
+    if (s.club_logo) {
+      try { doc.addImage(s.club_logo, M + 1.2, M + 1, h - 2, h - 2); } catch (e) {}
+    }
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    doc.text((s.titre || 'Séance').toUpperCase(), M + h + 2, M + h / 2, { baseline: 'middle' });
+
+    const infos = [
+      fmtDateFr(s.date_seance),
+      s.equipe || null,
+      `${procedures.length} procédé${procedures.length > 1 ? 's' : ''}`,
+      `travail ${fmtMin(sessionWorkMin(procedures))}'`,
+      `total ${fmtMin(sessionTotalMin(procedures))}'`,
+    ].filter(Boolean).join('   ·   ');
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
+    doc.text(infos, W - M - 2, M + h / 2, { align: 'right', baseline: 'middle' });
+
+    doc.setDrawColor(...gold); doc.setLineWidth(0.7);
+    doc.line(M, M + h + 0.9, W - M, M + h + 0.9);
+
+    doc.setFontSize(7); doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal');
+    doc.text(`FootSession Pro · fiche coach`, M, H - 3);
+    doc.text(`Page ${pageNo} / ${nbPages}`, W - M, H - 3, { align: 'right' });
+    return M + h + 3;
+  };
 
   if (!procedures.length) {
-    fill(M, top, CW, 12, LIGHT); box(M, top, CW, 12);
-    doc.setTextColor(...MUT); doc.setFontSize(9);
-    doc.text('Aucun procédé enregistré.', M + CW / 2, top + 6, { align: 'center', baseline: 'middle' });
-    footer(`FootSession Pro · ${s.titre || ''}`, 'Fiche coach');
+    const top = banner(1, 1);
+    fill(M, top, W - 2 * M, 14, LIGHT); box(M, top, W - 2 * M, 14);
+    doc.setTextColor(...MUT); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('Aucun procédé enregistré.', W / 2, top + 7, { align: 'center', baseline: 'middle' });
     doc.save(fileName(s));
     toast('Fiche coach générée', 'success');
     return;
   }
 
-  // Ratios des vignettes, résolus une seule fois.
+  // Ratio de chaque schéma, résolu une seule fois.
   const ratios = await Promise.all(procedures.map(async p => {
     if (!p.canvas_image) return null;
-    const sz = await window.PDF_THEME.imgSize(p.canvas_image);
+    const sz = await imgSize(p.canvas_image);
     return sz ? sz.w / sz.h : 1040 / 680;
   }));
 
-  const avail = H - top - 10;   // hauteur utile jusqu'au pied de page
+  const nbPages = Math.ceil(procedures.length / COACH_PER_PAGE);
 
-  /* ---------- Mise en page mesurée : on essaie chaque palier ---------- */
-  let layout = null;
-  for (const st of COACH_STEPS) {
-    const blocks = measure(st, false);
-    if (blocks.height <= avail) { layout = { st, blocks }; break; }
-  }
-  // Aucun palier ne suffit : on reprend le plus dense en tronquant les consignes.
-  if (!layout) {
-    const st = COACH_STEPS[COACH_STEPS.length - 1];
-    layout = { st, blocks: measure(st, true, avail) };
-  }
+  for (let page = 0; page < nbPages; page++) {
+    if (page > 0) doc.addPage();
+    const top = banner(page + 1, nbPages);
 
-  /* Calcule la hauteur de chaque bloc procédé pour un palier donné.
-     `clamp` limite les consignes pour rentrer dans `budget`. */
-  function measure(st, clamp, budget) {
-    doc.setFontSize(st.fs);
-    const titleH = st.fs * 0.5 + 2.2;         // nom du procédé
-    const metaH = st.lineH + 1;               // ligne type · séquences · espace
-    const textW = CW - st.thumb - st.gap - 2 * st.pad - 2;
+    // Géométrie des quatre quarts.
+    const gap = 3;
+    const cellW = (W - 2 * M - gap) / 2;
+    const cellH = (H - top - 6 - gap) / 2;
 
-    const items = procedures.map((p, i) => {
-      const principe = p.principes_jeu ? doc.splitTextToSize('Principe : ' + p.principes_jeu, textW) : [];
-      let consignes = p.consignes ? doc.splitTextToSize('Consignes : ' + p.consignes, textW) : [];
-      const thumbH = ratios[i] ? st.thumb / ratios[i] : 0;
-      return { p, i, principe, consignes, thumbH };
+    const slice = procedures.slice(page * COACH_PER_PAGE, (page + 1) * COACH_PER_PAGE);
+    slice.forEach((p, k) => {
+      const gi = page * COACH_PER_PAGE + k;
+      const col = k % 2, row = Math.floor(k / 2);
+      const x = M + col * (cellW + gap);
+      const y = top + row * (cellH + gap);
+      drawQuarter(p, gi, x, y, cellW, cellH, ratios[gi]);
     });
+  }
 
-    const bodyH = (it) => (it.principe.length + it.consignes.length) * st.lineH;
-    const blockH = (it) => Math.max(
-      titleH + metaH + bodyH(it) + 2 * st.pad,
-      it.thumbH ? it.thumbH + 2 * st.pad : 0,
-    );
+  /* ---------- Un quart de page ---------- */
+  function drawQuarter(p, index, x, y, w, h, ratio) {
+    const pad = 2.2;
+    box(x, y, w, h);
 
-    if (clamp) {
-      // On rogne les consignes (jamais le principe de jeu) jusqu'à tenir.
-      let guard = 400;
-      while (guard-- > 0) {
-        const h = items.reduce((sum, it) => sum + blockH(it) + st.gap, 0) - st.gap;
-        if (h <= budget) break;
-        // Cible le bloc dont les consignes sont les plus longues.
-        const victim = items.filter(it => it.consignes.length > 1)
-          .sort((a, b) => b.consignes.length - a.consignes.length)[0];
-        if (!victim) break;
-        victim.consignes = victim.consignes.slice(0, -1);
-        victim.truncated = true;
+    // Bandeau de titre du procédé.
+    const tH = 6.4;
+    fill(x, y, w, tH, NAVY);
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.4);
+    doc.text(`${index + 1}. ${(p.nom || 'Procédé').toUpperCase()}`, x + 2, y + tH / 2, { baseline: 'middle' });
+    // Séquences alignées à droite du bandeau : l'information la plus utile sur le terrain.
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
+    doc.text(sequenceLabel(p), x + w - 2, y + tH / 2, { align: 'right', baseline: 'middle' });
+
+    const innerY = y + tH + pad;
+    const innerH = h - tH - 2 * pad;
+    const schemaW = w * SCHEMA_SHARE - pad;
+    const textX = x + w * SCHEMA_SHARE + pad * 0.5;
+    const textW = w * (1 - SCHEMA_SHARE) - pad * 1.5;
+
+    // --- Schéma, au plus grand possible dans sa zone ---
+    if (p.canvas_image && ratio) {
+      let iw = schemaW, ih = iw / ratio;
+      if (ih > innerH) { ih = innerH; iw = ih * ratio; }
+      const ix = x + pad + (schemaW - iw) / 2, iy = innerY + (innerH - ih) / 2;
+      try { doc.addImage(p.canvas_image, 'PNG', ix, iy, iw, ih); } catch (e) {}
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.rect(ix, iy, iw, ih);
+    } else {
+      // Pas de schéma : le texte récupère toute la largeur du quart.
+      drawText(x + pad, innerY, w - 2 * pad, innerH, true);
+      return;
+    }
+
+    drawText(textX, innerY, textW, innerH, false);
+
+    /* Colonne de texte : type et espace en tête, puis le principe de jeu.
+       La police se réduit si nécessaire pour ne jamais déborder du quart. */
+    function drawText(tx, ty, tw, th, wide) {
+      let cy = ty;
+      const meta = [p.type_procede, [p.taille_terrain, p.effectif].filter(Boolean).join(' · ')]
+        .filter(Boolean).join('   ·   ');
+      if (meta) {
+        doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8);
+        const ml = doc.splitTextToSize(meta.toUpperCase(), tw);
+        doc.text(ml, tx, cy, { baseline: 'top' });
+        cy += ml.length * 2.9 + 1.6;
+      }
+      if (!p.principes_jeu) return;
+
+      doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal');
+      // On essaie plusieurs corps jusqu'à ce que le principe tienne entièrement.
+      const budget = th - (cy - ty);
+      for (const fs of [8, 7.4, 6.8, 6.2, 5.6]) {
+        doc.setFontSize(fs);
+        const lineH = fs * 0.42;
+        const lines = doc.splitTextToSize(p.principes_jeu, tw);
+        if (lines.length * lineH <= budget || fs === 5.6) {
+          const maxLines = Math.max(1, Math.floor(budget / lineH));
+          const shown = lines.slice(0, maxLines);
+          if (lines.length > maxLines) shown[shown.length - 1] += ' […]';
+          doc.text(shown, tx, cy, { baseline: 'top' });
+          return;
+        }
       }
     }
-
-    const height = items.reduce((sum, it) => sum + blockH(it) + st.gap, 0) - st.gap;
-    return { items, height, titleH, metaH, textW, blockH };
   }
 
-  /* ---------- Tracé ---------- */
-  const { st, blocks } = layout;
-  const { items, titleH, metaH, blockH } = blocks;
-  let y = top;
-
-  items.forEach((it) => {
-    const p = it.p;
-    const h = blockH(it);
-    fill(M, y, CW, h, LIGHT); box(M, y, CW, h);
-
-    // Bandeau numéroté sur la tranche gauche, pour repérer l'ordre d'un coup d'œil.
-    fill(M, y, 1.6, h, NAVY);
-
-    let tx = M + st.pad + 2;
-    // Vignette du schéma, calée à droite du bloc.
-    if (it.thumbH) {
-      const ix = M + CW - st.pad - st.thumb;
-      try { doc.addImage(p.canvas_image, 'PNG', ix, y + st.pad, st.thumb, it.thumbH); } catch (e) {}
-      doc.setDrawColor(...LINE); doc.setLineWidth(0.25);
-      doc.rect(ix, y + st.pad, st.thumb, it.thumbH);
-    }
-
-    let ty = y + st.pad;
-    doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(st.fs + 0.8);
-    doc.text(`${it.i + 1}. ${(p.nom || 'Procédé').toUpperCase()}`, tx, ty, { baseline: 'top' });
-    ty += titleH;
-
-    const meta = [
-      p.type_procede, sequenceLabel(p),
-      [p.taille_terrain, p.effectif].filter(Boolean).join(' · '),
-    ].filter(Boolean).join('   ·   ');
-    doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(st.fs - 0.7);
-    doc.text(meta || '—', tx, ty, { baseline: 'top' });
-    ty += metaH;
-
-    doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal'); doc.setFontSize(st.fs);
-    if (it.principe.length) { doc.text(it.principe, tx, ty, { baseline: 'top' }); ty += it.principe.length * st.lineH; }
-    if (it.consignes.length) {
-      const lines = it.truncated ? it.consignes.slice(0, -1).concat(it.consignes.slice(-1)[0] + ' […]') : it.consignes;
-      doc.text(lines, tx, ty, { baseline: 'top' });
-    }
-
-    y += h + st.gap;
-  });
-
-  footer(`FootSession Pro · ${s.titre || ''}`, 'Fiche coach — avant séance');
   doc.save(fileName(s));
   toast('Fiche coach générée', 'success');
 };

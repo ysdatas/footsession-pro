@@ -1,9 +1,10 @@
 /* ============================================================
    FootSession Pro — procedure-time.js
-   Source unique de vérité pour les temps d'un procédé.
-   Utilisé par l'éditeur de séance, les deux exports PDF et
-   Analytics, afin qu'un même procédé n'affiche jamais deux
-   durées différentes selon l'écran.
+   Source unique de vérité pour les temps d'un procédé, et formats
+   d'affichage communs (durées, dates au format français).
+   Utilisé par l'éditeur de séance, les deux exports PDF, la page de
+   partage et Analytics, afin qu'un même procédé n'affiche jamais
+   deux durées différentes selon l'écran.
    ============================================================ */
 
 const PROC_TYPES = ['Jeu', 'Exercice', 'Situation'];
@@ -59,6 +60,23 @@ function sequenceLabel(p) {
   return rec ? `${base} + ${fmtMin(rec)}' récup` : base;
 }
 
+/* Date ISO (2026-08-03) → format français (03/08/2026).
+   On découpe la chaîne au lieu de passer par Date() : construire une date
+   depuis un ISO nu la place en UTC et peut décaler d'un jour selon le
+   fuseau, ce qui afficherait la veille de la séance. */
+function fmtDateFr(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || '—');
+}
+
+/* Version longue : « lundi 3 août 2026 ». */
+function fmtDateFrLong(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if (!m) return iso || '—';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 /* Totaux d'une séance. */
 function sessionWorkMin(procs) { return (procs || []).reduce((sum, p) => sum + workMin(p), 0); }
 function sessionTotalMin(procs) { return (procs || []).reduce((sum, p) => sum + totalMin(p), 0); }
@@ -68,4 +86,5 @@ function sessionTotalMin(procs) { return (procs || []).reduce((sum, p) => sum + 
 Object.assign(window, {
   PROC_TYPES, workMin, recupMin, totalMin, hasSequences,
   fmtMin, sequenceLabel, sessionWorkMin, sessionTotalMin,
+  fmtDateFr, fmtDateFrLong,
 });

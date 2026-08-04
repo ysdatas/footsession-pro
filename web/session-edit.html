@@ -66,6 +66,7 @@
         <div class="page-actions">
           <button class="btn" id="btnLibrary" type="button">Bibliothèque</button>
           <button class="btn" id="btnAddProc" type="button">+ Ajouter un procédé</button>
+          <button class="btn btn-primary" id="btnSaveHere" type="button" title="Enregistre la séance sans remonter en haut de page">Sauvegarder</button>
         </div>
       </div>
       <div id="proceduresList"></div>
@@ -79,6 +80,20 @@
       </button>
       <div id="attendanceBody" class="attendance-body">
         <div id="attendanceList" class="attendance-grid"></div>
+      </div>
+    </div>
+
+    <div class="card attendance" style="margin-top:18px;">
+      <button class="attendance-head" id="teamsToggle" type="button">
+        <span>Équipes de travail <span class="badge" id="teamsCount">0 équipe</span></span>
+        <span class="chevron">▾</span>
+      </button>
+      <div id="teamsBody" class="attendance-body">
+        <p class="text-muted" style="font-size:.85rem;margin-bottom:10px;">
+          Répartissez les joueurs présents par chasuble. Cliquez sur un joueur pour le faire passer d'une équipe à l'autre.
+        </p>
+        <div id="teamsList"></div>
+        <button class="btn btn-sm" id="btnAddTeam" type="button" style="margin-top:10px;">+ Ajouter une équipe</button>
       </div>
     </div>
 
