@@ -1,10 +1,15 @@
 /* ============================================================
    FootSession Pro — pdf-generator.js
-   Export PDF PAYSAGE inspiré d'une fiche de séance pro :
-   bandeau titre + tableau d'infos + schéma tactique à gauche +
-   ORGANISATION/CONSIGNES · ÉQUIPES · COMPORTEMENTS ATTENDUS à droite.
-   Une page paysage par procédé, puis une page présences.
+   Export PDF PAYSAGE inspiré d'une fiche de séance pro.
+
+   Page 1 : récapitulatif complet (infos, déroulé, présences).
+            Les procédés SANS schéma tactique y sont détaillés en
+            sous-ligne, pour ne pas gaspiller une page presque vide.
+   Puis    : une page par procédé QUI POSSÈDE un schéma tactique.
+
    Exposé : window.generateSessionPDF(sessionId)
+            window.loadSessionForPdf(sessionId)   (réutilisé par pdf-coach.js)
+            window.PDF_THEME, window.imgSize      (idem)
    ============================================================ */
 
 const NAVY = [26, 54, 90];
@@ -19,6 +24,7 @@ function imgSize(src) {
 }
 const short = (t, n = 26) => { t = (t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : (t || '-'); };
 const initials = (s) => (s || 'FS').split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+const hexRgb = (h) => { if (!/^#[0-9a-f]{6}$/i.test(h || '')) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 
 /* Convertit un fichier du Storage en data URL (jsPDF n'accepte pas d'URL distante). */
 async function storageToDataUrl(bucket, path) {
@@ -35,16 +41,15 @@ async function storageToDataUrl(bucket, path) {
   } catch (e) { return null; }
 }
 
-window.generateSessionPDF = async function (sessionId) {
-  const lib = window.jspdf;
-  if (!lib || !lib.jsPDF) { toast('Module PDF non chargé.', 'error'); return; }
-  toast('Génération du PDF…');
-
-  let s, procedures = [], attendance = [], club = {};
+/* ============================================================
+   Chargement des données — commun aux deux exports.
+   Renvoie null et signale l'erreur en cas d'échec.
+   ============================================================ */
+window.loadSessionForPdf = async function (sessionId) {
   try {
     const { data: sess, error: e1 } = await sb.from('sessions').select('*').eq('id', sessionId).single();
     if (e1 || !sess) throw e1 || new Error('Séance introuvable.');
-    s = sess;
+    const s = sess;
 
     const [{ data: procs }, { data: clubRow }, { data: players }, { data: att }] = await Promise.all([
       sb.from('procedures').select('*, tactical_schemas(image_path, canvas_json)').eq('session_id', sessionId).order('ordre'),
@@ -52,10 +57,10 @@ window.generateSessionPDF = async function (sessionId) {
       sb.from('players').select('id, nom, prenom, numero'),
       sb.from('attendance').select('player_id, present').eq('session_id', sessionId),
     ]);
-    club = clubRow || {};
+    const club = clubRow || {};
 
     // Résout les images (Storage → data URL) en parallèle.
-    procedures = await Promise.all((procs || []).map(async p => ({
+    const procedures = await Promise.all((procs || []).map(async p => ({
       ...p,
       canvas_json: p.tactical_schemas?.canvas_json || null,
       canvas_image: await storageToDataUrl('schemas', p.tactical_schemas?.image_path),
@@ -63,7 +68,7 @@ window.generateSessionPDF = async function (sessionId) {
 
     const attMap = {};
     (att || []).forEach(a => attMap[a.player_id] = !!a.present);
-    attendance = (players || []).map(p => ({ ...p, present: !!attMap[p.id] }));
+    const attendance = (players || []).map(p => ({ ...p, present: !!attMap[p.id] }));
 
     s.coach_club = club.nom || '';
     s.club_color = club.color || '';
@@ -73,16 +78,21 @@ window.generateSessionPDF = async function (sessionId) {
       const { data: author } = await sb.from('profiles').select('nom').eq('id', s.created_by).maybeSingle();
       s.coach_nom = author?.nom || '';
     }
-  } catch (e) { toast(e.message || 'Erreur de chargement.', 'error'); return; }
+    return { s, procedures, attendance };
+  } catch (e) {
+    toast(e.message || 'Erreur de chargement.', 'error');
+    return null;
+  }
+};
 
-  const { jsPDF } = lib;
-  const doc = new jsPDF('l', 'mm', 'a4');   // PAYSAGE
-  const W = 297, H = 210, M = 8, CW = W - 2 * M;
-  const clubName = (s.coach_club || 'FOOTSESSION PRO').toUpperCase();
-  const hexRgb = (h) => { if (!/^#[0-9a-f]{6}$/i.test(h || '')) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-  const gold = hexRgb(s.club_color) || GOLD;   // couleur d'accent du club
+/* Fabrique les helpers de dessin pour un document donné : partagés
+   entre la fiche complète et la fiche coach. */
+window.PDF_THEME = { NAVY, LIGHT, LINE, DARK, MUT, GOLD, imgSize, short, initials, hexRgb };
 
-  /* ---------- Helpers de dessin ---------- */
+function pdfHelpers(doc, s, W, H, M) {
+  const CW = W - 2 * M;
+  const gold = hexRgb(s.club_color) || GOLD;
+
   const fill = (x, y, w, h, rgb) => { doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(x, y, w, h, 'F'); };
   const box = (x, y, w, h) => { doc.setDrawColor(LINE[0], LINE[1], LINE[2]); doc.setLineWidth(0.3); doc.rect(x, y, w, h); };
   const header = (x, y, w, h, text, fs = 6.4) => {
@@ -100,9 +110,9 @@ window.generateSessionPDF = async function (sessionId) {
     else doc.text(lines, x + w / 2, y + h / 2, { align: 'center', baseline: 'middle' });
   };
 
-  /* En-tête commun (logo club + titre + sous-titre).
-     La hauteur s'adapte au nombre de lignes du sous-titre pour que la ligne
-     dorée ne chevauche jamais le texte. */
+  /* En-tête commun (logo club + titre + sous-titre). La hauteur s'adapte
+     au nombre de lignes du sous-titre pour que la ligne dorée ne
+     chevauche jamais le texte. */
   const pageHeader = (title, subtitle) => {
     const ty = 7, subFs = 8.5, subLineH = 4.4;
     let subLines = [];
@@ -112,7 +122,6 @@ window.generateSessionPDF = async function (sessionId) {
     }
     const titleY = ty + 6;
     const subStartY = titleY + 6.5;
-    // Bas du bloc texte, puis marge avant le filet doré.
     const textBottom = subLines.length ? subStartY + (subLines.length - 1) * subLineH + 2 : titleY + 4;
     const ruleY = Math.max(ty + 16, textBottom + 4);
 
@@ -129,8 +138,10 @@ window.generateSessionPDF = async function (sessionId) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(subFs); doc.setTextColor(...MUT);
       subLines.forEach((ln, i) => doc.text(ln, W / 2, subStartY + i * subLineH, { align: 'center', baseline: 'middle' }));
     }
-    doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-    doc.text([s.categorie ? 'Phase : ' + s.categorie : '', s.coach_nom ? 'Coach : ' + s.coach_nom : ''].filter(Boolean), W - M, ty + 3, { align: 'right' });
+    if (s.coach_nom) {
+      doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      doc.text('Coach : ' + s.coach_nom, W - M, ty + 3, { align: 'right' });
+    }
     doc.setDrawColor(...gold); doc.setLineWidth(0.8); doc.line(M, ruleY, W - M, ruleY);
     return ruleY + 4;
   };
@@ -153,63 +164,129 @@ window.generateSessionPDF = async function (sessionId) {
     return y + hH + vH;
   };
 
+  return { CW, gold, fill, box, header, cell, pageHeader, footer, infoTable };
+}
+window.pdfHelpers = pdfHelpers;
+
+window.generateSessionPDF = async function (sessionId) {
+  const lib = window.jspdf;
+  if (!lib || !lib.jsPDF) { toast('Module PDF non chargé.', 'error'); return; }
+  toast('Génération du PDF…');
+
+  const loaded = await window.loadSessionForPdf(sessionId);
+  if (!loaded) return;
+  const { s, procedures, attendance } = loaded;
+
+  const { jsPDF } = lib;
+  const doc = new jsPDF('l', 'mm', 'a4');   // PAYSAGE
+  const W = 297, H = 210, M = 8;
+  const { CW, fill, box, header, cell, pageHeader, footer, infoTable } = pdfHelpers(doc, s, W, H, M);
+
   /* ============================================================
      PAGE 1 — RÉCAPITULATIF DE LA SÉANCE
      ============================================================ */
   fill(0, 0, W, H, [255, 255, 255]);
   let y = pageHeader(s.titre || 'Séance', null);
 
-  const totalProcMin = procedures.reduce((sum, p) => sum + (p.duree_min || 0), 0);
+  const travail = sessionWorkMin(procedures);
+  const total = sessionTotalMin(procedures);
   y = infoTable(y,
-    ['DATE', 'ÉQUIPE', 'PHASE DE JEU', 'DURÉE SÉANCE', 'NB PROCÉDÉS', 'TEMPS DE TRAVAIL'],
-    [s.date_seance || '-', s.equipe || '-', s.categorie || '-', (s.duree_min || 0) + "'", String(procedures.length), totalProcMin + "'"],
-    [1.1, 1, 1.4, 1.1, 1, 1.2]);
+    ['DATE', 'ÉQUIPE', 'DURÉE SÉANCE', 'NB PROCÉDÉS', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL'],
+    [s.date_seance || '-', s.equipe || '-', (s.duree_min || 0) + "'",
+     String(procedures.length), fmtMin(travail) + "'", fmtMin(total) + "'"],
+    [1.1, 1, 1.15, 1, 1.25, 1.1]);
+
+  /* Le récap peut désormais dépasser une page (sous-lignes de détail) :
+     ce garde-fou ouvre une page de suite au lieu de déborder hors cadre. */
+  const BOTTOM = H - 12;
+  const newPage = (subtitle) => {
+    footer(`FootSession Pro · ${s.titre || ''}`, 'Récapitulatif');
+    doc.addPage();
+    fill(0, 0, W, H, [255, 255, 255]);
+    return pageHeader(s.titre || 'Séance', subtitle);
+  };
 
   /* Déroulé de la séance */
   y += 4;
   header(M, y, CW, 7, 'Déroulé de la séance', 6.5);
   y += 7;
+
+  const cols = [CW * 0.04, CW * 0.20, CW * 0.09, CW * 0.13, CW * 0.07, CW * 0.16, CW * 0.31];
+  const heads = ['#', 'PROCÉDÉ', 'TYPE', 'SÉQUENCES', 'DURÉE', 'ESPACE / EFFECTIF', 'PRINCIPE DE JEU'];
+  const drawDerouleHead = (yy) => {
+    let cx = M;
+    cols.forEach((w, i) => { header(cx, yy, w, 6, heads[i], 5.6); cx += w; });
+    return yy + 6;
+  };
+
   if (!procedures.length) {
     cell(M, y, CW, 12, 'Aucun procédé enregistré.', { fs: 9 });
     y += 12;
   } else {
-    const cols = [CW * 0.06, CW * 0.30, CW * 0.10, CW * 0.16, CW * 0.38];
-    const heads = ['#', 'PROCÉDÉ', 'DURÉE', 'ESPACE / EFFECTIF', 'PRINCIPE DE JEU'];
-    let cx = M;
-    cols.forEach((w, i) => { header(cx, y, w, 6, heads[i], 5.6); cx += w; });
-    y += 6;
+    y = drawDerouleHead(y);
     procedures.forEach((p, i) => {
       // Hauteur de ligne adaptée au texte le plus long.
       doc.setFontSize(8.5);
-      const principe = doc.splitTextToSize(p.principes_jeu || '—', cols[4] - 4);
+      const principe = doc.splitTextToSize(p.principes_jeu || '—', cols[6] - 4);
       const nom = doc.splitTextToSize(p.nom || 'Procédé', cols[1] - 4);
       const rowH = Math.max(9, Math.max(principe.length, nom.length) * 4 + 4);
+
+      /* Un procédé sans schéma n'aura pas de page dédiée : on détaille
+         donc ici son objectif, ses consignes et les comportements
+         attendus, pour que rien ne soit perdu à l'export. */
+      const detailFs = 7.5, detailLineH = 3.4;
+      let detailLines = [];
+      if (!p.canvas_image) {
+        const bits = [
+          p.objectif && 'Objectif : ' + p.objectif,
+          p.consignes && 'Consignes : ' + p.consignes,
+          p.comportements_individuels && 'Comportements attendus : ' + p.comportements_individuels,
+        ].filter(Boolean);
+        if (bits.length) {
+          doc.setFontSize(detailFs);
+          bits.forEach(b => { detailLines = detailLines.concat(doc.splitTextToSize(b, CW - 7)); });
+        }
+      }
+      const detailH = detailLines.length ? detailLines.length * detailLineH + 3.5 : 0;
+
+      // La ligne et son détail ne doivent jamais être séparés par un saut de page.
+      if (y + rowH + detailH > BOTTOM) y = drawDerouleHead(newPage('Suite du déroulé'));
+
       const vals = [
-        String(i + 1), p.nom || 'Procédé', (p.duree_min || 0) + "'",
+        String(i + 1), p.nom || 'Procédé', p.type_procede || '—', sequenceLabel(p),
+        fmtMin(totalMin(p)) + "'",
         [p.taille_terrain, p.effectif].filter(Boolean).join(' · ') || '—',
         p.principes_jeu || '—',
       ];
-      cx = M;
+      let cx = M;
       cols.forEach((w, ci) => {
-        cell(cx, y, w, rowH, vals[ci], { fs: 8.5, top: ci === 1 || ci === 4, bold: ci === 1 });
+        cell(cx, y, w, rowH, vals[ci], { fs: 8.5, top: ci === 1 || ci === 6, bold: ci === 1 });
         cx += w;
       });
       y += rowH;
+
+      if (detailLines.length) {
+        fill(M, y, CW, detailH, [249, 250, 252]); box(M, y, CW, detailH);
+        doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(detailFs);
+        doc.text(detailLines, M + 3.5, y + 3, { align: 'left', baseline: 'top' });
+        y += detailH;
+      }
     });
   }
 
   /* Présences sur la même page récap */
   const present = attendance.filter(a => a.present).length;
+  const perCol = 4, colW = CW / perCol, rowH = 6;
+  const attRows = Math.ceil(attendance.length / perCol);
+  const attBlockH = attendance.length ? attRows * rowH + 4 : 12;
+  if (y + 4 + 7 + attBlockH > BOTTOM) y = newPage('Suite');
   y += 4;
   header(M, y, CW, 7, `Présence des joueurs — ${present} / ${attendance.length}`, 6.5);
   y += 7;
   if (!attendance.length) {
     cell(M, y, CW, 12, 'Aucun joueur enregistré.', { fs: 9 });
   } else {
-    const perCol = 4, colW = CW / perCol, rowH = 6;
-    const rows = Math.ceil(attendance.length / perCol);
-    const blockH = rows * rowH + 4;
-    fill(M, y, CW, blockH, LIGHT); box(M, y, CW, blockH);
+    fill(M, y, CW, attBlockH, LIGHT); box(M, y, CW, attBlockH);
     attendance.forEach((a, i) => {
       const col = i % perCol, row = Math.floor(i / perCol);
       const x = M + col * colW + 3, ty2 = y + 4 + row * rowH;
@@ -224,40 +301,36 @@ window.generateSessionPDF = async function (sessionId) {
   footer(`FootSession Pro · ${s.titre || ''}`, 'Récapitulatif');
 
   /* ============================================================
-     UNE PAGE PAR PROCÉDÉ (infos du procédé uniquement)
+     UNE PAGE PAR PROCÉDÉ — uniquement ceux qui ont un schéma.
+     Les autres sont déjà détaillés dans le récap ci-dessus.
      ============================================================ */
-  for (let idx = 0; idx < procedures.length; idx++) {
-    const p = procedures[idx];
+  const withSchema = procedures.filter(p => p.canvas_image);
+  for (let idx = 0; idx < withSchema.length; idx++) {
+    const p = withSchema[idx];
     doc.addPage();
     fill(0, 0, W, H, [255, 255, 255]);
 
-    // Titre = nom du procédé, sous-titre = principe de jeu (extensible sur 2 lignes).
+    // Titre = nom du procédé, sous-titre = principe de jeu (extensible).
     let py = pageHeader(p.nom || 'Procédé', p.principes_jeu ? 'Principe de jeu : ' + p.principes_jeu : null);
 
-    // Infos propres au procédé seulement.
     py = infoTable(py,
-      ['SÉQUENCE', 'DURÉE', 'RÉCUP', 'ESPACE DE JEU', 'EFFECTIF'],
-      [`${idx + 1} / ${procedures.length}`, (p.duree_min || 0) + "'",
-       p.temps_recup_min ? p.temps_recup_min + "'" : '-', p.taille_terrain || '-', p.effectif || '-'],
-      [1, 1, 1, 1.7, 1.3]);
+      ['TYPE', 'SÉQUENCES', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL', 'ESPACE DE JEU', 'EFFECTIF'],
+      [p.type_procede || '-', sequenceLabel(p),
+       fmtMin(workMin(p)) + "'", fmtMin(totalMin(p)) + "'",
+       p.taille_terrain || '-', p.effectif || '-'],
+      [1, 1.4, 1.2, 1.1, 1.5, 1.2]);
 
     /* Zone principale : schéma (gauche) + rubriques auto-extensibles (droite) */
     const mainY = py + 4;
     const mainH = H - mainY - 10;
     const leftW = CW * 0.56, gap = 4, rightX = M + leftW + gap, rightW = CW - leftW - gap;
 
-    if (p.canvas_image) {
-      const sz = await imgSize(p.canvas_image);
-      const ar = sz ? sz.w / sz.h : 1040 / 680;
-      let iw = leftW, ih = iw / ar;
-      if (ih > mainH) { ih = mainH; iw = ih * ar; }
-      try { doc.addImage(p.canvas_image, 'PNG', M + (leftW - iw) / 2, mainY, iw, ih); } catch (e) {}
-      doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.rect(M + (leftW - iw) / 2, mainY, iw, ih);
-    } else {
-      fill(M, mainY, leftW, mainH, LIGHT); box(M, mainY, leftW, mainH);
-      doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-      doc.text('Aucun schéma tactique', M + leftW / 2, mainY + mainH / 2, { align: 'center', baseline: 'middle' });
-    }
+    const sz = await imgSize(p.canvas_image);
+    const ar = sz ? sz.w / sz.h : 1040 / 680;
+    let iw = leftW, ih = iw / ar;
+    if (ih > mainH) { ih = mainH; iw = ih * ar; }
+    try { doc.addImage(p.canvas_image, 'PNG', M + (leftW - iw) / 2, mainY, iw, ih); } catch (e) {}
+    doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.rect(M + (leftW - iw) / 2, mainY, iw, ih);
 
     /* Rubriques : hauteur proportionnelle au contenu réel, puis ajustée
        pour remplir la page sans jamais déborder. */
@@ -289,7 +362,7 @@ window.generateSessionPDF = async function (sessionId) {
       ry += bandH + sec.h;
     });
 
-    footer(`FootSession Pro · ${s.titre || ''}`, `Procédé ${idx + 1} / ${procedures.length}`);
+    footer(`FootSession Pro · ${s.titre || ''}`, `Procédé ${idx + 1} / ${withSchema.length}`);
   }
 
   doc.save(`seance-${(s.titre || 'footsession').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);

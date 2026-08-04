@@ -1,7 +1,7 @@
 /* ============================================================
    FootSession Pro — analytics-page.js (Chemin B / Supabase)
-   Agrégations calculées côté client à partir des données du club
-   (le RLS garantit qu'on ne reçoit que les séances du club).
+   Agrégations calculées côté client. Le RLS filtre en amont : on ne
+   reçoit que les séances du club de l'utilisateur connecté.
    ============================================================ */
 
 const GOLD = '#C9A84C', GOLD_L = '#E2C97E', GRID = 'rgba(255,255,255,.06)', TXT = '#8A8A8A';
@@ -61,9 +61,9 @@ async function load() {
   if (!range) return toast('Choisissez une plage de dates.', 'error');
 
   try {
-    // Séances de la période avec leurs procédés (RLS = uniquement le club courant).
+    // Séances de la période avec leurs procédés (le RLS restreint au périmètre autorisé).
     const { data: sessions, error } = await sb.from('sessions')
-      .select('id, titre, date_seance, categorie, duree_min, procedures(id, duree_min, effectif, taille_terrain, principes_jeu)')
+      .select('id, titre, date_seance, duree_min, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min)')
       .gte('date_seance', range.from).lte('date_seance', range.to)
       .order('date_seance');
     if (error) throw error;
@@ -80,8 +80,8 @@ async function load() {
     const nbSessions = sessions.length;
     const nbProcedures = allProcs.length;
     const presence = attendance.length ? Math.round(attendance.filter(a => a.present).length / attendance.length * 100) : 0;
-    // Volume de travail = somme des durées des procédés (min).
-    const volume = allProcs.reduce((sum, p) => sum + (p.duree_min || 0), 0);
+    // Volume de travail = temps ballon, récupérations exclues.
+    const volume = sessionWorkMin(allProcs);
 
     document.getElementById('kpiSessions').textContent = nbSessions;
     document.getElementById('kpiProcedures').textContent = nbProcedures;
@@ -91,7 +91,7 @@ async function load() {
     if (nbSessions === 0 && nbProcedures === 0) { showEmpty(); return; }
     restoreCharts();
 
-    bar('chartCategory', countBy(sessions, s => s.categorie), GOLD);
+    bar('chartCategory', countBy(allProcs, p => p.type_procede), GOLD);
     line('chartMonths', await sessionsPerMonth());
     hbar('chartEspaces', countBy(allProcs, p => p.taille_terrain), GOLD_L);
     hbar('chartVolume', volumePerSession(sessions), '#3aa0ff');
@@ -110,10 +110,10 @@ function countBy(rows, getter) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, c]) => ({ label, c }));
 }
 
-/** Volume de travail (somme des durées des procédés) par séance, top 8. */
+/** Volume de travail (temps ballon) par séance, top 8. */
 function volumePerSession(sessions) {
   return sessions
-    .map(s => ({ label: (s.titre || '').slice(0, 22), c: (s.procedures || []).reduce((sum, p) => sum + (p.duree_min || 0), 0) }))
+    .map(s => ({ label: (s.titre || '').slice(0, 22), c: sessionWorkMin(s.procedures) }))
     .filter(r => r.c > 0).sort((a, b) => b.c - a.c).slice(0, 8);
 }
 
@@ -144,7 +144,7 @@ function restoreCharts() {
   const area = document.getElementById('chartsArea');
   if (area.querySelector('.chart-card')) return;
   area.innerHTML = `
-    <div class="card chart-card"><h3>Volume par catégorie</h3><div class="chart-box"><canvas id="chartCategory"></canvas></div></div>
+    <div class="card chart-card"><h3>Répartition par type de procédé</h3><div class="chart-box"><canvas id="chartCategory"></canvas></div></div>
     <div class="card chart-card"><h3>Séances par mois (6 mois)</h3><div class="chart-box"><canvas id="chartMonths"></canvas></div></div>
     <div class="card chart-card"><h3>Espaces de jeu utilisés</h3><div class="chart-box"><canvas id="chartEspaces"></canvas></div></div>
     <div class="card chart-card"><h3>Volume par séance (min)</h3><div class="chart-box"><canvas id="chartVolume"></canvas></div></div>

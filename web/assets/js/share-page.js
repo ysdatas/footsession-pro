@@ -25,9 +25,10 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
 
     const metaParts = [
       `<span>Date : ${escapeHtml(s.date_seance)}</span>`,
-      s.categorie ? `<span>Phase : ${escapeHtml(s.categorie)}</span>` : '',
       s.equipe ? `<span>Équipe : ${escapeHtml(s.equipe)}</span>` : '',
-      `<span>Durée : ${s.duree_min} min</span>`,
+      `<span>Durée séance : ${s.duree_min} min</span>`,
+      `<span>Travail : ${fmtMin(sessionWorkMin(procedures))} min</span>`,
+      `<span>Total : ${fmtMin(sessionTotalMin(procedures))} min</span>`,
       `<span>${procedures.length} procédé${procedures.length > 1 ? 's' : ''}</span>`,
     ].filter(Boolean).join('');
 
@@ -37,8 +38,9 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
         ['objectif', 'Objectif'], ['consignes', 'Consignes'], ['postes_cibles', 'Postes ciblés'],
         ['principes_jeu', 'Principes'], ['comportements_individuels', 'Comportements'],
       ].filter(([k]) => p[k]).map(([k, lbl]) => `<div class="sp-field"><b>${lbl} :</b> ${escapeHtml(p[k])}</div>`).join('');
+      const meta = [p.type_procede, sequenceLabel(p)].filter(Boolean).join(' · ');
       return `<div class="card sp-proc">
-        <h3><span>${i + 1}. ${escapeHtml(p.nom)}</span><span class="text-muted">${p.duree_min} min${p.intensite ? ' · RPE ' + p.intensite + '/10' : ''}</span></h3>
+        <h3><span>${i + 1}. ${escapeHtml(p.nom)}</span><span class="text-muted">${escapeHtml(meta)}</span></h3>
         ${imgUrl ? `<img src="${imgUrl}" alt="Schéma">` : ''}
         ${fields}
       </div>`;

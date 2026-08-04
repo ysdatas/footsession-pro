@@ -25,7 +25,7 @@ async function loadList() {
   const wrap = document.getElementById('listWrap');
   try {
     const { data: sessions, error } = await sb.from('sessions')
-      .select('id, titre, date_seance, categorie, equipe, duree_min, procedures(id)')
+      .select('id, titre, date_seance, equipe, duree_min, procedures(id, duree_min, nb_sequences, duree_sequence_min, temps_recup_min)')
       .order('date_seance', { ascending: false }).order('id', { ascending: false });
     if (error) throw error;
 
@@ -39,19 +39,20 @@ async function loadList() {
     const canWrite = canEdit(myProfile.role);
     wrap.innerHTML = `<div class="card" style="padding:6px;">
       <table class="table" id="sessionsTable">
-        <thead><tr><th>Titre</th><th>Date</th><th>Catégorie</th><th>Équipe</th><th>Durée</th><th>Procédés</th><th></th></tr></thead>
+        <thead><tr><th>Titre</th><th>Date</th><th>Équipe</th><th>Durée séance</th><th>Temps de travail</th><th>Procédés</th><th></th></tr></thead>
         <tbody>
           ${sessions.map(s => `
-            <tr data-search="${escapeHtml((s.titre + ' ' + (s.categorie || '') + ' ' + (s.equipe || '')).toLowerCase())}">
+            <tr data-search="${escapeHtml((s.titre + ' ' + (s.equipe || '')).toLowerCase())}">
               <td><a class="text-gold" href="session-edit.html?id=${s.id}">${escapeHtml(s.titre)}</a></td>
               <td>${escapeHtml(s.date_seance)}</td>
-              <td>${s.categorie ? `<span class="badge">${escapeHtml(s.categorie)}</span>` : '—'}</td>
               <td>${escapeHtml(s.equipe || '—')}</td>
               <td>${s.duree_min} min</td>
+              <td>${fmtMin(sessionWorkMin(s.procedures))} min</td>
               <td>${(s.procedures || []).length}</td>
               <td style="text-align:right;white-space:nowrap;">
                 <a class="btn btn-sm" href="session-edit.html?id=${s.id}">Ouvrir</a>
-                <button class="btn btn-sm" type="button" onclick="generateSessionPDF(${s.id})">PDF</button>
+                <button class="btn btn-sm" type="button" title="Fiche détaillée" onclick="generateSessionPDF(${s.id})">PDF</button>
+                <button class="btn btn-sm" type="button" title="Tout sur une feuille, pour le staff" onclick="generateCoachPDF(${s.id})">Fiche</button>
                 ${canWrite ? `<button class="btn btn-sm btn-danger" type="button" onclick="deleteSession(${s.id}, this)">Suppr.</button>` : ''}
               </td>
             </tr>`).join('')}

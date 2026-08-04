@@ -16,8 +16,8 @@
     <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
     <nav class="nav">
       <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
-      <a class="nav-item active" href="sessions.html"><span class="nav-dot"></span>Mes séances</a>
-      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Mes joueurs</a>
+      <a class="nav-item active" href="sessions.html"><span class="nav-dot"></span>Séances</a>
+      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Joueurs</a>
       <a class="nav-item" href="tactical-board.html"><span class="nav-dot"></span>Tableau tactique</a>
       <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
       <a class="nav-item" href="club.html"><span class="nav-dot"></span>Mon club</a>
@@ -36,8 +36,9 @@
         <p class="subtitle" id="editorSubtitle">Renseignez les informations puis ajoutez vos procédés.</p>
       </div>
       <div class="page-actions">
-        <a class="btn" href="sessions.html">← Mes séances</a>
-        <button class="btn hidden" id="btnExportPdf" type="button">Exporter PDF</button>
+        <a class="btn" href="sessions.html">← Séances</a>
+        <button class="btn hidden" id="btnPdfFull" type="button" title="Fiche détaillée : une page par procédé avec schéma">PDF complet</button>
+        <button class="btn hidden" id="btnPdfCoach" type="button" title="Tout sur une feuille, à distribuer avant la séance">Fiche coach</button>
         <button class="btn btn-primary" id="btnSave" type="button">Sauvegarder</button>
       </div>
     </div>
@@ -51,14 +52,6 @@
           <input id="f-date" type="date"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label for="f-categorie">Catégorie</label>
-          <input id="f-categorie" placeholder="Ex: Transitions" list="cat-list">
-          <datalist id="cat-list">
-            <option>Transitions</option><option>Possession</option><option>Pressing</option>
-            <option>Finition</option><option>Tactique</option><option>Physique</option>
-            <option>Coups de pied arrêtés</option><option>Technique</option>
-          </datalist>
-        </div>
         <div class="field"><label for="f-equipe">Équipe</label>
           <input id="f-equipe" placeholder="Ex: U17"></div>
         <div class="field"><label for="f-duree">Durée totale (min)</label>
@@ -124,7 +117,9 @@
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/app.js"></script>
+  <script src="assets/js/procedure-time.js"></script>
   <script src="assets/js/pdf-generator.js"></script>
+  <script src="assets/js/pdf-coach.js"></script>
   <script src="assets/js/session-edit-page.js"></script>
 </body>
 </html>

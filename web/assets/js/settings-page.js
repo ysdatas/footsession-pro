@@ -131,11 +131,11 @@ async function showAdmin() {
     sb.from('profiles').select('id').eq('club_id', myProfile.club_id),
     sb.from('exercise_templates').select('id', { count: 'exact', head: true }),
   ]);
-  // Les séances / joueurs / modèles sont personnels (données privées par
-  // utilisateur) ; seul le nombre de membres concerne réellement le club.
+  // Toutes ces données appartiennent au club et sont partagées par le staff :
+  // les compteurs reflètent donc bien l'activité collective.
   const stats = [
-    ['Mes séances', nbSessions ?? 0], ['Mes joueurs', nbPlayers ?? 0],
-    ['Mes modèles', nbTemplates ?? 0], ['Membres du club', members?.length ?? 0],
+    ['Séances', nbSessions ?? 0], ['Joueurs', nbPlayers ?? 0],
+    ['Modèles d\'exercices', nbTemplates ?? 0], ['Membres du club', members?.length ?? 0],
   ];
   document.getElementById('adminStats').innerHTML = stats.map(([label, val]) =>
     `<div class="card kpi"><div class="kpi-num">${val}</div><div class="kpi-label">${label}</div></div>`).join('');

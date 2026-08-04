@@ -171,14 +171,14 @@ window.showDetail = async (id) => {
   try {
     const p = playersCache.find(x => x.id === id);
     const { data: history, error } = await sb.from('attendance')
-      .select('present, sessions(id, titre, date_seance, categorie)')
+      .select('present, sessions(id, titre, date_seance, procedures(type_procede))')
       .eq('player_id', id).order('sessions(date_seance)', { ascending: false });
     if (error) throw error;
 
-    // Thèmes (catégories) des séances où le joueur était présent.
+    // Types de procédés (jeu / exercice / situation) travaillés par le joueur.
     const themes = [...new Set((history || [])
       .filter(h => h.present)
-      .map(h => h.sessions?.categorie)
+      .flatMap(h => (h.sessions?.procedures || []).map(p => p.type_procede))
       .filter(Boolean))];
 
     const name = escapeHtml(`${p.prenom || ''} ${p.nom}`.trim());
@@ -188,7 +188,7 @@ window.showDetail = async (id) => {
 
     const themesHtml = themes.length
       ? `<div class="tag-row">${themes.map(x => `<span class="badge badge-gold">${escapeHtml(x)}</span>`).join('')}</div>`
-      : '<p class="text-muted">Aucun thème enregistré.</p>';
+      : '<p class="text-muted">Aucun type de procédé renseigné.</p>';
     const histHtml = (history || []).length ? history.map(h => `
       <div class="detail-row"><span>${escapeHtml(h.sessions?.titre || '')} <span class="text-muted">${escapeHtml(h.sessions?.date_seance || '')}</span></span>
        <span class="${h.present ? 'text-success' : 'text-danger'}">${h.present ? '✓ Présent' : '✗ Absent'}</span></div>`
@@ -206,7 +206,7 @@ window.showDetail = async (id) => {
         <div class="pc-bar"><span style="width:${pct}%"></span></div>
         <div class="pc-foot">${presentCount}/${history?.length || 0} séances</div>
       </div>
-      <label>Thèmes travaillés</label>${themesHtml}
+      <label>Types de procédés travaillés</label>${themesHtml}
       <label style="margin-top:14px;">Historique</label>
       <div class="detail-list">${histHtml}</div>
       ${CAN_EDIT_PLAYERS ? `<div class="modal-actions">

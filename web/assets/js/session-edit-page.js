@@ -41,13 +41,22 @@ const nextUid = () => 'p' + (uidSeq++);
   document.getElementById('attendanceToggle').addEventListener('click', () => document.querySelector('.attendance').classList.toggle('open'));
   document.getElementById('proceduresList').addEventListener('input', (e) => {
     if (e.target.classList.contains('proc-duree') || e.target.classList.contains('proc-name')) updateMeta();
+    // Les temps se recalculent à la frappe. On met à jour les champs concernés
+    // sur place plutôt que de re-générer le HTML, ce qui ferait perdre le focus.
+    if (['nb_sequences', 'duree_sequence_min', 'temps_recup_min'].includes(e.target.dataset.field)) {
+      refreshProcTimes(e.target.closest('.proc'));
+      updateMeta();
+    }
   });
 
   if (EDITOR_MODE === 'edit') {
     document.getElementById('editorTitle').innerHTML = 'Modifier la séance <span class="badge badge-gold">ÉDITION</span>';
-    const pdfBtn = document.getElementById('btnExportPdf');
-    pdfBtn?.classList.remove('hidden');
-    pdfBtn?.addEventListener('click', () => window.generateSessionPDF(SESSION_ID));
+    const fullBtn = document.getElementById('btnPdfFull');
+    fullBtn?.classList.remove('hidden');
+    fullBtn?.addEventListener('click', () => window.generateSessionPDF(SESSION_ID));
+    const coachBtn = document.getElementById('btnPdfCoach');
+    coachBtn?.classList.remove('hidden');
+    coachBtn?.addEventListener('click', () => window.generateCoachPDF(SESSION_ID));
     await loadSession();
   } else {
     document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
@@ -149,7 +158,6 @@ async function loadSession() {
 
     document.getElementById('f-titre').value = s.titre || '';
     document.getElementById('f-date').value = s.date_seance || '';
-    document.getElementById('f-categorie').value = s.categorie || '';
     document.getElementById('f-equipe').value = s.equipe || '';
     document.getElementById('f-duree').value = s.duree_min || 90;
     document.getElementById('editorSubtitle').textContent = `Créée le ${(s.created_at || '').slice(0, 10)}`;
@@ -163,6 +171,8 @@ async function loadSession() {
       taille_terrain: p.taille_terrain || '', consignes: p.consignes || '',
       principes_jeu: p.principes_jeu || '', comportements_individuels: p.comportements_individuels || '',
       temps_recup_min: p.temps_recup_min ?? '',
+      type_procede: p.type_procede || '', nb_sequences: p.nb_sequences ?? '',
+      duree_sequence_min: p.duree_sequence_min ?? '',
       image_path: p.tactical_schemas?.image_path || null, expanded: false,
     }));
 
@@ -195,6 +205,8 @@ function addProcedure(data = {}) {
     taille_terrain: data.taille_terrain || '', consignes: data.consignes || '',
     principes_jeu: data.principes_jeu || '', comportements_individuels: data.comportements_individuels || '',
     temps_recup_min: data.temps_recup_min ?? '',
+    type_procede: data.type_procede || '', nb_sequences: data.nb_sequences ?? '',
+    duree_sequence_min: data.duree_sequence_min ?? '',
     image_path: null, expanded: true,
   });
   renderProcedures();
@@ -203,7 +215,8 @@ function addProcedure(data = {}) {
 
 /* ---------- Bibliothèque d'exercices (modèles réutilisables) ---------- */
 const TPL_FIELDS = ['nom', 'duree_min', 'objectif', 'effectif', 'taille_terrain',
-  'consignes', 'principes_jeu', 'comportements_individuels', 'temps_recup_min'];
+  'consignes', 'principes_jeu', 'comportements_individuels', 'temps_recup_min',
+  'type_procede', 'nb_sequences', 'duree_sequence_min'];
 
 window.saveAsTemplate = async (uid) => {
   syncFromDom();
@@ -218,7 +231,9 @@ window.saveAsTemplate = async (uid) => {
       if (copyErr) image_path = null;   // pas bloquant : le modèle reste utile sans image
     }
     const { error } = await sb.from('exercise_templates').insert({
-      club_id: myProfile.club_id, nom, categorie: document.getElementById('f-categorie').value.trim() || null, data, image_path,
+      // La catégorie du modèle reprend le type du procédé (jeu / exercice / situation),
+      // ce qui donne à la bibliothèque un classement utile.
+      club_id: myProfile.club_id, nom, categorie: p.type_procede || null, data, image_path,
     });
     if (error) throw error;
     toast('Modèle enregistré dans la bibliothèque', 'success');
@@ -287,7 +302,9 @@ function procTemplate(p, index) {
       <input class="proc-name" data-field="nom" value="${f(p.nom)}" placeholder="Nom du procédé" ${dis}>
       <div class="proc-head-right">
         <span class="proc-dot"></span>
-        <input class="proc-duree" data-field="duree_min" type="number" min="0" step="5" value="${Number(p.duree_min) || 0}" ${dis}>
+        <input class="proc-duree" data-field="duree_min" type="number" min="0" step="5"
+               value="${hasSequences(p) ? totalMin(p) : (Number(p.duree_min) || 0)}"
+               ${hasSequences(p) ? 'readonly title="Calculé : séquences + récupérations"' : ''} ${dis}>
         <span class="proc-unit">min</span>
         ${CAN_WRITE ? `
         <button class="proc-btn" type="button" title="Enregistrer comme modèle" onclick="saveAsTemplate('${p._uid}')">☆</button>
@@ -301,9 +318,24 @@ function procTemplate(p, index) {
       <div class="proc-fields">
         <div class="field"><label>Objectif</label><textarea data-field="objectif" placeholder="But de l'exercice…" ${dis}>${f(p.objectif)}</textarea></div>
         <div class="field-row">
+          <div class="field"><label>Type de procédé</label>
+            <select data-field="type_procede" ${dis}>
+              <option value=""${p.type_procede ? '' : ' selected'}>—</option>
+              ${PROC_TYPES.map(t => `<option value="${t}"${p.type_procede === t ? ' selected' : ''}>${t}</option>`).join('')}
+            </select></div>
           <div class="field"><label>Effectif</label><input data-field="effectif" value="${f(p.effectif)}" placeholder="Ex: 11v11, 5v3…" ${dis}></div>
           <div class="field"><label>Taille terrain</label><input data-field="taille_terrain" value="${f(p.taille_terrain)}" placeholder="Ex: 30×20m" ${dis}></div>
-          <div class="field"><label>Récup (min)</label><input data-field="temps_recup_min" type="number" min="0" value="${p.temps_recup_min ?? ''}" ${dis}></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Nb séquences</label>
+            <input data-field="nb_sequences" type="number" min="1" step="1" value="${p.nb_sequences ?? ''}" placeholder="Ex: 3" ${dis}></div>
+          <div class="field"><label>Durée séquence (min)</label>
+            <input data-field="duree_sequence_min" type="number" min="0" step="0.5" value="${p.duree_sequence_min ?? ''}" placeholder="Ex: 4" ${dis}></div>
+          <div class="field"><label>Récup (min)</label>
+            <input data-field="temps_recup_min" type="number" min="0" step="0.5" value="${p.temps_recup_min ?? ''}" placeholder="Ex: 1" ${dis}></div>
+          <div class="field"><label>Récapitulatif</label>
+            <input value="${escapeHtml(sequenceLabel(p))}" readonly tabindex="-1"
+                   title="Travail ${fmtMin(workMin(p))}' · récup ${fmtMin(recupMin(p))}' · total ${fmtMin(totalMin(p))}'"></div>
         </div>
         <div class="field"><label>Consignes</label><textarea data-field="consignes" placeholder="Instructions détaillées…" ${dis}>${f(p.consignes)}</textarea></div>
         <div class="field"><label>Principes de jeu</label><textarea data-field="principes_jeu" placeholder="Ex: Conservation, transitions…" ${dis}>${f(p.principes_jeu)}</textarea></div>
@@ -312,10 +344,49 @@ function procTemplate(p, index) {
       <div>
         <label>Schéma tactique</label>
         <div class="schema-box">${tac}</div>
-        <div class="schema-recap">Procédé ${index + 1} / ${procedures.length} · ${Number(p.duree_min) || 0} min</div>
+        <div class="schema-recap">Procédé ${index + 1} / ${procedures.length} · ${escapeHtml(sequenceLabel(p))}</div>
       </div>
     </div>
   </div>`;
+}
+
+/* Recalcule la durée et le récapitulatif d'un procédé après saisie des
+   séquences. Dès que la structure est complète, la durée devient calculée
+   et n'est plus modifiable à la main : une seule valeur fait foi. */
+function refreshProcTimes(node) {
+  if (!node) return;
+  const p = procedures.find(x => x._uid === node.dataset.uid);
+  if (!p) return;
+  node.querySelectorAll('[data-field]').forEach(inp => {
+    const k = inp.dataset.field;
+    if (['nb_sequences', 'duree_sequence_min', 'temps_recup_min'].includes(k)) {
+      p[k] = inp.value === '' ? '' : Number(inp.value);
+    }
+  });
+
+  const dureeInput = node.querySelector('.proc-duree');
+  if (dureeInput) {
+    if (hasSequences(p)) {
+      p.duree_min = totalMin(p);
+      dureeInput.value = p.duree_min;
+      dureeInput.readOnly = true;
+      dureeInput.title = 'Calculé : séquences + récupérations';
+    } else {
+      dureeInput.readOnly = false;
+      dureeInput.title = '';
+    }
+  }
+
+  const recap = node.querySelector('.proc-body .field-row input[readonly][tabindex="-1"]');
+  if (recap) {
+    recap.value = sequenceLabel(p);
+    recap.title = `Travail ${fmtMin(workMin(p))}' · récup ${fmtMin(recupMin(p))}' · total ${fmtMin(totalMin(p))}'`;
+  }
+  const schemaRecap = node.querySelector('.schema-recap');
+  if (schemaRecap) {
+    const idx = procedures.indexOf(p);
+    schemaRecap.textContent = `Procédé ${idx + 1} / ${procedures.length} · ${sequenceLabel(p)}`;
+  }
 }
 
 function renderProcedures() {
@@ -330,9 +401,13 @@ function syncFromDom() {
     node.querySelectorAll('[data-field]').forEach(inp => {
       const k = inp.dataset.field;
       if (k === 'duree_min') p[k] = Number(inp.value) || 0;
-      else if (k === 'temps_recup_min') p[k] = inp.value === '' ? '' : Number(inp.value);
+      else if (['temps_recup_min', 'nb_sequences', 'duree_sequence_min'].includes(k)) {
+        p[k] = inp.value === '' ? '' : Number(inp.value);
+      }
       else p[k] = inp.value;
     });
+    // La structure en séquences fait foi sur la durée saisie librement.
+    if (hasSequences(p)) p.duree_min = totalMin(p);
     p.expanded = node.classList.contains('expanded');
   });
 }
@@ -378,10 +453,14 @@ function updatePresentCount() {
 
 /* ---------- Méta ---------- */
 function updateMeta() {
-  let total = 0;
-  document.querySelectorAll('#proceduresList .proc-duree').forEach(i => total += (Number(i.value) || 0));
+  syncFromDom();   // les temps se lisent sur l'état, pas sur le DOM brut
   const n = procedures.length;
-  document.getElementById('editorMeta').textContent = `${n} procédé${n > 1 ? 's' : ''} · ${total} min au total`;
+  const travail = sessionWorkMin(procedures), total = sessionTotalMin(procedures);
+  const recup = total - travail;
+  document.getElementById('editorMeta').textContent =
+    `${n} procédé${n > 1 ? 's' : ''} · ${fmtMin(travail)} min de travail`
+    + (recup > 0 ? ` + ${fmtMin(recup)} min de récup` : '')
+    + ` · ${fmtMin(total)} min au total`;
   document.getElementById('procCount').textContent = n;
 }
 
@@ -394,7 +473,6 @@ async function save() {
 
   const sessionRow = {
     titre, date_seance,
-    categorie: document.getElementById('f-categorie').value.trim() || null,
     equipe: document.getElementById('f-equipe').value.trim() || null,
     duree_min: Number(document.getElementById('f-duree').value) || 0,
   };
@@ -438,6 +516,9 @@ async function saveProcedures(sid) {
       taille_terrain: p.taille_terrain || null, consignes: p.consignes || null,
       principes_jeu: p.principes_jeu || null, comportements_individuels: p.comportements_individuels || null,
       temps_recup_min: p.temps_recup_min === '' ? null : p.temps_recup_min,
+      type_procede: p.type_procede || null,
+      nb_sequences: p.nb_sequences === '' ? null : p.nb_sequences,
+      duree_sequence_min: p.duree_sequence_min === '' ? null : p.duree_sequence_min,
     };
     if (p.id && existingIds.includes(p.id)) {
       const { error } = await sb.from('procedures').update(row).eq('id', p.id);
