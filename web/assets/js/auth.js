@@ -68,5 +68,5 @@ function canEdit(role) {
 
 const ROLE_LABELS = {
   admin: 'Administrateur', coach: 'Coach', analyste: 'Analyste vidéo',
-  prepa: 'Préparateur physique', viewer: 'Lecture seule',
+  prepa: 'Préparateur physique', joueur: 'Joueur', viewer: 'Lecture seule',
 };
