@@ -7,6 +7,7 @@
 
 let myProfile = null;
 let playersCache = [];
+let recipientsCache = [];
 let CAN_EDIT_VIDEOS = false;
 
 (async () => {
@@ -27,8 +28,29 @@ let CAN_EDIT_VIDEOS = false;
   }
   document.getElementById('btnCodes').addEventListener('click', openCodesModal);
 
-  const { data: players, error } = await sb.from('players').select('id, nom, prenom, numero, player_code').order('nom');
-  if (!error) playersCache = players || [];
+  const { data: players, error: playersError } = await sb
+    .from('players')
+    .select('id, nom, prenom, numero, player_code, auth_user_id')
+    .order('nom');
+  if (!playersError) playersCache = players || [];
+
+  if (myProfile.club_id) {
+    const { data: profiles, error: profilesError } = await sb
+      .from('profiles')
+      .select('id, nom, role')
+      .eq('club_id', myProfile.club_id)
+      .eq('role', 'joueur');
+
+    if (!profilesError && profiles?.length) {
+      const profileMap = new Map(profiles.map(profile => [String(profile.id), profile]));
+      recipientsCache = playersCache
+        .filter(player => player.auth_user_id && profileMap.has(String(player.auth_user_id)))
+        .map(player => ({
+          ...player,
+          accountName: profileMap.get(String(player.auth_user_id))?.nom || ''
+        }));
+    }
+  }
 
   await loadVideos();
 })();
@@ -105,9 +127,18 @@ window.copyCode = (code, el) => {
 /* ---------- Envoi vidéo ---------- */
 function openVideoModal() {
   const sel = document.getElementById('v-player');
-  sel.innerHTML = '<option value="">— Choisir —</option>' + playersCache.map(p =>
-    `<option value="${p.id}">${escapeHtml(`${p.prenom || ''} ${p.nom}`.trim())}${p.numero != null ? ' #' + p.numero : ''}</option>`
-  ).join('');
+
+  if (!recipientsCache.length) {
+    sel.innerHTML = '<option value="">Aucun compte joueur lié à une fiche</option>';
+    toast('Aucun destinataire disponible : lie d’abord un compte membre à une fiche joueur depuis « Mon club ».', 'error');
+  } else {
+    sel.innerHTML = '<option value="">— Choisir un compte joueur —</option>' + recipientsCache.map(p => {
+      const ficheName = `${p.prenom || ''} ${p.nom || ''}`.trim();
+      const label = `${p.accountName || ficheName || 'Joueur'}${p.numero != null ? ' #' + p.numero : ''}`;
+      return `<option value="${p.id}">${escapeHtml(label)}</option>`;
+    }).join('');
+  }
+
   document.getElementById('v-titre').value = '';
   document.getElementById('v-desc').value = '';
   document.getElementById('v-file').value = '';
@@ -119,7 +150,11 @@ async function uploadVideo() {
   const playerId = document.getElementById('v-player').value;
   const titre = document.getElementById('v-titre').value.trim();
   const file = document.getElementById('v-file').files[0];
-  if (!playerId || !titre || !file) { toast('Joueur, titre et fichier requis.', 'error'); return; }
+  const recipient = recipientsCache.find(p => String(p.id) === String(playerId));
+  if (!recipient || !titre || !file) {
+    toast('Compte joueur lié, titre et fichier requis.', 'error');
+    return;
+  }
 
   const maxBytes = 500 * 1024 * 1024; // 500 Mo — ajuste selon ton plan Supabase Storage
   if (file.size > maxBytes) { toast('Fichier trop volumineux (max 500 Mo).', 'error'); return; }
