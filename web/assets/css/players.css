@@ -56,3 +56,8 @@
 .detail-list { max-height: 320px; overflow-y: auto; }
 .detail-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: .85rem; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+.pc-actions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}
+.pc-photo{width:42px;height:42px;border-radius:12px;object-fit:cover;flex:0 0 42px;border:1px solid var(--border);}
+.detail-photo{width:54px;height:54px;border-radius:14px;object-fit:cover;flex:0 0 54px;border:1px solid var(--border);}
+.player-card{overflow:hidden;}

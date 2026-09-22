@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Performance joueur — FootSession Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/player-performance.css">
+</head>
+<body class="app">
+  <main class="main perf-main">
+    <div class="perf-topbar">
+      <div>
+        <div class="perf-brand">Foot<span>Session</span> Pro</div>
+        <div class="text-muted" id="perfRoleLabel">Chargement…</div>
+      </div>
+      <div class="perf-actions">
+        <a class="btn" id="backPlayers" href="players.html">← Joueurs</a>
+        <a class="btn" id="videoPlayerLink" href="#">Vidéos</a>
+        <button class="btn hidden perf-editor-only" id="btnImportExcel" type="button">Importer Excel</button>
+        <button class="btn hidden perf-editor-only" id="btnAddPhoto" type="button">Photo</button>
+      </div>
+    </div>
+
+    <section class="perf-hero card">
+      <div class="perf-identity">
+        <div class="perf-photo-wrap">
+          <img id="playerPhoto" class="perf-photo hidden" alt="">
+          <div id="playerInitials" class="perf-photo-fallback">?</div>
+        </div>
+        <div>
+          <div class="eyebrow">DOSSIER JOUEUR</div>
+          <h1 id="playerName">Chargement…</h1>
+          <p id="playerMeta" class="subtitle">—</p>
+        </div>
+      </div>
+      <div class="perf-hero-metrics">
+        <div class="perf-metric"><span>Taille</span><strong id="metricHeight">—</strong></div>
+        <div class="perf-metric"><span>Poids</span><strong id="metricWeight">—</strong></div>
+        <div class="perf-metric"><span>Masse grasse</span><strong id="metricBodyFat">—</strong></div>
+      </div>
+    </section>
+
+    <section class="perf-grid-main">
+      <div class="card">
+        <div class="section-head">
+          <div>
+            <h2>Profil athlétique</h2>
+            <p class="text-muted">Radar /10 recalculé depuis les tests physiques importés ou saisis.</p>
+          </div>
+          <select id="stageSelect" class="stage-select">
+            <option value="pre">Pré-saison</option>
+            <option value="mid">Mi-saison</option>
+            <option value="end">Fin de saison</option>
+          </select>
+        </div>
+        <div id="radarWrap" class="radar-wrap"></div>
+        <div id="scoreCards" class="score-cards"></div>
+        <div id="testSummary" class="test-summary"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-head">
+          <div>
+            <h2>Suivi physique</h2>
+            <p class="text-muted">Historique issu du préparateur physique.</p>
+          </div>
+          <button class="btn btn-sm hidden perf-editor-only" id="btnAddMeasurement" type="button">+ Mesure</button>
+        </div>
+        <div id="measurementHistory"></div>
+
+        <div class="manual-test-box hidden perf-editor-only" id="manualTestBox">
+          <div class="section-head compact">
+            <div><h3>Ajouter une session de tests</h3></div>
+          </div>
+          <div class="form-grid">
+            <label>Session<select id="manualStage"><option value="pre">Pré-saison</option><option value="mid">Mi-saison</option><option value="end">Fin de saison</option></select></label>
+            <label>Date<input type="date" id="manualTestDate"></label>
+            <label>Sprint 10 m<input type="number" step="0.01" id="t-sprint10"></label>
+            <label>505 gauche<input type="number" step="0.001" id="t-505g"></label>
+            <label>505 droit<input type="number" step="0.001" id="t-505d"></label>
+            <label>Sprint 40 m<input type="number" step="0.01" id="t-sprint40"></label>
+            <label>30-15 VIFT<input type="number" step="0.1" id="t-vift"></label>
+            <label>Shirado (s)<input type="number" step="1" id="t-shirado"></label>
+            <label>Sorensen (s)<input type="number" step="1" id="t-sorensen"></label>
+          </div>
+          <button class="btn btn-primary" id="btnSaveTest" type="button">Enregistrer les tests</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Points forts</h2>
+          <p class="text-muted">Axes positifs et ressources du joueur.</p>
+        </div>
+        <button class="btn btn-sm hidden perf-editor-only" id="btnAddStrength" data-kind="strength" type="button">+ Ajouter</button>
+      </div>
+      <div id="strengthList" class="note-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Points d’amélioration</h2>
+          <p class="text-muted">Axes prioritaires et exercices associés.</p>
+        </div>
+        <button class="btn btn-sm hidden perf-editor-only" id="btnAddImprovement" data-kind="improvement" type="button">+ Ajouter</button>
+      </div>
+      <div id="improvementList" class="note-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Objectifs & prévention</h2>
+          <p class="text-muted">Inspiré de la fiche préparateur : objectifs, prévention bas du corps et prévention haut du corps.</p>
+        </div>
+        <button class="btn btn-sm hidden perf-editor-only" id="btnAddObjective" data-kind="objective" type="button">+ Objectif</button>
+      </div>
+      <div id="objectiveList" class="note-grid"></div>
+      <div class="prevention-grid">
+        <div><h3>Prévention bas du corps</h3><p>Ajoute les exercices en points d’amélioration et joins les images utilisées par le préparateur.</p></div>
+        <div><h3>Prévention haut du corps</h3><p>Ajoute les exercices en points d’amélioration et joins les images utilisées par le préparateur.</p></div>
+      </div>
+    </section>
+
+    <section class="card hidden perf-editor-only" id="manualMeasurementBox">
+      <div class="section-head compact"><h2>Ajouter une mesure</h2></div>
+      <div class="form-grid">
+        <label>Mois<select id="m-month">
+          <option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option>
+          <option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option>
+        </select></label>
+        <label>Date<input type="date" id="m-date"></label>
+        <label>Taille (cm)<input type="number" step="0.1" id="m-height"></label>
+        <label>Poids (kg)<input type="number" step="0.1" id="m-weight"></label>
+        <label>Masse grasse (%)<input type="number" step="0.1" id="m-fat"></label>
+      </div>
+      <button class="btn btn-primary" id="btnSaveMeasurement" type="button">Enregistrer la mesure</button>
+    </section>
+
+    <div id="pageToast" class="perf-toast" aria-live="polite"></div>
+  </main>
+
+  <!-- Photo -->
+  <input id="photoFile" class="hidden" type="file" accept="image/jpeg,image/png,image/webp">
+
+  <!-- Note modal -->
+  <div class="modal-backdrop" id="noteModal">
+    <div class="modal">
+      <h3 id="noteModalTitle">Ajouter un point</h3>
+      <input id="noteKind" type="hidden">
+      <div class="field"><label>Titre</label><input id="noteTitle"></div>
+      <div class="field"><label>Description</label><textarea id="noteBody" rows="5"></textarea></div>
+      <div class="field"><label>Images / exercices</label><input id="noteFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
+      <div class="modal-actions">
+        <button class="btn" data-close="noteModal" type="button">Annuler</button>
+        <button class="btn btn-primary" id="btnSaveNote" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Excel import -->
+  <div class="modal-backdrop" id="importModal">
+    <div class="modal perf-import-modal">
+      <h3>Importer le fichier du préparateur</h3>
+      <p class="text-muted">Le fichier est lu localement dans le navigateur. L’import utilise les onglets <strong>Anthropométrie</strong>, <strong>Plis cutanés</strong> et <strong>Tests bruts</strong>, puis FootSession Pro recalcule le radar.</p>
+      <div class="field"><label>Fichier Excel</label><input id="excelFile" type="file" accept=".xlsx,.xls"></div>
+      <div id="importSummary" class="import-summary">Choisis un fichier pour commencer.</div>
+      <div id="mappingBox" class="mapping-box"></div>
+      <div class="modal-actions">
+        <button class="btn" data-close="importModal" type="button">Fermer</button>
+        <button class="btn btn-primary" id="btnConfirmImport" type="button" disabled>Importer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/player-performance-page.js"></script>
+</body>
+</html>

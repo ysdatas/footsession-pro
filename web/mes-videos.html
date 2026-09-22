@@ -25,12 +25,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
 <script>
-  function fmtDuree(sec) {
-    sec = Math.round(sec || 0);
-    if (sec <= 0) return '—';
-    const m = Math.floor(sec / 60), s = sec % 60;
-    return m > 0 ? `${m} min ${s}s` : `${s}s`;
-  }
   const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -49,7 +43,7 @@
     });
 
     const { data: videos, error } = await sb.from('player_videos')
-      .select('id, titre, description, duree_sec, created_at, video_views(watched_seconds, max_position_seconds, last_heartbeat_at)')
+      .select('id, titre, description, created_at')
       .eq('player_id', player.id).order('created_at', { ascending: false });
 
     if (error) {
@@ -67,20 +61,13 @@
     }
 
     document.getElementById('pvContent').innerHTML = `<div class="pv-grid">` + videos.map(v => {
-      const views = v.video_views || [];
-      const vu = views.length > 0;
-      const tempsTotal = views.reduce((s, x) => s + (x.watched_seconds || 0), 0);
       return `<a class="card pv-card" href="voir-video.html?id=${v.id}">
         <div class="pv-card-top">
-          <span class="badge ${vu ? 'badge-success' : 'badge-gold'}">${vu ? 'Vue' : 'Non vue'}</span>
+          <span class="badge badge-gold">Disponible</span>
           <span class="text-muted" style="font-size:.75rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
         </div>
         <h3>${escapeHtml(v.titre)}</h3>
         ${v.description ? `<p class="text-muted" style="font-size:.85rem;">${escapeHtml(v.description)}</p>` : ''}
-        <div class="pv-card-meta">
-          <span>${views.length} visionnage${views.length > 1 ? 's' : ''}</span>
-          <span>${fmtDuree(tempsTotal)} regardées</span>
-        </div>
       </a>`;
     }).join('') + `</div>`;
   })();

@@ -37,7 +37,7 @@ function avatarClass(i) { return 'av' + (i % 6); }
 /* ---------- Grille ---------- */
 async function loadGrid() {
   try {
-    const { data: players, error } = await sb.from('players').select('id, nom, prenom, numero, poste').order('nom');
+    const { data: players, error } = await sb.from('players').select('id, nom, prenom, numero, poste, photo_path').order('nom');
     if (error) throw error;
     const { data: att } = await sb.from('attendance').select('player_id, present');
 
@@ -46,6 +46,12 @@ async function loadGrid() {
       const total = rows.length, present = rows.filter(a => a.present).length;
       return { ...p, nb_total: total, nb_present: present, presence_pct: total ? Math.round(present / total * 100) : 0 };
     });
+    const photoResults = await Promise.all(playersCache.map(p =>
+      p.photo_path
+        ? sb.storage.from('player-photos').createSignedUrl(p.photo_path, 3600)
+        : Promise.resolve({ data: null })
+    ));
+    playersCache = playersCache.map((p, i) => ({ ...p, photo_url: photoResults[i]?.data?.signedUrl || null }));
     renderGrid();
     const avg = playersCache.length ? Math.round(playersCache.reduce((s, p) => s + p.presence_pct, 0) / playersCache.length) : 0;
     document.getElementById('playersSub').textContent = `${playersCache.length} joueur${playersCache.length > 1 ? 's' : ''} · Présence moyenne ${avg}%`;
@@ -61,15 +67,22 @@ function renderGrid() {
   wrap.innerHTML = `<div class="players-grid">` + playersCache.map((p, i) => {
     const name = escapeHtml(`${p.prenom || ''} ${p.nom}`.trim());
     const ini = escapeHtml(((p.prenom || p.nom || '?')[0] + (p.nom || '')[0] || '?').toUpperCase());
-    return `<div class="player-card" data-name="${name.toLowerCase()}" onclick="showDetail(${p.id})">
-      <div class="pc-top">
-        <div class="pc-avatar ${avatarClass(i)}">${ini}</div>
+    const photo = p.photo_url
+      ? `<img class="pc-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy">`
+      : `<div class="pc-avatar ${avatarClass(i)}">${ini}</div>`;
+    return `<div class="player-card" data-name="${name.toLowerCase()}">
+      <div class="pc-top" onclick="showDetail(${p.id})" style="cursor:pointer;">
+        ${photo}
         <div><div class="pc-name">${name}</div><div class="pc-poste">${escapeHtml(p.poste || '—')}</div></div>
         ${p.numero != null ? `<span class="pc-num">#${p.numero}</span>` : ''}
       </div>
       <div class="pc-stat"><span class="text-muted">Présence</span><strong style="color:var(--gold)">${p.presence_pct}%</strong></div>
       <div class="pc-bar"><span style="width:${p.presence_pct}%"></span></div>
       <div class="pc-foot">${p.nb_present}/${p.nb_total} séances</div>
+      <div class="pc-actions">
+        <a class="btn btn-sm" href="player-performance.html?id=${p.id}" onclick="event.stopPropagation()">Performance</a>
+        <a class="btn btn-sm" href="videos.html?player=${p.id}" onclick="event.stopPropagation()">Vidéos</a>
+      </div>
     </div>`;
   }).join('') + `</div>`;
 }
@@ -194,12 +207,19 @@ window.showDetail = async (id) => {
        <span class="${h.present ? 'text-success' : 'text-danger'}">${h.present ? '✓ Présent' : '✗ Absent'}</span></div>`
     ).join('') : '<p class="text-muted">Aucune séance.</p>';
 
+    const detailPhoto = p.photo_url
+      ? `<img class="detail-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy">`
+      : `<div class="pc-avatar av0" style="width:54px;height:54px;font-size:1.1rem;">${ini}</div>`;
     document.getElementById('detailBody').innerHTML = `
       <div class="detail-head">
-        <div class="pc-avatar av0" style="width:54px;height:54px;font-size:1.1rem;">${ini}</div>
+        ${detailPhoto}
         <div><h3 style="margin:0;">${name}</h3>
           <div class="text-muted">${escapeHtml(p.poste || '—')}${p.numero != null ? ' · #' + p.numero : ''}</div></div>
-        <button class="btn btn-sm" style="margin-left:auto;" data-close="detailModal">Fermer</button>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+          <a class="btn btn-sm" href="player-performance.html?id=${p.id}">Performance</a>
+          <a class="btn btn-sm" href="videos.html?player=${p.id}">Vidéos</a>
+          <button class="btn btn-sm" data-close="detailModal">Fermer</button>
+        </div>
       </div>
       <div class="card" style="margin-bottom:14px;">
         <div class="pc-stat"><span>Présence globale</span><strong style="color:var(--gold)">${pct}%</strong></div>

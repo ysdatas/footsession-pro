@@ -32,10 +32,11 @@
   <main class="main">
     <div class="page-head">
       <div>
-        <h1>Vidéos joueurs</h1>
+        <h1 id="videosTitle">Vidéos joueurs</h1>
         <p class="subtitle" id="videosSub">Chargement…</p>
       </div>
       <div class="page-actions">
+        <a class="btn hidden" id="videoBackLink" href="players.html">← Performance</a>
         <button class="btn" id="btnCodes" type="button">Codes joueurs</button>
         <button class="btn btn-primary hidden" id="btnNewVideo" type="button">+ Envoyer une vidéo</button>
       </div>
@@ -43,7 +44,7 @@
 
     <div class="card" style="padding:6px;">
       <table class="table">
-        <thead><tr><th>Vidéo</th><th>Joueur</th><th>Statut</th><th>Visionnages</th><th>Temps regardé</th><th>Progression</th><th>Dernière vue</th><th></th></tr></thead>
+        <thead><tr><th>Vidéo</th><th>Joueur</th><th class="video-stats-only">Statut</th><th class="video-stats-only">Visionnages</th><th class="video-stats-only">Temps regardé</th><th class="video-stats-only">Progression</th><th class="video-stats-only">Dernière vue</th><th></th></tr></thead>
         <tbody id="videosBody"><tr><td colspan="8" class="text-muted" style="text-align:center;padding:24px;">Chargement…</td></tr></tbody>
       </table>
     </div>
