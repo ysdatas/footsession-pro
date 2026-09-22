@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mes vidéos — FootSession Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/videos.css">
+</head>
+<body>
+<div class="pv-wrap">
+  <div class="pv-head">
+    <div>
+      <h1 id="pvTitle">Mes vidéos</h1>
+      <p class="subtitle" id="pvSub">Chargement…</p>
+    </div>
+    <a class="btn" href="#" id="logoutLink">Déconnexion</a>
+  </div>
+
+  <div id="pvContent"><div class="empty">Chargement…</div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<script>
+  function fmtDuree(sec) {
+    sec = Math.round(sec || 0);
+    if (sec <= 0) return '—';
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m > 0 ? `${m} min ${s}s` : `${s}s`;
+  }
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'player-join.html'; return; }
+
+    const { data: player, error: pErr } = await sb.from('players').select('id, nom, prenom')
+      .eq('auth_user_id', session.user.id).maybeSingle();
+    if (pErr || !player) { window.location.href = 'player-join.html'; return; }
+
+    document.getElementById('logoutLink').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await sb.auth.signOut();
+      window.location.href = 'player-join.html';
+    });
+
+    const { data: videos, error } = await sb.from('player_videos')
+      .select('id, titre, description, duree_sec, created_at, video_views(watched_seconds, max_position_seconds, last_heartbeat_at)')
+      .eq('player_id', player.id).order('created_at', { ascending: false });
+
+    if (error) {
+      document.getElementById('pvContent').innerHTML = `<p class="text-danger">${escapeHtml(error.message)}</p>`;
+      return;
+    }
+
+    document.getElementById('pvTitle').textContent = 'Mes vidéos';
+    document.getElementById('pvSub').textContent =
+      `Bonjour ${player.prenom || player.nom} — ${videos.length} vidéo${videos.length > 1 ? 's' : ''}`;
+
+    if (!videos.length) {
+      document.getElementById('pvContent').innerHTML = `<div class="empty">Aucune vidéo pour le moment. Ton coach ne t'a encore rien envoyé.</div>`;
+      return;
+    }
+
+    document.getElementById('pvContent').innerHTML = `<div class="pv-grid">` + videos.map(v => {
+      const views = v.video_views || [];
+      const vu = views.length > 0;
+      const tempsTotal = views.reduce((s, x) => s + (x.watched_seconds || 0), 0);
+      return `<a class="card pv-card" href="voir-video.html?id=${v.id}">
+        <div class="pv-card-top">
+          <span class="badge ${vu ? 'badge-success' : 'badge-gold'}">${vu ? 'Vue' : 'Non vue'}</span>
+          <span class="text-muted" style="font-size:.75rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
+        </div>
+        <h3>${escapeHtml(v.titre)}</h3>
+        ${v.description ? `<p class="text-muted" style="font-size:.85rem;">${escapeHtml(v.description)}</p>` : ''}
+        <div class="pv-card-meta">
+          <span>${views.length} visionnage${views.length > 1 ? 's' : ''}</span>
+          <span>${fmtDuree(tempsTotal)} regardées</span>
+        </div>
+      </a>`;
+    }).join('') + `</div>`;
+  })();
+</script>
+</body>
+</html>

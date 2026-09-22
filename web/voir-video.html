@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vidéo — FootSession Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/videos.css">
+</head>
+<body>
+<div class="pv-wrap">
+  <a class="btn btn-sm" href="mes-videos.html" style="margin-bottom:16px;display:inline-flex;">← Mes vidéos</a>
+  <div id="vvContent"><div class="empty">Chargement…</div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/video-tracking.js"></script>
+<script>
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'player-join.html'; return; }
+
+    const { data: player } = await sb.from('players').select('id').eq('auth_user_id', session.user.id).maybeSingle();
+    if (!player) { window.location.href = 'player-join.html'; return; }
+
+    const params = new URLSearchParams(location.search);
+    const videoId = Number(params.get('id'));
+
+    const { data: video, error } = await sb.from('player_videos')
+      .select('*').eq('id', videoId).eq('player_id', player.id).maybeSingle();
+
+    if (error || !video) {
+      document.getElementById('vvContent').innerHTML = `<div class="empty">Vidéo introuvable.</div>`;
+      return;
+    }
+
+    const { data: signed, error: sErr } = await sb.storage.from('player-videos').createSignedUrl(video.storage_path, 3600);
+    if (sErr || !signed?.signedUrl) {
+      document.getElementById('vvContent').innerHTML = `<p class="text-danger">Impossible de charger la vidéo (${escapeHtml(sErr?.message || 'erreur inconnue')}).</p>`;
+      return;
+    }
+
+    document.getElementById('vvContent').innerHTML = `
+      <h1>${escapeHtml(video.titre)}</h1>
+      ${video.description ? `<p class="text-muted">${escapeHtml(video.description)}</p>` : ''}
+      <div class="video-box"><video id="playerVideo" controls preload="metadata" playsinline src="${signed.signedUrl}"></video></div>
+    `;
+
+    initVideoTracking({ videoId: video.id, playerId: player.id, videoElId: 'playerVideo' });
+  })();
+</script>
+</body>
+</html>

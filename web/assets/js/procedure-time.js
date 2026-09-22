@@ -77,6 +77,44 @@ function fmtDateFrLong(iso) {
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+/* ---------- Semaines (dossiers de la liste des séances) ---------- */
+
+/* Lundi de la semaine contenant `iso`, au format ISO.
+   On travaille en date locale pure pour éviter tout décalage de fuseau. */
+function mondayOf(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const dow = (d.getDay() + 6) % 7;          // lundi = 0, dimanche = 6
+  d.setDate(d.getDate() - dow);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/* Numéro de semaine relatif au début de saison : la semaine de
+   `saisonStart` est la Semaine 1. Les semaines antérieures reçoivent un
+   numéro négatif ou nul, on les affiche alors sans numéro. */
+function weekNumber(iso, saisonStart) {
+  const a = mondayOf(saisonStart), b = mondayOf(iso);
+  if (!a || !b) return null;
+  const diff = (new Date(b) - new Date(a)) / 86400000;
+  return Math.floor(diff / 7) + 1;
+}
+
+/* « lun. 3 → dim. 9 août 2026 » */
+function weekRangeLabel(mondayIso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(mondayIso || ''));
+  if (!m) return '—';
+  const start = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const end = new Date(start); end.setDate(end.getDate() + 6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  const jour = (d) => d.getDate();
+  const mois = (d) => d.toLocaleDateString('fr-FR', { month: 'long' });
+  return sameMonth
+    ? `${jour(start)} → ${jour(end)} ${mois(end)} ${end.getFullYear()}`
+    : `${jour(start)} ${mois(start)} → ${jour(end)} ${mois(end)} ${end.getFullYear()}`;
+}
+
 /* Totaux d'une séance. */
 function sessionWorkMin(procs) { return (procs || []).reduce((sum, p) => sum + workMin(p), 0); }
 function sessionTotalMin(procs) { return (procs || []).reduce((sum, p) => sum + totalMin(p), 0); }
@@ -87,4 +125,5 @@ Object.assign(window, {
   PROC_TYPES, workMin, recupMin, totalMin, hasSequences,
   fmtMin, sequenceLabel, sessionWorkMin, sessionTotalMin,
   fmtDateFr, fmtDateFrLong,
+  mondayOf, weekNumber, weekRangeLabel,
 });

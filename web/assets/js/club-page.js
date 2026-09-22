@@ -22,6 +22,7 @@ let myProfile = null;
     document.getElementById('clubSub').textContent = club?.nom || 'Club';
     document.getElementById('clubName').value = club?.nom || '';
     document.getElementById('clubColor').value = club?.color || '#C9A84C';
+    document.getElementById('clubSaison').value = club?.saison_start || '';
 
     if (club?.logo_path) {
       const { data } = await sb.storage.from('logos').createSignedUrl(club.logo_path, 3600);
@@ -35,6 +36,7 @@ let myProfile = null;
     if (isAdmin) {
       document.getElementById('clubName').disabled = false;
       document.getElementById('clubColor').disabled = false;
+      document.getElementById('clubSaison').disabled = false;
       document.getElementById('clubLogoFile').disabled = false;
       document.getElementById('saveClub').classList.remove('hidden');
       document.getElementById('inviteCard').classList.remove('hidden');
@@ -60,6 +62,8 @@ let myProfile = null;
       const btn = document.getElementById('saveClub'); btn.disabled = true;
       try {
         const updates = { nom: document.getElementById('clubName').value.trim(), color: document.getElementById('clubColor').value };
+        // Champ date vide → null, sinon Postgres refuse la chaîne vide.
+        updates.saison_start = document.getElementById('clubSaison').value || null;
         if (logoFile) {
           const path = `${myProfile.club_id}/logo-${Date.now()}.${logoFile.name.split('.').pop()}`;
           const { error: upErr } = await sb.storage.from('logos').upload(path, logoFile, { upsert: true });

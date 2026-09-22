@@ -19,17 +19,21 @@ async function requireAuth(opts = {}) {
 
   let { data: profile, error } = await sb
     .from('profiles')
-    .select('id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code)')
+    .select('id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code, saison_start)')
     .eq('id', session.user.id)
     .single();
 
-  // Repli si la colonne « prefs » n'a pas encore été ajoutée en base.
-  if (error) {
+  /* Replis successifs : une migration pas encore passée ne doit jamais
+     empêcher la connexion. On retire d'abord saison_start, puis prefs.
+     Le dernier jeu de colonnes est celui du schéma d'origine. */
+  const FALLBACKS = [
+    'id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code)',
+    'id, nom, role, club_id, clubs(nom, color, logo_path, join_code)',
+  ];
+  for (const cols of FALLBACKS) {
+    if (!error) break;
     ({ data: profile, error } = await sb
-      .from('profiles')
-      .select('id, nom, role, club_id, clubs(nom, color, logo_path, join_code)')
-      .eq('id', session.user.id)
-      .single());
+      .from('profiles').select(cols).eq('id', session.user.id).single());
   }
 
   if (error) { console.error(error); window.location.href = 'index.html'; return null; }

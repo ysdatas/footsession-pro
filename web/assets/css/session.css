@@ -140,3 +140,47 @@
 .pchip .num { color: var(--text-muted); font-size: .72rem; }
 .team-pool { border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 4px; }
 .team-pool-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: 6px; }
+
+/* ---------- Barre d'outils de la liste des séances ---------- */
+.list-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.lt-group { display: flex; align-items: center; gap: 7px; }
+.lt-group label {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text-muted); white-space: nowrap;
+}
+.lt-group select { padding: 7px 9px; }
+#sortDir { min-width: 34px; }
+#groupToggle.active { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,.12); }
+
+/* ---------- Dossiers par semaine ---------- */
+.week-folder {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  margin-bottom: 10px; overflow: hidden; background: var(--bg-card);
+}
+.week-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 14px; background: var(--bg-surface); border: none;
+  text-align: left; cursor: pointer; color: var(--text-primary);
+  transition: var(--transition);
+}
+.week-head:hover { background: var(--bg-hover); }
+.week-chevron { color: var(--text-muted); transition: transform .18s ease; flex-shrink: 0; }
+.week-folder.open .week-chevron { transform: rotate(180deg); }
+.week-title { font-weight: 600; font-size: .92rem; white-space: nowrap; }
+.week-range { color: var(--text-secondary); font-size: .84rem; }
+.week-meta {
+  margin-left: auto; color: var(--text-muted); font-size: .78rem;
+  white-space: nowrap; text-transform: uppercase; letter-spacing: .03em;
+}
+/* Replié par défaut : seul l'en-tête reste visible. */
+.week-body { display: none; padding: 4px 6px 6px; }
+.week-folder.open .week-body { display: block; }
+
+@media (max-width: 720px) {
+  .week-range, .week-meta { font-size: .74rem; }
+  .week-meta { margin-left: 0; width: 100%; }
+  .week-head { flex-wrap: wrap; }
+}
