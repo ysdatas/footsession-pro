@@ -86,25 +86,69 @@ let myProfile = null;
 })();
 
 async function loadMembers(isAdmin) {
-  const { data: members, error } = await sb.from('profiles').select('id, nom, role').eq('club_id', myProfile.club_id).order('nom');
   const list = document.getElementById('memberList');
-  if (error) { list.innerHTML = `<p class="text-danger">${error.message}</p>`; return; }
-  list.innerHTML = members.map(m => {
+  const [{ data: members, error }, { data: roster, error: rosterError }] = await Promise.all([
+    sb.from('profiles').select('id, nom, role').eq('club_id', myProfile.club_id).order('nom'),
+    sb.from('players').select('id, nom, prenom, numero, auth_user_id').eq('club_id', myProfile.club_id).order('nom')
+  ]);
+  if (error || rosterError) {
+    list.innerHTML = `<p class="text-danger">${escapeHtmlClub((error || rosterError).message)}</p>`;
+    return;
+  }
+
+  const availablePlayers = roster || [];
+  list.innerHTML = (members || []).map(m => {
+    const linked = availablePlayers.find(p => p.auth_user_id === m.id);
     const roleCell = isAdmin
-      ? `<select data-id="${m.id}" class="role-select" ${m.id === myProfile.id ? 'disabled title="Vous ne pouvez pas changer votre propre rôle"' : ''}>
-           ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
-         </select>`
-      : `<span class="badge badge-gold">${ROLE_LABELS[m.role] || m.role}</span>`;
+      ? `<div class="member-controls">
+          <select data-id="${m.id}" class="role-select" ${m.id === myProfile.id ? 'disabled title="Vous ne pouvez pas changer votre propre rôle"' : ''}>
+            ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
+          </select>
+          <select class="player-link-select ${m.role === 'joueur' ? '' : 'hidden'}" data-profile-id="${m.id}" aria-label="Fiche joueur">
+            <option value="">— Associer une fiche joueur —</option>
+            ${availablePlayers.filter(p => !p.auth_user_id || p.auth_user_id === m.id).map(p =>
+              `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtmlClub(`${p.prenom || ''} ${p.nom}`.trim())}${p.numero != null ? ` #${p.numero}` : ''}</option>`
+            ).join('')}
+          </select>
+          <button type="button" class="btn btn-sm player-link-save ${m.role === 'joueur' ? '' : 'hidden'}" data-profile-id="${m.id}" ${m.id === myProfile.id ? 'disabled' : ''}>Associer</button>
+        </div>`
+      : `<span class="badge badge-gold">${ROLE_LABELS[m.role] || m.role}${linked ? ` · ${escapeHtmlClub(`${linked.prenom || ''} ${linked.nom}`.trim())}` : ''}</span>`;
     return `<div class="member-row"><span class="member-name">${escapeHtmlClub(m.nom || 'Membre')}</span>${roleCell}</div>`;
   }).join('') || '<p class="text-muted">Aucun membre.</p>';
 
-  if (isAdmin) {
-    list.querySelectorAll('.role-select').forEach(sel => {
-      sel.addEventListener('change', async () => {
-        const { error } = await sb.from('profiles').update({ role: sel.value }).eq('id', sel.dataset.id);
-        if (error) toast(error.message, 'error'); else toast('Rôle mis à jour', 'success');
-      });
+  if (!isAdmin) return;
+
+  list.querySelectorAll('.role-select').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const profileId = sel.dataset.id;
+      const role = sel.value;
+      if (role === 'joueur') {
+        list.querySelector(`.player-link-select[data-profile-id="${profileId}"]`)?.classList.remove('hidden');
+        list.querySelector(`.player-link-save[data-profile-id="${profileId}"]`)?.classList.remove('hidden');
+        return;
+      }
+      sel.disabled = true;
+      const { error: rpcError } = await sb.rpc('club_set_member_role', { p_profile_id: profileId, p_role: role });
+      sel.disabled = false;
+      if (rpcError) { toast(rpcError.message, 'error'); await loadMembers(isAdmin); }
+      else { toast('Rôle mis à jour', 'success'); await loadMembers(isAdmin); }
     });
-  }
+  });
+
+  list.querySelectorAll('.player-link-save').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const profileId = btn.dataset.profileId;
+      const playerId = list.querySelector(`.player-link-select[data-profile-id="${profileId}"]`)?.value;
+      if (!playerId) { toast('Choisissez une fiche joueur.', 'error'); return; }
+      btn.disabled = true;
+      const { error: rpcError } = await sb.rpc('club_link_player', {
+        p_profile_id: profileId,
+        p_player_id: Number(playerId)
+      });
+      btn.disabled = false;
+      if (rpcError) toast(rpcError.message, 'error');
+      else { toast('Compte associé à la fiche joueur.', 'success'); await loadMembers(isAdmin); }
+    });
+  });
 }
 function escapeHtmlClub(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

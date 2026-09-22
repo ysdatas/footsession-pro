@@ -38,6 +38,14 @@ async function requireAuth(opts = {}) {
 
   if (error) { console.error(error); window.location.href = 'index.html'; return null; }
 
+  // Les comptes joueurs utilisent uniquement leur espace vidéo.
+  // Les pages Mes vidéos / Voir vidéo / liaison ne passent pas par cette garde.
+  const currentPage = window.location.pathname.split('/').pop();
+  if (profile.role === 'joueur' && !['mes-videos.html', 'voir-video.html', 'player-join.html'].includes(currentPage)) {
+    window.location.replace('mes-videos.html');
+    return null;
+  }
+
   if (requireClub && !profile.club_id) {
     window.location.href = 'onboarding.html';
     return null;

@@ -41,12 +41,14 @@
     <div class="dash-grid">
       <div class="card">
         <h3>Identité du club</h3>
-        <div class="field"><label>Nom du club</label>
-<div class="field">
-  <label for="clubSaison">Début de saison</label>
-  <input id="clubSaison" type="date" disabled>
-</div>
-<input id="clubName" disabled></div>
+        <div class="field">
+          <label for="clubName">Nom du club</label>
+          <input id="clubName" disabled>
+        </div>
+        <div class="field">
+          <label for="clubSaison">Début de saison</label>
+          <input id="clubSaison" type="date" disabled>
+        </div>
         <div class="field-row">
           <div class="field"><label>Couleur d'accent</label><input id="clubColor" type="color" style="height:40px;" disabled></div>
           <div class="field"><label>Logo</label><input id="clubLogoFile" type="file" accept="image/*" disabled></div>
@@ -67,7 +69,7 @@
     </div>
 
     <div class="card" style="margin-top:18px;">
-      <h3>Membres de la cellule</h3>
+      <h3>Membres du club</h3>\n      <p class="text-muted" style="font-size:.84rem;">Pour donner un accès joueur, choisissez le rôle « Joueur », puis associez le compte à une fiche joueur existante.</p>
       <div id="memberList"><p class="text-muted">Chargement…</p></div>
     </div>
   </main>

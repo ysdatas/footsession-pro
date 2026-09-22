@@ -5,3 +5,11 @@
 .member-row:last-child { border-bottom: none; }
 .member-name { flex: 1; font-weight: 500; }
 .member-row select { width: auto; padding: 6px 8px; height: 32px; }
+
+/* Contrôles d'association des comptes joueurs */
+.member-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.member-controls select { max-width:240px; min-width:150px; }
+@media (max-width:640px) {
+  .member-controls { width:100%; }
+  .member-controls select { flex:1 1 100%; max-width:none; }
+}
