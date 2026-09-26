@@ -427,177 +427,523 @@ async function deleteNote(id) {
 
 function workbookRows(name) {
   const ws = importState.workbook?.Sheets?.[name];
-  return ws ? XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null}) : [];
+  return ws ? XLSX.utils.sheet_to_json(ws, {
+    header: 1,
+    raw: true,
+    defval: null
+  }) : [];
 }
+
 function isAggregateName(name) {
   const k = normalizeName(name);
-  return k === 'moyenne' || k === 'ecart type' || k === 'n joueurs testes' || k === 'n joueurs testes';
+  return [
+    'moyenne',
+    'ecart type',
+    'n joueurs testes'
+  ].includes(k);
 }
-function parseExcel(file, workbook) {
-  const anth=workbookRows('Anthropométrie');
-  const folds=workbookRows('Plis cutanés');
-  const raw=workbookRows('Tests bruts');
-  const measurementsRows=[];
-  const testRows=[];
-  const playersFound=new Set();
 
-  const rowCount=Math.max(anth.length,folds.length,raw.length);
-  for(let r=4;r<rowCount;r++){
-    const name=anth[r]?.[1] || folds[r]?.[1] || raw[r]?.[1];
-    if(name && !isAggregateName(name)) playersFound.add(String(name));
+function rowMatchesPlayer(value) {
+  if (!value || !player) return false;
+
+  const target = nameKeyOptions(
+    `${player.prenom || ''} ${player.nom || ''}`
+  );
+
+  const candidate = nameKeyOptions(value);
+
+  return target.some(k => candidate.includes(k));
+}
+
+function findPlayerRow(rows) {
+  for (let r = 4; r < rows.length; r++) {
+    const name = rows[r]?.[1];
+
+    if (!name || isAggregateName(name)) continue;
+
+    if (rowMatchesPlayer(name)) {
+      return {
+        index: r,
+        name: String(name).trim()
+      };
+    }
   }
-  for(let r=4;r<rowCount;r++){
-    const name=String(anth[r]?.[1] || folds[r]?.[1] || raw[r]?.[1] || '').trim();
-    if(!name || isAggregateName(name)) continue;
-    const age=num(folds[r]?.[2]);
-    const anthRow=anth[r]||[], foldRow=folds[r]||[];
-    MONTHS.forEach((month,mi)=>{
-      const h=num(anthRow[2+mi]), w=num(anthRow[13+mi]), mgFromAnth=num(anthRow[24+mi]);
-      const fs=3+mi*6;
-      const b=num(foldRow[fs]), tr=num(foldRow[fs+1]), ss=num(foldRow[fs+2]), si=num(foldRow[fs+3]);
-      const sum = num(foldRow[fs+4]) ?? ([b,tr,ss,si].every(v=>v!==null)?b+tr+ss+si:null);
-      let mg=mgFromAnth ?? num(foldRow[fs+5]);
-      if(mg===null && age!==null && sum!==null && sum>0){
-        const d = age >= 20 ? 1.1631 - 0.0632 * Math.log10(sum) : 1.1620 - 0.0630 * Math.log10(sum);
-        mg = (495/d)-450;
-      }
-      if([h,w,mg,b,tr,ss,si,sum].some(v=>v!==null)){
-        measurementsRows.push({
-          name,month_label:month,age_at_measurement:age,height_cm:h,weight_kg:w,body_fat_pct:mg,
-          biceps_mm:b,triceps_mm:tr,subscapular_mm:ss,suprailiac_mm:si,skinfold_sum_4_mm:sum
+
+  return null;
+}
+
+function findPlayerSheet(workbook) {
+  if (!player) return null;
+
+  const wantedLastName = normalizeName(player.nom || '')
+    .replace(/[^a-z0-9]/g, '');
+
+  if (!wantedLastName) return null;
+
+  const sheetNames = workbook?.SheetNames || [];
+
+  return sheetNames.find(sheetName => {
+    const normalized = normalizeName(sheetName)
+      .replace(/[^a-z0-9]/g, '');
+
+    return normalized === wantedLastName;
+  }) || null;
+}
+
+function parsePlayerSheet(workbook) {
+  const sheetName = findPlayerSheet(workbook);
+
+  if (!sheetName) return null;
+
+  const rows = workbookRows(sheetName);
+
+  const result = {
+    sheetName,
+    ratioByStage: {}
+  };
+
+  // Onglet individuel :
+  // ligne 17 = Ratio Shirado / Sorensen
+  // colonnes C/D/E = Pré-saison / Mi-saison / Fin de saison
+  const ratioRow = rows[16] || [];
+
+  STAGES.forEach((s, index) => {
+    result.ratioByStage[s.key] = num(ratioRow[2 + index]);
+  });
+
+  return result;
+}
+
+function parseExcel(file, workbook) {
+  const anth = workbookRows('Anthropométrie');
+  const folds = workbookRows('Plis cutanés');
+  const raw = workbookRows('Tests bruts');
+  const profile = workbookRows('Profil sur 10');
+
+  const anthMatch = findPlayerRow(anth);
+  const foldsMatch = findPlayerRow(folds);
+  const rawMatch = findPlayerRow(raw);
+  const profileMatch = findPlayerRow(profile);
+
+  const playerSheet = parsePlayerSheet(workbook);
+
+  if (!anthMatch && !foldsMatch && !rawMatch && !profileMatch) {
+    throw new Error(
+      `Le joueur « ${`${player.prenom || ''} ${player.nom || ''}`.trim()} » n’a pas été trouvé dans cet Excel.`
+    );
+  }
+
+  const measurementsRows = [];
+  const testRows = [];
+
+  /*
+   * ============================================================
+   * ANTHROPOMÉTRIE + PLIS CUTANÉS
+   * ============================================================
+   *
+   * On lit UNIQUEMENT la ligne correspondant au joueur courant.
+   *
+   * Important :
+   * - aucune masse grasse n'est recalculée ;
+   * - si Excel contient une valeur => on l'importe ;
+   * - si Excel est vide => on conserve null.
+   */
+
+  const anthRow = anthMatch ? (anth[anthMatch.index] || []) : [];
+  const foldRow = foldsMatch ? (folds[foldsMatch.index] || []) : [];
+
+  const age = num(foldRow[2]);
+
+  MONTHS.forEach((month, mi) => {
+    const height = num(anthRow[2 + mi]);
+    const weight = num(anthRow[13 + mi]);
+    const mgFromAnth = num(anthRow[24 + mi]);
+
+    // Plis cutanés :
+    // Août commence colonne D (index 3)
+    // puis 6 colonnes par mois.
+    const fs = 3 + mi * 6;
+
+    const biceps = num(foldRow[fs]);
+    const triceps = num(foldRow[fs + 1]);
+    const subscapular = num(foldRow[fs + 2]);
+    const suprailiac = num(foldRow[fs + 3]);
+    const skinfoldSum = num(foldRow[fs + 4]);
+    const mgFromFolds = num(foldRow[fs + 5]);
+
+    // PRIORITÉ À LA VALEUR DÉJÀ PRÉSENTE DANS EXCEL.
+    const bodyFat = mgFromAnth ?? mgFromFolds;
+
+    if ([
+      height,
+      weight,
+      bodyFat,
+      biceps,
+      triceps,
+      subscapular,
+      suprailiac,
+      skinfoldSum
+    ].some(v => v !== null)) {
+      measurementsRows.push({
+        name: anthMatch?.name || foldsMatch?.name || `${player.prenom || ''} ${player.nom || ''}`.trim(),
+        month_label: month,
+        age_at_measurement: age,
+        height_cm: height,
+        weight_kg: weight,
+        body_fat_pct: bodyFat,
+        biceps_mm: biceps,
+        triceps_mm: triceps,
+        subscapular_mm: subscapular,
+        suprailiac_mm: suprailiac,
+        skinfold_sum_4_mm: skinfoldSum
+      });
+    }
+  });
+
+  /*
+   * ============================================================
+   * TESTS BRUTS
+   * ============================================================
+   *
+   * Les colonnes "505 moyenne" et "Asymétrie" sont déjà calculées
+   * dans Excel : on les reprend directement.
+   */
+
+  const rawRow = rawMatch ? (raw[rawMatch.index] || []) : [];
+
+  STAGES.forEach((s, si) => {
+    const c = 2 + si * 9;
+
+    const sprint10 = num(rawRow[c]);
+    const five05Left = num(rawRow[c + 1]);
+    const five05Right = num(rawRow[c + 2]);
+    const five05Avg = num(rawRow[c + 3]);
+    const five05Asym = num(rawRow[c + 4]);
+    const sprint40 = num(rawRow[c + 5]);
+    const vift = num(rawRow[c + 6]);
+    const shirado = num(rawRow[c + 7]);
+    const sorensen = num(rawRow[c + 8]);
+
+    const ratio = playerSheet?.ratioByStage?.[s.key] ?? null;
+
+    if ([
+      sprint10,
+      five05Left,
+      five05Right,
+      five05Avg,
+      five05Asym,
+      sprint40,
+      vift,
+      shirado,
+      sorensen,
+      ratio
+    ].some(v => v !== null)) {
+      testRows.push({
+        name: rawMatch?.name || `${player.prenom || ''} ${player.nom || ''}`.trim(),
+        stage: s.key,
+
+        sprint10_sec: sprint10,
+        five05_left_sec: five05Left,
+        five05_right_sec: five05Right,
+        five05_avg_sec: five05Avg,
+        five05_asymmetry_pct: five05Asym,
+        sprint40_sec: sprint40,
+        vift_kmh: vift,
+        shirado_sec: shirado,
+        sorensen_sec: sorensen,
+        core_ratio: ratio
+      });
+    }
+  });
+
+  /*
+   * ============================================================
+   * PROFIL /10
+   * ============================================================
+   *
+   * Ces scores existent déjà dans "Profil sur 10".
+   * On les importe tels quels pour alimenter le radar.
+   */
+
+  const profileRow = profileMatch ? (profile[profileMatch.index] || []) : [];
+
+  STAGES.forEach((s, si) => {
+    const c = 2 + si * 5;
+
+    const profileStart = num(profileRow[c]);
+    const profileAgility = num(profileRow[c + 1]);
+    const profileSpeed = num(profileRow[c + 2]);
+    const profileEndurance = num(profileRow[c + 3]);
+    const profileCore = num(profileRow[c + 4]);
+
+    const test = testRows.find(t => t.stage === s.key);
+
+    const hasProfile = [
+      profileStart,
+      profileAgility,
+      profileSpeed,
+      profileEndurance,
+      profileCore
+    ].some(v => v !== null);
+
+    if (hasProfile) {
+      if (test) {
+        test.profile_start = profileStart;
+        test.profile_agility = profileAgility;
+        test.profile_speed = profileSpeed;
+        test.profile_endurance = profileEndurance;
+        test.profile_core = profileCore;
+      } else {
+        testRows.push({
+          name: profileMatch?.name || `${player.prenom || ''} ${player.nom || ''}`.trim(),
+          stage: s.key,
+
+          sprint10_sec: null,
+          five05_left_sec: null,
+          five05_right_sec: null,
+          five05_avg_sec: null,
+          five05_asymmetry_pct: null,
+          sprint40_sec: null,
+          vift_kmh: null,
+          shirado_sec: null,
+          sorensen_sec: null,
+          core_ratio: null,
+
+          profile_start: profileStart,
+          profile_agility: profileAgility,
+          profile_speed: profileSpeed,
+          profile_endurance: profileEndurance,
+          profile_core: profileCore
         });
       }
-    });
+    }
+  });
 
-    const rr=raw[r]||[];
-    STAGES.forEach((s,si)=>{
-      const c=2+si*9;
-      const vals=[
-        num(rr[c]),num(rr[c+1]),num(rr[c+2]),num(rr[c+5]),num(rr[c+6]),num(rr[c+7]),num(rr[c+8])
-      ];
-      if(!vals.some(v=>v!==null)) return;
-      const fiveG=vals[1], fiveD=vals[2];
-      const avg = fiveG!==null && fiveD!==null ? (fiveG+fiveD)/2 : null;
-      const asym = fiveG!==null && fiveD!==null && Math.max(fiveG,fiveD)>0
-        ? Math.abs(fiveG-fiveD)/Math.max(fiveG,fiveD)*100 : null;
-      const shir=vals[5], sor=vals[6];
-      testRows.push({
-        name, stage:s.key,
-        sprint10_sec:vals[0], five05_left_sec:fiveG, five05_right_sec:fiveD,
-        five05_avg_sec:avg, five05_asymmetry_pct:asym,
-        sprint40_sec:vals[3], vift_kmh:vals[4],
-        shirado_sec:shir, sorensen_sec:sor,
-        core_ratio:shir!==null && sor!==null && sor>0 ? shir/sor : null
-      });
-    });
-  }
   return {
-    fileName:file.name,
-    sourceFile:file.name,
-    measurements:measurementsRows,
-    tests:testRows,
-    names:[...playersFound]
+    fileName: file.name,
+    sourceFile: file.name,
+
+    targetPlayerId: player.id,
+
+    targetName: `${player.prenom || ''} ${player.nom || ''}`.trim(),
+
+    excelNames: [
+      anthMatch?.name,
+      foldsMatch?.name,
+      rawMatch?.name,
+      profileMatch?.name
+    ].filter(Boolean),
+
+    measurements: measurementsRows,
+    tests: testRows,
+
+    individualSheet: playerSheet?.sheetName || null
   };
 }
 
-function resolvePlayer(name, roster) {
-  const keys=nameKeyOptions(name);
-  return roster.find(p => {
-    const opts=nameKeyOptions(`${p.prenom||''} ${p.nom||''}`);
-    return keys.some(k=>opts.includes(k));
-  }) || null;
-}
-function renderImportSummary(data, roster) {
-  importState.rows=data;
-  const mappings={};
-  const unresolved=[];
-  data.names.forEach(name=>{
-    const found=resolvePlayer(name,roster);
-    if(found) mappings[name]=found.id; else unresolved.push(name);
-  });
-  importState.mappings=mappings;
-  importState.unresolved=unresolved;
+function renderImportSummary(data) {
+  importState.rows = data;
+  importState.mappings = {
+    [data.targetName]: player.id
+  };
+  importState.unresolved = [];
+
+  const stagesWithTests = data.tests.filter(t =>
+    [
+      t.sprint10_sec,
+      t.five05_left_sec,
+      t.five05_right_sec,
+      t.five05_avg_sec,
+      t.five05_asymmetry_pct,
+      t.sprint40_sec,
+      t.vift_kmh,
+      t.shirado_sec,
+      t.sorensen_sec,
+      t.profile_start,
+      t.profile_agility,
+      t.profile_speed,
+      t.profile_endurance,
+      t.profile_core
+    ].some(v => v !== null)
+  ).length;
+
   document.getElementById('importSummary').innerHTML = `
-    <div><strong>${data.measurements.length}</strong> mesures physiques détectées</div>
-    <div><strong>${data.tests.length}</strong> sessions de tests détectées</div>
-    <div><strong>${data.names.length}</strong> joueurs détectés · <strong>${unresolved.length}</strong> correspondance(s) à confirmer</div>`;
-  const mapBox=document.getElementById('mappingBox');
-  if(!unresolved.length){
-    mapBox.innerHTML='<div class="mapping-ok">Toutes les correspondances joueurs ont été trouvées automatiquement.</div>';
-    document.getElementById('btnConfirmImport').disabled=false;
-    return;
-  }
-  mapBox.innerHTML = unresolved.map((name,i)=>`
-    <div class="mapping-row">
-      <span>${esc(name)}</span>
-      <select data-map-name="${esc(name)}">
-        <option value="">— Choisir la fiche —</option>
-        ${roster.map(p=>`<option value="${p.id}">${esc(`${p.prenom||''} ${p.nom||''}`.trim())}${p.numero!=null?` #${p.numero}`:''}</option>`).join('')}
-      </select>
-    </div>`).join('');
-  mapBox.querySelectorAll('select').forEach(sel=>sel.addEventListener('change',e=>{
-    importState.mappings[e.target.dataset.mapName]=Number(e.target.value)||null;
-    const allResolved=importState.unresolved.every(n=>importState.mappings[n]);
-    document.getElementById('btnConfirmImport').disabled=!allResolved;
-  }));
-  document.getElementById('btnConfirmImport').disabled=true;
+    <div>
+      <strong>${data.measurements.length}</strong>
+      mesures physiques détectées
+    </div>
+
+    <div>
+      <strong>${stagesWithTests}</strong>
+      sessions de tests détectées
+    </div>
+
+    <div>
+      Joueur ciblé :
+      <strong>${esc(data.targetName)}</strong>
+    </div>
+  `;
+
+  const mapBox = document.getElementById('mappingBox');
+
+  const excelNames = [...new Set(data.excelNames)];
+
+  mapBox.innerHTML = `
+    <div class="mapping-ok">
+      <strong>Import ciblé sur ${esc(data.targetName)}</strong><br>
+      Les données des autres joueurs de l'Excel ne seront pas importées.
+      ${excelNames.length
+        ? `<br><span class="text-muted">Nom(s) trouvé(s) dans Excel : ${excelNames.map(esc).join(' · ')}</span>`
+        : ''
+      }
+      ${data.individualSheet
+        ? `<br><span class="text-muted">Onglet individuel utilisé : ${esc(data.individualSheet)}</span>`
+        : ''
+      }
+    </div>
+  `;
+
+  document.getElementById('btnConfirmImport').disabled =
+    !data.measurements.length && !data.tests.length;
 }
 
 async function startExcelImport(file) {
-  if(!file || !canEditPerformance) return;
-  try{
-    const buf=await file.arrayBuffer();
-    const wbX=XLSX.read(buf,{type:'array',cellDates:true});
-    importState.workbook=wbX;
-    const data=parseExcel(file,wbX);
-    const {data:roster,error}=await sb.from('players').select('id,nom,prenom,numero').order('nom');
-    if(error) throw error;
-    renderImportSummary(data,roster||[]);
-  }catch(e){
-    notify(`Lecture Excel impossible : ${e.message}`,'error');
+  if (!file || !canEditPerformance) return;
+
+  try {
+    const buf = await file.arrayBuffer();
+
+    const wbX = XLSX.read(buf, {
+      type: 'array',
+      cellDates: true
+    });
+
+    importState.workbook = wbX;
+
+    const data = parseExcel(file, wbX);
+
+    renderImportSummary(data);
+
+  } catch (e) {
+    document.getElementById('btnConfirmImport').disabled = true;
+
+    notify(`Lecture Excel impossible : ${e.message}`, 'error');
   }
 }
 
 async function confirmExcelImport() {
-  if(!importState.rows || !canEditPerformance) return;
-  const {measurements:mRows,tests:tRows,fileName}=importState.rows;
-  const source=fileName;
-  const clubId=player.club_id;
-  const userId=ctxProfile.id;
+  if (!importState.rows || !canEditPerformance) return;
 
-  const mPayload=mRows.map(r=>({
-    club_id:clubId,player_id:importState.mappings[r.name],month_label:r.month_label,
-    season_key:source,age_at_measurement:r.age_at_measurement,height_cm:r.height_cm,
-    weight_kg:r.weight_kg,body_fat_pct:r.body_fat_pct,biceps_mm:r.biceps_mm,
-    triceps_mm:r.triceps_mm,subscapular_mm:r.subscapular_mm,suprailiac_mm:r.suprailiac_mm,
-    skinfold_sum_4_mm:r.skinfold_sum_4_mm,source:'import_excel',source_file_name:source,
-    source_sheet:'Anthropométrie + Plis cutanés',created_by:userId
-  })).filter(r=>r.player_id);
-  const tPayload=tRows.map(r=>({
-    club_id:clubId,player_id:importState.mappings[r.name],stage:r.stage,
-    sprint10_sec:r.sprint10_sec,five05_left_sec:r.five05_left_sec,five05_right_sec:r.five05_right_sec,
-    five05_avg_sec:r.five05_avg_sec,five05_asymmetry_pct:r.five05_asymmetry_pct,
-    sprint40_sec:r.sprint40_sec,vift_kmh:r.vift_kmh,shirado_sec:r.shirado_sec,sorensen_sec:r.sorensen_sec,
-    core_ratio:r.core_ratio,source:'import_excel',source_file_name:source,
-    source_sheet:'Tests bruts',created_by:userId
-  })).filter(r=>r.player_id);
+  const {
+    measurements: mRows,
+    tests: tRows,
+    fileName
+  } = importState.rows;
 
-  try{
-    if(mPayload.length){
-      const mr=await sb.from('player_physical_measurements').upsert(mPayload,{onConflict:'club_id,player_id,month_label,source_file_name'});
-      if(mr.error) throw mr.error;
+  const source = fileName;
+  const clubId = player.club_id;
+  const userId = ctxProfile.id;
+
+  const mPayload = mRows.map(r => ({
+    club_id: clubId,
+    player_id: player.id,
+    month_label: r.month_label,
+
+    season_key: source,
+    age_at_measurement: r.age_at_measurement,
+
+    height_cm: r.height_cm,
+    weight_kg: r.weight_kg,
+    body_fat_pct: r.body_fat_pct,
+
+    biceps_mm: r.biceps_mm,
+    triceps_mm: r.triceps_mm,
+    subscapular_mm: r.subscapular_mm,
+    suprailiac_mm: r.suprailiac_mm,
+    skinfold_sum_4_mm: r.skinfold_sum_4_mm,
+
+    source: 'import_excel',
+    source_file_name: source,
+    source_sheet: 'Anthropométrie + Plis cutanés',
+    created_by: userId
+  }));
+
+  const tPayload = tRows.map(r => ({
+    club_id: clubId,
+    player_id: player.id,
+    stage: r.stage,
+
+    sprint10_sec: r.sprint10_sec,
+    five05_left_sec: r.five05_left_sec,
+    five05_right_sec: r.five05_right_sec,
+    five05_avg_sec: r.five05_avg_sec,
+    five05_asymmetry_pct: r.five05_asymmetry_pct,
+
+    sprint40_sec: r.sprint40_sec,
+    vift_kmh: r.vift_kmh,
+    shirado_sec: r.shirado_sec,
+    sorensen_sec: r.sorensen_sec,
+    core_ratio: r.core_ratio,
+
+    profile_start: r.profile_start ?? null,
+    profile_agility: r.profile_agility ?? null,
+    profile_speed: r.profile_speed ?? null,
+    profile_endurance: r.profile_endurance ?? null,
+    profile_core: r.profile_core ?? null,
+
+    source: 'import_excel',
+    source_file_name: source,
+    source_sheet: 'Tests bruts + Profil sur 10',
+    created_by: userId
+  }));
+
+  try {
+    if (mPayload.length) {
+      const mr = await sb
+        .from('player_physical_measurements')
+        .upsert(
+          mPayload,
+          {
+            onConflict: 'club_id,player_id,month_label,source_file_name'
+          }
+        );
+
+      if (mr.error) throw mr.error;
     }
-    if(tPayload.length){
-      const tr=await sb.from('player_physical_tests').upsert(tPayload,{onConflict:'club_id,player_id,stage,source_file_name'});
-      if(tr.error) throw tr.error;
+
+    if (tPayload.length) {
+      const tr = await sb
+        .from('player_physical_tests')
+        .upsert(
+          tPayload,
+          {
+            onConflict: 'club_id,player_id,stage,source_file_name'
+          }
+        );
+
+      if (tr.error) throw tr.error;
     }
+
     closePerfModal('importModal');
-    notify(`Import terminé : ${mPayload.length} mesures et ${tPayload.length} sessions de tests. Le radar a été recalculé.`, 'success');
-    importState={rows:null,fileName:'',mappings:{},unresolved:[]};
-    document.getElementById('excelFile').value='';
+
+    notify(
+      `Import terminé pour ${`${player.prenom || ''} ${player.nom || ''}`.trim()} : ${mPayload.length} mesures et ${tPayload.length} sessions de tests.`,
+      'success'
+    );
+
+    importState = {
+      rows: null,
+      fileName: '',
+      mappings: {},
+      unresolved: []
+    };
+
+    document.getElementById('excelFile').value = '';
+
     await reloadData();
-  }catch(e){
-    notify(`Import non effectué : ${e.message}`,'error');
+
+  } catch (e) {
+    notify(`Import non effectué : ${e.message}`, 'error');
   }
 }
 
