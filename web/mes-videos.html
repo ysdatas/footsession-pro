@@ -16,7 +16,10 @@
       <h1 id="pvTitle">Mes vidéos</h1>
       <p class="subtitle" id="pvSub">Chargement…</p>
     </div>
-    <a class="btn" href="#" id="logoutLink">Déconnexion</a>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <a class="btn" href="#" id="performanceLink">Performance</a>
+      <a class="btn" href="#" id="logoutLink">Déconnexion</a>
+    </div>
   </div>
 
   <div id="pvContent"><div class="empty">Chargement…</div></div>
@@ -35,6 +38,9 @@
     const { data: player, error: pErr } = await sb.from('players').select('id, nom, prenom')
       .eq('auth_user_id', session.user.id).maybeSingle();
     if (pErr || !player) { window.location.href = 'player-join.html'; return; }
+
+    document.getElementById('performanceLink').href =
+      `player-performance.html?id=${player.id}`;
 
     document.getElementById('logoutLink').addEventListener('click', async (e) => {
       e.preventDefault();
