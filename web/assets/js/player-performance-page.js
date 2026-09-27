@@ -446,45 +446,77 @@ function isAggregateName(name) {
 function rowMatchesPlayer(value) {
   if (!value || !player) return false;
 
-  const target = nameKeyOptions(
-    `${player.prenom || ''} ${player.nom || ''}`
-  );
+  const firstName = normalizeName(player.prenom || '');
+  const lastName = normalizeName(player.nom || '');
 
-  const candidate = nameKeyOptions(value);
+  if (!lastName) return false;
 
-  return target.some(k => candidate.includes(k));
+  const candidate = normalizeName(value);
+  if (!candidate) return false;
+
+  const parts = candidate.split(' ').filter(Boolean);
+
+  return parts.includes(lastName) &&
+    (!firstName || parts.includes(firstName) || parts.includes(lastName));
 }
 
 function findPlayerRow(rows) {
+  if (!player) return null;
+
+  const firstName = normalizeName(player.prenom || '');
+  const lastName = normalizeName(player.nom || '');
+
+  if (!lastName) return null;
+
+  let surnameOnlyMatch = null;
+
   for (let r = 4; r < rows.length; r++) {
     const row = rows[r] || [];
 
-    // Cherche le joueur dans toutes les cellules de la ligne.
-    // On ignore les valeurs purement numériques (ex. 1.77, 64.5, etc.).
-    for (let c = 0; c < row.length; c++) {
-      const value = row[c];
+    let hasLastName = false;
+    let hasFirstName = false;
+    let matchedText = '';
 
+    for (const value of row) {
       if (value === null || value === undefined) continue;
 
       const text = String(value).trim();
-
       if (!text) continue;
 
-      // Une cellule contenant uniquement un nombre ne peut pas être un nom.
       if (/^[+-]?\d+(?:[.,]\d+)?$/.test(text)) continue;
-
       if (isAggregateName(text)) continue;
 
-      if (rowMatchesPlayer(text)) {
-        return {
-          index: r,
-          name: text
-        };
+      const normalized = normalizeName(text);
+      const parts = normalized.split(' ').filter(Boolean);
+
+      if (parts.includes(lastName)) {
+        hasLastName = true;
+        if (!matchedText) matchedText = text;
       }
+
+      if (firstName && parts.includes(firstName)) {
+        hasFirstName = true;
+      }
+    }
+
+    if (!hasLastName) continue;
+
+    if (hasFirstName) {
+      return {
+        index: r,
+        name: matchedText || `${player.prenom || ''} ${player.nom || ''}`.trim()
+      };
+    }
+
+    if (!surnameOnlyMatch) {
+      surnameOnlyMatch = {
+        index: r,
+        name: matchedText || String(player.nom || '').trim()
+      };
     }
   }
 
-  return null;
+  return surnameOnlyMatch;
 }
 
 function findPlayerSheet(workbook) {
