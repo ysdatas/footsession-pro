@@ -457,15 +457,30 @@ function rowMatchesPlayer(value) {
 
 function findPlayerRow(rows) {
   for (let r = 4; r < rows.length; r++) {
-    const name = rows[r]?.[1];
+    const row = rows[r] || [];
 
-    if (!name || isAggregateName(name)) continue;
+    // Cherche le joueur dans toutes les cellules de la ligne.
+    // On ignore les valeurs purement numériques (ex. 1.77, 64.5, etc.).
+    for (let c = 0; c < row.length; c++) {
+      const value = row[c];
 
-    if (rowMatchesPlayer(name)) {
-      return {
-        index: r,
-        name: String(name).trim()
-      };
+      if (value === null || value === undefined) continue;
+
+      const text = String(value).trim();
+
+      if (!text) continue;
+
+      // Une cellule contenant uniquement un nombre ne peut pas être un nom.
+      if (/^[+-]?\d+(?:[.,]\d+)?$/.test(text)) continue;
+
+      if (isAggregateName(text)) continue;
+
+      if (rowMatchesPlayer(text)) {
+        return {
+          index: r,
+          name: text
+        };
+      }
     }
   }
 
