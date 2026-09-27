@@ -1027,7 +1027,9 @@ document.getElementById('btnImportExcel').addEventListener('click',()=>openPerfM
 document.getElementById('excelFile').addEventListener('change',e=>startExcelImport(e.target.files[0]));
 document.getElementById('btnConfirmImport').addEventListener('click',confirmExcelImport);
 
-loadPage();
+loadPage()
+  .then(() => initFmPerformanceUpgrade())
+  .catch(e => console.error('FM performance upgrade:', e));
 
 /* ============================================================
    FootSession Pro — upgrade visuel FM + sélection vidéos joueur

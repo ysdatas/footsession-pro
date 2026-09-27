@@ -97,6 +97,24 @@ async function loadVideos() {
     const { data: videos, error } = await query;
     if (error) throw error;
 
+    let validatedSelections = new Set();
+
+    try {
+      const selectionRes = await sb
+        .from('player_video_selections')
+        .select('video_id')
+        .eq('selected', true)
+        .not('validated_at', 'is', null);
+
+      if (!selectionRes.error) {
+        validatedSelections = new Set(
+          (selectionRes.data || []).map(row => Number(row.video_id))
+        );
+      }
+    } catch (_) {
+      validatedSelections = new Set();
+    }
+
     const count = videos.length;
     document.getElementById('videosSub').textContent =
       `${count} vidéo${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''}`;
@@ -121,7 +139,13 @@ async function loadVideos() {
       const nom = escapeHtml(`${v.players?.prenom || ''} ${v.players?.nom || ''}`.trim());
 
       return `<tr data-id="${v.id}">
-        <td><strong>${escapeHtml(v.titre)}</strong><br><span class="text-muted" style="font-size:.78rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span></td>
+        <td>
+          <strong>${escapeHtml(v.titre)}</strong>
+          ${validatedSelections.has(Number(v.id))
+            ? '<br><span class="badge badge-gold" style="margin-top:4px;display:inline-flex;">✓ Sélection joueur</span>'
+            : ''}
+          <br><span class="text-muted" style="font-size:.78rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
+        </td>
         <td>${nom}</td>
         ${CAN_VIEW_VIDEO_STATS ? `
         <td><span class="badge ${vu ? 'badge-success' : ''}">${vu ? 'Vue' : 'Non vue'}</span></td>
