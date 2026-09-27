@@ -1028,3 +1028,602 @@ document.getElementById('excelFile').addEventListener('change',e=>startExcelImpo
 document.getElementById('btnConfirmImport').addEventListener('click',confirmExcelImport);
 
 loadPage();
+
+/* ============================================================
+   FootSession Pro — upgrade visuel FM + sélection vidéos joueur
+   ============================================================ */
+
+let fpFmVideos = [];
+let fpFmSelections = new Map();
+let fpFmFilter = 'all';
+
+function fpFmEnsureStyle() {
+  if (document.querySelector('link[data-player-performance-fm]')) return;
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'assets/css/player-performance-fm.css';
+  link.dataset.playerPerformanceFm = '1';
+  document.head.appendChild(link);
+}
+
+function fpFmCategory(video) {
+  const text = normalizeName(`${video?.titre || ''} ${video?.description || ''}`);
+
+  if (/(but|buts|goal|goals|finition|frappe|tir)/.test(text)) return 'buts';
+  if (/(pass|passe|passes|assist|assistance)/.test(text)) return 'passes';
+  if (/(defens|defense|tacle|intercept|duel|pressing)/.test(text)) return 'defense';
+  return 'travail';
+}
+
+function fpFmCategoryLabel(key) {
+  return {
+    all: 'Toutes',
+    buts: 'Buts',
+    passes: 'Passes',
+    defense: 'Actions défensives',
+    travail: 'Séquences à travailler',
+    selection: 'Ma sélection'
+  }[key] || 'Toutes';
+}
+
+function fpFmDate(value) {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleDateString('fr-FR');
+  } catch {
+    return '—';
+  }
+}
+
+function fpFmDuration(sec) {
+  const n = Number(sec || 0);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  const m = Math.floor(n / 60);
+  const s = Math.floor(n % 60);
+  return m ? `${m}:${String(s).padStart(2, '0')}` : `0:${String(s).padStart(2, '0')}`;
+}
+
+function fpFmSelected(videoId) {
+  return fpFmSelections.get(Number(videoId))?.selected === true;
+}
+
+function fpFmValidated(videoId) {
+  return !!fpFmSelections.get(Number(videoId))?.validated_at &&
+    fpFmSelections.get(Number(videoId))?.selected === true;
+}
+
+function fpFmCounts() {
+  const counts = {
+    all: fpFmVideos.length,
+    buts: 0,
+    passes: 0,
+    defense: 0,
+    travail: 0,
+    selection: 0
+  };
+
+  fpFmVideos.forEach(video => {
+    const cat = fpFmCategory(video);
+    counts[cat] += 1;
+
+    const isSelectedForPlayer =
+      ctxProfile?.role === 'joueur'
+        ? fpFmSelected(video.id)
+        : fpFmValidated(video.id);
+
+    if (isSelectedForPlayer) counts.selection += 1;
+  });
+
+  return counts;
+}
+
+function fpFmPositionPercent() {
+  const poste = normalizeName(player?.poste || '');
+
+  if (/gardien|goalkeeper/.test(poste)) return { x: 50, y: 88 };
+  if (/defenseur|defensif|defenseur central|lateral/.test(poste)) return { x: 50, y: 70 };
+  if (/milieu/.test(poste)) return { x: 50, y: 52 };
+  if (/ailier|extreme/.test(poste)) return { x: 25, y: 38 };
+  if (/attaquant|buteur/.test(poste)) return { x: 50, y: 20 };
+
+  return { x: 50, y: 50 };
+}
+
+function fpFmBuildSidebar() {
+  const dash = document.querySelector('.dash-grid');
+  if (!dash || document.getElementById('fpFmShell')) return;
+
+  const shell = document.createElement('div');
+  shell.id = 'fpFmShell';
+  shell.className = 'fp-fm-shell';
+
+  const sidebar = document.createElement('aside');
+  sidebar.className = 'fp-fm-sidebar';
+
+  const fullName = `${player?.prenom || ''} ${player?.nom || ''}`.trim() || 'Joueur';
+  const poste = player?.poste || 'Poste non renseigné';
+  const number = player?.numero != null ? `#${player.numero}` : '—';
+  const photo = document.getElementById('playerPhoto')?.src || '';
+  const initials = document.getElementById('playerInitials')?.textContent || '??';
+  const position = fpFmPositionPercent();
+
+  sidebar.innerHTML = `
+    <div class="fp-fm-side-player">
+      ${
+        photo && !photo.endsWith('/')
+          ? `<img class="fp-fm-side-photo" src="${esc(photo)}" alt="${esc(fullName)}">`
+          : `<div class="fp-fm-side-initials">${esc(initials)}</div>`
+      }
+      <div class="fp-fm-side-name">${esc(fullName)}</div>
+      <div class="fp-fm-side-meta">${esc(poste)} · ${esc(number)}</div>
+    </div>
+
+    <div class="fp-fm-side-block">
+      <div class="fp-fm-side-title">Poste</div>
+      <div class="fp-mini-pitch">
+        <span
+          class="fp-mini-pitch-dot"
+          style="left:${position.x}%;top:${position.y}%"
+          aria-hidden="true"></span>
+      </div>
+      <div class="fp-fm-side-meta" style="margin-top:8px;text-align:center;">
+        ${esc(poste)}
+      </div>
+    </div>
+
+    <div class="fp-fm-side-block">
+      <div class="fp-fm-side-title">Informations</div>
+      <div class="fp-fm-info-row">
+        <span>Numéro</span><strong>${esc(number)}</strong>
+      </div>
+      <div class="fp-fm-info-row">
+        <span>Rôle</span><strong>${ctxProfile?.role === 'joueur' ? 'Joueur' : 'Staff'}</strong>
+      </div>
+      <div class="fp-fm-info-row">
+        <span>Accès vidéos</span><strong>${fpFmVideos.length}</strong>
+      </div>
+    </div>
+
+    <div class="fp-fm-side-block">
+      <div class="fp-fm-side-title">Accès rapide</div>
+      <div class="fp-fm-quick">
+        <a href="#radarWrap">
+          <span>Performance</span><strong>→</strong>
+        </a>
+        <a href="#fpVideoSelectionPanel">
+          <span>Vidéos</span><strong>→</strong>
+        </a>
+        ${
+          document.getElementById('videoPlayerLink')
+            ? `<a href="${esc(document.getElementById('videoPlayerLink').href)}">
+                 <span>Bibliothèque vidéos</span><strong>→</strong>
+               </a>`
+            : ''
+        }
+      </div>
+    </div>
+  `;
+
+  dash.parentNode.insertBefore(shell, dash);
+  shell.appendChild(sidebar);
+  shell.appendChild(dash);
+}
+
+function fpFmEnhanceCards() {
+  const radarCard = document.getElementById('radarWrap')?.closest('.card');
+  const testCard = document.getElementById('testSummary')?.closest('.card');
+  const measurementCard = document.getElementById('measurementHistory')?.closest('.card');
+
+  radarCard?.classList.add('fp-fm-radar-card');
+  testCard?.classList.add('fp-fm-tests-card');
+  measurementCard?.classList.add('fp-fm-history-card');
+}
+
+async function fpFmLoadVideos() {
+  if (!player?.id) return;
+
+  const panel = document.getElementById('fpVideoSelectionPanel');
+  if (panel) {
+    panel.innerHTML = `<div class="fp-video-empty">Chargement des séquences…</div>`;
+  }
+
+  const [videoRes, selectionRes] = await Promise.all([
+    sb.from('player_videos')
+      .select('id,titre,description,storage_path,duree_sec,created_at')
+      .eq('player_id', player.id)
+      .order('created_at', { ascending: true }),
+
+    sb.from('player_video_selections')
+      .select('video_id,selected,validated_at,updated_at')
+      .eq('player_id', player.id)
+  ]);
+
+  if (videoRes.error) {
+    throw videoRes.error;
+  }
+
+  if (selectionRes.error) {
+    if (panel) {
+      panel.innerHTML = `
+        <div class="fp-video-migration">
+          Le système de sélection vidéo n'est pas encore activé côté Supabase.<br>
+          Exécute <strong>supabase/player_video_selections.sql</strong> dans le SQL Editor Supabase.
+        </div>
+      `;
+    }
+    fpFmVideos = [];
+    fpFmSelections = new Map();
+    return;
+  }
+
+  const signedVideos = await Promise.all(
+    (videoRes.data || []).map(async video => {
+      const { data, error } =
+        await sb.storage.from('player-videos').createSignedUrl(video.storage_path, 3600);
+
+      return {
+        ...video,
+        category: fpFmCategory(video),
+        signed_url: error ? '' : (data?.signedUrl || '')
+      };
+    })
+  );
+
+  fpFmVideos = signedVideos;
+  fpFmSelections = new Map(
+    (selectionRes.data || []).map(row => [Number(row.video_id), row])
+  );
+
+  fpFmRenderVideoPanel();
+}
+
+function fpFmMatchesFilter(video) {
+  if (fpFmFilter === 'all') return true;
+
+  if (fpFmFilter === 'selection') {
+    return ctxProfile?.role === 'joueur'
+      ? fpFmSelected(video.id)
+      : fpFmValidated(video.id);
+  }
+
+  return fpFmCategory(video) === fpFmFilter;
+}
+
+function fpFmRenderVideoPanel() {
+  const panel = document.getElementById('fpVideoSelectionPanel');
+  if (!panel) return;
+
+  const counts = fpFmCounts();
+  const isPlayer = ctxProfile?.role === 'joueur';
+
+  const selectedCount = fpFmVideos.filter(video =>
+    isPlayer ? fpFmSelected(video.id) : fpFmValidated(video.id)
+  ).length;
+
+  const validatedCount = fpFmVideos.filter(video => fpFmValidated(video.id)).length;
+
+  const buttons = [
+    ['all', `Toutes (${counts.all})`],
+    ['buts', `Buts (${counts.buts})`],
+    ['passes', `Passes (${counts.passes})`],
+    ['defense', `Actions défensives (${counts.defense})`],
+    ['travail', `Séquences à travailler (${counts.travail})`],
+    ['selection', `${isPlayer ? 'Ma sélection' : 'Sélection joueur'} (${counts.selection})`]
+  ];
+
+  const filtered = fpFmVideos.filter(fpFmMatchesFilter);
+
+  panel.innerHTML = `
+    <div class="fp-video-head">
+      <div class="fp-video-title">
+        <h2>Vidéos du joueur</h2>
+        <p>
+          ${
+            isPlayer
+              ? 'Sélectionne les séquences que tu souhaites travailler avec ton staff.'
+              : 'Séquences mises à disposition et choix validés par le joueur.'
+          }
+        </p>
+      </div>
+
+      <div class="fp-video-actions">
+        <div class="fp-video-status">
+          ${isPlayer
+            ? `${selectedCount} sélectionnée${selectedCount > 1 ? 's' : ''}`
+            : `${validatedCount} validée${validatedCount > 1 ? 's' : ''} par le joueur`}
+        </div>
+
+        ${
+          isPlayer
+            ? `<button
+                 id="fpValidateVideoSelection"
+                 class="fp-video-validate"
+                 type="button"
+                 ${selectedCount ? '' : 'disabled'}>
+                 Valider ma sélection (${selectedCount})
+               </button>`
+            : ''
+        }
+      </div>
+    </div>
+
+    <div class="fp-video-filters">
+      ${buttons.map(([key, label]) => `
+        <button
+          type="button"
+          class="fp-filter-btn ${fpFmFilter === key ? 'active' : ''}"
+          data-fp-video-filter="${key}">
+          ${esc(label)}
+        </button>
+      `).join('')}
+    </div>
+
+    ${
+      filtered.length
+        ? `<div class="fp-video-grid">
+            ${filtered.map((video, index) => {
+              const selected = fpFmSelected(video.id);
+              const validated = fpFmValidated(video.id);
+              const catLabel = fpFmCategoryLabel(fpFmCategory(video));
+
+              return `
+                <article class="fp-video-card ${selected && isPlayer ? 'selected' : ''} ${validated ? 'validated' : ''}">
+                  ${
+                    isPlayer
+                      ? `<label class="fp-video-check" title="Sélectionner cette vidéo">
+                           <input
+                             type="checkbox"
+                             class="fp-video-checkbox"
+                             data-video-id="${video.id}"
+                             ${selected ? 'checked' : ''}>
+                         </label>`
+                      : validated
+                        ? `<div class="fp-video-selected-badge">✓ SÉLECTIONNÉE</div>`
+                        : ''
+                  }
+
+                  <div class="fp-video-media">
+                    ${
+                      video.signed_url
+                        ? `<video
+                             preload="metadata"
+                             muted
+                             playsinline
+                             src="${esc(video.signed_url)}">
+                           </video>`
+                        : `<div class="fp-video-empty" style="height:100%;display:grid;place-items:center;">
+                             Vidéo indisponible
+                           </div>`
+                    }
+
+                    ${
+                      video.signed_url
+                        ? `<button
+                             type="button"
+                             class="fp-video-play"
+                             data-video-play="${video.id}"
+                             aria-label="Lire la vidéo">▶</button>`
+                        : ''
+                    }
+
+                    ${
+                      video.duree_sec
+                        ? `<span class="fp-video-duration">${fpFmDuration(video.duree_sec)}</span>`
+                        : ''
+                    }
+                  </div>
+
+                  <div class="fp-video-body">
+                    <h3>#${index + 1} · ${esc(video.titre || 'Séquence')}</h3>
+                    <div class="fp-video-meta">
+                      <span>${esc(catLabel)}</span>
+                      <span>${esc(fpFmDate(video.created_at))}</span>
+                    </div>
+
+                    ${
+                      !isPlayer && validated
+                        ? `<div class="fp-video-staff-selected">
+                             À travailler en séance
+                           </div>`
+                        : ''
+                    }
+                  </div>
+                </article>
+              `;
+            }).join('')}
+          </div>`
+        : `<div class="fp-video-empty">
+             Aucune vidéo dans cette catégorie.
+           </div>`
+    }
+  `;
+
+  panel.querySelectorAll('[data-fp-video-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      fpFmFilter = btn.dataset.fpVideoFilter || 'all';
+      fpFmRenderVideoPanel();
+    });
+  });
+
+  panel.querySelectorAll('.fp-video-checkbox').forEach(input => {
+    input.addEventListener('change', async event => {
+      event.stopPropagation();
+      await fpFmSetSelection(
+        Number(input.dataset.videoId),
+        input.checked
+      );
+    });
+  });
+
+  panel.querySelectorAll('[data-video-play]').forEach(button => {
+    button.addEventListener('click', () => {
+      const card = button.closest('.fp-video-card');
+      const video = card?.querySelector('video');
+      if (!video) return;
+
+      if (video.paused) {
+        panel.querySelectorAll('video').forEach(v => {
+          if (v !== video) v.pause();
+        });
+        video.play().catch(() => {});
+        button.textContent = '❚❚';
+      } else {
+        video.pause();
+        button.textContent = '▶';
+      }
+    });
+  });
+
+  const validate = document.getElementById('fpValidateVideoSelection');
+  if (validate) {
+    validate.addEventListener('click', fpFmValidateSelection);
+  }
+}
+
+async function fpFmSetSelection(videoId, selected) {
+  const video = fpFmVideos.find(v => Number(v.id) === Number(videoId));
+  if (!video || !player?.id || ctxProfile?.role !== 'joueur') return;
+
+  const previous = fpFmSelections.get(Number(videoId));
+
+  fpFmSelections.set(Number(videoId), {
+    ...(previous || {}),
+    video_id: videoId,
+    selected,
+    validated_at: null
+  });
+
+  fpFmRenderVideoPanel();
+
+  const { data: userData } = await sb.auth.getUser();
+
+  const payload = {
+    club_id: player.club_id,
+    player_id: player.id,
+    video_id: videoId,
+    selected,
+    validated_at: null,
+    updated_at: new Date().toISOString()
+  };
+
+  const { data, error } =
+    await sb.from('player_video_selections')
+      .upsert(payload, { onConflict: 'player_id,video_id' })
+      .select('video_id,selected,validated_at,updated_at')
+      .single();
+
+  if (error) {
+    if (previous) {
+      fpFmSelections.set(Number(videoId), previous);
+    } else {
+      fpFmSelections.delete(Number(videoId));
+    }
+
+    fpFmRenderVideoPanel();
+    notify(error.message, 'error');
+    return;
+  }
+
+  if (data) {
+    fpFmSelections.set(Number(videoId), data);
+    fpFmRenderVideoPanel();
+  }
+
+  void userData;
+}
+
+async function fpFmValidateSelection() {
+  if (ctxProfile?.role !== 'joueur' || !player?.id) return;
+
+  const selectedVideos = fpFmVideos.filter(video => fpFmSelected(video.id));
+
+  if (!selectedVideos.length) {
+    notify('Sélectionne au moins une vidéo.', 'error');
+    return;
+  }
+
+  const validatedAt = new Date().toISOString();
+
+  const payload = fpFmVideos.map(video => ({
+    club_id: player.club_id,
+    player_id: player.id,
+    video_id: video.id,
+    selected: fpFmSelected(video.id),
+    validated_at: fpFmSelected(video.id) ? validatedAt : null,
+    updated_at: validatedAt
+  }));
+
+  const { error } =
+    await sb.from('player_video_selections')
+      .upsert(payload, { onConflict: 'player_id,video_id' });
+
+  if (error) {
+    notify(error.message, 'error');
+    return;
+  }
+
+  payload.forEach(row => {
+    fpFmSelections.set(Number(row.video_id), row);
+  });
+
+  notify(
+    `${selectedVideos.length} séquence${selectedVideos.length > 1 ? 's' : ''} envoyée${selectedVideos.length > 1 ? 's' : ''} au staff.`,
+    'success'
+  );
+
+  fpFmRenderVideoPanel();
+}
+
+function fpFmMountVideoPanel() {
+  if (document.getElementById('fpVideoSelectionPanel')) return;
+
+  const panel = document.createElement('section');
+  panel.id = 'fpVideoSelectionPanel';
+  panel.className = 'card fp-video-panel';
+
+  const anchor =
+    document.getElementById('strengthList')?.closest('.card') ||
+    document.getElementById('improvementList')?.closest('.card') ||
+    document.querySelector('.main .card:last-of-type');
+
+  if (anchor?.parentNode) {
+    anchor.parentNode.insertBefore(panel, anchor);
+  } else {
+    const root = document.querySelector('.main') || document.querySelector('main') || document.body;
+    root.appendChild(panel);
+  }
+
+  panel.innerHTML = `<div class="fp-video-empty">Chargement des vidéos…</div>`;
+}
+
+async function initFmPerformanceUpgrade() {
+  fpFmEnsureStyle();
+  document.body.classList.add('fp-fm-page');
+
+  fpFmBuildSidebar();
+  fpFmEnhanceCards();
+  fpFmMountVideoPanel();
+
+  try {
+    await fpFmLoadVideos();
+
+    const sideCount =
+      document.querySelector('.fp-fm-sidebar .fp-fm-side-block:nth-of-type(3) .fp-fm-info-row:last-child strong');
+
+    if (sideCount) sideCount.textContent = String(fpFmVideos.length);
+  } catch (error) {
+    const panel = document.getElementById('fpVideoSelectionPanel');
+
+    if (panel) {
+      panel.innerHTML = `
+        <div class="fp-video-empty">
+          Impossible de charger les vidéos pour le moment.
+          <br><span style="font-size:.72rem;">${esc(error?.message || 'Erreur inconnue')}</span>
+        </div>
+      `;
+    }
+
+    console.error('fpFmLoadVideos:', error);
+  }
+}
