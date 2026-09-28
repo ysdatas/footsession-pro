@@ -169,7 +169,9 @@
   <div class="modal-backdrop" id="importModal">
     <div class="modal perf-import-modal">
       <h3>Importer le fichier du préparateur</h3>
-      <p class="text-muted">Le fichier est lu localement dans le navigateur. L’import utilise les onglets <strong>Anthropométrie</strong>, <strong>Plis cutanés</strong> et <strong>Tests bruts</strong>, puis FootSession Pro recalcule le radar.</p>
+      <p class="text-muted">Le fichier est lu localement dans le navigateur. L’import utilise les onglets <strong>Anthropométrie</strong>, <strong>Plis cutanés</strong>, <strong>Tests bruts</strong>, <strong>Profil sur 10</strong> et l’onglet individuel du joueur lorsqu’il existe. Les cellules vides de l’Excel restent vides : aucune valeur n’est inventée.</p>
+      <label class="import-scope"><input id="importAllPlayers" type="checkbox">
+        Importer <strong>tous les joueurs du club</strong> présents dans le fichier (et pas seulement cette fiche)</label>
       <div class="field"><label>Fichier Excel</label><input id="excelFile" type="file" accept=".xlsx,.xls"></div>
       <div id="importSummary" class="import-summary">Choisis un fichier pour commencer.</div>
       <div id="mappingBox" class="mapping-box"></div>

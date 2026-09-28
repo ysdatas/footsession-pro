@@ -88,3 +88,21 @@
   .mapping-row{grid-template-columns:1fr;}
   .perf-actions{width:100%;}
 }
+
+/* Radar avec données partielles : 2 axes renseignés donnent un trait,
+   pas un polygone (un axe vide ne doit pas être tiré au centre). */
+.radar-partial{fill:none;stroke-linecap:round;}
+
+/* Import Excel : bascule de portée + tableau de contrôle avant validation. */
+.import-scope{display:flex;gap:9px;align-items:flex-start;font-size:.84rem;color:var(--text-muted,#9da4ae);margin:4px 0 12px;line-height:1.4;cursor:pointer;}
+.import-scope input{margin-top:2px;flex:0 0 auto;}
+.import-scope strong{color:inherit;}
+.import-row{display:grid;grid-template-columns:minmax(120px,1.2fr) minmax(110px,1.2fr) minmax(90px,.9fr) minmax(70px,.7fr);gap:10px;align-items:center;padding:7px 10px;border-radius:9px;font-size:.8rem;background:rgba(255,255,255,.03);}
+.import-row-head{background:none;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted,#9da4ae);padding-bottom:0;}
+.import-row-missing{opacity:.5;}
+.import-row-name{font-weight:600;}
+.import-row-src,.import-row-count,.import-row-sheet{color:var(--text-muted,#9da4ae);overflow-wrap:anywhere;}
+@media (max-width:720px){
+  .import-row{grid-template-columns:1fr 1fr;row-gap:4px;}
+  .import-row-head{display:none;}
+}
