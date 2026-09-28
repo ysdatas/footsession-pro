@@ -10,6 +10,7 @@ let media = [];
 let stage = 'pre';
 let canEditPerformance = false;
 let importState = { entries: [], fileName: '', mode: 'single' };
+let clubAverages = null;   // agrégats renvoyés par la RPC club_test_averages
 
 const MONTHS = ['Août','Septembre','Octobre','Novembre','Décembre','Janvier','Février','Mars','Avril','Mai','Juin'];
 const STAGES = [
@@ -80,98 +81,274 @@ function currentTest() {
   return rows.length ? rows[rows.length - 1] : null;
 }
 
-function radarSvg(test) {
-  const values = SCORE_LABELS.map(([key]) => scoreValue(test, key));
-  const W = 420, H = 420, cx = 210, cy = 207, R = 135;
-  const pts = values.map((v,i) => {
-    const a = -Math.PI/2 + i * 2*Math.PI/5;
-    const rr = R * ((v === null ? 0 : Math.max(0, Math.min(10,v))) / 10);
-    return [cx + Math.cos(a)*rr, cy + Math.sin(a)*rr];
-  });
-  const outer = [];
-  for (let i=0;i<5;i++) {
-    const a = -Math.PI/2 + i * 2*Math.PI/5;
-    outer.push([cx + Math.cos(a)*R, cy + Math.sin(a)*R]);
-  }
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Radar performance">`;
-  [2,4,6,8,10].forEach(level => {
-    const p = [];
-    for (let i=0;i<5;i++) {
-      const a=-Math.PI/2+i*2*Math.PI/5, rr=R*level/10;
-      p.push(`${cx+Math.cos(a)*rr},${cy+Math.sin(a)*rr}`);
-    }
-    svg += `<polygon points="${p.join(' ')}" fill="none" stroke="currentColor" opacity=".14"/>`;
-    svg += `<text x="${cx+6}" y="${cy-R*level/10+4}" class="radar-scale">${level}</text>`;
-  });
-  outer.forEach(p => { svg += `<line x1="${cx}" y1="${cy}" x2="${p[0]}" y2="${p[1]}" stroke="currentColor" opacity=".16"/>`; });
-  values.forEach((v,i) => {
-    const a=-Math.PI/2+i*2*Math.PI/5;
-    const x=cx+Math.cos(a)*(R+28), y=cy+Math.sin(a)*(R+28);
-    svg += `<text x="${x}" y="${y}" class="radar-label" text-anchor="middle" dominant-baseline="middle">${esc(SCORE_LABELS[i][1])}</text>`;
-  });
-  // On ne relie que les axes réellement renseignés : un axe vide ne doit
-  // jamais être tiré au centre, ce qui inventerait un 0 absent des données.
-  const valid = pts.filter((_,i)=>values[i] !== null);
+/* ------------------------------------------------------------
+   Radar athlétique
+   Deux séries : le joueur, et la moyenne de son club quand elle
+   est disponible. Un axe sans valeur n'est jamais tracé au centre.
+   ------------------------------------------------------------ */
+const RADAR = { W: 430, H: 326, cx: 215, cy: 159, R: 102 };
+
+function radarAngle(i) { return -Math.PI / 2 + i * 2 * Math.PI / 5; }
+
+function radarPoint(value, i) {
+  const rr = RADAR.R * Math.max(0, Math.min(10, value)) / 10;
+  return [RADAR.cx + Math.cos(radarAngle(i)) * rr, RADAR.cy + Math.sin(radarAngle(i)) * rr];
+}
+
+/* Trace une série : polygone à 3 valeurs et plus, simple trait à 2,
+   rien du tout en dessous. Les axes non renseignés sont ignorés, pas
+   ramenés à zéro. */
+function radarSeries(values, cls) {
+  const pts = values.map((v, i) => (v === null ? null : radarPoint(v, i)));
+  const valid = pts.filter(Boolean);
+  let svg = '';
   if (valid.length >= 3) {
-    svg += `<polygon points="${valid.map(p=>p.join(',')).join(' ')}" class="radar-area"/>`;
+    svg += `<polygon points="${valid.map(p => p.join(',')).join(' ')}" class="${cls}"/>`;
   } else if (valid.length === 2) {
-    svg += `<polyline points="${valid.map(p=>p.join(',')).join(' ')}" class="radar-area radar-partial"/>`;
+    svg += `<polyline points="${valid.map(p => p.join(',')).join(' ')}" class="${cls} radar-partial"/>`;
   }
-  pts.forEach((p,i) => {
-    if (values[i] !== null) svg += `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" class="radar-dot"/>`;
-  });
-  svg += `<circle cx="${cx}" cy="${cy}" r="3" class="radar-center"/>`;
-  svg += `</svg>`;
+  pts.forEach(p => { if (p) svg += `<circle cx="${p[0]}" cy="${p[1]}" r="4" class="${cls}-dot"/>`; });
   return svg;
+}
+
+function radarSvg(test) {
+  const { W, H, cx, cy, R } = RADAR;
+  const values = SCORE_LABELS.map(([key]) => scoreValue(test, key));
+  const refs = SCORE_LABELS.map(([key]) => scoreValue(clubAverages, key));
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Radar du profil athlétique">`;
+
+  // Grille : anneaux tous les 2 points, plus les rayons.
+  [2, 4, 6, 8, 10].forEach(level => {
+    const ring = [];
+    for (let i = 0; i < 5; i++) {
+      const a = radarAngle(i), rr = R * level / 10;
+      ring.push(`${cx + Math.cos(a) * rr},${cy + Math.sin(a) * rr}`);
+    }
+    svg += `<polygon points="${ring.join(' ')}" class="radar-ring"/>`;
+    svg += `<text x="${cx + 5}" y="${cy - R * level / 10 + 4}" class="radar-scale">${level}</text>`;
+  });
+  for (let i = 0; i < 5; i++) {
+    const a = radarAngle(i);
+    svg += `<line x1="${cx}" y1="${cy}" x2="${cx + Math.cos(a) * R}" y2="${cy + Math.sin(a) * R}" class="radar-axis"/>`;
+  }
+
+  // Étiquettes des axes, ancrées selon leur côté pour ne pas déborder.
+  SCORE_LABELS.forEach(([, label], i) => {
+    const a = radarAngle(i);
+    const x = cx + Math.cos(a) * (R + 30);
+    const y = cy + Math.sin(a) * (R + 26);
+    const anchor = Math.abs(Math.cos(a)) < 0.2 ? 'middle' : (Math.cos(a) > 0 ? 'start' : 'end');
+    svg += `<text x="${x}" y="${y}" class="radar-label" text-anchor="${anchor}" dominant-baseline="middle">${esc(label)}</text>`;
+  });
+
+  // La moyenne du club passe sous le joueur pour rester lisible.
+  if (refs.some(v => v !== null)) svg += radarSeries(refs, 'radar-ref');
+  svg += radarSeries(values, 'radar-area');
+  svg += `<circle cx="${cx}" cy="${cy}" r="2.5" class="radar-center"/>`;
+  return svg + '</svg>';
+}
+
+/* Palette des scores /10, identique aux cartes et au radar. */
+function scoreTone(v) {
+  if (v === null) return 'none';
+  if (v >= 8) return 'high';
+  if (v >= 6.5) return 'good';
+  if (v >= 4.5) return 'mid';
+  return 'low';
 }
 
 function renderRadar() {
   const test = currentTest();
-  const scores = SCORE_LABELS.map(([key,label]) => ({ key,label,value:scoreValue(test,key) }));
-  document.getElementById('radarWrap').innerHTML = test
-    ? `${radarSvg(test)}<div class="radar-caption">${esc(STAGES.find(s=>s.key===stage)?.label || '')}</div>`
+  const wrap = document.getElementById('radarWrap');
+  const hasRef = SCORE_LABELS.some(([key]) => scoreValue(clubAverages, key) !== null);
+
+  document.getElementById('radarLegend').innerHTML = `
+    <span class="legend-item"><i class="legend-dot legend-player"></i>${esc(playerShortName())}</span>
+    ${hasRef
+      ? `<span class="legend-item"><i class="legend-dot legend-ref"></i>Moyenne du club${
+          clubAverages?.n_players ? ` (${clubAverages.n_players})` : ''}</span>`
+      : ''}`;
+
+  wrap.innerHTML = test
+    ? radarSvg(test)
     : `<div class="empty">Aucun test pour cette session.</div>`;
-  document.getElementById('scoreCards').innerHTML = scores.map(s =>
-    `<div class="score-card">
-      <span>${esc(s.label)}</span>
-      <strong>${s.value === null ? '—' : fmt(s.value,1)}<small>/10</small></strong>
-    </div>`
-  ).join('');
+
+  document.getElementById('scoreCards').innerHTML = SCORE_LABELS.map(([key, label]) => {
+    const v = scoreValue(test, key);
+    return `<div class="score-card tone-${scoreTone(v)}">
+      <span>${esc(label)}</span>
+      <strong>${v === null ? '—' : fmt(v, 1)}<small>/10</small></strong>
+    </div>`;
+  }).join('');
+
   renderTestSummary(test);
 }
 
+function playerShortName() {
+  return `${player?.prenom || ''} ${player?.nom || ''}`.trim() || 'Joueur';
+}
+
+/* ------------------------------------------------------------
+   Tableau des tests : valeur, référence club, écart.
+   `better` dit dans quel sens l'écart est favorable ; null quand
+   la métrique n'a pas de sens directionnel (ratio, asymétrie).
+   ------------------------------------------------------------ */
+const TEST_ROWS = [
+  { label: 'Sprint 10 m',  key: 'sprint10_sec',         unit: 's',    digits: 2, better: 'lower' },
+  { label: 'Sprint 40 m',  key: 'sprint40_sec',         unit: 's',    digits: 2, better: 'lower' },
+  { label: '505 gauche',   key: 'five05_left_sec',      unit: 's',    digits: 2, better: 'lower' },
+  { label: '505 droit',    key: 'five05_right_sec',     unit: 's',    digits: 2, better: 'lower' },
+  { label: '505 moyenne',  key: 'five05_avg_sec',       unit: 's',    digits: 2, better: 'lower' },
+  { label: 'Asymétrie 505',key: 'five05_asymmetry_pct', unit: '%',    digits: 1, better: null },
+  { label: '30-15 VIFT',   key: 'vift_kmh',             unit: 'km/h', digits: 1, better: 'higher' },
+  { label: 'Shirado',      key: 'shirado_sec',          unit: 's',    digits: 0, better: 'higher' },
+  { label: 'Sorensen',     key: 'sorensen_sec',         unit: 's',    digits: 0, better: 'higher' },
+  { label: 'Ratio Shirado / Sorensen', key: 'core_ratio', unit: '', digits: 2, better: null },
+];
+
 function renderTestSummary(test) {
   const box = document.getElementById('testSummary');
-  if (!test) { box.innerHTML = ''; return; }
-  const rows = [
-    ['Sprint 10 m', test.sprint10_sec, 's'],
-    ['505 moyenne', test.five05_avg_sec, 's'],
-    ['Asymétrie 505', test.five05_asymmetry_pct, '%'],
-    ['Sprint 40 m', test.sprint40_sec, 's'],
-    ['30-15 VIFT', test.vift_kmh, 'km/h'],
-    ['Shirado', test.shirado_sec, 's'],
-    ['Sorensen', test.sorensen_sec, 's'],
-    ['Ratio Shirado / Sorensen', test.core_ratio, ''],
-  ];
-  box.innerHTML = `<div class="test-values">${rows.map(([l,v,u]) =>
-    `<div><span>${esc(l)}</span><strong>${fmt(v, u === 'km/h' ? 1 : 2)}${v !== null && v !== undefined && u ? ` ${u}` : ''}</strong></div>`
-  ).join('')}</div>`;
+  if (!test) {
+    box.innerHTML = `<div class="empty">Aucun test pour cette session.</div>`;
+    return;
+  }
+  const hasRef = TEST_ROWS.some(r => num(clubAverages?.[r.key]) !== null);
+
+  const body = TEST_ROWS.map(r => {
+    const value = num(test[r.key]);
+    const ref = num(clubAverages?.[r.key]);
+    let gap = '<span class="gap-none">—</span>';
+    if (value !== null && ref !== null && r.better) {
+      const delta = r.better === 'lower' ? ref - value : value - ref;
+      const good = delta >= 0;
+      gap = `<span class="gap ${good ? 'gap-up' : 'gap-down'}">${good ? '↗' : '↘'} ${
+        good ? '+' : '−'}${fmt(Math.abs(delta), r.digits)}</span>`;
+    }
+    return `<tr>
+      <td class="t-name">${esc(r.label)}</td>
+      <td class="t-value ${value === null ? 'is-empty' : ''}">${fmt(value, r.digits)}</td>
+      <td class="t-unit">${esc(r.unit || '—')}</td>
+      ${hasRef ? `<td class="t-ref">${fmt(ref, r.digits)}</td><td class="t-gap">${gap}</td>` : ''}
+    </tr>`;
+  }).join('');
+
+  box.innerHTML = `<div class="test-table-wrap"><table class="test-table">
+    <thead><tr>
+      <th>Test</th><th>Valeur</th><th>Unité</th>
+      ${hasRef ? '<th>Réf. club</th><th>Écart</th>' : ''}
+    </tr></thead>
+    <tbody>${body}</tbody>
+  </table></div>
+  ${hasRef ? '' : '<p class="text-muted table-note">Référence club indisponible : il faut au moins 3 joueurs testés sur la session.</p>'}`;
+}
+
+/* ------------------------------------------------------------
+   Suivi physique : courbe des mesures mois par mois.
+   Un mois sans mesure n'est pas interpolé — le trait s'interrompt.
+   ------------------------------------------------------------ */
+const TREND_SERIES = [
+  { key: 'weight_kg',   label: 'Poids (kg)',       cls: 'weight', axis: 'left',  digits: 1 },
+  { key: 'body_fat_pct',label: 'Masse grasse (%)', cls: 'fat',    axis: 'left',  digits: 1 },
+];
+
+function trendChartSvg(rows) {
+  const W = 620, H = 210, padL = 38, padR = 34, padT = 14, padB = 30;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+
+  const leftValues = rows.flatMap(r => TREND_SERIES.map(s => num(r[s.key]))).filter(v => v !== null);
+  const endurance = rows.map(r => num(r.endurance));
+  const hasLeft = leftValues.length > 0;
+  const hasRight = endurance.some(v => v !== null);
+  if (!hasLeft && !hasRight) return '';
+
+  const lo = hasLeft ? Math.min(...leftValues) : 0;
+  const hi = hasLeft ? Math.max(...leftValues) : 1;
+  const pad = (hi - lo) < 4 ? 2 : (hi - lo) * 0.15;
+  const yMin = Math.max(0, lo - pad), yMax = hi + pad;
+
+  const x = i => padL + (rows.length === 1 ? innerW / 2 : (i * innerW) / (rows.length - 1));
+  const yLeft = v => padT + innerH - ((v - yMin) / (yMax - yMin || 1)) * innerH;
+  const yRight = v => padT + innerH - (Math.max(0, Math.min(10, v)) / 10) * innerH;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution des mesures physiques">`;
+
+  // Lignes de niveau + graduations de l'axe gauche.
+  for (let g = 0; g <= 3; g++) {
+    const v = yMin + (yMax - yMin) * g / 3;
+    const yy = yLeft(v);
+    svg += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" class="trend-grid"/>`;
+    svg += `<text x="${padL - 7}" y="${yy + 3.5}" class="trend-tick" text-anchor="end">${fmt(v, 0)}</text>`;
+  }
+  if (hasRight) {
+    [0, 5, 10].forEach(v => {
+      svg += `<text x="${W - padR + 7}" y="${yRight(v) + 3.5}" class="trend-tick trend-tick-right">${v}</text>`;
+    });
+  }
+
+  // Une série = des segments entre points consécutifs renseignés.
+  const drawSeries = (getter, yScale, cls) => {
+    let out = '', prev = null;
+    rows.forEach((r, i) => {
+      const v = getter(r);
+      if (v === null) { prev = null; return; }
+      const px = x(i), py = yScale(v);
+      if (prev) out += `<line x1="${prev[0]}" y1="${prev[1]}" x2="${px}" y2="${py}" class="trend-line ${cls}"/>`;
+      out += `<circle cx="${px}" cy="${py}" r="3.4" class="trend-dot ${cls}"/>`;
+      prev = [px, py];
+    });
+    return out;
+  };
+
+  TREND_SERIES.forEach(s => { svg += drawSeries(r => num(r[s.key]), yLeft, s.cls); });
+  if (hasRight) svg += drawSeries(r => num(r.endurance), yRight, 'endurance');
+
+  rows.forEach((r, i) => {
+    svg += `<text x="${x(i)}" y="${H - 9}" class="trend-tick" text-anchor="middle">${esc((r.month_label || '').slice(0, 4))}</text>`;
+  });
+
+  return svg + '</svg>';
 }
 
 function renderMeasurements() {
   const wrap = document.getElementById('measurementHistory');
-  if (!measurements.length) {
-    wrap.innerHTML = `<div class="empty">Aucune mesure enregistrée.</div>`;
-    return;
-  }
-  const ordered = [...measurements].sort((a,b) => {
-    const da=MONTHS.indexOf(a.month_label), db=MONTHS.indexOf(b.month_label);
-    return da-db || ((a.id||0)-(b.id||0));
-  });
+  const chart = document.getElementById('trendChart');
+
   const latest = latestMeasurement();
   document.getElementById('metricHeight').textContent = latest?.height_cm != null ? `${fmt(latest.height_cm,0)} cm` : '—';
   document.getElementById('metricWeight').textContent = latest?.weight_kg != null ? `${fmt(latest.weight_kg,1)} kg` : '—';
   document.getElementById('metricBodyFat').textContent = latest?.body_fat_pct != null ? `${fmt(latest.body_fat_pct,1)} %` : '—';
+
+  if (!measurements.length) {
+    if (chart) chart.innerHTML = '';
+    wrap.innerHTML = `<div class="empty">Aucune mesure enregistrée.</div>`;
+    return;
+  }
+
+  const ordered = [...measurements].sort((a,b) => {
+    const da = MONTHS.indexOf(a.month_label), db = MONTHS.indexOf(b.month_label);
+    return da - db || ((a.id||0) - (b.id||0));
+  });
+
+  // L'endurance de la session affichée complète la courbe ; elle n'a pas
+  // de valeur mensuelle propre, on la porte sur le dernier mois mesuré.
+  const test = currentTest();
+  const enduranceAt = ordered.length - 1;
+  const rows = ordered.map((m, i) => ({
+    ...m,
+    endurance: i === enduranceAt ? scoreValue(test, 'profile_endurance') : null,
+  }));
+
+  if (chart) {
+    const svg = trendChartSvg(rows);
+    chart.innerHTML = svg
+      ? `<div class="trend-legend">
+           <span class="legend-item"><i class="legend-dot legend-weight"></i>Poids (kg)</span>
+           <span class="legend-item"><i class="legend-dot legend-fat"></i>Masse grasse (%)</span>
+           ${rows.some(r => r.endurance !== null) ? '<span class="legend-item"><i class="legend-dot legend-endurance"></i>Endurance (/10)</span>' : ''}
+         </div>${svg}`
+      : '';
+  }
 
   wrap.innerHTML = `<div class="measurement-table">
     <div class="measurement-row header"><span>Mois</span><span>Taille</span><span>Poids</span><span>MG</span></div>
@@ -182,6 +359,71 @@ function renderMeasurements() {
       <span>${m.body_fat_pct != null ? `${fmt(m.body_fat_pct,1)} %` : '—'}</span>
     </div>`).join('')}
   </div>`;
+}
+
+/* ------------------------------------------------------------
+   Panneau latéral : poste sur le terrain et informations de fiche.
+   Uniquement des champs réellement présents en base.
+   ------------------------------------------------------------ */
+const PITCH_SPOTS = [
+  { test: /gardien|goal|gk/,                     x: 50, y: 90, label: 'Gardien' },
+  { test: /lateral|laterale|arriere|piston/,     x: 18, y: 72, label: 'Latéral' },
+  { test: /defenseur|defense|central|stoppeur/,  x: 50, y: 74, label: 'Défenseur' },
+  { test: /recuperateur|sentinelle|6/,           x: 50, y: 60, label: 'Milieu défensif' },
+  { test: /milieu offensif|meneur|10/,           x: 50, y: 40, label: 'Milieu offensif' },
+  { test: /milieu|relayeur|box to box/,          x: 50, y: 52, label: 'Milieu' },
+  { test: /ailier|extreme|winger/,               x: 20, y: 32, label: 'Ailier' },
+  { test: /attaquant|buteur|avant|pointe/,       x: 50, y: 18, label: 'Attaquant' },
+];
+
+function renderSidebar() {
+  const poste = player?.poste || '';
+  const normalized = normalizeName(poste);
+  const spot = PITCH_SPOTS.find(s => s.test.test(normalized));
+
+  const pitch = document.getElementById('miniPitch');
+  if (pitch) {
+    pitch.innerHTML = spot
+      ? `<span class="fp-mini-pitch-dot" style="left:${spot.x}%;top:${spot.y}%"></span>`
+      : '';
+  }
+  const pitchLabel = document.getElementById('miniPitchLabel');
+  if (pitchLabel) pitchLabel.textContent = poste || 'Poste non renseigné';
+
+  const rows = [
+    ['Numéro', player?.numero != null ? `#${player.numero}` : '—'],
+    ['Poste', poste || '—'],
+    // typeof : ROLE_LABELS vient d'auth.js ; `?.` ne protège pas d'un identifiant non déclaré.
+    ['Accès', ctxProfile?.role === 'joueur' ? 'Espace joueur'
+      : ((typeof ROLE_LABELS !== 'undefined' && ROLE_LABELS[ctxProfile?.role]) || 'Staff')],
+    ['Vidéos reçues', String(fpFmVideos.length)],
+  ];
+  const info = document.getElementById('sidebarInfo');
+  if (info) {
+    info.innerHTML = rows.map(([k, v]) =>
+      `<div class="fp-fm-info-row"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('');
+  }
+
+  const quick = document.getElementById('sidebarQuick');
+  const videoLink = document.getElementById('videoPlayerLink');
+  if (quick) {
+    quick.innerHTML = `
+      <a href="#radarWrap"><span>Profil athlétique</span><strong>→</strong></a>
+      <a href="#trendChart"><span>Suivi physique</span><strong>→</strong></a>
+      ${videoLink ? `<a href="${esc(videoLink.getAttribute('href') || '#')}"><span>Bibliothèque vidéos</span><strong>→</strong></a>` : ''}`;
+  }
+}
+
+/* Moyennes du club pour la session affichée. La RPC ne renvoie que des
+   agrégats : elle est donc utilisable aussi par un compte joueur. */
+async function loadClubAverages() {
+  const { data, error } = await sb.rpc('club_test_averages', { p_stage: stage });
+  if (error) {
+    console.warn('club_test_averages indisponible :', error.message);
+    clubAverages = null;
+    return;
+  }
+  clubAverages = Array.isArray(data) ? (data[0] || null) : data;
 }
 
 function renderNotes() {
@@ -328,8 +570,10 @@ async function loadPage() {
   stage = availableStages.includes('pre') ? 'pre' : (availableStages[0] || 'pre');
   document.getElementById('stageSelect').value = stage;
 
-  renderMeasurements();
+  await loadClubAverages();
+  renderSidebar();
   renderRadar();
+  renderMeasurements();
   await signMedia();
   renderNotes();
 }
@@ -402,7 +646,10 @@ async function reloadData() {
   const availableStages=STAGES.filter(s=>tests.some(t=>t.stage===s.key)).map(s=>s.key);
   if (!availableStages.includes(stage)) stage=availableStages[0]||'pre';
   document.getElementById('stageSelect').value=stage;
-  renderMeasurements(); renderRadar();
+  await loadClubAverages();
+  renderSidebar();
+  renderRadar();
+  renderMeasurements();
   await signMedia(); renderNotes();
 }
 
@@ -1034,8 +1281,11 @@ async function confirmExcelImport() {
 document.querySelectorAll('[data-close]').forEach(btn=>{
   btn.addEventListener('click',()=>closePerfModal(btn.dataset.close));
 });
-document.getElementById('stageSelect').addEventListener('change',e=>{
-  stage=e.target.value; renderRadar();
+document.getElementById('stageSelect').addEventListener('change', async e => {
+  stage = e.target.value;
+  await loadClubAverages();
+  renderRadar();
+  renderMeasurements();
 });
 document.getElementById('btnAddMeasurement').addEventListener('click',()=>{
   document.getElementById('manualMeasurementBox').classList.toggle('hidden');
@@ -1076,15 +1326,6 @@ let fpFmVideos = [];
 let fpFmSelections = new Map();
 let fpFmFilter = 'all';
 
-function fpFmEnsureStyle() {
-  if (document.querySelector('link[data-player-performance-fm]')) return;
-
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'assets/css/player-performance-fm.css';
-  link.dataset.playerPerformanceFm = '1';
-  document.head.appendChild(link);
-}
 
 function fpFmCategory(video) {
   const text = normalizeName(`${video?.titre || ''} ${video?.description || ''}`);
@@ -1531,30 +1772,20 @@ function fpFmMountVideoPanel() {
   panel.id = 'fpVideoSelectionPanel';
   panel.className = 'card fp-video-panel';
 
-  const anchor =
-    document.getElementById('strengthList')?.closest('.card') ||
-    document.getElementById('improvementList')?.closest('.card') ||
-    document.querySelector('.main .card:last-of-type');
-
-  if (anchor?.parentNode) {
-    anchor.parentNode.insertBefore(panel, anchor);
-  } else {
-    const root = document.querySelector('.main') || document.querySelector('main') || document.body;
-    root.appendChild(panel);
-  }
+  const slot = document.getElementById('videoPanelSlot')
+    || document.querySelector('.main') || document.body;
+  slot.appendChild(panel);
 
   panel.innerHTML = `<div class="fp-video-empty">Chargement des vidéos…</div>`;
 }
 
 async function initFmPerformanceUpgrade() {
-  fpFmEnsureStyle();
-  document.body.classList.add('fp-fm-page');
-
   fpFmEnhanceCards();
   fpFmMountVideoPanel();
 
   try {
     await fpFmLoadVideos();
+    renderSidebar();   // le compteur de vidéos n'est connu qu'ici
   } catch (error) {
     const panel = document.getElementById('fpVideoSelectionPanel');
 

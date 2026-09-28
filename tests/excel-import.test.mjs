@@ -16,7 +16,7 @@ const SHEETS = JSON.parse(readFileSync(new URL('./fixtures-tests-physiques.json'
 const stubEl = new Proxy({}, { get: (_, k) =>
   k === 'classList' ? stubEl : k === 'dataset' ? {} :
   ['value','textContent','innerHTML','href'].includes(k) ? '' :
-  k === 'files' ? [] : () => stubEl });
+  k === 'files' ? [] : k === 'getAttribute' ? (() => '') : () => stubEl });
 
 const ctx = vm.createContext({
   document: { getElementById: () => stubEl, querySelector: () => null, querySelectorAll: () => [],

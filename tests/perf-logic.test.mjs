@@ -15,6 +15,7 @@ const stubEl = new Proxy({}, {
     : k === 'dataset' ? {}
     : k === 'value' || k === 'textContent' || k === 'innerHTML' || k === 'href' ? ''
     : k === 'files' ? []
+    : k === 'getAttribute' ? (() => '')
     : () => stubEl,
 });
 const document = {
@@ -65,11 +66,12 @@ assert.equal(findPlayerRow([...header, [1, 'Moyenne'], [2, 'Ecart type']]), null
 const radarSvg = vm.runInContext('radarSvg', ctx);
 const axes = ['profile_start', 'profile_agility', 'profile_speed', 'profile_endurance', 'profile_core'];
 const testWith = n => Object.fromEntries(axes.slice(0, n).map(k => [k, 6]));
-const pointCount = svg => (svg.match(/class="radar-dot"/g) || []).length;
+const pointCount = svg => (svg.match(/class="radar-area-dot"/g) || []).length;
 const polyPoints = svg => {
   const m = svg.match(/<poly(?:gon|line) points="([^"]+)" class="radar-area/);
   return m ? m[1].trim().split(/\s+/).length : 0;
 };
+const refPoints = svg => (svg.match(/class="radar-ref-dot"/g) || []).length;
 
 for (const n of [0, 1, 2, 3, 4, 5]) {
   const svg = radarSvg(testWith(n));
@@ -80,6 +82,17 @@ for (const n of [0, 1, 2, 3, 4, 5]) {
 }
 assert.ok(radarSvg(testWith(2)).includes('<polyline'), '2 valeurs => un trait, pas un polygone');
 assert.ok(radarSvg(testWith(3)).includes('<polygon points'), '3 valeurs => un polygone');
-assert.equal(radarSvg(testWith(5)).includes('radar-dot'), true);
+assert.equal(radarSvg(testWith(5)).includes('radar-area-dot'), true);
+
+/* ---------- 3) Série « moyenne du club » ---------- */
+// Sans moyennes chargées, une seule série est tracée.
+assert.equal(refPoints(radarSvg(testWith(5))), 0, 'pas de moyenne club => pas de 2e série');
+vm.runInContext(`clubAverages = { profile_start: 5, profile_agility: 5.2, profile_speed: 4.8 };`, ctx);
+const withRef = radarSvg(testWith(5));
+assert.equal(refPoints(withRef), 3, 'la moyenne club ne trace que ses axes renseignés');
+assert.equal(pointCount(withRef), 5, 'la série du joueur reste complète');
+assert.ok(withRef.indexOf('radar-ref') < withRef.indexOf('class="radar-area"'),
+  'la moyenne club passe sous le joueur');
+vm.runInContext(`clubAverages = null;`, ctx);
 
 console.log('OK — détection Excel et radar partiel vérifiés.');

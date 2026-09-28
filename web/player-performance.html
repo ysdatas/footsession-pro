@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Performance joueur — FootSession Pro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/player-performance-fm.css">
   <link rel="stylesheet" href="assets/css/player-performance.css">
 </head>
-<body class="app">
+<body class="app fp-fm-page">
   <main class="main perf-main">
+
+    <!-- Barre d'actions -->
     <div class="perf-topbar">
       <div>
         <div class="perf-brand">Foot<span>Session</span> Pro</div>
@@ -25,13 +28,14 @@
       </div>
     </div>
 
+    <!-- En-tête joueur -->
     <section class="perf-hero card">
       <div class="perf-identity">
         <div class="perf-photo-wrap">
           <img id="playerPhoto" class="perf-photo hidden" alt="">
           <div id="playerInitials" class="perf-photo-fallback">?</div>
         </div>
-        <div>
+        <div class="perf-identity-text">
           <div class="eyebrow">DOSSIER JOUEUR</div>
           <h1 id="playerName">Chargement…</h1>
           <p id="playerMeta" class="subtitle">—</p>
@@ -44,90 +48,116 @@
       </div>
     </section>
 
-    <section class="perf-grid-main">
-      <div class="card">
-        <div class="section-head">
-          <div>
-            <h2>Profil athlétique</h2>
-            <p class="text-muted">Radar /10 recalculé depuis les tests physiques importés ou saisis.</p>
-          </div>
-          <select id="stageSelect" class="stage-select">
-            <option value="pre">Pré-saison</option>
-            <option value="mid">Mi-saison</option>
-            <option value="end">Fin de saison</option>
-          </select>
+    <!-- Rangée haute : sidebar + radar + tests -->
+    <div class="fp-fm-shell">
+      <aside class="fp-fm-sidebar" id="perfSidebar">
+        <div class="fp-fm-side-block">
+          <div class="fp-fm-side-title">Poste</div>
+          <div class="fp-mini-pitch" id="miniPitch" role="img" aria-label="Position du joueur sur le terrain"></div>
+          <div class="fp-fm-side-meta pitch-label" id="miniPitchLabel">—</div>
         </div>
-        <div id="radarWrap" class="radar-wrap"></div>
-        <div id="scoreCards" class="score-cards"></div>
-        <div id="testSummary" class="test-summary"></div>
-      </div>
+        <div class="fp-fm-side-block">
+          <div class="fp-fm-side-title">Informations</div>
+          <div id="sidebarInfo"></div>
+        </div>
+        <div class="fp-fm-side-block">
+          <div class="fp-fm-side-title">Accès rapide</div>
+          <div class="fp-fm-quick" id="sidebarQuick"></div>
+        </div>
+      </aside>
 
-      <div class="card">
+      <div class="dash-grid perf-grid-main">
+        <!-- Radar -->
+        <section class="card fp-fm-radar-card">
+          <div class="section-head">
+            <div>
+              <h2>Profil athlétique</h2>
+              <p class="text-muted">Radar /10 issu des tests physiques importés ou saisis.</p>
+            </div>
+            <select id="stageSelect" class="stage-select" aria-label="Session de tests">
+              <option value="pre">Pré-saison</option>
+              <option value="mid">Mi-saison</option>
+              <option value="end">Fin de saison</option>
+            </select>
+          </div>
+          <div class="radar-legend" id="radarLegend"></div>
+          <div id="radarWrap" class="radar-wrap"></div>
+          <div id="scoreCards" class="score-cards"></div>
+        </section>
+
+        <!-- Tests physiques -->
+        <section class="card fp-fm-tests-card">
+          <div class="section-head">
+            <div>
+              <h2>Tests physiques</h2>
+              <p class="text-muted">Valeurs brutes et écart à la moyenne du club.</p>
+            </div>
+            <button class="btn btn-sm hidden perf-editor-only" id="btnAddMeasurement" type="button">+ Mesure</button>
+          </div>
+          <div id="testSummary" class="test-summary"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Rangée basse : suivi physique + vidéos -->
+    <div class="perf-grid-bottom">
+      <section class="card fp-fm-history-card">
         <div class="section-head">
           <div>
             <h2>Suivi physique</h2>
-            <p class="text-muted">Historique issu du préparateur physique.</p>
+            <p class="text-muted">Historique des mesures du préparateur.</p>
           </div>
-          <button class="btn btn-sm hidden perf-editor-only" id="btnAddMeasurement" type="button">+ Mesure</button>
         </div>
+        <div id="trendChart" class="trend-chart"></div>
         <div id="measurementHistory"></div>
+      </section>
+      <!-- #fpVideoSelectionPanel est monté ici par le script -->
+      <div id="videoPanelSlot"></div>
+    </div>
 
-        <div class="manual-test-box hidden perf-editor-only" id="manualTestBox">
-          <div class="section-head compact">
-            <div><h3>Ajouter une session de tests</h3></div>
-          </div>
-          <div class="form-grid">
-            <label>Session<select id="manualStage"><option value="pre">Pré-saison</option><option value="mid">Mi-saison</option><option value="end">Fin de saison</option></select></label>
-            <label>Date<input type="date" id="manualTestDate"></label>
-            <label>Sprint 10 m<input type="number" step="0.01" id="t-sprint10"></label>
-            <label>505 gauche<input type="number" step="0.001" id="t-505g"></label>
-            <label>505 droit<input type="number" step="0.001" id="t-505d"></label>
-            <label>Sprint 40 m<input type="number" step="0.01" id="t-sprint40"></label>
-            <label>30-15 VIFT<input type="number" step="0.1" id="t-vift"></label>
-            <label>Shirado (s)<input type="number" step="1" id="t-shirado"></label>
-            <label>Sorensen (s)<input type="number" step="1" id="t-sorensen"></label>
-          </div>
-          <button class="btn btn-primary" id="btnSaveTest" type="button">Enregistrer les tests</button>
-        </div>
+    <!-- Saisie manuelle des tests -->
+    <section class="card manual-test-box hidden perf-editor-only" id="manualTestBox">
+      <div class="section-head compact"><div><h2>Ajouter une session de tests</h2></div></div>
+      <div class="form-grid">
+        <label>Session<select id="manualStage"><option value="pre">Pré-saison</option><option value="mid">Mi-saison</option><option value="end">Fin de saison</option></select></label>
+        <label>Date<input type="date" id="manualTestDate"></label>
+        <label>Sprint 10 m<input type="number" step="0.01" id="t-sprint10"></label>
+        <label>505 gauche<input type="number" step="0.001" id="t-505g"></label>
+        <label>505 droit<input type="number" step="0.001" id="t-505d"></label>
+        <label>Sprint 40 m<input type="number" step="0.01" id="t-sprint40"></label>
+        <label>30-15 VIFT<input type="number" step="0.1" id="t-vift"></label>
+        <label>Shirado (s)<input type="number" step="1" id="t-shirado"></label>
+        <label>Sorensen (s)<input type="number" step="1" id="t-sorensen"></label>
       </div>
+      <button class="btn btn-primary" id="btnSaveTest" type="button">Enregistrer les tests</button>
     </section>
 
-    <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>Points forts</h2>
-          <p class="text-muted">Axes positifs et ressources du joueur.</p>
+    <!-- Notes -->
+    <div class="perf-grid-notes">
+      <section class="card">
+        <div class="section-head">
+          <div><h2>Points forts</h2><p class="text-muted">Axes positifs et ressources du joueur.</p></div>
+          <button class="btn btn-sm hidden perf-editor-only" id="btnAddStrength" data-kind="strength" type="button">+ Ajouter</button>
         </div>
-        <button class="btn btn-sm hidden perf-editor-only" id="btnAddStrength" data-kind="strength" type="button">+ Ajouter</button>
-      </div>
-      <div id="strengthList" class="note-grid"></div>
-    </section>
+        <div id="strengthList" class="note-grid"></div>
+      </section>
 
-    <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>Points d’amélioration</h2>
-          <p class="text-muted">Axes prioritaires et exercices associés.</p>
+      <section class="card">
+        <div class="section-head">
+          <div><h2>Points d’amélioration</h2><p class="text-muted">Axes prioritaires et exercices associés.</p></div>
+          <button class="btn btn-sm hidden perf-editor-only" id="btnAddImprovement" data-kind="improvement" type="button">+ Ajouter</button>
         </div>
-        <button class="btn btn-sm hidden perf-editor-only" id="btnAddImprovement" data-kind="improvement" type="button">+ Ajouter</button>
-      </div>
-      <div id="improvementList" class="note-grid"></div>
-    </section>
+        <div id="improvementList" class="note-grid"></div>
+      </section>
 
-    <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>Objectifs & prévention</h2>
-          <p class="text-muted">Inspiré de la fiche préparateur : objectifs, prévention bas du corps et prévention haut du corps.</p>
+      <section class="card">
+        <div class="section-head">
+          <div><h2>Objectifs &amp; prévention</h2><p class="text-muted">Objectifs, prévention bas et haut du corps.</p></div>
+          <button class="btn btn-sm hidden perf-editor-only" id="btnAddObjective" data-kind="objective" type="button">+ Objectif</button>
         </div>
-        <button class="btn btn-sm hidden perf-editor-only" id="btnAddObjective" data-kind="objective" type="button">+ Objectif</button>
-      </div>
-      <div id="objectiveList" class="note-grid"></div>
-      <div class="prevention-grid">
-        <div><h3>Prévention bas du corps</h3><p>Ajoute les exercices en points d’amélioration et joins les images utilisées par le préparateur.</p></div>
-        <div><h3>Prévention haut du corps</h3><p>Ajoute les exercices en points d’amélioration et joins les images utilisées par le préparateur.</p></div>
-      </div>
-    </section>
+        <div id="objectiveList" class="note-grid"></div>
+      </section>
+    </div>
 
     <section class="card hidden perf-editor-only" id="manualMeasurementBox">
       <div class="section-head compact"><h2>Ajouter une mesure</h2></div>
@@ -147,10 +177,9 @@
     <div id="pageToast" class="perf-toast" aria-live="polite"></div>
   </main>
 
-  <!-- Photo -->
   <input id="photoFile" class="hidden" type="file" accept="image/jpeg,image/png,image/webp">
 
-  <!-- Note modal -->
+  <!-- Note -->
   <div class="modal-backdrop" id="noteModal">
     <div class="modal">
       <h3 id="noteModalTitle">Ajouter un point</h3>
@@ -165,7 +194,7 @@
     </div>
   </div>
 
-  <!-- Excel import -->
+  <!-- Import Excel -->
   <div class="modal-backdrop" id="importModal">
     <div class="modal perf-import-modal">
       <h3>Importer le fichier du préparateur</h3>

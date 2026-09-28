@@ -16,27 +16,15 @@
 .perf-metric{padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.025);}
 .perf-metric span{display:block;color:var(--text-muted,#9da4ae);font-size:.78rem;margin-bottom:5px;}
 .perf-metric strong{font-size:1.15rem;}
-.perf-grid-main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(360px,.85fr);gap:18px;margin-bottom:18px;}
 .section-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:16px;}
 .section-head.compact{align-items:center;margin-bottom:12px;}
 .section-head h2,.section-head h3{margin:0 0 4px;}
 .stage-select,.form-grid select{min-height:38px;}
-.radar-wrap{display:grid;place-items:center;min-height:390px;color:#cfd4db;}
-.radar-wrap svg{width:min(100%,420px);height:auto;overflow:visible;}
 .radar-area{fill:rgba(201,168,76,.2);stroke:var(--gold,#c9a84c);stroke-width:2.4;}
 .radar-dot,.radar-center{fill:var(--gold,#c9a84c);}
 .radar-label{font-size:13px;fill:currentColor;font-weight:700;}
 .radar-scale{font-size:9px;fill:currentColor;opacity:.55;}
 .radar-caption{text-align:center;margin-top:-10px;color:var(--text-muted,#9da4ae);font-size:.82rem;}
-.score-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:8px 0 14px;}
-.score-card{padding:11px;border-radius:13px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);}
-.score-card span{display:block;font-size:.75rem;color:var(--text-muted,#9da4ae);}
-.score-card strong{display:block;margin-top:3px;font-size:1.1rem;}
-.score-card small{font-size:.7rem;color:var(--text-muted,#9da4ae);margin-left:2px;}
-.test-values{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:rgba(255,255,255,.07);border-radius:12px;overflow:hidden;}
-.test-values div{background:var(--bg-surface,#101216);padding:9px 11px;display:flex;justify-content:space-between;gap:8px;}
-.test-values span{color:var(--text-muted,#9da4ae);font-size:.78rem;}
-.test-values strong{font-size:.8rem;}
 .measurement-table{border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;}
 .measurement-row{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;padding:9px 11px;border-top:1px solid rgba(255,255,255,.05);font-size:.84rem;}
 .measurement-row:first-child{border-top:0;}
@@ -73,9 +61,6 @@
 .mapping-row select{width:100%;}
 .pc-photo,.detail-photo{width:54px;height:54px;border-radius:50%;object-fit:cover;flex:0 0 54px;}
 .pc-actions{display:flex;gap:7px;margin-top:10px;}
-@media (max-width:980px){
-  .perf-grid-main{grid-template-columns:1fr;}
-  .perf-hero{flex-direction:column;align-items:flex-start;}
   .perf-hero-metrics{width:100%;min-width:0;}
 }
 @media (max-width:720px){
@@ -106,3 +91,147 @@
   .import-row{grid-template-columns:1fr 1fr;row-gap:4px;}
   .import-row-head{display:none;}
 }
+
+/* ============================================================
+   Tableau de bord Performance — grilles, radar, tests, courbe.
+   Cible : tout le haut de fiche (identité, radar, tests) visible
+   sans défilement sur un écran 1440×900.
+   ============================================================ */
+
+.perf-main{max-width:1560px;padding:22px 22px 48px;}
+.perf-topbar{margin-bottom:12px;}
+.perf-hero{padding:14px 20px;margin-bottom:12px;gap:18px;}
+.perf-photo-wrap{width:86px;height:86px;flex:0 0 86px;border-radius:18px;}
+.perf-identity-text{min-width:0;}
+#playerName{font-size:clamp(1.5rem,2.4vw,2rem);}
+.perf-hero-metrics{grid-template-columns:repeat(3,minmax(104px,1fr));min-width:340px;}
+.perf-metric{padding:11px 13px;}
+
+/* Rangée haute : la sidebar est fixée par player-performance-fm.css
+   (255px), les deux cartes se partagent le reste. */
+.dash-grid.perf-grid-main{
+  display:grid;
+  grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);
+  gap:16px;
+  align-items:start;
+}
+
+/* Rangée basse : suivi physique et vidéos côte à côte. */
+.perf-grid-bottom{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
+  gap:16px;
+  align-items:start;
+  margin-bottom:16px;
+}
+.perf-grid-bottom > .card{margin:0;}
+#videoPanelSlot{min-width:0;}
+#videoPanelSlot > .card{margin:0;}
+
+.perf-grid-notes{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:16px;
+  align-items:start;
+}
+.perf-grid-notes > .card{margin:0;}
+
+/* ---------- Radar ---------- */
+.radar-wrap{display:grid;place-items:center;min-height:0;color:#cfd4db;margin:0;}
+.radar-wrap svg{width:100%;max-width:430px;height:auto;overflow:visible;display:block;}
+.radar-ring{fill:none;stroke:currentColor;opacity:.13;}
+.radar-axis{stroke:currentColor;opacity:.15;}
+.radar-label{font-size:12.5px;fill:currentColor;font-weight:650;}
+.radar-scale{font-size:9px;fill:currentColor;opacity:.5;}
+.radar-area{fill:rgba(201,168,76,.22);stroke:var(--gold,#c9a84c);stroke-width:2.2;stroke-linejoin:round;}
+.radar-area-dot{fill:var(--gold,#c9a84c);}
+.radar-ref{fill:rgba(176,186,197,.10);stroke:#98a2ad;stroke-width:1.6;stroke-dasharray:5 4;stroke-linejoin:round;}
+.radar-ref-dot{fill:#98a2ad;}
+.radar-center{fill:var(--gold,#c9a84c);opacity:.8;}
+.radar-partial{fill:none;stroke-linecap:round;}
+
+.radar-legend,.trend-legend{
+  display:flex;flex-wrap:wrap;gap:14px;
+  font-size:.78rem;color:var(--text-muted,#9da4ae);margin-bottom:2px;
+}
+.legend-item{display:inline-flex;align-items:center;gap:6px;}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
+.legend-player{background:var(--gold,#c9a84c);}
+.legend-ref{background:#98a2ad;}
+.legend-weight{background:#4a9de0;}
+.legend-fat{background:#e06aa8;}
+.legend-endurance{background:var(--gold,#c9a84c);}
+
+/* ---------- Cartes de score ---------- */
+.score-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:8px;}
+.score-card{padding:9px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);text-align:center;}
+.score-card span{display:block;font-size:.7rem;color:var(--text-muted,#9da4ae);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.score-card strong{display:block;margin-top:3px;font-size:1.12rem;font-weight:750;}
+.score-card small{font-size:.65rem;color:var(--text-muted,#9da4ae);margin-left:1px;font-weight:500;}
+.score-card.tone-high strong{color:#5fce8d;}
+.score-card.tone-good strong{color:var(--gold,#c9a84c);}
+.score-card.tone-mid  strong{color:#e2b45c;}
+.score-card.tone-low  strong{color:#e07070;}
+.score-card.tone-none strong{color:var(--text-muted,#9da4ae);}
+
+/* ---------- Tableau des tests ---------- */
+.test-table-wrap{overflow-x:auto;}
+.test-table{width:100%;border-collapse:collapse;font-size:.82rem;}
+.test-table th{
+  text-align:left;padding:0 10px 8px;font-size:.66rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted,#9da4ae);
+  border-bottom:1px solid rgba(255,255,255,.08);white-space:nowrap;
+}
+.test-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap;}
+.test-table tr:last-child td{border-bottom:0;}
+.test-table .t-name{color:#d7dbe0;white-space:normal;}
+.test-table .t-value{font-weight:700;font-variant-numeric:tabular-nums;}
+.test-table .t-value.is-empty{color:var(--text-muted,#9da4ae);font-weight:500;}
+.test-table .t-unit,.test-table .t-ref{color:var(--text-muted,#9da4ae);font-variant-numeric:tabular-nums;}
+.test-table th:nth-child(n+2),.test-table td:nth-child(n+2){text-align:right;}
+.test-table th:nth-child(3),.test-table td:nth-child(3){text-align:left;}
+.gap{font-weight:700;font-variant-numeric:tabular-nums;}
+.gap-up{color:#5fce8d;}
+.gap-down{color:#e07070;}
+.gap-none{color:var(--text-muted,#9da4ae);}
+.table-note{font-size:.74rem;margin:10px 0 0;}
+
+/* ---------- Courbe de suivi physique ---------- */
+.trend-chart{margin-bottom:12px;}
+.trend-chart svg{width:100%;height:auto;display:block;color:#cfd4db;}
+.trend-grid{stroke:currentColor;opacity:.10;}
+.trend-tick{font-size:9.5px;fill:currentColor;opacity:.55;}
+.trend-tick-right{text-anchor:start;}
+.trend-line{stroke-width:2;fill:none;stroke-linecap:round;}
+.trend-line.weight,.trend-dot.weight{stroke:#4a9de0;}
+.trend-line.fat,.trend-dot.fat{stroke:#e06aa8;}
+.trend-line.endurance,.trend-dot.endurance{stroke:var(--gold,#c9a84c);}
+.trend-dot{stroke-width:2;fill:#0f1215;}
+
+/* ---------- Panneau latéral ---------- */
+.fp-mini-pitch{margin-bottom:8px;}
+.pitch-label{text-align:center;}
+
+/* ---------- Adaptations ---------- */
+@media (max-width:1400px){
+  .dash-grid.perf-grid-main{grid-template-columns:1fr;}
+  .perf-grid-bottom{grid-template-columns:1fr;}
+}
+@media (max-width:1000px){
+  .perf-hero{flex-direction:column;align-items:flex-start;}
+  .perf-hero-metrics{width:100%;min-width:0;}
+  .score-cards{grid-template-columns:repeat(3,minmax(0,1fr));}
+}
+@media (max-width:720px){
+  .perf-main{padding:16px 14px 40px;}
+  .score-cards{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .score-card:last-child{grid-column:span 2;}
+  .radar-label{font-size:11px;}
+  .test-table{font-size:.78rem;}
+}
+
+/* Le haut de fiche (identité + radar + tests) doit rester visible sans
+   défilement sur un portable 1440x900 : on resserre les entêtes de carte. */
+.fp-fm-shell .section-head{margin-bottom:10px;}
+.fp-fm-shell .section-head p{margin:0;font-size:.78rem;}
+.fp-fm-shell .card{padding:14px 18px;}
