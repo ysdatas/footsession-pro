@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/player-performance-fm.css">
   <link rel="stylesheet" href="assets/css/player-performance.css">
+  <link rel="stylesheet" href="assets/css/excel-import.css">
 </head>
 <body class="app fp-fm-page">
   <main class="main perf-main">
@@ -214,8 +215,8 @@
   <div class="modal-backdrop" id="measureModal">
     <div class="modal">
       <h3>Ajouter une mesure</h3>
-      <p class="text-muted modal-lead">La mesure la plus récente apparaît dans l’en-tête de la fiche.
-        Le mois est déduit de la date ; laissez un champ vide s’il n’a pas été mesuré.</p>
+      <p class="text-muted modal-lead">Une seule ligne par mois : si ce mois existe déjà (import Excel compris),
+        les valeurs saisies la complètent ou la corrigent. Un champ laissé vide ne change rien.</p>
       <div class="form-grid form-grid-2">
         <label>Date<input type="date" id="m-date"></label>
         <label>Mois<select id="m-month">
@@ -237,7 +238,7 @@
   <div class="modal-backdrop" id="testModal">
     <div class="modal modal-wide">
       <h3>Ajouter une session de tests</h3>
-      <p class="text-muted modal-lead">Une saisie remplace la précédente saisie manuelle de la même session.
+      <p class="text-muted modal-lead">La saisie complète la session : un champ laissé vide ne modifie pas la valeur existante.
         Moyenne et asymétrie 505 et ratio de gainage sont calculés automatiquement.</p>
       <div class="form-grid">
         <label>Session<select id="manualStage"><option value="pre">Pré-saison</option><option value="mid">Mi-saison</option><option value="end">Fin de saison</option></select></label>
@@ -333,22 +334,6 @@
     </div>
   </div>
 
-  <!-- Import Excel -->
-  <div class="modal-backdrop" id="importModal">
-    <div class="modal perf-import-modal">
-      <h3>Importer le fichier du préparateur</h3>
-      <p class="text-muted">Le fichier est lu localement dans le navigateur. L’import utilise les onglets <strong>Anthropométrie</strong>, <strong>Plis cutanés</strong>, <strong>Tests bruts</strong>, <strong>Profil sur 10</strong> et l’onglet individuel du joueur lorsqu’il existe. Les cellules vides de l’Excel restent vides : aucune valeur n’est inventée.</p>
-      <label class="import-scope"><input id="importAllPlayers" type="checkbox">
-        Importer <strong>tous les joueurs du club</strong> présents dans le fichier (et pas seulement cette fiche)</label>
-      <div class="field"><label>Fichier Excel</label><input id="excelFile" type="file" accept=".xlsx,.xls"></div>
-      <div id="importSummary" class="import-summary">Choisis un fichier pour commencer.</div>
-      <div id="mappingBox" class="mapping-box"></div>
-      <div class="modal-actions">
-        <button class="btn" data-close="importModal" type="button">Fermer</button>
-        <button class="btn btn-primary" id="btnConfirmImport" type="button" disabled>Importer</button>
-      </div>
-    </div>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -357,6 +342,7 @@
   <script src="assets/js/app.js"></script>
   <script src="assets/js/perf-metrics.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
+  <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/perf-export.js"></script>
   <div id="printSheet" class="print-sheet" aria-hidden="true"></div>
 </body>

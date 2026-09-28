@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/players.css">
+  <link rel="stylesheet" href="assets/css/excel-import.css">
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -41,6 +42,7 @@
           <button data-view="grid" class="active">Grille</button>
           <button data-view="matrix">Présence</button>
         </div>
+        <button class="btn hidden" id="btnImportExcel" type="button" title="Met à jour tous les joueurs présents dans le fichier">Importer l’Excel</button>
         <button class="btn btn-primary hidden" id="btnAddPlayer" type="button">+ Ajouter</button>
       </div>
     </div>
@@ -90,6 +92,9 @@
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/procedure-time.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="assets/js/perf-metrics.js"></script>
+  <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/players-page.js"></script>
 </body>
 </html>

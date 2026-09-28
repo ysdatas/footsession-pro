@@ -26,6 +26,19 @@ let CAN_EDIT_PLAYERS = false;
     document.getElementById('m-save').addEventListener('click', savePlayer);
   }
 
+  // Import du classeur du préparateur : réservé aux rôles qui écrivent la
+  // performance (is_performance_editor() côté base : admin et prépa).
+  if (['admin', 'prepa'].includes(myProfile.role)) {
+    const btn = document.getElementById('btnImportExcel');
+    btn.classList.remove('hidden');
+    btn.addEventListener('click', () => ExcelImport.open({
+      clubId: myProfile.club_id,
+      seasonStartMonth: clubSeasonStartMonth(myProfile.clubs),
+      userId: myProfile.id,
+      onDone: loadGrid,
+    }));
+  }
+
   document.querySelectorAll('#viewSwitch button').forEach(b => b.addEventListener('click', () => switchView(b.dataset.view)));
   document.getElementById('searchPlayer').addEventListener('input', applySearch);
 

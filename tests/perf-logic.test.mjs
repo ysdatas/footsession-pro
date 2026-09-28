@@ -39,10 +39,11 @@ const ctx = vm.createContext({
 });
 vm.runInContext(readFileSync('web/assets/js/perf-metrics.js', 'utf8'), ctx);
 vm.runInContext(readFileSync('web/assets/js/player-performance-page.js', 'utf8'), ctx);
+vm.runInContext(readFileSync('web/assets/js/excel-import.js', 'utf8'), ctx);
 
 /* ---------- 1) Détection du joueur dans l'Excel ---------- */
 vm.runInContext(`player = { prenom: 'Simon', nom: 'Bertin' };`, ctx);
-const findPlayerRow = rows => vm.runInContext('findPlayerRow', ctx)(rows);
+const findPlayerRow = rows => vm.runInContext('findPlayerRow', ctx)(rows, vm.runInContext('player', ctx));
 
 // 4 lignes d'en-tête, puis des données. 1,77 / 1,87 sont des tailles.
 const header = [[], [], [], []];

@@ -23,6 +23,7 @@ let cmpSearch = '';
 let cmpOnlyFlagged = false;
 let sortKey = 'name';
 let sortAsc = true;
+let cmpSeason = null;
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -92,12 +93,17 @@ async function loadData() {
   }
 
   roster = rRes.data || [];
-  allTests = tRes.data || [];
-  allMeasures = mRes.data || [];
+  // Une saison à la fois — la plus récente —, comme la fiche joueur :
+  // mois et sessions se répètent d'une saison à l'autre.
+  const season = latestSeasonOf([...(tRes.data || []), ...(mRes.data || [])]);
+  const inSeason = r => !season || r.season_key === season;
+  allTests = (tRes.data || []).filter(inSeason);
+  allMeasures = (mRes.data || []).filter(inSeason);
+  cmpSeason = season;
 
   const n = roster.length;
   document.getElementById('cmpSub').textContent =
-    `${n} joueur${n > 1 ? 's' : ''} · ${allTests.length} session${allTests.length > 1 ? 's' : ''} de tests enregistrée${allTests.length > 1 ? 's' : ''}`;
+    `${n} joueur${n > 1 ? 's' : ''}${cmpSeason ? ` · saison ${cmpSeason}` : ''} · ${allTests.length} session${allTests.length > 1 ? 's' : ''} de tests enregistrée${allTests.length > 1 ? 's' : ''}`;
 }
 
 function switchTab(tab) {
@@ -119,7 +125,6 @@ function testFor(playerId, stage) {
 
 /* Dernière mesure physique connue d'un joueur. */
 function latestMeasureFor(playerId) {
-  const MONTHS = ['Août','Septembre','Octobre','Novembre','Décembre','Janvier','Février','Mars','Avril','Mai','Juin'];
   const rows = allMeasures.filter(m => m.player_id === playerId);
   if (!rows.length) return null;
   return [...rows].sort((a, b) =>
@@ -293,7 +298,6 @@ function renderEvolution() {
    Onglet 3 — Données physiques
    ------------------------------------------------------------ */
 function renderMorpho() {
-  const MONTHS = ['Août','Septembre','Octobre','Novembre','Décembre','Janvier','Février','Mars','Avril','Mai','Juin'];
   const monthsUsed = MONTHS.filter(mo => allMeasures.some(x => x.month_label === mo));
 
   const rows = visibleRoster().map(p => {

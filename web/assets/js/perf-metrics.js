@@ -76,3 +76,45 @@ function perfAverage(rows, key) {
   if (kept.length < PERF_MIN_SAMPLE) return { value: null, n: kept.length, excluded };
   return { value: kept.reduce((s, v) => s + v, 0) / kept.length, n: kept.length, excluded };
 }
+
+/* ------------------------------------------------------------
+   Constantes et utilitaires partagés par la fiche Performance,
+   la page Joueurs (import Excel) et la page Comparaison.
+   ------------------------------------------------------------ */
+const MONTHS = ['Août','Septembre','Octobre','Novembre','Décembre','Janvier','Février','Mars','Avril','Mai','Juin'];
+const STAGES = [
+  { key: 'pre', label: 'Pré-saison' },
+  { key: 'mid', label: 'Mi-saison' },
+  { key: 'end', label: 'Fin de saison' },
+];
+
+function num(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(String(v).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeName(value) {
+  return String(value || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/* Mois de début de saison du club (août par défaut). */
+function clubSeasonStartMonth(club) {
+  const m = Number(String(club?.saison_start || '').slice(5, 7));
+  return m >= 1 && m <= 12 ? m : 8;
+}
+
+/* Saison « 2026-2027 » d'une date. Même règle que season_key_for() en base. */
+function seasonKeyFor(iso, startMonth = 8) {
+  const d = iso ? new Date(`${String(iso).slice(0, 10)}T00:00:00`) : new Date();
+  const y = d.getFullYear(), m = d.getMonth() + 1;
+  return m >= startMonth ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+/* Saison la plus récente présente dans des lignes, ou null si la colonne
+   n'existe pas encore (migration non passée). */
+function latestSeasonOf(rows) {
+  return rows.map(r => r?.season_key).filter(s => /^\d{4}-\d{4}$/.test(s || '')).sort().at(-1) || null;
+}

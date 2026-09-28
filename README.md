@@ -48,6 +48,7 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 13. supabase/fix_audit_2026_09.sql             ⚠️ OBLIGATOIRE — voir ci-dessous
 14. supabase/perf_dashboard.sql                moyennes du club (bornes + 3 joueurs minimum)
 15. supabase/player_profile_career.sql         identité du joueur + parcours en club
+16. supabase/performance_one_row_per_period.sql  une ligne par joueur/saison/mois : fin des doublons
 ```
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter
@@ -97,12 +98,15 @@ ou une fuite de données.
 
 ## 📊 Import Excel du préparateur physique
 
-Fiche joueur → **Importer Excel**. Deux modes :
+Page **Joueurs** ou fiche joueur → **Importer l’Excel**. Un seul fichier met à jour tout le club :
 
-- **ciblé** : la fiche ouverte seule ;
-- **tout le club** : case à cocher — chaque joueur du club est recherché dans le
-  fichier, avec un tableau de contrôle avant validation (joueurs reconnus, fiches
-  absentes du fichier, volume de données détecté).
+- chaque joueur du club est recherché dans le fichier, avec un tableau de contrôle avant validation ;
+- une orthographe différente (« Botherel » / « BOTHOREL ») est **proposée**, jamais appliquée sans confirmation ;
+- les joueurs du fichier sans fiche peuvent être créés en même temps ;
+- **Compléter** (par défaut) : une cellule vide n’efface rien ; **Remplacer** : le fichier fait foi pour la saison.
+
+Réimporter une version corrigée met à jour les valeurs : une ligne par joueur, saison et mois (ou session).
+La lecture part toujours de la cellule A1, quelle que soit la zone que déclare le classeur.
 
 Classeur de référence : `Tests_Physiques_N2-5.xlsx`. Onglets lus : `Anthropométrie`,
 `Plis cutanés`, `Tests bruts`, `Profil sur 10`, et l'onglet individuel du joueur s'il

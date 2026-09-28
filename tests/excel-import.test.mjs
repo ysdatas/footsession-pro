@@ -33,10 +33,9 @@ const ctx = vm.createContext({
 });
 vm.runInContext(readFileSync('web/assets/js/perf-metrics.js', 'utf8'), ctx);
 vm.runInContext(readFileSync('web/assets/js/player-performance-page.js', 'utf8'), ctx);
-vm.runInContext(`importState.workbook = { Sheets: ${JSON.stringify(SHEETS)}, SheetNames: ${JSON.stringify(Object.keys(SHEETS))} };`, ctx);
-
+vm.runInContext(readFileSync('web/assets/js/excel-import.js', 'utf8'), ctx);
 const parseExcel = vm.runInContext('parseExcel', ctx);
-const workbook = vm.runInContext('importState.workbook', ctx);
+const workbook = { Sheets: SHEETS, SheetNames: Object.keys(SHEETS) };
 const file = { name: 'Tests_Physiques_N2-5.xlsx' };
 const parse = (prenom, nom) => parseExcel(file, workbook, { id: 1, club_id: 1, prenom, nom });
 
@@ -91,4 +90,57 @@ for (const nom of ['Moyenne', 'Écart-type', 'N'])
 /* ---------- 5) Un joueur absent du classeur échoue proprement ---------- */
 assert.throws(() => parse('Jean', 'Inexistant'), /pas été trouvé dans cet Excel/);
 
-console.log('OK — import Excel validé sur la structure Tests_Physiques_N2-5 (3 joueurs).');
+/* ---------- 6) Import du club : noms présents dans le classeur ---------- */
+const excelRoster = vm.runInContext('excelRoster', ctx);
+const names = excelRoster(workbook);
+assert.equal(names.length, 24, '24 joueurs dans le classeur');
+assert.ok(!names.some(n => /moyenne|ecart|n \(/i.test(n.normalize('NFD').replace(/[̀-ͯ]/g, ''))),
+  'les lignes agrégées ne sont pas des joueurs');
+
+const split = vm.runInContext('splitExcelName', ctx);
+const sp = t => { const r = split(t); return `${r.prenom}|${r.nom}`; };
+assert.equal(sp('BERTIN Simon'), 'Simon|BERTIN');
+assert.equal(sp('DA SILVA Jean Marc'), 'Jean Marc|DA SILVA', 'nom composé en capitales');
+assert.equal(sp('ESTEVE'), '|ESTEVE', 'nom seul');
+assert.equal(sp('Simon Bertin'), 'Simon|Bertin', 'sans capitales : dernier mot = nom');
+
+// Nom composé : chaque mot doit être présent, sans assouplir la règle.
+const findRow = vm.runInContext('findPlayerRow', ctx);
+const rowsDS = [[], [], [], [], [1, 'DA SILVA Jean'], [2, 'SILVA Paulo']];
+assert.equal(findRow(rowsDS, { nom: 'Da Silva', prenom: 'Jean' }).index, 4, 'nom composé reconnu');
+assert.equal(findRow(rowsDS, { nom: 'Silva', prenom: 'Paulo' }).index, 5, 'homonyme partiel distingué par le prénom');
+
+/* ---------- 7) Fusion avec l'existant : une cellule vide n'efface rien ---------- */
+const build = vm.runInContext('buildPlayerImport', ctx);
+const simon = parse('Simon', 'Bertin');
+const fiche = { id: 40, club_id: 1, nom: 'Bertin', prenom: 'Simon' };
+const existingMeasures = [{ id: 9, club_id: 1, player_id: 40, season_key: '2026-2027', month_label: 'Septembre',
+  height_cm: 181, weight_kg: 63.0, body_fat_pct: null, source: 'manual', created_at: 'x', updated_at: 'y' }];
+const res = build(simon, fiche, { season: '2026-2027', fileName: 'v2.xlsx', userId: 'u1',
+  existingMeasures, existingTests: [] });
+const merged = res.measurements.find(m => m.month_label === 'Septembre');
+assert.equal(merged.height_cm, 181, 'taille saisie à la main conservée (vide dans l’Excel)');
+assert.equal(merged.weight_kg, 64.5, 'poids mis à jour par l’Excel');
+assert.equal(merged.id, undefined, 'les colonnes techniques ne sont pas renvoyées');
+assert.equal(merged.season_key, '2026-2027');
+assert.equal(merged.source_file_name, 'v2.xlsx', 'la source reste tracée');
+assert.equal(res.changes >= 1 && res.created >= 1, true, 'changements et nouvelles lignes comptés');
+// Réimporter le même fichier sur les données fusionnées : aucun changement.
+const again = build(simon, fiche, { season: '2026-2027', fileName: 'v2.xlsx', userId: 'u1',
+  existingMeasures: res.measurements, existingTests: res.tests });
+assert.equal(again.changes, 0, 'réimport à l’identique : rien à changer');
+assert.equal(again.created, 0, 'réimport à l’identique : aucune nouvelle ligne');
+
+// Mode remplacer : le fichier fait foi, la taille saisie à la main disparaît.
+const replaced = build(simon, fiche, { season: '2026-2027', fileName: 'v2.xlsx', userId: 'u1',
+  existingMeasures, existingTests: [], replace: true });
+const rSept = replaced.measurements.find(m => m.month_label === 'Septembre');
+assert.equal(rSept.height_cm, null, 'remplacer : la valeur absente du fichier n’est pas conservée');
+assert.equal(rSept.weight_kg, 64.5);
+
+/* ---------- 8) Orthographe différente : proposition, jamais automatique ---------- */
+const lev = vm.runInContext('levenshtein', ctx);
+assert.equal(lev('botherel', 'bothorel'), 1);
+assert.equal(lev('brunel', 'brunell'), 1);
+
+console.log('OK — import Excel validé sur la structure Tests_Physiques_N2-5 : lecture, noms, fusion, réimport.');

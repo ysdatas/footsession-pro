@@ -9,7 +9,6 @@ let notes = [];
 let media = [];
 let stage = 'pre';
 let canEditPerformance = false;
-let importState = { entries: [], fileName: '', mode: 'single' };
 let clubAverages = null;   // moyennes du club pour la session affichée
 let squadTests = [];       // tests du club retenus pour la session affichée (staff)
 let clubTestsAll = [];     // tous les tests du club, toutes sessions (staff)
@@ -21,6 +20,7 @@ let identityMissing = false; // colonnes d'identité absentes : migration non pa
 let canEditPlayer = false; // identité + parcours : mêmes droits que la fiche joueur
 let expandedTests = new Set();
 let clubLogoUrl = null;
+let currentSeason = null;  // saison affichée : la plus récente du joueur
 
 /* Rôles du staff ayant accès à la performance (can_view_performance()
    côté base). Ce sont aussi ceux qui modifient la fiche (can_edit()). */
@@ -31,12 +31,6 @@ const isStaff = () => STAFF_ROLES.includes(ctxProfile?.role);
 const PLAYER_BASE_COLS = 'id, nom, prenom, numero, poste, club_id, auth_user_id, photo_path';
 const PLAYER_IDENTITY_COLS = 'date_naissance, nationalite, pied_fort, statut, contrat_fin';
 
-const MONTHS = ['Août','Septembre','Octobre','Novembre','Décembre','Janvier','Février','Mars','Avril','Mai','Juin'];
-const STAGES = [
-  { key: 'pre', label: 'Pré-saison' },
-  { key: 'mid', label: 'Mi-saison' },
-  { key: 'end', label: 'Fin de saison' },
-];
 const SCORE_LABELS = [
   ['profile_start', 'Démarrage'],
   ['profile_agility', 'Agilité'],
@@ -48,21 +42,11 @@ const SCORE_LABELS = [
 function esc(s) {
   return String(s ?? '').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-function num(v) {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(String(v).replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-}
 function fmt(n, digits = 1) {
   return n === null || n === undefined || !Number.isFinite(Number(n)) ? '—' : Number(n).toFixed(digits).replace('.', ',');
 }
 function initials(p) {
   return (((p?.prenom || p?.nom || '')[0] || '') + ((p?.nom || '')[0] || '') || '?').toUpperCase();
-}
-function normalizeName(value) {
-  return String(value || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 function notify(message, type = 'info') {
   const el = document.getElementById('pageToast');
@@ -747,7 +731,7 @@ async function loadSquad() {
   const keys = [...PERF_METRICS.map(m => m.key), ...SCORE_LABELS.map(([k]) => k)];
   const [pr, tr] = await Promise.all([
     sb.from('players').select('id, nom, prenom, numero').eq('club_id', player.club_id),
-    sb.from('player_physical_tests').select(['id', 'player_id', 'stage', ...keys].join(', ')).eq('club_id', player.club_id),
+    sb.from('player_physical_tests').select('*').eq('club_id', player.club_id),
   ]);
   if (pr.error || tr.error) {
     squadLoadFailed = true;
@@ -755,7 +739,8 @@ async function loadSquad() {
     return;
   }
   clubPlayers = pr.data || [];
-  clubTestsAll = tr.data || [];
+  // Moyennes du club : même saison que celle affichée pour le joueur.
+  clubTestsAll = (tr.data || []).filter(t => !currentSeason || t.season_key === currentSeason);
 }
 
 function renderNotes() {
@@ -887,8 +872,7 @@ async function loadPage() {
   if (dataErrors.length) {
     showDataWarning(dataErrors);
   }
-  measurements = mRes.data || [];
-  tests = tRes.data || [];
+  setSeasonData(mRes.data || [], tRes.data || []);
   notes = nRes.data || [];
   media = mediaRes.data || [];
 
@@ -1008,6 +992,36 @@ function openTestModal() {
   openPerfModal('testModal');
 }
 
+/* Une saison à la fois : mois et sessions se répètent d'une saison à
+   l'autre, les mélanger ferait réapparaître des doublons apparents.
+   ponytail: la saison la plus récente seulement ; ajouter un sélecteur
+   de saison quand l'historique en contiendra plusieurs. */
+function setSeasonData(allMeasures, allTests) {
+  currentSeason = latestSeasonOf([...allMeasures, ...allTests]);
+  const inSeason = r => !currentSeason || r.season_key === currentSeason;
+  measurements = allMeasures.filter(inSeason);
+  tests = allTests.filter(inSeason);
+  const sub = document.querySelector('.fp-fm-history-card .section-head p');
+  if (sub) sub.textContent = currentSeason
+    ? `Historique des mesures — saison ${currentSeason}.`
+    : 'Historique des mesures du préparateur.';
+}
+
+/* La clé d'unicité (joueur, saison, période) n'existe qu'après la
+   migration : sans elle, l'écriture échouerait avec un message SQL
+   incompréhensible, ou recréerait des doublons. */
+function periodKeyError(error) {
+  return /no unique or exclusion constraint|season_key/i.test(error?.message || '')
+    ? 'Base à mettre à jour : exécutez supabase/performance_one_row_per_period.sql dans Supabase.'
+    : error?.message;
+}
+
+/* Seules les valeurs saisies sont envoyées : un champ laissé vide ne doit
+   pas effacer la valeur que l'Excel a déjà fournie pour ce mois. */
+function withoutEmpty(body) {
+  return Object.fromEntries(Object.entries(body).filter(([, v]) => v !== null && v !== undefined && v !== ''));
+}
+
 async function saveMeasurement() {
   if (!canEditPerformance) return;
   const body = {
@@ -1019,15 +1033,13 @@ async function saveMeasurement() {
     weight_kg: num(document.getElementById('m-weight').value),
     body_fat_pct: num(document.getElementById('m-fat').value),
     source: 'manual',
-    // '' et non null : les index d'unicité portent sur source_file_name et
-    // en SQL NULL <> NULL, donc un null dupliquerait la ligne à chaque envoi.
-    source_file_name: '',
     created_by: ctxProfile.id,
   };
   if ([body.height_cm,body.weight_kg,body.body_fat_pct].every(v=>v===null)) return notify('Renseigne au moins une donnée physique.','error');
+  body.season_key = seasonKeyFor(body.measured_at, clubSeasonStartMonth(ctxProfile?.clubs));
   const { error } = await sb.from('player_physical_measurements')
-    .upsert(body, { onConflict:'club_id,player_id,month_label,source_file_name' });
-  if (error) return notify(error.message,'error');
+    .upsert(withoutEmpty(body), { onConflict:'club_id,player_id,season_key,month_label' });
+  if (error) return notify(periodKeyError(error),'error');
   notify('Mesure enregistrée.','success');
   closePerfModal('measureModal');
   await reloadData();
@@ -1048,14 +1060,14 @@ async function saveTest() {
     shirado_sec: num(document.getElementById('t-shirado').value),
     sorensen_sec: num(document.getElementById('t-sorensen').value),
     source: 'manual',
-    source_file_name: '',
     created_by: ctxProfile.id,
   };
   const TEST_FIELDS = ['sprint10_sec','five05_left_sec','five05_right_sec','sprint40_sec','vift_kmh','shirado_sec','sorensen_sec'];
   if (TEST_FIELDS.every(k => body[k] === null)) return notify('Renseigne au moins un test.','error');
+  body.season_key = seasonKeyFor(body.tested_at, clubSeasonStartMonth(ctxProfile?.clubs));
   const { error } = await sb.from('player_physical_tests')
-    .upsert(body, { onConflict:'club_id,player_id,stage,source_file_name' });
-  if (error) return notify(error.message,'error');
+    .upsert(withoutEmpty(body), { onConflict:'club_id,player_id,season_key,stage' });
+  if (error) return notify(periodKeyError(error),'error');
   notify('Session de tests enregistrée.','success');
   closePerfModal('testModal');
   stage = body.stage;
@@ -1070,8 +1082,7 @@ async function reloadData() {
     sb.from('player_performance_media').select('*').eq('player_id', player.id).order('sort_order').order('id'),
     sb.from('players').select('photo_path').eq('id',player.id).single(),
   ]);
-  measurements=mRes.data||[];
-  tests=tRes.data||[];
+  setSeasonData(mRes.data||[], tRes.data||[]);
   notes=nRes.data||[];
   media=mediaRes.data||[];
   if (pRes.data) player.photo_path=pRes.data.photo_path;
@@ -1153,563 +1164,6 @@ async function deleteNote(id) {
   await reloadData();
 }
 
-function workbookRows(name) {
-  const ws = importState.workbook?.Sheets?.[name];
-  return ws ? XLSX.utils.sheet_to_json(ws, {
-    header: 1,
-    raw: true,
-    defval: null
-  }) : [];
-}
-
-function isAggregateName(name) {
-  const k = normalizeName(name);
-  return [
-    'moyenne',
-    'ecart type',
-    'n joueurs testes'
-  ].includes(k);
-}
-
-function findPlayerRow(rows, target = player) {
-  if (!target) return null;
-
-  const firstName = normalizeName(target.prenom || '');
-  const lastName = normalizeName(target.nom || '');
-
-  if (!lastName) return null;
-
-  let surnameOnlyMatch = null;
-
-  for (let r = 4; r < rows.length; r++) {
-    const row = rows[r] || [];
-
-    let hasLastName = false;
-    let hasFirstName = false;
-    let matchedText = '';
-
-    for (const value of row) {
-      if (value === null || value === undefined) continue;
-
-      const text = String(value).trim();
-      if (!text) continue;
-
-      if (/^[+-]?\d+(?:[.,]\d+)?$/.test(text)) continue;
-      if (isAggregateName(text)) continue;
-
-      const normalized = normalizeName(text);
-      const parts = normalized.split(' ').filter(Boolean);
-
-      if (parts.includes(lastName)) {
-        hasLastName = true;
-        if (!matchedText) matchedText = text;
-      }
-
-      if (firstName && parts.includes(firstName)) {
-        hasFirstName = true;
-      }
-    }
-
-    if (!hasLastName) continue;
-
-    if (hasFirstName) {
-      return {
-        index: r,
-        name: matchedText || `${target.prenom || ''} ${target.nom || ''}`.trim()
-      };
-    }
-
-    if (!surnameOnlyMatch) {
-      surnameOnlyMatch = {
-        index: r,
-        name: matchedText || String(target.nom || '').trim()
-      };
-    }
-  }
-
-  return surnameOnlyMatch;
-}
-
-function findPlayerSheet(workbook, target = player) {
-  if (!target) return null;
-
-  const wantedLastName = normalizeName(target.nom || '')
-    .replace(/[^a-z0-9]/g, '');
-
-  if (!wantedLastName) return null;
-
-  const sheetNames = workbook?.SheetNames || [];
-
-  return sheetNames.find(sheetName => {
-    const normalized = normalizeName(sheetName)
-      .replace(/[^a-z0-9]/g, '');
-
-    return normalized === wantedLastName;
-  }) || null;
-}
-
-function parsePlayerSheet(workbook, target = player) {
-  const sheetName = findPlayerSheet(workbook, target);
-
-  if (!sheetName) return null;
-
-  const rows = workbookRows(sheetName);
-
-  const result = {
-    sheetName,
-    ratioByStage: {}
-  };
-
-  // Onglet individuel :
-  // ligne 17 = Ratio Shirado / Sorensen
-  // colonnes C/D/E = Pré-saison / Mi-saison / Fin de saison
-  const ratioRow = rows[16] || [];
-
-  STAGES.forEach((s, index) => {
-    result.ratioByStage[s.key] = num(ratioRow[2 + index]);
-  });
-
-  return result;
-}
-
-/* Lit le classeur du préparateur pour UN joueur.
-   Décalages du modèle Tests_Physiques_N2-5 (vérifiés contre le fichier réel) :
-     Anthropométrie  en-tête ligne 4 ; taille col C.., poids col N.., MG col Y..
-     Plis cutanés    âge col C, puis 6 colonnes par mois à partir de D
-     Tests bruts     9 colonnes par session à partir de C
-     Profil sur 10   5 colonnes par session à partir de C
-   Voir tests/perf-logic.test.mjs. */
-function parseExcel(file, workbook, target = player) {
-  const anth = workbookRows('Anthropométrie');
-  const folds = workbookRows('Plis cutanés');
-  const raw = workbookRows('Tests bruts');
-  const profile = workbookRows('Profil sur 10');
-
-  const anthMatch = findPlayerRow(anth, target);
-  const foldsMatch = findPlayerRow(folds, target);
-  const rawMatch = findPlayerRow(raw, target);
-  const profileMatch = findPlayerRow(profile, target);
-
-  const playerSheet = parsePlayerSheet(workbook, target);
-
-  if (!anthMatch && !foldsMatch && !rawMatch && !profileMatch) {
-    throw new Error(
-      `Le joueur « ${`${target.prenom || ''} ${target.nom || ''}`.trim()} » n’a pas été trouvé dans cet Excel.`
-    );
-  }
-
-  const measurementsRows = [];
-  const testRows = [];
-
-  /*
-   * ============================================================
-   * ANTHROPOMÉTRIE + PLIS CUTANÉS
-   * ============================================================
-   *
-   * On lit UNIQUEMENT la ligne correspondant au joueur courant.
-   *
-   * Important :
-   * - aucune masse grasse n'est recalculée ;
-   * - si Excel contient une valeur => on l'importe ;
-   * - si Excel est vide => on conserve null.
-   */
-
-  const anthRow = anthMatch ? (anth[anthMatch.index] || []) : [];
-  const foldRow = foldsMatch ? (folds[foldsMatch.index] || []) : [];
-
-  const age = num(foldRow[2]);
-
-  MONTHS.forEach((month, mi) => {
-    const height = num(anthRow[2 + mi]);
-    const weight = num(anthRow[13 + mi]);
-    const mgFromAnth = num(anthRow[24 + mi]);
-
-    // Plis cutanés :
-    // Août commence colonne D (index 3)
-    // puis 6 colonnes par mois.
-    const fs = 3 + mi * 6;
-
-    const biceps = num(foldRow[fs]);
-    const triceps = num(foldRow[fs + 1]);
-    const subscapular = num(foldRow[fs + 2]);
-    const suprailiac = num(foldRow[fs + 3]);
-    const skinfoldSum = num(foldRow[fs + 4]);
-    const mgFromFolds = num(foldRow[fs + 5]);
-
-    // PRIORITÉ À LA VALEUR DÉJÀ PRÉSENTE DANS EXCEL.
-    const bodyFat = mgFromAnth ?? mgFromFolds;
-
-    if ([
-      height,
-      weight,
-      bodyFat,
-      biceps,
-      triceps,
-      subscapular,
-      suprailiac,
-      skinfoldSum
-    ].some(v => v !== null)) {
-      measurementsRows.push({
-        name: anthMatch?.name || foldsMatch?.name || `${target.prenom || ''} ${target.nom || ''}`.trim(),
-        month_label: month,
-        age_at_measurement: age,
-        height_cm: height,
-        weight_kg: weight,
-        body_fat_pct: bodyFat,
-        biceps_mm: biceps,
-        triceps_mm: triceps,
-        subscapular_mm: subscapular,
-        suprailiac_mm: suprailiac,
-        skinfold_sum_4_mm: skinfoldSum
-      });
-    }
-  });
-
-  /*
-   * ============================================================
-   * TESTS BRUTS
-   * ============================================================
-   *
-   * Les colonnes "505 moyenne" et "Asymétrie" sont déjà calculées
-   * dans Excel : on les reprend directement.
-   */
-
-  const rawRow = rawMatch ? (raw[rawMatch.index] || []) : [];
-
-  STAGES.forEach((s, si) => {
-    const c = 2 + si * 9;
-
-    const sprint10 = num(rawRow[c]);
-    const five05Left = num(rawRow[c + 1]);
-    const five05Right = num(rawRow[c + 2]);
-    const five05Avg = num(rawRow[c + 3]);
-    const five05Asym = num(rawRow[c + 4]);
-    const sprint40 = num(rawRow[c + 5]);
-    const vift = num(rawRow[c + 6]);
-    const shirado = num(rawRow[c + 7]);
-    const sorensen = num(rawRow[c + 8]);
-
-    const ratio = playerSheet?.ratioByStage?.[s.key] ?? null;
-
-    if ([
-      sprint10,
-      five05Left,
-      five05Right,
-      five05Avg,
-      five05Asym,
-      sprint40,
-      vift,
-      shirado,
-      sorensen,
-      ratio
-    ].some(v => v !== null)) {
-      testRows.push({
-        name: rawMatch?.name || `${target.prenom || ''} ${target.nom || ''}`.trim(),
-        stage: s.key,
-
-        sprint10_sec: sprint10,
-        five05_left_sec: five05Left,
-        five05_right_sec: five05Right,
-        five05_avg_sec: five05Avg,
-        five05_asymmetry_pct: five05Asym,
-        sprint40_sec: sprint40,
-        vift_kmh: vift,
-        shirado_sec: shirado,
-        sorensen_sec: sorensen,
-        core_ratio: ratio
-      });
-    }
-  });
-
-  /*
-   * ============================================================
-   * PROFIL /10
-   * ============================================================
-   *
-   * Ces scores existent déjà dans "Profil sur 10".
-   * On les importe tels quels pour alimenter le radar.
-   */
-
-  const profileRow = profileMatch ? (profile[profileMatch.index] || []) : [];
-
-  STAGES.forEach((s, si) => {
-    const c = 2 + si * 5;
-
-    const profileStart = num(profileRow[c]);
-    const profileAgility = num(profileRow[c + 1]);
-    const profileSpeed = num(profileRow[c + 2]);
-    const profileEndurance = num(profileRow[c + 3]);
-    const profileCore = num(profileRow[c + 4]);
-
-    const test = testRows.find(t => t.stage === s.key);
-
-    const hasProfile = [
-      profileStart,
-      profileAgility,
-      profileSpeed,
-      profileEndurance,
-      profileCore
-    ].some(v => v !== null);
-
-    if (hasProfile) {
-      if (test) {
-        test.profile_start = profileStart;
-        test.profile_agility = profileAgility;
-        test.profile_speed = profileSpeed;
-        test.profile_endurance = profileEndurance;
-        test.profile_core = profileCore;
-      } else {
-        testRows.push({
-          name: profileMatch?.name || `${target.prenom || ''} ${target.nom || ''}`.trim(),
-          stage: s.key,
-
-          sprint10_sec: null,
-          five05_left_sec: null,
-          five05_right_sec: null,
-          five05_avg_sec: null,
-          five05_asymmetry_pct: null,
-          sprint40_sec: null,
-          vift_kmh: null,
-          shirado_sec: null,
-          sorensen_sec: null,
-          core_ratio: null,
-
-          profile_start: profileStart,
-          profile_agility: profileAgility,
-          profile_speed: profileSpeed,
-          profile_endurance: profileEndurance,
-          profile_core: profileCore
-        });
-      }
-    }
-  });
-
-  return {
-    fileName: file.name,
-    sourceFile: file.name,
-
-    targetPlayerId: target.id,
-
-    targetName: `${target.prenom || ''} ${target.nom || ''}`.trim(),
-
-    excelNames: [
-      anthMatch?.name,
-      foldsMatch?.name,
-      rawMatch?.name,
-      profileMatch?.name
-    ].filter(Boolean),
-
-    measurements: measurementsRows,
-    tests: testRows,
-
-    individualSheet: playerSheet?.sheetName || null
-  };
-}
-
-/* ============================================================
-   IMPORT EXCEL
-   Deux modes, un seul parseur :
-     - ciblé  : la fiche ouverte uniquement ;
-     - club   : tous les joueurs du club présents dans le fichier.
-   Dans les deux cas, chaque ligne est lue pour UN joueur précis,
-   ce qui interdit structurellement le mélange de données.
-   ============================================================ */
-
-/* Construit les lignes Supabase pour un joueur à partir du résultat
-   de parseExcel(). Utilisé par les deux modes : les clés d'unicité et
-   la traçabilité de la source sont donc forcément identiques. */
-function buildImportPayloads(data, target, fileName) {
-  const common = { club_id: target.club_id, player_id: target.id };
-
-  const measurements = data.measurements.map(r => ({
-    ...common,
-    month_label: r.month_label,
-    // season_key attend une saison, pas un nom de fichier : la provenance
-    // est déjà tracée par source_file_name.
-    season_key: null,
-    age_at_measurement: r.age_at_measurement,
-    height_cm: r.height_cm,
-    weight_kg: r.weight_kg,
-    body_fat_pct: r.body_fat_pct,
-    biceps_mm: r.biceps_mm,
-    triceps_mm: r.triceps_mm,
-    subscapular_mm: r.subscapular_mm,
-    suprailiac_mm: r.suprailiac_mm,
-    skinfold_sum_4_mm: r.skinfold_sum_4_mm,
-    source: 'import_excel',
-    source_file_name: fileName,
-    source_sheet: 'Anthropométrie + Plis cutanés',
-    created_by: ctxProfile.id,
-  }));
-
-  const tests = data.tests.map(r => ({
-    ...common,
-    stage: r.stage,
-    sprint10_sec: r.sprint10_sec,
-    five05_left_sec: r.five05_left_sec,
-    five05_right_sec: r.five05_right_sec,
-    five05_avg_sec: r.five05_avg_sec,
-    five05_asymmetry_pct: r.five05_asymmetry_pct,
-    sprint40_sec: r.sprint40_sec,
-    vift_kmh: r.vift_kmh,
-    shirado_sec: r.shirado_sec,
-    sorensen_sec: r.sorensen_sec,
-    core_ratio: r.core_ratio,
-    profile_start: r.profile_start ?? null,
-    profile_agility: r.profile_agility ?? null,
-    profile_speed: r.profile_speed ?? null,
-    profile_endurance: r.profile_endurance ?? null,
-    profile_core: r.profile_core ?? null,
-    source: 'import_excel',
-    source_file_name: fileName,
-    source_sheet: 'Tests bruts + Profil sur 10',
-    created_by: ctxProfile.id,
-  }));
-
-  return { measurements, tests };
-}
-
-function countFilledTests(rows) {
-  const FIELDS = ['sprint10_sec','five05_left_sec','five05_right_sec','five05_avg_sec',
-    'five05_asymmetry_pct','sprint40_sec','vift_kmh','shirado_sec','sorensen_sec',
-    'profile_start','profile_agility','profile_speed','profile_endurance','profile_core'];
-  return rows.filter(t => FIELDS.some(k => t[k] !== null && t[k] !== undefined)).length;
-}
-
-function renderImportSummary() {
-  const { entries, fileName, mode } = importState;
-  const matched = entries.filter(e => e.data);
-  const missing = entries.filter(e => !e.data);
-
-  const totalMeasurements = matched.reduce((n, e) => n + e.data.measurements.length, 0);
-  const totalTests = matched.reduce((n, e) => n + countFilledTests(e.data.tests), 0);
-
-  document.getElementById('importSummary').innerHTML = `
-    <div><strong>${matched.length}</strong> joueur${matched.length > 1 ? 's' : ''} reconnu${matched.length > 1 ? 's' : ''}</div>
-    <div><strong>${totalMeasurements}</strong> mesures physiques détectées</div>
-    <div><strong>${totalTests}</strong> sessions de tests détectées</div>
-  `;
-
-  const rowsHtml = entries.map(e => {
-    const nbM = e.data ? e.data.measurements.length : 0;
-    const nbT = e.data ? countFilledTests(e.data.tests) : 0;
-    const excelNames = e.data ? [...new Set(e.data.excelNames)].join(' · ') : '';
-    return `<div class="import-row ${e.data ? '' : 'import-row-missing'}">
-      <span class="import-row-name">${esc(e.label)}</span>
-      <span class="import-row-src">${e.data ? esc(excelNames || '—') : 'absent du fichier'}</span>
-      <span class="import-row-count">${e.data ? `${nbM} mes. · ${nbT} tests` : '—'}</span>
-      <span class="import-row-sheet">${e.data?.individualSheet ? esc(e.data.individualSheet) : ''}</span>
-    </div>`;
-  }).join('');
-
-  document.getElementById('mappingBox').innerHTML = `
-    <div class="mapping-ok">
-      <strong>${mode === 'bulk' ? 'Import de tout le club' : `Import ciblé sur ${esc(entries[0]?.label || '')}`}</strong><br>
-      Fichier : ${esc(fileName)}.
-      Chaque joueur est lu sur sa propre ligne : aucune donnée n'est partagée entre deux fiches.
-      Les cellules vides de l'Excel restent vides (aucune valeur n'est inventée).
-      ${missing.length ? `<br><span class="text-muted">${missing.length} fiche(s) sans correspondance : elles ne seront pas modifiées.</span>` : ''}
-    </div>
-    <div class="import-row import-row-head">
-      <span>Fiche FootSession</span><span>Nom trouvé dans l'Excel</span><span>Données</span><span>Onglet individuel</span>
-    </div>
-    ${rowsHtml}
-  `;
-
-  document.getElementById('btnConfirmImport').disabled = !(totalMeasurements || totalTests);
-}
-
-async function startExcelImport(file) {
-  if (!file || !canEditPerformance) return;
-
-  const bulk = document.getElementById('importAllPlayers')?.checked === true;
-  document.getElementById('btnConfirmImport').disabled = true;
-  document.getElementById('importSummary').textContent = 'Lecture du fichier…';
-  document.getElementById('mappingBox').innerHTML = '';
-
-  try {
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
-    importState = { entries: [], fileName: file.name, mode: bulk ? 'bulk' : 'single', workbook };
-
-    let targets = [player];
-    if (bulk) {
-      const { data, error } = await sb.from('players')
-        .select('id, nom, prenom, numero, club_id')
-        .eq('club_id', player.club_id).order('nom');
-      if (error) throw error;
-      targets = data || [];
-      if (!targets.length) throw new Error('Aucune fiche joueur dans ce club.');
-    }
-
-    importState.entries = targets.map(target => {
-      const label = `${target.prenom || ''} ${target.nom || ''}`.trim() || `Fiche #${target.id}`;
-      try {
-        return { target, label, data: parseExcel(file, workbook, target) };
-      } catch {
-        // Joueur absent du classeur : on l'affiche comme non résolu plutôt
-        // que de faire échouer tout l'import.
-        return { target, label, data: null };
-      }
-    });
-
-    if (!importState.entries.some(e => e.data)) {
-      throw new Error(bulk
-        ? 'Aucun joueur du club n’a été retrouvé dans ce fichier.'
-        : `Le joueur « ${`${player.prenom || ''} ${player.nom || ''}`.trim()} » n’a pas été trouvé dans cet Excel.`);
-    }
-
-    renderImportSummary();
-  } catch (e) {
-    document.getElementById('btnConfirmImport').disabled = true;
-    document.getElementById('importSummary').textContent = '';
-    notify(`Lecture Excel impossible : ${e.message}`, 'error');
-  }
-}
-
-async function confirmExcelImport() {
-  if (!importState.entries?.length || !canEditPerformance) return;
-
-  const btn = document.getElementById('btnConfirmImport');
-  btn.disabled = true;
-
-  const matched = importState.entries.filter(e => e.data);
-  const mPayload = [];
-  const tPayload = [];
-  for (const e of matched) {
-    const { measurements: m, tests: t } = buildImportPayloads(e.data, e.target, importState.fileName);
-    mPayload.push(...m);
-    tPayload.push(...t);
-  }
-
-  try {
-    if (mPayload.length) {
-      const { error } = await sb.from('player_physical_measurements')
-        .upsert(mPayload, { onConflict: 'club_id,player_id,month_label,source_file_name' });
-      if (error) throw error;
-    }
-    if (tPayload.length) {
-      const { error } = await sb.from('player_physical_tests')
-        .upsert(tPayload, { onConflict: 'club_id,player_id,stage,source_file_name' });
-      if (error) throw error;
-    }
-
-    closePerfModal('importModal');
-    notify(
-      `Import terminé : ${matched.length} joueur${matched.length > 1 ? 's' : ''}, ` +
-      `${mPayload.length} mesures et ${tPayload.length} sessions de tests.`,
-      'success'
-    );
-
-    importState = { entries: [], fileName: '', mode: 'single' };
-    document.getElementById('excelFile').value = '';
-    await reloadData();
-  } catch (e) {
-    notify(`Import non effectué : ${e.message}`, 'error');
-  } finally {
-    btn.disabled = false;
-  }
-}
-
 document.querySelectorAll('[data-close]').forEach(btn=>{
   btn.addEventListener('click',()=>closePerfModal(btn.dataset.close));
 });
@@ -1750,9 +1204,13 @@ document.getElementById('btnAddObjective').addEventListener('click',()=>{
 document.getElementById('btnSaveNote').addEventListener('click',saveNote);
 document.getElementById('btnAddPhoto').addEventListener('click',()=>document.getElementById('photoFile').click());
 document.getElementById('photoFile').addEventListener('change',e=>uploadPhoto(e.target.files[0]));
-document.getElementById('btnImportExcel').addEventListener('click',()=>openPerfModal('importModal'));
-document.getElementById('excelFile').addEventListener('change',e=>startExcelImport(e.target.files[0]));
-document.getElementById('btnConfirmImport').addEventListener('click',confirmExcelImport);
+document.getElementById('btnImportExcel').addEventListener('click',()=>ExcelImport.open({
+  clubId: player.club_id,
+  seasonStartMonth: clubSeasonStartMonth(ctxProfile?.clubs),
+  userId: ctxProfile.id,
+  focusPlayerId: player.id,
+  onDone: reloadData,
+}));
 
 loadPage()
   .then(() => initFmPerformanceUpgrade())
