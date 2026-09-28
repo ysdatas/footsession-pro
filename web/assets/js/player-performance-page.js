@@ -10,7 +10,8 @@ let media = [];
 let stage = 'pre';
 let canEditPerformance = false;
 let importState = { entries: [], fileName: '', mode: 'single' };
-let clubAverages = null;   // agrégats renvoyés par la RPC club_test_averages
+let clubAverages = null;   // moyennes du club pour la session affichée
+let squadTests = [];       // lignes de tests du club (staff uniquement)
 
 const MONTHS = ['Août','Septembre','Octobre','Novembre','Décembre','Janvier','Février','Mars','Avril','Mai','Juin'];
 const STAGES = [
@@ -419,14 +420,127 @@ function renderSidebar() {
 
 /* Moyennes du club pour la session affichée. La RPC ne renvoie que des
    agrégats : elle est donc utilisable aussi par un compte joueur. */
+/* Une seule ligne de tests par joueur et par session : la plus récente.
+   Sans ça, un joueur saisi deux fois pèserait double dans la moyenne. */
+function latestPerPlayer(rows) {
+  const byPlayer = new Map();
+  for (const r of rows) {
+    const prev = byPlayer.get(r.player_id);
+    if (!prev || (r.id || 0) > (prev.id || 0)) byPlayer.set(r.player_id, r);
+  }
+  return [...byPlayer.values()];
+}
+
+/* Références du club pour la session affichée.
+   Le staff lit les lignes de son club et calcule côté client, avec les
+   mêmes bornes que la page Comparaison : une valeur hors bornes est
+   exclue de la moyenne au lieu de la tirer.
+   Un compte joueur n'a pas le droit de lire les lignes des autres : il
+   passe par la RPC club_test_averages(), qui ne renvoie que des
+   agrégats et applique les mêmes bornes côté base. */
 async function loadClubAverages() {
+  const metricKeys = [...PERF_METRICS.map(m => m.key), ...SCORE_LABELS.map(([k]) => k)];
+
+  if (ctxProfile?.role !== 'joueur') {
+    const { data, error } = await sb.from('player_physical_tests')
+      .select(['id', 'player_id', 'stage', ...metricKeys].join(', '))
+      .eq('stage', stage);
+
+    if (!error) {
+      squadTests = latestPerPlayer(data || []);
+      clubAverages = { n_players: squadTests.length };
+      for (const key of metricKeys) clubAverages[key] = perfAverage(squadTests, key).value;
+      if (!squadTests.length) clubAverages = null;
+      renderSquadCompare();
+      return;
+    }
+    console.warn('Lecture des tests du club impossible :', error.message);
+  }
+
+  squadTests = [];
   const { data, error } = await sb.rpc('club_test_averages', { p_stage: stage });
   if (error) {
     console.warn('club_test_averages indisponible :', error.message);
     clubAverages = null;
+    renderSquadCompare();
     return;
   }
   clubAverages = Array.isArray(data) ? (data[0] || null) : data;
+  renderSquadCompare();
+}
+
+/* ------------------------------------------------------------
+   Carte « Comparaison à l'effectif » — staff uniquement.
+   Montre, test par test, la valeur du joueur, la moyenne du club et
+   son rang. Les valeurs hors bornes sont signalées et sorties du
+   classement, jamais corrigées.
+   ------------------------------------------------------------ */
+function renderSquadCompare() {
+  const card = document.getElementById('squadCompareCard');
+  const box = document.getElementById('squadCompare');
+  if (!card || !box) return;
+
+  const isStaff = ctxProfile && ctxProfile.role !== 'joueur';
+  card.classList.toggle('hidden', !isStaff);
+  if (!isStaff) return;
+
+  const mine = currentTest();
+  if (!mine || !squadTests.length) {
+    box.innerHTML = `<div class="empty">${mine
+      ? 'Aucun autre joueur testé sur cette session.'
+      : 'Ce joueur n’a pas de test sur cette session.'}</div>`;
+    return;
+  }
+
+  const stageLabel = STAGES.find(x => x.key === stage)?.label || '';
+  const rows = PERF_METRICS.filter(m => m.better).map(m => {
+    const value = num(mine[m.key]);
+    const { value: avg, n, excluded } = perfAverage(squadTests, m.key);
+    const flagged = isImplausible(m.key, value);
+
+    // Classement : valeurs présentes et plausibles uniquement.
+    const pool = squadTests
+      .map(t => num(t[m.key]))
+      .filter(v => v !== null && !isImplausible(m.key, v))
+      .sort((a, b) => m.better === 'lower' ? a - b : b - a);
+    const rank = (value !== null && !flagged) ? pool.indexOf(value) + 1 : 0;
+
+    const delta = flagged ? null : perfDelta(m.key, value, avg);
+    // Barre : position dans l'amplitude du groupe, jamais une note.
+    const lo = pool.length ? pool[m.better === 'lower' ? 0 : pool.length - 1] : null;
+    const hi = pool.length ? pool[m.better === 'lower' ? pool.length - 1 : 0] : null;
+    const pct = (value !== null && !flagged && lo !== null && hi !== null && hi !== lo)
+      ? Math.round(((value - lo) / (hi - lo)) * 100) : null;
+
+    return { m, value, avg, n, excluded, rank, total: pool.length, delta, flagged, pct };
+  });
+
+  const podium = r => r.rank === 1 ? 'rank-1' : r.rank === 2 ? 'rank-2' : r.rank === 3 ? 'rank-3' : '';
+
+  box.innerHTML = `
+    <p class="cmp-inline-hint">Session <strong>${esc(stageLabel)}</strong> ·
+      ${squadTests.length} joueur${squadTests.length > 1 ? 's' : ''} testé${squadTests.length > 1 ? 's' : ''}.
+      Le rang et la moyenne ignorent les valeurs hors bornes.</p>
+    <div class="squad-rows">
+      ${rows.map(r => `
+        <div class="squad-row${r.value === null ? ' is-empty' : ''}">
+          <span class="sr-label">${esc(r.m.label)}</span>
+          <span class="sr-value ${podium(r)}${r.flagged ? ' v-flagged' : ''}">
+            ${fmt(r.value, r.m.digits)}${r.value !== null && r.m.unit ? `<small>${esc(r.m.unit)}</small>` : ''}
+            ${r.flagged ? '<span class="flag-pill" title="Hors des bornes attendues, à vérifier">⚠</span>' : ''}
+          </span>
+          <span class="sr-bar${r.pct === null ? ' sr-bar-none' : ''}" aria-hidden="true"
+            >${r.pct === null ? '' : `<i style="width:${100 - r.pct}%"></i>`}</span>
+          <span class="sr-rank">${r.rank ? `${r.rank}<small>/${r.total}</small>` : '—'}</span>
+          <span class="sr-avg">${fmt(r.avg, r.m.digits)}</span>
+          <span class="sr-delta ${r.delta === null ? '' : (r.delta >= 0 ? 'gain' : 'loss')}">
+            ${r.delta === null ? '—' : `${r.delta >= 0 ? '↗ +' : '↘ −'}${fmt(Math.abs(r.delta), r.m.digits)}`}
+          </span>
+        </div>`).join('')}
+    </div>
+    <div class="squad-legend">
+      <span>Rang</span><span>Moyenne club</span><span>Écart</span>
+    </div>`;
 }
 
 function renderNotes() {
