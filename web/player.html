@@ -21,27 +21,30 @@
       <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
     </div>
   </aside>
-  <main class="main">
+  <main class="main fiche">
     <a class="back-link" href="players.html">← Joueurs</a>
-    <div class="page-head fiche-head">
-      <div class="fiche-identity">
-        <div id="ficheAvatar" class="pc-avatar av0 fiche-avatar">?</div>
-        <div>
-          <h1 id="ficheName">Chargement…</h1>
-          <p class="subtitle" id="ficheSub"></p>
-        </div>
+
+    <section class="card fiche-hero">
+      <div id="ficheAvatar" class="pc-avatar av0 fiche-avatar">?</div>
+      <div class="fiche-hero-text">
+        <h1 id="ficheName">Chargement…</h1>
+        <p class="fiche-sub" id="ficheSub"></p>
+        <p class="fiche-facts" id="ficheFacts"></p>
       </div>
-      <div class="page-actions">
+      <div class="fiche-actions">
         <a class="btn btn-primary" id="linkPerformance" href="#">Performance</a>
         <a class="btn hidden" id="linkVideos" href="#">Vidéos</a>
-        <a class="btn" id="linkPreventions" href="#">Préventions</a>
       </div>
-    </div>
+    </section>
 
-    <div class="fiche-grid">
+    <div class="fiche-layout">
       <section class="card fiche-info">
-        <div class="fiche-card-head"><h3>Informations</h3><span class="text-muted" id="infoHint"></span></div>
-        <form id="infoForm" class="fiche-form">
+        <div class="fiche-card-head">
+          <h3>Informations</h3>
+          <button class="btn btn-sm hidden" id="btnEditInfo" type="button">Modifier</button>
+        </div>
+        <dl class="fiche-dl" id="infoView"></dl>
+        <form id="infoForm" class="fiche-form hidden">
           <label>Prénom<input name="prenom" autocomplete="off"></label>
           <label>Nom<input name="nom" required autocomplete="off"></label>
           <label>Numéro<input name="numero" type="number" min="0" max="99"></label>
@@ -52,7 +55,8 @@
           <label>Pied fort<select name="pied_fort"><option value="">—</option><option>Droit</option><option>Gauche</option><option>Les deux</option></select></label>
           <label>Statut<input name="statut" list="statutList" autocomplete="off"></label>
           <label>Fin de contrat<input name="contrat_fin" type="date"></label>
-          <div class="fiche-form-actions hidden" id="infoActions">
+          <div class="fiche-form-actions">
+            <button class="btn btn-sm" id="btnCancelInfo" type="button">Annuler</button>
             <button class="btn btn-primary btn-sm" type="submit">Enregistrer</button>
           </div>
         </form>
@@ -60,25 +64,27 @@
         <datalist id="statutList"><option>Pro</option><option>Aspirant</option><option>Stagiaire</option><option>Amateur</option></datalist>
       </section>
 
-      <section class="card">
-        <div class="fiche-card-head"><h3>Présence</h3></div>
-        <div id="attendanceBox"><p class="text-muted">Chargement…</p></div>
-      </section>
+      <div class="fiche-grid">
+        <section class="card">
+          <div class="fiche-card-head"><h3>Présence</h3></div>
+          <div id="attendanceBox"><p class="text-muted">Chargement…</p></div>
+        </section>
 
-      <section class="card">
-        <div class="fiche-card-head"><h3>Suivi physique</h3><a class="text-muted" id="physLink" href="#">Tout voir →</a></div>
-        <div id="physBox"><p class="text-muted">Chargement…</p></div>
-      </section>
+        <section class="card">
+          <div class="fiche-card-head"><h3>Suivi physique</h3><a class="fiche-link" id="physLink" href="#">Tout voir →</a></div>
+          <div id="physBox"><p class="text-muted">Chargement…</p></div>
+        </section>
 
-      <section class="card">
-        <div class="fiche-card-head"><h3>Profil athlétique</h3><span class="text-muted" id="profileWhen"></span></div>
-        <div id="profileBox"><p class="text-muted">Chargement…</p></div>
-      </section>
+        <section class="card">
+          <div class="fiche-card-head"><h3>Profil athlétique</h3><span class="fiche-when" id="profileWhen"></span></div>
+          <div id="profileBox"><p class="text-muted">Chargement…</p></div>
+        </section>
 
-      <section class="card">
-        <div class="fiche-card-head"><h3>Préventions en cours</h3><a class="text-muted" id="progLink" href="#">Gérer →</a></div>
-        <div id="programBox"><p class="text-muted">Chargement…</p></div>
-      </section>
+        <section class="card">
+          <div class="fiche-card-head"><h3>Parcours</h3><a class="fiche-link" id="careerLink" href="#">Modifier →</a></div>
+          <div id="careerBox"><p class="text-muted">Chargement…</p></div>
+        </section>
+      </div>
     </div>
   </main>
 

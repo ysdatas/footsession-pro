@@ -57,8 +57,18 @@
       </div>
     </section>
 
-    <!-- Rangée haute : radar + tests -->
-    <div class="fp-fm-shell no-sidebar">
+    <!-- Rangée haute : parcours + radar + tests -->
+    <div class="fp-fm-shell">
+      <aside class="fp-fm-sidebar" id="perfSidebar">
+        <div class="fp-fm-side-block career-block">
+          <div class="fp-fm-side-title side-title-row">
+            <span>Parcours</span>
+            <button class="btn btn-sm hidden perf-staff-only" id="btnAddCareer" type="button">+ Ajouter</button>
+          </div>
+          <div id="careerList"></div>
+        </div>
+      </aside>
+
       <div class="dash-grid perf-grid-main">
         <!-- Radar -->
         <section class="card fp-fm-radar-card">
@@ -138,13 +148,6 @@
         <div id="objectiveList" class="note-grid"></div>
       </section>
 
-      <section class="card">
-        <div class="section-head">
-          <div><h2>Préventions &amp; salle</h2><p class="text-muted">Prévention, travail individualisé, développement physique.</p></div>
-          <a class="btn btn-sm hidden perf-staff-only" id="programLink" href="preventions.html">Gérer</a>
-        </div>
-        <div id="programList" class="note-grid"></div>
-      </section>
     </div>
 
     <div id="pageToast" class="perf-toast" aria-live="polite"></div>
@@ -260,7 +263,27 @@
   </div>
 
   <!-- Parcours -->
-  <!-- Export -->
+  <div class="modal-backdrop" id="careerModal">
+    <div class="modal">
+      <h3 id="careerModalTitle">Ajouter un club</h3>
+      <input type="hidden" id="c-id">
+      <div class="form-grid form-grid-2">
+        <label class="span-2">Club<input id="c-club" type="text" placeholder="Ex : Stade Rennais" autocomplete="off"></label>
+        <label class="span-2">Catégorie / niveau<input id="c-cat" type="text" placeholder="Ex : U17 Nationaux"></label>
+        <label>Début<input id="c-debut" type="month"></label>
+        <label>Fin<input id="c-fin" type="month"><small class="field-hint">Vide = en cours</small></label>
+        <label class="span-2">Notes<textarea id="c-notes" rows="3" placeholder="Facultatif"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-danger hidden" id="btnDeleteCareer" type="button">Supprimer</button>
+        <span class="spacer"></span>
+        <button class="btn" data-close="careerModal" type="button">Annuler</button>
+        <button class="btn btn-primary" id="btnSaveCareer" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- Export -->
   <div class="modal-backdrop" id="exportModal">
     <div class="modal modal-wide">
       <h3>Exporter la fiche</h3>
@@ -294,7 +317,7 @@
       <div class="export-block">
         <div class="export-title">Contenu</div>
         <div class="export-sections">
-          <label class="check"><input type="checkbox" name="exp-sec" value="identity" checked> Identité et photo</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="identity" checked> Identité et parcours</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="measures" checked> Mesures physiques</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="tests" checked> Tests physiques</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="compare" checked> Comparaison à la moyenne du groupe</label>
@@ -302,7 +325,6 @@
           <label class="check"><input type="checkbox" name="exp-sec" value="strength" checked> Points forts</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="improvement" checked> Points d’amélioration</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="objective" checked> Objectifs</label>
-          <label class="check"><input type="checkbox" name="exp-sec" value="programs" checked> Préventions &amp; salle</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="images"> Images des notes</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="videos"> Séquences vidéo sélectionnées</label>
         </div>

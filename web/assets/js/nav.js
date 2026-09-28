@@ -18,7 +18,6 @@ const NAV_ITEMS = [
   { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: STAFF_ROLES },
   { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: STAFF_ROLES },
   { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: STAFF_ROLES },
-  { key: 'preventions', href: 'preventions.html',    label: 'Préventions',       roles: STAFF_ROLES },
   { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: ['admin', 'coach', 'analyste'] },
   { key: 'tactical',    href: 'tactical-board.html', label: 'Tableau tactique',  roles: STAFF_ROLES },
   { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: STAFF_ROLES },
@@ -65,6 +64,12 @@ function currentTeamId() {
 }
 function currentTeam() {
   return (window.CLUB_TEAMS || []).find(t => t.id === currentTeamId()) || null;
+}
+/* Filtre d'équipe d'une requête : l'équipe choisie ET les fiches sans
+   équipe. Un joueur ou une séance pas encore rattaché ne doit jamais
+   disparaître de l'écran parce qu'une équipe est sélectionnée. */
+function byTeam(query, teamId = currentTeamId()) {
+  return teamId ? query.or(`team_id.eq.${teamId},team_id.is.null`) : query;
 }
 function teamName(id) {
   return (window.CLUB_TEAMS || []).find(t => t.id === id)?.nom || '';

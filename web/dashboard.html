@@ -60,7 +60,7 @@
 
       // Équipe choisie dans le menu : les compteurs ne portent que sur elle.
       const team = currentTeam();
-      const scoped = (q) => team ? q.eq('team_id', team.id) : q;
+      const scoped = (q) => byTeam(q);
       if (team) {
         document.querySelector('#kSessions + .kpi-label').textContent = `Séances — ${team.nom}`;
         document.querySelector('#kPlayers + .kpi-label').textContent = `Joueurs — ${team.nom}`;

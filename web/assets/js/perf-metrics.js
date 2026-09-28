@@ -127,11 +127,3 @@ const SCORE_AXES = [
   { key: 'profile_endurance', label: 'Endurance' },
   { key: 'profile_core',      label: 'Core' },
 ];
-
-/* Préventions / développement (table player_programs). */
-const PROGRAM_CATEGORIES = {
-  prevention: 'Prévention',
-  individuel: 'Travail individualisé',
-  developpement: 'Développement physique',
-};
-const PROGRAM_STATUS = { en_cours: 'En cours', en_pause: 'En pause', termine: 'Terminé' };

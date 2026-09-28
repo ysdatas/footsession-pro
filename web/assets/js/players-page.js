@@ -62,11 +62,11 @@ const fullName = (p) => `${p.prenom || ''} ${p.nom}`.trim();
 /* ---------- Grille ---------- */
 async function loadGrid() {
   try {
-    const teamId = currentTeamId();
     // team_id n'existe qu'après la migration des équipes : sans équipe
     // choisie, on n'en a pas besoin et la page marche sans elle.
-    let query = sb.from('players').select('id, nom, prenom, numero, poste, photo_path').order('nom');
-    if (teamId) query = query.eq('team_id', teamId);
+    const withTeams = (window.CLUB_TEAMS || []).length > 0;
+    const query = byTeam(sb.from('players')
+      .select(`id, nom, prenom, numero, poste, photo_path${withTeams ? ', team_id' : ''}`).order('nom'));
     const { data: players, error } = await query;
     if (error) throw error;
 
@@ -78,6 +78,7 @@ async function loadGrid() {
     playersCache = players.map((p, i) => ({ ...p, photo_url: photoResults[i]?.data?.signedUrl || null }));
 
     fillPosteFilter();
+    renderUnassigned();
     renderGrid();
     document.getElementById('playersSub').textContent =
       `${playersCache.length} joueur${playersCache.length > 1 ? 's' : ''}`;
@@ -119,11 +120,35 @@ function renderGrid() {
         <div>
           <div class="pc-name">${escapeHtml(fullName(p))}</div>
           ${p.poste ? `<div class="pc-poste">${escapeHtml(p.poste)}</div>` : ''}
+          ${'team_id' in p ? `<div class="pc-team">${escapeHtml(teamName(p.team_id) || 'Sans équipe')}</div>` : ''}
         </div>
         ${p.numero != null ? `<span class="pc-num">#${p.numero}</span>` : ''}
       </div>
     </a>`;
   }).join('') + `</div>`;
+}
+
+/* ---------- Joueurs sans équipe ---------- */
+/* Une équipe est choisie et des fiches n'en ont pas encore : on propose
+   de les y rattacher en un clic plutôt que fiche par fiche. */
+function renderUnassigned() {
+  const box = document.getElementById('unassignedBar');
+  const team = currentTeam();
+  const orphans = playersCache.filter(p => 'team_id' in p && p.team_id == null);
+  if (!team || !orphans.length || !CAN_EDIT_PLAYERS) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = `<span>${orphans.length} joueur${orphans.length > 1 ? 's' : ''} sans équipe.</span>
+    <button class="btn btn-sm btn-primary" type="button" id="btnAssignTeam">Rattacher à ${escapeHtml(team.nom)}</button>`;
+  document.getElementById('btnAssignTeam').addEventListener('click', async (e) => {
+    if (!confirm(`Rattacher ${orphans.length} joueur${orphans.length > 1 ? 's' : ''} à l'équipe ${team.nom} ?`)) return;
+    e.target.disabled = true;
+    try {
+      const { error } = await sb.from('players').update({ team_id: team.id }).in('id', orphans.map(p => p.id));
+      if (error) throw error;
+      toast('Joueurs rattachés', 'success');
+      await loadGrid();
+    } catch (err) { e.target.disabled = false; toast(err.message, 'error'); }
+  });
 }
 
 /* ---------- Ajout ---------- */

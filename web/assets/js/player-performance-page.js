@@ -14,11 +14,12 @@ let squadTests = [];       // tests du club retenus pour la session affichée (s
 let clubTestsAll = [];     // tous les tests du club, toutes sessions (staff)
 let clubPlayers = [];      // effectif du club (staff)
 let squadLoadFailed = false;
+let career = [];           // parcours en club du joueur
+let careerMissing = false; // table player_career absente : migration non passée
 let identityMissing = false; // colonnes d'identité absentes : migration non passée
 let canEditPlayer = false; // identité : mêmes droits que la fiche joueur
 let canEditPlans = false;  // objectifs, points forts/amélioration : admin, coach, prépa
 let compareId = null;      // joueur superposé sur le radar (staff)
-let programs = [];         // préventions / développement visibles
 let expandedTests = new Set();
 let clubLogoUrl = null;
 let currentSeason = null;  // saison affichée : la plus récente du joueur
@@ -406,68 +407,51 @@ function renderTestSummary(test) {
 
 /* ------------------------------------------------------------
    Suivi physique : courbe des mesures mois par mois.
-   Un mois sans mesure n'est pas interpolé — le trait s'interrompt.
+   Poids et masse grasse n'ont pas du tout le même ordre de grandeur :
+   sur une échelle commune, l'un était plat en haut et l'autre écrasé
+   en bas. Chaque série a donc sa propre bande et sa propre échelle, et
+   chaque point porte sa valeur. Un mois sans mesure n'est pas
+   interpolé — le trait s'interrompt.
    ------------------------------------------------------------ */
 const TREND_SERIES = [
-  { key: 'weight_kg',   label: 'Poids (kg)',       cls: 'weight', axis: 'left',  digits: 1 },
-  { key: 'body_fat_pct',label: 'Masse grasse (%)', cls: 'fat',    axis: 'left',  digits: 1 },
+  { key: 'weight_kg',    label: 'Poids',        unit: 'kg', cls: 'weight', digits: 1 },
+  { key: 'body_fat_pct', label: 'Masse grasse', unit: '%',  cls: 'fat',    digits: 1 },
 ];
 
 function trendChartSvg(rows) {
-  const W = 620, H = 210, padL = 38, padR = 34, padT = 14, padB = 30;
-  const innerW = W - padL - padR, innerH = H - padT - padB;
-
-  const leftValues = rows.flatMap(r => TREND_SERIES.map(s => num(r[s.key]))).filter(v => v !== null);
-  const endurance = rows.map(r => num(r.endurance));
-  const hasLeft = leftValues.length > 0;
-  const hasRight = endurance.some(v => v !== null);
-  if (!hasLeft && !hasRight) return '';
-
-  const lo = hasLeft ? Math.min(...leftValues) : 0;
-  const hi = hasLeft ? Math.max(...leftValues) : 1;
-  const pad = (hi - lo) < 4 ? 2 : (hi - lo) * 0.15;
-  const yMin = Math.max(0, lo - pad), yMax = hi + pad;
-
+  const series = TREND_SERIES.filter(s => rows.some(r => num(r[s.key]) !== null));
+  if (!series.length) return '';
+  const W = 620, padL = 92, padR = 28, bandH = 78, gap = 18, padT = 16, axisH = 24;
+  const H = padT + series.length * bandH + (series.length - 1) * gap + axisH;
+  const innerW = W - padL - padR;
   const x = i => padL + (rows.length === 1 ? innerW / 2 : (i * innerW) / (rows.length - 1));
-  const yLeft = v => padT + innerH - ((v - yMin) / (yMax - yMin || 1)) * innerH;
-  const yRight = v => padT + innerH - (Math.max(0, Math.min(10, v)) / 10) * innerH;
 
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution des mesures physiques">`;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution du poids et de la masse grasse">`;
+  series.forEach((s, k) => {
+    const top = padT + k * (bandH + gap), bottom = top + bandH - 14;
+    const values = rows.map(r => num(r[s.key]));
+    const known = values.filter(v => v !== null);
+    const lo = Math.min(...known), hi = Math.max(...known);
+    const span = Math.max(hi - lo, s.key === 'weight_kg' ? 2 : 1);
+    const mid = (hi + lo) / 2;
+    const y = v => bottom - ((v - (mid - span / 2)) / span) * (bottom - top - 10);
 
-  // Lignes de niveau + graduations de l'axe gauche.
-  for (let g = 0; g <= 3; g++) {
-    const v = yMin + (yMax - yMin) * g / 3;
-    const yy = yLeft(v);
-    svg += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" class="trend-grid"/>`;
-    svg += `<text x="${padL - 7}" y="${yy + 3.5}" class="trend-tick" text-anchor="end">${fmt(v, 0)}</text>`;
-  }
-  if (hasRight) {
-    [0, 5, 10].forEach(v => {
-      svg += `<text x="${W - padR + 7}" y="${yRight(v) + 3.5}" class="trend-tick trend-tick-right">${v}</text>`;
-    });
-  }
-
-  // Une série = des segments entre points consécutifs renseignés.
-  const drawSeries = (getter, yScale, cls) => {
-    let out = '', prev = null;
-    rows.forEach((r, i) => {
-      const v = getter(r);
+    svg += `<line x1="${padL}" y1="${bottom + 8}" x2="${W - padR}" y2="${bottom + 8}" class="trend-grid"/>`;
+    svg += `<text x="12" y="${top + bandH / 2 - 2}" class="trend-name ${s.cls}">${esc(s.label)}</text>`;
+    svg += `<text x="12" y="${top + bandH / 2 + 13}" class="trend-tick">${esc(s.unit)}</text>`;
+    let prev = null;
+    values.forEach((v, i) => {
       if (v === null) { prev = null; return; }
-      const px = x(i), py = yScale(v);
-      if (prev) out += `<line x1="${prev[0]}" y1="${prev[1]}" x2="${px}" y2="${py}" class="trend-line ${cls}"/>`;
-      out += `<circle cx="${px}" cy="${py}" r="3.4" class="trend-dot ${cls}"/>`;
+      const px = x(i), py = y(v);
+      if (prev) svg += `<line x1="${prev[0]}" y1="${prev[1]}" x2="${px}" y2="${py}" class="trend-line ${s.cls}"/>`;
+      svg += `<circle cx="${px}" cy="${py}" r="4" class="trend-dot ${s.cls}"/>`;
+      svg += `<text x="${px}" y="${py - 9}" class="trend-value" text-anchor="middle">${fmt(v, s.digits)}</text>`;
       prev = [px, py];
     });
-    return out;
-  };
-
-  TREND_SERIES.forEach(s => { svg += drawSeries(r => num(r[s.key]), yLeft, s.cls); });
-  if (hasRight) svg += drawSeries(r => num(r.endurance), yRight, 'endurance');
-
-  rows.forEach((r, i) => {
-    svg += `<text x="${x(i)}" y="${H - 9}" class="trend-tick" text-anchor="middle">${esc((r.month_label || '').slice(0, 4))}</text>`;
   });
-
+  rows.forEach((r, i) => {
+    svg += `<text x="${x(i)}" y="${H - 6}" class="trend-tick" text-anchor="middle">${esc((r.month_label || '').slice(0, 4))}</text>`;
+  });
   return svg + '</svg>';
 }
 
@@ -485,26 +469,11 @@ function renderMeasurements() {
 
   const ordered = orderedMeasurements();
 
-  // L'endurance de la session affichée complète la courbe du staff ; elle
-  // n'a pas de valeur mensuelle propre, on la porte sur le dernier mois
-  // mesuré. Le joueur ne voit que son poids et sa masse grasse.
-  const test = isStaff() ? currentTest() : null;
-  const enduranceAt = ordered.length - 1;
-  const rows = ordered.map((m, i) => ({
-    ...m,
-    endurance: i === enduranceAt ? scoreValue(test, 'profile_endurance') : null,
-  }));
+  const rows = ordered;
   const showHeight = isStaff();
 
   if (chart) {
-    const svg = trendChartSvg(rows);
-    chart.innerHTML = svg
-      ? `<div class="trend-legend">
-           <span class="legend-item"><i class="legend-dot legend-weight"></i>Poids (kg)</span>
-           <span class="legend-item"><i class="legend-dot legend-fat"></i>Masse grasse (%)</span>
-           ${rows.some(r => r.endurance !== null) ? '<span class="legend-item"><i class="legend-dot legend-endurance"></i>Endurance (/10)</span>' : ''}
-         </div>${svg}`
-      : '';
+    chart.innerHTML = trendChartSvg(rows);
   }
 
   wrap.innerHTML = `<div class="measurement-table">
@@ -595,6 +564,137 @@ async function loadClubLogo() {
   if (!path) return;
   const { data } = await sb.storage.from('logos').createSignedUrl(path, 3600);
   clubLogoUrl = data?.signedUrl || null;
+}
+
+/* ------------------------------------------------------------
+   Parcours : clubs précédents, du plus récent au plus ancien.
+   ------------------------------------------------------------ */
+function monthYear(iso) {
+  if (!iso) return '';
+  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+}
+function careerDuration(from, to) {
+  if (!from) return '';
+  const a = new Date(`${String(from).slice(0, 10)}T00:00:00`);
+  const b = to ? new Date(`${String(to).slice(0, 10)}T00:00:00`) : new Date();
+  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + 1;
+  if (!Number.isFinite(months) || months <= 0) return '';
+  const y = Math.floor(months / 12), m = months % 12;
+  return [y ? `${y} an${y > 1 ? 's' : ''}` : '', m ? `${m} mois` : ''].filter(Boolean).join(' ');
+}
+
+async function loadCareer() {
+  const { data, error } = await sb.from('player_career').select('*').eq('player_id', player.id);
+  if (error) {
+    careerMissing = true;
+    career = [];
+    console.warn('Parcours indisponible :', error.message);
+    return;
+  }
+  careerMissing = false;
+  // En cours d'abord, puis du plus récent au plus ancien.
+  career = (data || []).sort((a, b) =>
+    (a.date_fin ? 1 : 0) - (b.date_fin ? 1 : 0)
+    || String(b.date_debut || '').localeCompare(String(a.date_debut || ''))
+    || (b.id - a.id));
+}
+
+function renderCareer() {
+  const box = document.getElementById('careerList');
+  if (!box) return;
+  if (careerMissing) {
+    box.innerHTML = `<div class="career-empty">Parcours indisponible.${isStaff()
+      ? '<br>Exécutez <code>supabase/player_profile_career.sql</code> dans Supabase.' : ''}</div>`;
+    return;
+  }
+  if (!career.length) {
+    box.innerHTML = `<div class="career-empty">Aucun club renseigné.${canEditPlayer
+      ? '<br>Ajoutez les clubs précédents avec « + Ajouter ».' : ''}</div>`;
+    return;
+  }
+  box.innerHTML = `<ol class="career-list">${career.map(c => {
+    const range = c.date_debut
+      ? `${monthYear(c.date_debut)} – ${c.date_fin ? monthYear(c.date_fin) : 'aujourd’hui'}`
+      : (c.date_fin ? `jusqu’à ${monthYear(c.date_fin)}` : 'Dates non renseignées');
+    const duration = careerDuration(c.date_debut, c.date_fin);
+    return `<li class="career-item${c.date_fin ? '' : ' is-current'}${canEditPlayer ? ' is-editable' : ''}"
+        ${canEditPlayer ? `data-career="${c.id}" tabindex="0" role="button" aria-label="Modifier ${esc(c.club_name)}"` : ''}>
+      <span class="career-dot" aria-hidden="true"></span>
+      <div class="career-body">
+        <strong>${esc(c.club_name)}</strong>
+        ${c.categorie ? `<span class="career-cat">${esc(c.categorie)}</span>` : ''}
+        <span class="career-range">${esc(range)}${duration ? ` · ${esc(duration)}` : ''}</span>
+        ${c.notes ? `<p class="career-notes">${esc(c.notes)}</p>` : ''}
+      </div>
+    </li>`;
+  }).join('')}</ol>`;
+
+  box.querySelectorAll('[data-career]').forEach(el => {
+    const open = () => openCareerModal(Number(el.dataset.career));
+    el.addEventListener('click', open);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
+}
+
+/* <input type="month"> renvoie « AAAA-MM » ; on stocke le 1er du mois. */
+function monthToDate(v) {
+  if (!v) return null;
+  if (/^\d{4}-\d{2}$/.test(v)) return `${v}-01`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  return null;
+}
+
+function openCareerModal(id = null) {
+  if (!canEditPlayer) return;
+  const c = id ? career.find(x => x.id === id) : null;
+  document.getElementById('careerModalTitle').textContent = c ? 'Modifier le club' : 'Ajouter un club';
+  document.getElementById('c-id').value = c?.id || '';
+  document.getElementById('c-club').value = c?.club_name || '';
+  document.getElementById('c-cat').value = c?.categorie || '';
+  document.getElementById('c-debut').value = c?.date_debut ? String(c.date_debut).slice(0, 7) : '';
+  document.getElementById('c-fin').value = c?.date_fin ? String(c.date_fin).slice(0, 7) : '';
+  document.getElementById('c-notes').value = c?.notes || '';
+  document.getElementById('btnDeleteCareer').classList.toggle('hidden', !c);
+  openPerfModal('careerModal');
+  setTimeout(() => document.getElementById('c-club').focus(), 50);
+}
+
+async function saveCareer() {
+  if (!canEditPlayer) return;
+  const id = Number(document.getElementById('c-id').value) || null;
+  const club_name = document.getElementById('c-club').value.trim();
+  if (!club_name) return notify('Le nom du club est obligatoire.', 'error');
+  const date_debut = monthToDate(document.getElementById('c-debut').value);
+  const date_fin = monthToDate(document.getElementById('c-fin').value);
+  if (date_debut && date_fin && date_fin < date_debut) {
+    return notify('La date de fin précède la date de début.', 'error');
+  }
+  const body = {
+    club_name,
+    categorie: document.getElementById('c-cat').value.trim() || null,
+    date_debut, date_fin,
+    notes: document.getElementById('c-notes').value.trim() || null,
+  };
+  const { error } = id
+    ? await sb.from('player_career').update(body).eq('id', id)
+    : await sb.from('player_career').insert({ ...body, club_id: player.club_id, player_id: player.id, created_by: ctxProfile.id });
+  if (error) return notify(error.message, 'error');
+  closePerfModal('careerModal');
+  notify(id ? 'Club mis à jour.' : 'Club ajouté au parcours.', 'success');
+  await loadCareer();
+  renderCareer();
+}
+
+async function deleteCareer() {
+  const id = Number(document.getElementById('c-id').value) || null;
+  if (!id || !canEditPlayer || !confirm('Retirer ce club du parcours ?')) return;
+  const { error } = await sb.from('player_career').delete().eq('id', id);
+  if (error) return notify(error.message, 'error');
+  closePerfModal('careerModal');
+  notify('Club retiré du parcours.', 'success');
+  await loadCareer();
+  renderCareer();
 }
 
 /* Moyennes du club pour la session affichée. La RPC ne renvoie que des
@@ -722,30 +822,6 @@ async function fetchPhysical() {
   ]);
 }
 
-/* Préventions / développement du joueur (visibles par lui : filtrées par la RLS). */
-async function loadPrograms() {
-  const { data, error } = await sb.from('player_programs').select('*')
-    .eq('player_id', player.id).neq('status', 'termine').order('updated_at', { ascending: false });
-  if (error) console.warn('Préventions indisponibles :', error.message);
-  programs = error ? null : (data || []);
-}
-
-function renderPrograms() {
-  const box = document.getElementById('programList');
-  if (!box) return;
-  const link = document.getElementById('programLink');
-  if (link) link.href = `preventions.html?player=${player.id}`;
-  if (programs === null) { box.innerHTML = '<div class="empty">Rubrique indisponible.</div>'; return; }
-  box.innerHTML = programs.length ? programs.map(p => `<article class="note-card">
-      <div class="note-card-head"><span class="badge badge-gold">${esc(PROGRAM_CATEGORIES[p.category] || p.category)}</span>
-        <span class="text-muted" style="font-size:.75rem">${esc(PROGRAM_STATUS[p.status] || '')}${p.dosage ? ` · ${esc(p.dosage)}` : ''}</span></div>
-      <h3>${esc(p.title)}</h3>
-      ${p.body ? `<p>${esc(p.body).replace(/\n/g, '<br>')}</p>` : ''}
-      ${p.progress_note ? `<p class="text-muted">${esc(p.progress_note).replace(/\n/g, '<br>')}</p>` : ''}
-    </article>`).join('')
-    : '<div class="empty">Aucune prévention en cours.</div>';
-}
-
 /* Affiche à l'écran la raison d'un échec de chargement.
    Une page vide ou un renvoi silencieux vers une autre rubrique rendaient
    impossible de distinguer « pas de données » de « accès refusé ». */
@@ -856,9 +932,9 @@ async function loadPage() {
   notes = nRes.data || [];
   media = mediaRes.data || [];
 
-  await Promise.all([loadClubLogo(), loadSquad(), loadPrograms()]);
+  await Promise.all([loadClubLogo(), loadCareer(), loadSquad()]);
   renderIdentity();
-  renderPrograms();
+  renderCareer();
 
   if (player.photo_path) {
     const { data } = await sb.storage.from('player-photos').createSignedUrl(player.photo_path, 3600);
@@ -1072,7 +1148,6 @@ async function reloadData() {
   await loadClubAverages();
   renderRadar();
   renderMeasurements();
-  await loadPrograms(); renderPrograms();
   await signMedia(); renderNotes();
 }
 
@@ -1159,6 +1234,9 @@ document.getElementById('compareSelect').addEventListener('change', e => {
   renderRadar();
 });
 document.getElementById('btnAddMeasurement').addEventListener('click',openMeasureModal);
+document.getElementById('btnAddCareer').addEventListener('click',()=>openCareerModal());
+document.getElementById('btnSaveCareer').addEventListener('click',saveCareer);
+document.getElementById('btnDeleteCareer').addEventListener('click',deleteCareer);
 document.getElementById('btnAddTests').addEventListener('click',openTestModal);
 document.getElementById('m-date').addEventListener('change',e=>{
   const month = seasonMonthOf(e.target.value);

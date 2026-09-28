@@ -75,7 +75,7 @@ async function loadList() {
     let query = sb.from('sessions')
       .select(`id, titre, date_seance, equipe, duree_min,${withTeams ? ' team_id,' : ''} procedures(id, duree_min, nb_sequences, duree_sequence_min, temps_recup_min)`)
       .order('date_seance', { ascending: false }).order('id', { ascending: false });
-    if (currentTeamId()) query = query.eq('team_id', currentTeamId());
+    query = byTeam(query);
     const [{ data: sessions, error }, { data: club }] = await Promise.all([
       query,
       sb.from('clubs').select('saison_start').eq('id', myProfile.club_id).maybeSingle(),

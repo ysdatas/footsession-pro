@@ -38,7 +38,7 @@ let requestedPlayerId = null;
     .from('players')
     .select('id, nom, prenom, numero, player_code, auth_user_id')
     .order('nom');
-  if (currentTeamId()) playersQuery = playersQuery.eq('team_id', currentTeamId());
+  playersQuery = byTeam(playersQuery);
   const { data: players, error: playersError } = await playersQuery;
   if (!playersError) playersCache = players || [];
 

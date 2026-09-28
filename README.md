@@ -49,7 +49,7 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 14. supabase/perf_dashboard.sql                moyennes du club (bornes + 3 joueurs minimum)
 15. supabase/player_profile_career.sql         identité du joueur + parcours en club
 16. supabase/performance_one_row_per_period.sql  une ligne par joueur/saison/mois : fin des doublons
-17. supabase/roles_teams_preventions.sql     droits par rôle, équipes, préventions, vue joueur filtrée
+17. supabase/roles_teams_preventions.sql     droits par rôle, équipes, vue joueur filtrée
 ```
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter
@@ -79,11 +79,11 @@ de visionnage n'enregistre rien.**
 | Rôle | Accès |
 |---|---|
 | `admin` | Tout : membres et rôles, équipes (page **Mon club**), données physiques, vidéos, statistiques |
-| `coach` | Séances, joueurs, vidéos, statistiques de visionnage, objectifs et préventions. **Ne modifie pas** les données physiques |
+| `coach` | Séances, joueurs, vidéos, statistiques de visionnage, objectifs. **Ne modifie pas** les données physiques |
 | `analyste` | Séances, joueurs, vidéos, statistiques de visionnage |
-| `prepa` | Données physiques, tests, import Excel, objectifs et préventions. **Pas de rubrique Vidéos** |
+| `prepa` | Données physiques, tests, import Excel, objectifs. **Pas de rubrique Vidéos** |
 | `viewer` | Lecture seule |
-| `joueur` | **Uniquement sa fiche**, en lecture seule : poids, masse grasse, chronos, radar /10, objectifs et préventions qui lui sont destinés, ses vidéos et sa sélection de séquences. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
+| `joueur` | **Uniquement sa fiche**, en lecture seule : poids, masse grasse, chronos, radar /10, objectifs qui lui sont destinés, ses vidéos et sa sélection de séquences. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
 
 Les droits sont appliqués deux fois : dans l'interface (`auth.js`, `nav.js`) **et** dans la
 base (helpers `can_manage_videos()`, `can_manage_plans()`, `is_performance_editor()`).
@@ -98,7 +98,7 @@ masquer et réordonner ses rubriques (**Paramètres → Mon menu**, stocké dans
 
 Club → équipe → joueurs / séances. L'admin crée les équipes dans **Mon club** ; le
 sélecteur en haut du menu (`profiles.prefs.team_id`) filtre Joueurs, Séances,
-Performance, Vidéos, Préventions et le tableau de bord. Les notes /10 et les moyennes
+Performance, Vidéos et le tableau de bord. Les notes /10 et les moyennes
 sont calculées au sein de l'équipe du joueur.
 
 Le rôle `joueur` ne s'attribue pas directement : il découle de l'association d'un compte
@@ -146,13 +146,11 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — effectif, recherche par nom, filtre par poste.
 - **Fiche joueur** (`player.html`) — informations modifiables sur place, présence,
-  derniers relevés, profil /10, préventions en cours ; accès Performance / Vidéos / Préventions.
+  derniers relevés, profil /10, parcours ; accès Performance / Vidéos.
 - **Performance** (`player-performance.html`) — dossier individuel : photo, mesures
   physiques, tests, radar /10 (avec comparaison à un 2e joueur pour le staff), points
-  forts / axes / objectifs, préventions, sélection vidéo, **Générer le PDF**.
+  forts / axes / objectifs, parcours, sélection vidéo, **Générer le PDF**.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques.
-- **Préventions** (`preventions.html`) — prévention, travail individualisé, développement
-  physique (salle de musculation) ; visibles par le joueur sauf mention « staff uniquement ».
 - **FAQ — calculs** (`faq.html`) — d'où vient chaque donnée et comment elle est calculée.
 - **Vidéos** (`videos.html`) — envoi d'une séquence à un joueur, statistiques staff.
 - **Mes vidéos** / **Voir vidéo** — espace joueur.

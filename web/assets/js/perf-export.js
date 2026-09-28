@@ -55,13 +55,25 @@ function exportIdentity() {
   const photo = document.getElementById('playerPhoto');
   const photoSrc = photo && !photo.classList.contains('hidden') ? photo.src : '';
 
+  const careerHtml = career.length
+    ? `<table class="ps-table"><thead><tr><th>Club</th><th>Catégorie</th><th>Période</th><th>Durée</th></tr></thead><tbody>
+        ${career.map(c => `<tr>
+          <td><strong>${esc(c.club_name)}</strong></td>
+          <td>${esc(c.categorie || '—')}</td>
+          <td>${c.date_debut ? esc(monthYear(c.date_debut)) : '—'} – ${c.date_fin ? esc(monthYear(c.date_fin)) : 'aujourd’hui'}</td>
+          <td>${esc(careerDuration(c.date_debut, c.date_fin) || '—')}</td>
+        </tr>`).join('')}
+      </tbody></table>`
+    : '<p class="ps-empty">Aucun club renseigné.</p>';
+
   return `<section class="ps-section ps-identity">
     ${photoSrc ? `<img class="ps-photo" src="${esc(photoSrc)}" alt="">` : ''}
     <div>
       <h2>Identité</h2>
       <dl class="ps-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v ? esc(v) : '—'}</dd>`).join('')}</dl>
     </div>
-  </section>`;
+  </section>
+  <section class="ps-section"><h2>Parcours</h2>${careerHtml}</section>`;
 }
 
 function exportMeasures(fromIdx, toIdx) {
@@ -161,17 +173,6 @@ function exportNotes(kind, title, withImages) {
   </section>`;
 }
 
-function exportPrograms() {
-  const list = Array.isArray(programs) ? programs : [];
-  return `<section class="ps-section"><h2>Préventions &amp; salle</h2>
-    ${list.length ? list.map(p => `<article class="ps-note-card">
-        <h3>${esc(p.title)} <small>${esc(PROGRAM_CATEGORIES[p.category] || '')}${p.dosage ? ` · ${esc(p.dosage)}` : ''}</small></h3>
-        ${p.body ? `<p>${esc(p.body).replace(/\n/g, '<br>')}</p>` : ''}
-        ${p.progress_note ? `<p><em>Suivi :</em> ${esc(p.progress_note).replace(/\n/g, '<br>')}</p>` : ''}
-      </article>`).join('') : '<p class="ps-empty">Aucune prévention en cours.</p>'}
-  </section>`;
-}
-
 function exportVideos() {
   const chosen = (typeof fpFmVideos !== 'undefined' ? fpFmVideos : [])
     .filter(v => fpFmSelections?.get(Number(v.id))?.selected && fpFmSelections.get(Number(v.id))?.validated_at);
@@ -206,7 +207,6 @@ function buildExportDocument() {
   if (sections.has('strength')) parts.push(exportNotes('strength', 'Points forts', withImages));
   if (sections.has('improvement')) parts.push(exportNotes('improvement', 'Points d’amélioration', withImages));
   if (sections.has('objective')) parts.push(exportNotes('objective', 'Objectifs', withImages));
-  if (sections.has('programs')) parts.push(exportPrograms());
   if (sections.has('videos')) parts.push(exportVideos());
 
   return `<header class="ps-header">
