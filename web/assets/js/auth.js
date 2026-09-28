@@ -36,14 +36,25 @@ async function requireAuth(opts = {}) {
       .from('profiles').select(cols).eq('id', session.user.id).single());
   }
 
-  if (error) { console.error(error); window.location.href = 'index.html'; return null; }
+  if (error) {
+    console.error('requireAuth: lecture du profil impossible', error);
+    window.location.href = 'index.html';
+    return null;
+  }
 
-  // Les comptes joueurs sont cantonnés à leur espace : vidéos, lecture,
-  // liaison de compte et leur propre fiche Performance (en lecture seule,
-  // l'écriture étant refusée par la RLS et non par l'UI).
-  const currentPage = window.location.pathname.split('/').pop();
-  const PLAYER_PAGES = ['mes-videos.html', 'voir-video.html', 'player-join.html', 'player-performance.html'];
+  /* Les comptes joueurs sont cantonnés à leur espace : vidéos, lecture,
+     liaison de compte et leur propre fiche Performance (en lecture seule,
+     l'écriture étant refusée par la RLS, pas par l'UI).
+
+     L'hébergement sert les pages sans extension (/player-performance et non
+     /player-performance.html). On compare donc sur le nom sans « .html »,
+     sinon aucune page ne correspond et le joueur est renvoyé en boucle sur
+     ses vidéos. */
+  const currentPage = (window.location.pathname.split('/').pop() || '')
+    .replace(/\.html$/i, '') || 'index';
+  const PLAYER_PAGES = ['mes-videos', 'voir-video', 'player-join', 'player-performance'];
   if (profile.role === 'joueur' && !PLAYER_PAGES.includes(currentPage)) {
+    console.warn(`requireAuth: page « ${currentPage} » interdite au rôle joueur, renvoi sur mes-videos`);
     window.location.replace('mes-videos.html');
     return null;
   }

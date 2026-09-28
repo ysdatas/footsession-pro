@@ -218,6 +218,27 @@ async function signMedia() {
   renderNotes();
 }
 
+/* Affiche à l'écran la raison d'un échec de chargement.
+   Une page vide ou un renvoi silencieux vers une autre rubrique rendaient
+   impossible de distinguer « pas de données » de « accès refusé ». */
+function showLoadError(step, error) {
+  const msg = error?.message || 'erreur inconnue';
+  console.error(`player-performance: ${step} —`, error);
+  const name = document.getElementById('playerName');
+  if (name) name.textContent = 'Chargement impossible';
+  const meta = document.getElementById('playerMeta');
+  if (meta) meta.textContent = `Échec à l’étape : ${step} — ${msg}`;
+  notify(`${step} : ${msg}`, 'error');
+}
+
+function showDataWarning(entries) {
+  entries.forEach(([label, error]) => console.error(`player-performance: ${label} —`, error));
+  const meta = document.getElementById('playerMeta');
+  const detail = entries.map(([label, error]) => `${label} : ${error.message}`).join(' · ');
+  if (meta) meta.textContent = `Données inaccessibles — ${detail}`;
+  notify(`Accès refusé sur : ${entries.map(([l]) => l).join(', ')}`, 'error');
+}
+
 async function loadPage() {
   const ctx = await requireAuth();
   if (!ctx) return;
@@ -227,8 +248,11 @@ async function loadPage() {
   let playerId = Number(params.get('id') || 0) || null;
 
   if (ctxProfile.role === 'joueur') {
-    const { data: linked } = await sb.from('players')
+    const { data: linked, error: linkErr } = await sb.from('players')
       .select('id').eq('auth_user_id', ctx.user.id).maybeSingle();
+    // Une erreur de lecture ne doit pas être confondue avec « compte non lié » :
+    // renvoyer silencieusement sur player-join.html masquait la vraie cause.
+    if (linkErr) return showLoadError('lecture de ta fiche joueur', linkErr);
     if (!linked) {
       window.location.href = 'player-join.html';
       return;
@@ -236,8 +260,8 @@ async function loadPage() {
     playerId = linked.id;
   }
   if (!playerId) {
-    document.getElementById('playerName').textContent = 'Joueur introuvable';
-    return;
+    return showLoadError('identification du joueur',
+      { message: 'Aucun joueur ciblé (paramètre ?id= absent et compte non lié à une fiche).' });
   }
 
   canEditPerformance = ['admin','prepa'].includes(ctxProfile.role);
@@ -256,9 +280,10 @@ async function loadPage() {
   const { data: p, error } = await sb.from('players')
     .select('id, nom, prenom, numero, poste, club_id, auth_user_id, photo_path')
     .eq('id', playerId).maybeSingle();
-  if (error || !p) {
-    document.getElementById('playerName').textContent = 'Joueur introuvable';
-    return;
+  if (error) return showLoadError('lecture de la fiche joueur', error);
+  if (!p) {
+    return showLoadError('lecture de la fiche joueur',
+      { message: `Aucune fiche lisible pour l'id ${playerId}. Si tu es joueur, vérifie que ton compte est bien associé à une fiche (policy players_read_self).` });
   }
   player = p;
 
@@ -268,7 +293,17 @@ async function loadPage() {
     sb.from('player_performance_notes').select('*').eq('player_id', player.id).order('sort_order').order('id'),
     sb.from('player_performance_media').select('*').eq('player_id', player.id).order('sort_order').order('id'),
   ]);
-  if (mRes.error) notify(mRes.error.message,'error');
+  // Chaque erreur est affichée : des données absentes et un accès refusé
+  // produisaient tous les deux une page vide, sans moyen de les distinguer.
+  const dataErrors = [
+    ['mesures physiques', mRes.error],
+    ['tests physiques', tRes.error],
+    ['notes', nRes.error],
+    ['médias', mediaRes.error],
+  ].filter(([, e]) => e);
+  if (dataErrors.length) {
+    showDataWarning(dataErrors);
+  }
   measurements = mRes.data || [];
   tests = tRes.data || [];
   notes = nRes.data || [];
