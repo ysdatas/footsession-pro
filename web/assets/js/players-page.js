@@ -33,6 +33,11 @@ let CAN_EDIT_PLAYERS = false;
 })();
 
 function avatarClass(i) { return 'av' + (i % 6); }
+/* Initiales : sans nom de famille, (p.nom || '')[0] vaut undefined et
+   la concaténation affichait « Aundefined ». */
+function playerInitials(p) {
+  return (((p?.prenom || p?.nom || '')[0] || '') + ((p?.nom || '')[0] || '') || '?').toUpperCase();
+}
 
 /* ---------- Grille ---------- */
 async function loadGrid() {
@@ -66,7 +71,7 @@ function renderGrid() {
   }
   wrap.innerHTML = `<div class="players-grid">` + playersCache.map((p, i) => {
     const name = escapeHtml(`${p.prenom || ''} ${p.nom}`.trim());
-    const ini = escapeHtml(((p.prenom || p.nom || '?')[0] + (p.nom || '')[0] || '?').toUpperCase());
+    const ini = escapeHtml(playerInitials(p));
     const photo = p.photo_url
       ? `<img class="pc-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy">`
       : `<div class="pc-avatar ${avatarClass(i)}">${ini}</div>`;
@@ -195,7 +200,7 @@ window.showDetail = async (id) => {
       .filter(Boolean))];
 
     const name = escapeHtml(`${p.prenom || ''} ${p.nom}`.trim());
-    const ini = escapeHtml(((p.prenom || p.nom || '?')[0] + (p.nom || '')[0] || '?').toUpperCase());
+    const ini = escapeHtml(playerInitials(p));
     const presentCount = (history || []).filter(h => h.present).length;
     const pct = history?.length ? Math.round(presentCount / history.length * 100) : 0;
 
@@ -231,11 +236,18 @@ window.showDetail = async (id) => {
       <div class="detail-list">${histHtml}</div>
       ${CAN_EDIT_PLAYERS ? `<div class="modal-actions">
         <button class="btn btn-danger" type="button" onclick="deletePlayer(${p.id})">Supprimer</button>
-        <button class="btn btn-primary" type="button" onclick='editFromDetail(${JSON.stringify(p)})'>Modifier</button></div>` : ''}`;
+        <button class="btn btn-primary" type="button" onclick="editFromDetail(${p.id})">Modifier</button></div>` : ''}`;
     openModal('detailModal');
   } catch (e) { toast(e.message, 'error'); }
 };
-window.editFromDetail = (p) => { closeModal('detailModal'); openPlayerModal(p); };
+// On repasse par le cache : injecter du JSON dans un attribut onclick
+// laissait un nom de joueur casser l'attribut (injection HTML).
+window.editFromDetail = (id) => {
+  const p = playersCache.find(x => x.id === Number(id));
+  if (!p) return;
+  closeModal('detailModal');
+  openPlayerModal(p);
+};
 window.deletePlayer = async (id) => {
   if (!confirm('Supprimer ce joueur ?')) return;
   try {

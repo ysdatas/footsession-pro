@@ -16,7 +16,8 @@ let requestedPlayerId = null;
   const ctx = await requireAuth();
   if (!ctx) return;
   myProfile = ctx.profile;
-  CAN_VIEW_VIDEO_STATS = ['admin', 'coach'].includes(myProfile.role);
+  // Doit rester aligné sur public.is_video_stats_staff() (fix_audit_2026_09.sql).
+  CAN_VIEW_VIDEO_STATS = canEdit(myProfile.role);
   requestedPlayerId = Number(new URLSearchParams(location.search).get('player') || 0) || null;
 
   document.getElementById('uName').textContent = myProfile.nom || 'Utilisateur';
@@ -69,6 +70,13 @@ let requestedPlayerId = null;
 
   await loadVideos();
 })();
+
+/* Limite réelle d'un upload : c'est le bucket Supabase qui tranche.
+   Cette valeur DOIT correspondre au "File size limit" du bucket
+   player-videos (Supabase > Storage > player-videos > Configuration).
+   L'UI ne doit jamais annoncer plus que ce que le Storage accepte. */
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const fmtMo = (bytes) => `${Math.round(bytes / (1024 * 1024))} Mo`;
 
 function fmtDuree(sec) {
   sec = Math.round(sec || 0);
@@ -124,7 +132,7 @@ async function loadVideos() {
     });
 
     if (!videos.length) {
-      tbody.innerHTML = `<tr><td colspan="${CAN_VIEW_VIDEO_STATS ? 8 : 4}" class="text-muted" style="text-align:center;padding:24px;">Aucune vidéo envoyée pour le moment.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${CAN_VIEW_VIDEO_STATS ? 8 : 3}" class="text-muted" style="text-align:center;padding:24px;">Aucune vidéo envoyée pour le moment.</td></tr>`;
       return;
     }
 
@@ -158,7 +166,7 @@ async function loadVideos() {
       </tr>`;
     }).join('');
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="${CAN_VIEW_VIDEO_STATS ? 8 : 4}" class="text-danger" style="text-align:center;padding:24px;">${escapeHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${CAN_VIEW_VIDEO_STATS ? 8 : 3}" class="text-danger" style="text-align:center;padding:24px;">${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -219,8 +227,10 @@ async function uploadVideo() {
     return;
   }
 
-  const maxBytes = 500 * 1024 * 1024; // 500 Mo — ajuste selon ton plan Supabase Storage
-  if (file.size > maxBytes) { toast('Fichier trop volumineux (max 500 Mo).', 'error'); return; }
+  if (file.size > MAX_VIDEO_BYTES) {
+    toast(`Fichier trop volumineux : ${fmtMo(file.size)} pour un maximum de ${fmtMo(MAX_VIDEO_BYTES)}.`, 'error');
+    return;
+  }
 
   const btn = document.getElementById('v-submit');
   btn.disabled = true; btn.textContent = 'Envoi…';
@@ -231,7 +241,13 @@ async function uploadVideo() {
     const path = `${myProfile.club_id}/${playerId}/${Date.now()}.${ext}`;
 
     const { error: upErr } = await sb.storage.from('player-videos').upload(path, file);
-    if (upErr) throw upErr;
+    if (upErr) {
+      throw new Error(
+        /exceeded|too large|payload/i.test(upErr.message || '')
+          ? `Supabase a refusé le fichier (${fmtMo(file.size)}) : la limite du bucket player-videos est plus basse que ${fmtMo(MAX_VIDEO_BYTES)}. Ajuste MAX_VIDEO_BYTES ou la limite du bucket.`
+          : upErr.message
+      );
+    }
 
     const { error: insErr } = await sb.from('player_videos').insert({
       club_id: myProfile.club_id,

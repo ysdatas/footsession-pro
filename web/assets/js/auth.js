@@ -38,10 +38,12 @@ async function requireAuth(opts = {}) {
 
   if (error) { console.error(error); window.location.href = 'index.html'; return null; }
 
-  // Les comptes joueurs utilisent uniquement leur espace vidéo.
-  // Les pages Mes vidéos / Voir vidéo / liaison ne passent pas par cette garde.
+  // Les comptes joueurs sont cantonnés à leur espace : vidéos, lecture,
+  // liaison de compte et leur propre fiche Performance (en lecture seule,
+  // l'écriture étant refusée par la RLS et non par l'UI).
   const currentPage = window.location.pathname.split('/').pop();
-  if (profile.role === 'joueur' && !['mes-videos.html', 'voir-video.html', 'player-join.html'].includes(currentPage)) {
+  const PLAYER_PAGES = ['mes-videos.html', 'voir-video.html', 'player-join.html', 'player-performance.html'];
+  if (profile.role === 'joueur' && !PLAYER_PAGES.includes(currentPage)) {
     window.location.replace('mes-videos.html');
     return null;
   }
