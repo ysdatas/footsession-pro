@@ -16,6 +16,8 @@ let teams = [];        // [{nom, couleur, player_ids:[]}] — chasubles de la s�
 let activeTeam = 0;    // équipe qui reçoit les joueurs cliqués dans le vivier
 let uidSeq = 1;
 const nextUid = () => 'p' + (uidSeq++);
+let sessionTeamId = null; // équipe du club concernée (table teams), null = sans équipe
+const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
 
 /* Couleurs proposées dans l'ordre pour les nouvelles équipes. */
 const TEAM_PRESETS = [
@@ -79,15 +81,47 @@ const TEAM_PRESETS = [
     await loadSession();
   } else {
     document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+    sessionTeamId = currentTeamId();
     await loadPlayersForNew();
     addProcedure({ nom: 'Échauffement', duree_min: 15 });
   }
+  mountTeamSelect();
   renderProcedures();
   renderAttendance();
   renderTeams();
   updateMeta();
   if (EDITOR_MODE === 'edit' && document.getElementById('commentList')) initCellule();
 })();
+
+/* Quand le club a des équipes, le champ texte « Équipe » devient une
+   liste : la séance est rattachée à une vraie équipe, et la liste de
+   présence se limite à ses joueurs. */
+function mountTeamSelect() {
+  if (!hasTeams()) return;
+  const input = document.getElementById('f-equipe');
+  const select = el('select', { id: 'f-team', disabled: CAN_WRITE ? null : 'disabled' },
+    el('option', { value: '' }, 'Sans équipe'),
+    window.CLUB_TEAMS.map(t => el('option', { value: t.id, selected: t.id === sessionTeamId ? 'selected' : null }, t.nom)));
+  input.classList.add('hidden');
+  input.after(select);
+  select.addEventListener('change', async () => {
+    sessionTeamId = Number(select.value) || null;
+    const marked = new Map(attendance.map(a => [a.player_id, a.present]));
+    await loadPlayersForNew();
+    attendance.forEach(a => { a.present = !!marked.get(a.player_id); });
+    renderAttendance();
+    renderTeams();
+  });
+}
+
+/* Joueurs proposés dans la liste de présence : ceux de l'équipe de la
+   séance, plus ceux déjà marqués présents (knownIds). */
+async function playersForSession(knownIds = new Set()) {
+  const { data, error } = await sb.from('players')
+    .select(`id, nom, prenom, numero, poste${hasTeams() ? ', team_id' : ''}`).order('nom');
+  if (error) throw error;
+  return (data || []).filter(p => !sessionTeamId || p.team_id === sessionTeamId || knownIds.has(p.id));
+}
 
 /* ---------- Commentaires & partage (cellule) ---------- */
 let shareToken = null;
@@ -184,6 +218,7 @@ async function loadSession() {
     document.getElementById('f-titre').value = s.titre || '';
     document.getElementById('f-date').value = s.date_seance || '';
     document.getElementById('f-equipe').value = s.equipe || '';
+    sessionTeamId = s.team_id ?? null;
     document.getElementById('f-duree').value = s.duree_min || 90;
     document.getElementById('editorSubtitle').textContent = `Créée le ${(s.created_at || '').slice(0, 10)}`;
 
@@ -201,11 +236,12 @@ async function loadSession() {
       image_path: p.tactical_schemas?.image_path || null, expanded: false,
     }));
 
-    const { data: players } = await sb.from('players').select('id, nom, prenom, numero, poste').order('nom');
     const { data: att } = await sb.from('attendance').select('player_id, present').eq('session_id', SESSION_ID);
     const attMap = {};
     (att || []).forEach(a => attMap[a.player_id] = !!a.present);
-    attendance = (players || []).map(p => ({
+    // Hors de l'équipe, seuls les joueurs déjà marqués présents restent listés.
+    const players = await playersForSession(new Set((att || []).filter(a => a.present).map(a => a.player_id)));
+    attendance = players.map(p => ({
       player_id: p.id, nom: p.nom, prenom: p.prenom, numero: p.numero, poste: p.poste,
       present: !!attMap[p.id],
     }));
@@ -214,11 +250,11 @@ async function loadSession() {
 
 async function loadPlayersForNew() {
   try {
-    const { data: players } = await sb.from('players').select('id, nom, prenom, numero, poste').order('nom');
-    attendance = (players || []).map(p => ({
+    const players = await playersForSession();
+    attendance = players.map(p => ({
       player_id: p.id, nom: p.nom, prenom: p.prenom, numero: p.numero, poste: p.poste, present: false,
     }));
-  } catch (e) { attendance = []; }
+  } catch (e) { console.error('Liste des joueurs indisponible', e); attendance = []; }
 }
 
 /* ---------- Procédés ---------- */
@@ -600,6 +636,10 @@ async function save() {
     equipes: teams.map(t => ({ nom: (t.nom || '').trim() || 'Équipe', couleur: t.couleur, player_ids: t.player_ids })),
     duree_min: Number(document.getElementById('f-duree').value) || 0,
   };
+  if (hasTeams()) {
+    sessionRow.team_id = sessionTeamId;
+    sessionRow.equipe = teamName(sessionTeamId) || null;
+  }
 
   const btn = document.getElementById('btnSave'); btn.disabled = true;
   try {

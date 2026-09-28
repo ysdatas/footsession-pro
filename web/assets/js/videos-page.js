@@ -16,8 +16,8 @@ let requestedPlayerId = null;
   const ctx = await requireAuth();
   if (!ctx) return;
   myProfile = ctx.profile;
-  // Doit rester aligné sur public.is_video_stats_staff() (fix_audit_2026_09.sql).
-  CAN_VIEW_VIDEO_STATS = canEdit(myProfile.role);
+  // Doit rester aligné sur public.is_video_stats_staff() (roles_teams_preventions.sql).
+  CAN_VIEW_VIDEO_STATS = canSeeVideoStats(myProfile.role);
   requestedPlayerId = Number(new URLSearchParams(location.search).get('player') || 0) || null;
 
   document.getElementById('uName').textContent = myProfile.nom || 'Utilisateur';
@@ -25,7 +25,8 @@ let requestedPlayerId = null;
   document.getElementById('uAvatar').textContent = (myProfile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
-  CAN_EDIT_VIDEOS = canEdit(myProfile.role);
+  // Aligné sur public.can_manage_videos() : admin, coach, analyste.
+  CAN_EDIT_VIDEOS = canManageVideos(myProfile.role);
   if (CAN_EDIT_VIDEOS) {
     document.getElementById('btnNewVideo').classList.remove('hidden');
     document.getElementById('btnNewVideo').addEventListener('click', openVideoModal);
@@ -33,10 +34,12 @@ let requestedPlayerId = null;
   }
   document.getElementById('btnCodes').addEventListener('click', openCodesModal);
 
-  const { data: players, error: playersError } = await sb
+  let playersQuery = sb
     .from('players')
     .select('id, nom, prenom, numero, player_code, auth_user_id')
     .order('nom');
+  if (currentTeamId()) playersQuery = playersQuery.eq('team_id', currentTeamId());
+  const { data: players, error: playersError } = await playersQuery;
   if (!playersError) playersCache = players || [];
 
   if (myProfile.club_id) {
@@ -61,7 +64,7 @@ let requestedPlayerId = null;
     const target = playersCache.find(p => String(p.id) === String(requestedPlayerId));
     const targetName = target ? `${target.prenom || ''} ${target.nom || ''}`.trim() : 'Joueur';
     document.getElementById('videosTitle').textContent = `Vidéos — ${targetName}`;
-    document.getElementById('videoBackLink').href = `player-performance.html?id=${requestedPlayerId}`;
+    document.getElementById('videoBackLink').href = `player.html?id=${requestedPlayerId}`;
     if (CAN_VIEW_VIDEO_STATS || CAN_EDIT_VIDEOS) {
       document.getElementById('videoBackLink').classList.remove('hidden');
     }
@@ -102,6 +105,8 @@ async function loadVideos() {
       if (requestedPlayerId) query = query.eq('player_id', requestedPlayerId);
     }
 
+    // Équipe choisie dans le menu : seulement les vidéos de ses joueurs.
+    if (currentTeamId() && !requestedPlayerId) query = query.in('player_id', playersCache.map(p => p.id));
     const { data: videos, error } = await query;
     if (error) throw error;
 

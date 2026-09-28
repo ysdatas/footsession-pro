@@ -818,7 +818,9 @@ const ExcelImport = (() => {
       for (const name of st.create) {
         const { nom, prenom } = splitExcelName(name);
         const { data: fiche, error } = await sb.from('players')
-          .insert({ club_id: opts.clubId, nom, prenom: prenom || null })
+          // Rattachée à l'équipe choisie dans le menu, s'il y en a une.
+          .insert({ club_id: opts.clubId, nom, prenom: prenom || null,
+            ...(typeof currentTeamId === 'function' && currentTeamId() ? { team_id: currentTeamId() } : {}) })
           .select('id, nom, prenom, numero, club_id').single();
         if (error) throw new Error(`création de la fiche « ${name} » : ${error.message}`);
         createdFiches.push(fiche);

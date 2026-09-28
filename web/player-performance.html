@@ -26,7 +26,7 @@
         <a class="btn" id="videoPlayerLink" href="#">Vidéos</a>
         <button class="btn hidden perf-editor-only" id="btnImportExcel" type="button">Importer Excel</button>
         <button class="btn hidden perf-editor-only" id="btnAddPhoto" type="button">Photo</button>
-        <button class="btn btn-primary hidden perf-staff-only" id="btnExport" type="button">Exporter la fiche</button>
+        <button class="btn btn-primary hidden perf-staff-only" id="btnExport" type="button">Générer le PDF</button>
       </div>
     </div>
 
@@ -57,18 +57,8 @@
       </div>
     </section>
 
-    <!-- Rangée haute : parcours + radar + tests -->
-    <div class="fp-fm-shell">
-      <aside class="fp-fm-sidebar" id="perfSidebar">
-        <div class="fp-fm-side-block career-block">
-          <div class="fp-fm-side-title side-title-row">
-            <span>Parcours</span>
-            <button class="btn btn-sm hidden perf-staff-only" id="btnAddCareer" type="button">+ Ajouter</button>
-          </div>
-          <div id="careerList"></div>
-        </div>
-      </aside>
-
+    <!-- Rangée haute : radar + tests -->
+    <div class="fp-fm-shell no-sidebar">
       <div class="dash-grid perf-grid-main">
         <!-- Radar -->
         <section class="card fp-fm-radar-card">
@@ -77,11 +67,14 @@
               <h2>Profil athlétique</h2>
               <p class="text-muted">Radar /10 issu des tests physiques importés ou saisis.</p>
             </div>
-            <select id="stageSelect" class="stage-select" aria-label="Session de tests">
-              <option value="pre">Pré-saison</option>
-              <option value="mid">Mi-saison</option>
-              <option value="end">Fin de saison</option>
-            </select>
+            <div class="radar-controls">
+              <select id="stageSelect" class="stage-select" aria-label="Session de tests">
+                <option value="pre">Pré-saison</option>
+                <option value="mid">Mi-saison</option>
+                <option value="end">Fin de saison</option>
+              </select>
+              <select id="compareSelect" class="stage-select hidden" aria-label="Comparer avec un autre joueur"></select>
+            </div>
           </div>
           <div class="radar-legend" id="radarLegend"></div>
           <div id="radarWrap" class="radar-wrap"></div>
@@ -93,7 +86,7 @@
           <div class="section-head">
             <div>
               <h2>Tests physiques</h2>
-              <p class="text-muted" id="testsSubtitle">Valeurs du joueur, comparées à la moyenne de son club sur la même session.</p>
+              <p class="text-muted" id="testsSubtitle">Valeurs du joueur, comparées à la moyenne de son groupe sur la même session.</p>
             </div>
             <button class="btn btn-sm hidden perf-editor-only" id="btnAddTests" type="button">+ Tests</button>
           </div>
@@ -124,7 +117,7 @@
       <section class="card">
         <div class="section-head">
           <div><h2>Points forts</h2><p class="text-muted">Axes positifs et ressources du joueur.</p></div>
-          <button class="btn btn-sm hidden perf-editor-only" id="btnAddStrength" data-kind="strength" type="button">+ Ajouter</button>
+          <button class="btn btn-sm hidden perf-plans-only" id="btnAddStrength" data-kind="strength" type="button">+ Ajouter</button>
         </div>
         <div id="strengthList" class="note-grid"></div>
       </section>
@@ -132,17 +125,25 @@
       <section class="card">
         <div class="section-head">
           <div><h2>Points d’amélioration</h2><p class="text-muted">Axes prioritaires et exercices associés.</p></div>
-          <button class="btn btn-sm hidden perf-editor-only" id="btnAddImprovement" data-kind="improvement" type="button">+ Ajouter</button>
+          <button class="btn btn-sm hidden perf-plans-only" id="btnAddImprovement" data-kind="improvement" type="button">+ Ajouter</button>
         </div>
         <div id="improvementList" class="note-grid"></div>
       </section>
 
       <section class="card">
         <div class="section-head">
-          <div><h2>Objectifs &amp; prévention</h2><p class="text-muted">Objectifs, prévention bas et haut du corps.</p></div>
-          <button class="btn btn-sm hidden perf-editor-only" id="btnAddObjective" data-kind="objective" type="button">+ Objectif</button>
+          <div><h2>Objectifs</h2><p class="text-muted">Objectifs de travail fixés au joueur.</p></div>
+          <button class="btn btn-sm hidden perf-plans-only" id="btnAddObjective" data-kind="objective" type="button">+ Objectif</button>
         </div>
         <div id="objectiveList" class="note-grid"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div><h2>Préventions &amp; salle</h2><p class="text-muted">Prévention, travail individualisé, développement physique.</p></div>
+          <a class="btn btn-sm hidden perf-staff-only" id="programLink" href="preventions.html">Gérer</a>
+        </div>
+        <div id="programList" class="note-grid"></div>
       </section>
     </div>
 
@@ -259,32 +260,11 @@
   </div>
 
   <!-- Parcours -->
-  <div class="modal-backdrop" id="careerModal">
-    <div class="modal">
-      <h3 id="careerModalTitle">Ajouter un club</h3>
-      <input type="hidden" id="c-id">
-      <div class="form-grid form-grid-2">
-        <label class="span-2">Club<input id="c-club" type="text" placeholder="Ex : Stade Rennais" autocomplete="off"></label>
-        <label class="span-2">Catégorie / niveau<input id="c-cat" type="text" placeholder="Ex : U17 Nationaux"></label>
-        <label>Début<input id="c-debut" type="month"></label>
-        <label>Fin<input id="c-fin" type="month"><small class="field-hint">Vide = en cours</small></label>
-        <label class="span-2">Notes<textarea id="c-notes" rows="3" placeholder="Facultatif"></textarea></label>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-danger hidden" id="btnDeleteCareer" type="button">Supprimer</button>
-        <span class="spacer"></span>
-        <button class="btn" data-close="careerModal" type="button">Annuler</button>
-        <button class="btn btn-primary" id="btnSaveCareer" type="button">Enregistrer</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Export -->
   <div class="modal-backdrop" id="exportModal">
     <div class="modal modal-wide">
       <h3>Exporter la fiche</h3>
-      <p class="text-muted modal-lead">Le document s’ouvre dans la fenêtre d’impression : choisissez
-        <strong>« Enregistrer au format PDF »</strong> comme destination.</p>
+      <p class="text-muted modal-lead">Le fichier PDF est généré et téléchargé directement.</p>
 
       <div class="export-block">
         <div class="export-title">Période</div>
@@ -314,14 +294,15 @@
       <div class="export-block">
         <div class="export-title">Contenu</div>
         <div class="export-sections">
-          <label class="check"><input type="checkbox" name="exp-sec" value="identity" checked> Identité et parcours</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="identity" checked> Identité et photo</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="measures" checked> Mesures physiques</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="tests" checked> Tests physiques</label>
-          <label class="check"><input type="checkbox" name="exp-sec" value="compare" checked> Comparaison à la moyenne du club</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="compare" checked> Comparaison à la moyenne du groupe</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="radar" checked> Profil athlétique /10</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="strength" checked> Points forts</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="improvement" checked> Points d’amélioration</label>
-          <label class="check"><input type="checkbox" name="exp-sec" value="objective" checked> Objectifs &amp; prévention</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="objective" checked> Objectifs</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="programs" checked> Préventions &amp; salle</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="images"> Images des notes</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="videos"> Séquences vidéo sélectionnées</label>
         </div>
@@ -339,11 +320,11 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/perf-metrics.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/perf-export.js"></script>
-  <div id="printSheet" class="print-sheet" aria-hidden="true"></div>
 </body>
 </html>

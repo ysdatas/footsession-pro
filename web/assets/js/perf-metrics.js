@@ -118,3 +118,20 @@ function seasonKeyFor(iso, startMonth = 8) {
 function latestSeasonOf(rows) {
   return rows.map(r => r?.season_key).filter(s => /^\d{4}-\d{4}$/.test(s || '')).sort().at(-1) || null;
 }
+
+/* Axes du profil /10 (radar, fiche, export). */
+const SCORE_AXES = [
+  { key: 'profile_start',     label: 'Démarrage' },
+  { key: 'profile_agility',   label: 'Agilité' },
+  { key: 'profile_speed',     label: 'Vitesse' },
+  { key: 'profile_endurance', label: 'Endurance' },
+  { key: 'profile_core',      label: 'Core' },
+];
+
+/* Préventions / développement (table player_programs). */
+const PROGRAM_CATEGORIES = {
+  prevention: 'Prévention',
+  individuel: 'Travail individualisé',
+  developpement: 'Développement physique',
+};
+const PROGRAM_STATUS = { en_cours: 'En cours', en_pause: 'En pause', termine: 'Terminé' };

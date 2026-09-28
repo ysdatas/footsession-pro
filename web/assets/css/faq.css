@@ -1,0 +1,23 @@
+/* FootSession Pro — faq.css */
+.faq { max-width: 980px; }
+.faq section.card { margin-bottom: 16px; scroll-margin-top: 16px; }
+.faq h2 { font-size: 1.15rem; margin: 0 0 10px; }
+.faq h3 { font-size: .95rem; margin: 14px 0 8px; color: var(--gold); }
+.faq p, .faq li { font-size: .9rem; line-height: 1.55; }
+.faq ul, .faq ol { padding-left: 20px; margin: 8px 0; }
+.faq li { margin-bottom: 4px; }
+.faq-toc { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 16px; font-size: .84rem; }
+.faq-toc a { color: var(--text-secondary); }
+.faq-toc a:hover { color: var(--gold); }
+.faq-formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .95rem;
+  background: var(--bg-surface); border: 1px solid var(--gold-border); border-radius: var(--radius-md);
+  padding: 10px 14px; color: var(--gold-light);
+}
+.faq-inline { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; color: var(--gold-light); }
+.faq-note { border-left: 3px solid var(--gold-border); padding-left: 12px; color: var(--text-secondary); }
+.faq-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 24px; }
+.faq-table { width: 100%; border-collapse: collapse; font-size: .86rem; margin: 10px 0; }
+.faq-table th, .faq-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.faq-table th { color: var(--text-secondary); font-weight: 600; font-size: .78rem; }
+@media (max-width: 640px) { .faq-table { display: block; overflow-x: auto; } }

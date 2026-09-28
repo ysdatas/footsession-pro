@@ -103,3 +103,36 @@
   .page-head { flex-direction: column; }
   .main { padding: 64px 12px 40px; }
 }
+
+/* ----- Sélecteur d'équipe (nav.js) ----- */
+.team-switch {
+  display: flex; flex-direction: column; gap: 5px;
+  margin: 0 0 14px; font-size: .72rem; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary);
+}
+.team-switch select {
+  width: 100%; padding: 8px 10px; border-radius: var(--radius-md);
+  background: var(--bg-surface); color: var(--text-primary);
+  border: 1px solid var(--gold-border); font: inherit; font-size: .88rem;
+  text-transform: none; letter-spacing: 0;
+}
+
+/* ----- Éditeur de menu (Paramètres) ----- */
+.menu-editor { list-style: none; margin: 10px 0 14px; padding: 0; display: grid; gap: 6px; max-width: 460px; }
+.menu-editor li {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+}
+.menu-editor li.is-hidden { opacity: .5; }
+.menu-editor label { display: flex; align-items: center; gap: 10px; flex: 1; margin: 0; cursor: pointer; }
+.menu-editor .menu-move { display: flex; gap: 4px; }
+.menu-editor .menu-move button { min-width: 32px; }
+
+/* ----- Équipes (Mon club) ----- */
+.team-list { display: grid; gap: 6px; margin: 10px 0 12px; max-width: 520px; }
+.team-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+}
+.team-form { display: flex; gap: 8px; max-width: 520px; }
+.team-form input { flex: 1; }

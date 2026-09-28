@@ -38,6 +38,9 @@ const DEFAULT_PREFS = {
   document.getElementById('saveAccount').addEventListener('click', saveAccount);
   document.getElementById('savePassword').addEventListener('click', savePassword);
   document.getElementById('savePrefs').addEventListener('click', savePrefs);
+  document.getElementById('saveMenu').addEventListener('click', saveMenu);
+  document.getElementById('resetMenu').addEventListener('click', () => renderMenuEditor({}));
+  renderMenuEditor(myProfile.prefs || {});
 
   // Retours visuels des curseurs
   const tok = document.getElementById('pf-token'), eqp = document.getElementById('pf-equip');
@@ -86,9 +89,51 @@ async function savePrefs() {
   };
   const btn = document.getElementById('savePrefs'); btn.disabled = true;
   try {
-    const { error } = await sb.from('profiles').update({ prefs }).eq('id', myProfile.id);
-    if (error) throw error;
+    // Fusion : ne pas effacer le menu ni l'équipe choisie.
+    await savePrefsPatch(prefs);
     toast('Préférences enregistrées', 'success');
+  } catch (e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+
+/* ---------- Menu latéral ---------- */
+function renderMenuEditor(prefs) {
+  const list = document.getElementById('menuEditor');
+  list.innerHTML = orderedNavItems(myProfile.role, prefs).map(item => `
+    <li data-key="${item.key}" class="${item.hidden ? 'is-hidden' : ''}">
+      <label><input type="checkbox" ${item.hidden ? '' : 'checked'} ${item.fixed ? 'disabled' : ''}>
+        ${escapeHtml(item.label)}${item.fixed ? ' <span class="text-muted">(toujours affiché)</span>' : ''}</label>
+      <span class="menu-move">
+        <button class="btn btn-sm" type="button" data-move="-1" aria-label="Monter ${escapeHtml(item.label)}">↑</button>
+        <button class="btn btn-sm" type="button" data-move="1" aria-label="Descendre ${escapeHtml(item.label)}">↓</button>
+      </span>
+    </li>`).join('');
+}
+
+document.getElementById('menuEditor').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-move]');
+  if (!btn) return;
+  const li = btn.closest('li');
+  const sibling = Number(btn.dataset.move) < 0 ? li.previousElementSibling : li.nextElementSibling;
+  if (!sibling) return;
+  if (Number(btn.dataset.move) < 0) sibling.before(li); else sibling.after(li);
+  btn.focus();
+});
+document.getElementById('menuEditor').addEventListener('change', (e) => {
+  e.target.closest('li')?.classList.toggle('is-hidden', !e.target.checked);
+});
+
+async function saveMenu() {
+  const rows = [...document.querySelectorAll('#menuEditor li')];
+  const nav = {
+    order: rows.map(li => li.dataset.key),
+    hidden: rows.filter(li => !li.querySelector('input').checked).map(li => li.dataset.key),
+  };
+  const btn = document.getElementById('saveMenu'); btn.disabled = true;
+  try {
+    const prefs = await savePrefsPatch({ nav });
+    renderNav({ ...myProfile, prefs });
+    toast('Menu enregistré', 'success');
   } catch (e) { toast(e.message, 'error'); }
   finally { btn.disabled = false; }
 }

@@ -1,7 +1,8 @@
 /* ============================================================
    FootSession Pro — perf-export.js
-   Export de la fiche joueur en PDF, via la fenêtre d'impression du
-   navigateur (« Enregistrer au format PDF »). Réservé au staff.
+   Export de la fiche joueur en fichier PDF, généré directement dans le
+   navigateur (html2pdf.js : html2canvas + jsPDF), sans passer par la
+   fenêtre d'impression. Réservé au staff.
 
    Le document est construit à partir des données déjà chargées par
    player-performance-page.js : rien n'est recalculé ni complété, une
@@ -44,6 +45,7 @@ function exportIdentity() {
   const rows = [
     ['Poste', player.poste],
     ['Numéro', player.numero != null ? `#${player.numero}` : null],
+    ['Équipe', typeof teamName === 'function' ? teamName(player.team_id) : null],
     ['Date de naissance', player.date_naissance ? `${frDate(player.date_naissance)}${age !== null ? ` (${age} ans)` : ''}` : null],
     ['Nationalité', player.nationalite],
     ['Pied fort', player.pied_fort],
@@ -53,25 +55,13 @@ function exportIdentity() {
   const photo = document.getElementById('playerPhoto');
   const photoSrc = photo && !photo.classList.contains('hidden') ? photo.src : '';
 
-  const careerHtml = career.length
-    ? `<table class="ps-table"><thead><tr><th>Club</th><th>Catégorie</th><th>Période</th><th>Durée</th></tr></thead><tbody>
-        ${career.map(c => `<tr>
-          <td><strong>${esc(c.club_name)}</strong></td>
-          <td>${esc(c.categorie || '—')}</td>
-          <td>${c.date_debut ? esc(monthYear(c.date_debut)) : '—'} – ${c.date_fin ? esc(monthYear(c.date_fin)) : 'aujourd’hui'}</td>
-          <td>${esc(careerDuration(c.date_debut, c.date_fin) || '—')}</td>
-        </tr>`).join('')}
-      </tbody></table>`
-    : '<p class="ps-empty">Aucun club renseigné.</p>';
-
   return `<section class="ps-section ps-identity">
     ${photoSrc ? `<img class="ps-photo" src="${esc(photoSrc)}" alt="">` : ''}
     <div>
       <h2>Identité</h2>
       <dl class="ps-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v ? esc(v) : '—'}</dd>`).join('')}</dl>
     </div>
-  </section>
-  <section class="ps-section"><h2>Parcours</h2>${careerHtml}</section>`;
+  </section>`;
 }
 
 function exportMeasures(fromIdx, toIdx) {
@@ -122,7 +112,7 @@ function exportTests(stageKeys, withCompare, withRadar) {
     const hasRef = !!ref && PERF_METRICS.some(m => num(ref[m.key]) !== null);
 
     const table = `<table class="ps-table"><thead><tr>
-        <th>Test</th><th>Valeur</th>${hasRef ? '<th>Moyenne club</th><th>Écart</th>' : ''}
+        <th>Test</th><th>Valeur</th>${hasRef ? `<th>${refLabel()}</th><th>Écart</th>` : ''}
       </tr></thead><tbody>
       ${PERF_METRICS.map(m => {
         const v = num(test[m.key]);
@@ -140,7 +130,7 @@ function exportTests(stageKeys, withCompare, withRadar) {
       </tbody></table>`;
 
     const radar = withRadar
-      ? `<div class="ps-radar">${radarSvg(test, hasRef ? ref : null)}
+      ? `<div class="ps-radar">${pdfSafeSvg(radarSvg(test, hasRef ? ref : null))}
           <div class="ps-scores">${SCORE_LABELS.map(([k, l]) => {
             const v = scoreValue(test, k);
             return `<div><span>${esc(l)}</span><strong>${v === null ? '—' : fmt(v, 1)}</strong></div>`;
@@ -150,7 +140,7 @@ function exportTests(stageKeys, withCompare, withRadar) {
     return `<section class="ps-section ps-stage">
       <h2>Tests physiques — ${esc(s.label)}${test.tested_at ? ` <small>${esc(frDate(test.tested_at))}</small>` : ''}</h2>
       <div class="ps-stage-grid${withRadar ? '' : ' no-radar'}">${table}${radar}</div>
-      ${hasRef ? `<p class="ps-note">Moyenne club : joueurs du club ayant passé chaque test lors de cette session (à partir de 3), valeurs aberrantes exclues. Écart positif = meilleur que la moyenne.</p>` : ''}
+      ${hasRef ? `<p class="ps-note">${refLabel()} : joueurs du groupe ayant passé chaque test lors de cette session (à partir de 3), valeurs aberrantes exclues. Écart positif = meilleur que la moyenne.</p>` : ''}
     </section>`;
   }).join('');
 }
@@ -168,6 +158,17 @@ function exportNotes(kind, title, withImages) {
         ${imgs.length ? `<div class="ps-images">${imgs.map(m => `<figure><img src="${esc(m.signed_url)}" alt=""><figcaption>${esc(m.caption || '')}</figcaption></figure>`).join('')}</div>` : ''}
       </article>`;
     }).join('')}
+  </section>`;
+}
+
+function exportPrograms() {
+  const list = Array.isArray(programs) ? programs : [];
+  return `<section class="ps-section"><h2>Préventions &amp; salle</h2>
+    ${list.length ? list.map(p => `<article class="ps-note-card">
+        <h3>${esc(p.title)} <small>${esc(PROGRAM_CATEGORIES[p.category] || '')}${p.dosage ? ` · ${esc(p.dosage)}` : ''}</small></h3>
+        ${p.body ? `<p>${esc(p.body).replace(/\n/g, '<br>')}</p>` : ''}
+        ${p.progress_note ? `<p><em>Suivi :</em> ${esc(p.progress_note).replace(/\n/g, '<br>')}</p>` : ''}
+      </article>`).join('') : '<p class="ps-empty">Aucune prévention en cours.</p>'}
   </section>`;
 }
 
@@ -204,14 +205,16 @@ function buildExportDocument() {
   const withImages = sections.has('images');
   if (sections.has('strength')) parts.push(exportNotes('strength', 'Points forts', withImages));
   if (sections.has('improvement')) parts.push(exportNotes('improvement', 'Points d’amélioration', withImages));
-  if (sections.has('objective')) parts.push(exportNotes('objective', 'Objectifs & prévention', withImages));
+  if (sections.has('objective')) parts.push(exportNotes('objective', 'Objectifs', withImages));
+  if (sections.has('programs')) parts.push(exportPrograms());
   if (sections.has('videos')) parts.push(exportVideos());
 
   return `<header class="ps-header">
       <div>
         <div class="ps-eyebrow">${esc(club || 'FootSession Pro')} · Dossier joueur</div>
         <h1>${esc(fullName || 'Joueur')}</h1>
-        <div class="ps-sub">${esc([player.poste, player.numero != null ? `#${player.numero}` : null].filter(Boolean).join(' · '))}</div>
+        <div class="ps-sub">${esc([player.poste, player.numero != null ? `#${player.numero}` : null,
+          typeof teamName === 'function' ? teamName(player.team_id) : null].filter(Boolean).join(' · '))}</div>
       </div>
       <div class="ps-meta">
         <div>Exporté le ${esc(new Date().toLocaleDateString('fr-FR'))}</div>
@@ -222,7 +225,60 @@ function buildExportDocument() {
     <footer class="ps-footer">Données issues de FootSession Pro. Une valeur absente de la source est notée « — » ; rien n’est estimé.</footer>`;
 }
 
-/* Attend le chargement des images (photo, notes) avant d'imprimer, sinon
+/* html2canvas dessine mal les <svg> (taille et styles perdus : radar
+   tronqué, tout noir). Chaque radar est donc converti en image PNG avant
+   la génération, avec ses styles embarqués dans le SVG. */
+const PDF_RADAR_STYLE = `
+  .radar-ring{fill:none;stroke:#999;stroke-opacity:.5}
+  .radar-axis{stroke:#999;stroke-opacity:.5}
+  .radar-label{fill:#222;font:650 12px Inter,Arial,sans-serif}
+  .radar-scale{fill:#999;font:9px Inter,Arial,sans-serif}
+  .radar-area{fill:rgba(201,168,76,.28);stroke:#b08a2a;stroke-width:2}
+  .radar-area-dot,.radar-center{fill:#b08a2a}
+  .radar-ref{fill:rgba(120,130,140,.1);stroke:#8a939c;stroke-width:1.4;stroke-dasharray:5 4}
+  .radar-ref-dot{fill:#8a939c}
+  .radar-compare{fill:rgba(74,157,224,.14);stroke:#2f7fc1;stroke-width:1.8}
+  .radar-compare-dot{fill:#2f7fc1}
+  .radar-partial{fill:none}`;
+function pdfSafeSvg(svg) {
+  return svg.replace(/<svg([^>]*)>/,
+    `<svg$1 xmlns="http://www.w3.org/2000/svg" width="${RADAR.W}" height="${RADAR.H}"><style>${PDF_RADAR_STYLE}</style>`);
+}
+
+function svgToImage(svg) {
+  return new Promise((resolve, reject) => {
+    const src = new Image();
+    src.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = RADAR.W * 2; canvas.height = RADAR.H * 2;
+      const g = canvas.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, canvas.width, canvas.height);
+      g.drawImage(src, 0, 0, canvas.width, canvas.height);
+      resolve(el('img', { src: canvas.toDataURL('image/png'), alt: 'Radar du profil athlétique', style: 'width:100%;display:block' }));
+    };
+    src.onerror = () => reject(new Error('conversion du radar impossible'));
+    src.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+  });
+}
+
+async function rasterizeRadars(root) {
+  for (const svg of root.querySelectorAll('.ps-radar svg')) svg.replaceWith(await svgToImage(svg));
+}
+
+/* html2pdf n'est chargé qu'au premier export : inutile pour un joueur. */
+const HTML2PDF_URL = 'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js';
+function loadHtml2pdf() {
+  if (window.html2pdf) return Promise.resolve(window.html2pdf);
+  return loadHtml2pdf.promise ||= new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = HTML2PDF_URL;
+    script.onload = () => resolve(window.html2pdf);
+    script.onerror = () => { loadHtml2pdf.promise = null; reject(new Error('Générateur PDF indisponible (connexion ?)')); };
+    document.head.append(script);
+  });
+}
+
+/* Attend le chargement des images (photo, notes) avant de générer, sinon
    elles sortent vides dans le PDF. */
 function waitForImages(root) {
   const imgs = [...root.querySelectorAll('img')];
@@ -230,27 +286,45 @@ function waitForImages(root) {
     : new Promise(res => { img.onload = img.onerror = res; setTimeout(res, 4000); })));
 }
 
+function exportFileName() {
+  const name = normalizeName(`${player.prenom || ''} ${player.nom || ''}`).replace(/ /g, '-') || 'joueur';
+  return `fiche-${name}-${localToday()}.pdf`;
+}
+
 async function runExport() {
   if (!isStaff() || !player) return;
   if (!exportChecked('exp-sec').length) return notify('Choisissez au moins une rubrique.', 'error');
 
-  const sheet = document.getElementById('printSheet');
-  sheet.innerHTML = buildExportDocument();
-  closePerfModal('exportModal');
-
-  const title = document.title;
-  document.title = `Fiche ${`${player.prenom || ''} ${player.nom || ''}`.trim()} — ${localToday()}`;
-  document.body.classList.add('is-printing');
-  await waitForImages(sheet);
-
-  const cleanup = () => {
-    document.body.classList.remove('is-printing');
-    document.title = title;
-    sheet.innerHTML = '';
-    window.removeEventListener('afterprint', cleanup);
-  };
-  window.addEventListener('afterprint', cleanup);
-  window.print();
+  const btn = document.getElementById('btnRunExport');
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'Génération…';
+  // Feuille hors écran : html2pdf la clone dans sa propre zone de rendu.
+  const sheet = el('div', { class: 'pdf-sheet', html: buildExportDocument() });
+  const holder = el('div', { style: 'position:fixed;left:-10000px;top:0;', 'aria-hidden': 'true' }, sheet);
+  document.body.append(holder);
+  try {
+    const html2pdf = await loadHtml2pdf();
+    await rasterizeRadars(sheet);
+    await waitForImages(sheet);
+    await html2pdf().set({
+      margin: [12, 12, 12, 12],
+      filename: exportFileName(),
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['.ps-identity', '.ps-stage', '.ps-note-card', 'tr'] },
+    }).from(sheet).save();
+    closePerfModal('exportModal');
+    notify('PDF généré.', 'success');
+  } catch (e) {
+    console.error('Export PDF impossible', e);
+    notify(`Export PDF impossible : ${e.message}`, 'error');
+  } finally {
+    holder.remove();
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 }
 
 (function initExport() {

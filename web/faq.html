@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — FAQ calculs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/faq.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav" aria-label="Menu principal"></nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main faq">
+    <div class="page-head">
+      <div>
+        <h1>Comment sont calculées les données ?</h1>
+        <p class="subtitle">D’où vient chaque chiffre de FootSession Pro, ce qui est mesuré et ce qui est calculé.</p>
+      </div>
+    </div>
+
+    <nav class="faq-toc card" aria-label="Sommaire">
+      <a href="#sources">Sources</a><a href="#reel-calcule">Mesuré ou calculé</a><a href="#axes">Axes du radar</a>
+      <a href="#note10">Note sur 10</a><a href="#radar">Lire le radar</a><a href="#groupe">Moyenne, écart, rang</a>
+      <a href="#asymetrie">Asymétrie 505</a><a href="#masse-grasse">Masse grasse</a><a href="#ratio">Ratio Shirado / Sorensen</a>
+      <a href="#saisons">Saisons et équipes</a><a href="#droits">Qui voit quoi</a>
+    </nav>
+
+    <section class="card" id="sources">
+      <h2>D’où viennent les données ?</h2>
+      <p>Trois sources, et seulement trois :</p>
+      <ol>
+        <li><strong>Le classeur Excel du préparateur physique</strong>, importé depuis la page <em>Joueurs</em> (bouton « Importer l’Excel ») ou depuis une fiche Performance. Réservé à l’administrateur et au préparateur physique. Chaque import met à jour tous les joueurs reconnus dans le fichier.</li>
+        <li><strong>La saisie manuelle</strong> dans la fiche Performance d’un joueur (« + Mesure », « + Tests »), par les mêmes rôles.</li>
+        <li><strong>Les présences</strong>, cochées dans chaque séance.</li>
+      </ol>
+      <p>FootSession Pro n’invente aucune valeur : une donnée absente s’affiche « — ».</p>
+      <h3>Ce qui est repris du classeur</h3>
+      <table class="faq-table">
+        <thead><tr><th>Onglet du classeur</th><th>Ce qui est importé</th></tr></thead>
+        <tbody>
+          <tr><td>Anthropométrie</td><td>Taille et poids, un relevé par mois d’août à juin.</td></tr>
+          <tr><td>Plis cutanés</td><td>Âge, les 4 plis (biceps, triceps, sous-scapulaire, supra-iliaque), leur somme et le % de masse grasse <em>tel que calculé par le classeur</em>.</td></tr>
+          <tr><td>Tests bruts</td><td>Les 6 tests sur 3 sessions : pré-saison, mi-saison, fin de saison.</td></tr>
+          <tr><td>Profil sur 10</td><td>Les 5 notes, <em>telles que calculées par le classeur</em>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="reel-calcule">
+      <h2>Mesures réelles ou valeurs calculées ?</h2>
+      <div class="faq-two">
+        <div>
+          <h3>Mesuré sur le terrain</h3>
+          <ul>
+            <li>Taille (cm), poids (kg)</li>
+            <li>Les 4 plis cutanés (mm)</li>
+            <li>Sprint 10 m et sprint 40 m (s)</li>
+            <li>505 appui gauche, 505 appui droit (s)</li>
+            <li>30-15 IFT : VIFT (km/h)</li>
+            <li>Shirado et Sorensen (s)</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Calculé</h3>
+          <ul>
+            <li>Somme des 4 plis et % de masse grasse (dans le classeur)</li>
+            <li>505 moyenne = (gauche + droit) ÷ 2</li>
+            <li>Asymétrie 505 (%)</li>
+            <li>Ratio Shirado / Sorensen</li>
+            <li>Les 5 notes sur 10</li>
+            <li>Moyenne du groupe, écart et rang</li>
+            <li>Pourcentage de présence</li>
+          </ul>
+        </div>
+      </div>
+      <p class="text-muted">La moyenne du 505, l’asymétrie et le ratio sont recalculés par la base à chaque enregistrement, avec les formules ci-dessous : ils sont donc identiques qu’ils viennent de l’Excel ou d’une saisie manuelle.</p>
+    </section>
+
+    <section class="card" id="axes">
+      <h2>Les 5 axes du radar</h2>
+      <table class="faq-table">
+        <thead><tr><th>Axe</th><th>Test utilisé</th><th>Meilleure note si…</th></tr></thead>
+        <tbody>
+          <tr><td>Démarrage</td><td>Sprint 10 m (s)</td><td>la valeur est basse</td></tr>
+          <tr><td>Agilité</td><td>505, moyenne des appuis gauche et droit (s)</td><td>la valeur est basse</td></tr>
+          <tr><td>Vitesse</td><td>Sprint 40 m (s)</td><td>la valeur est basse</td></tr>
+          <tr><td>Endurance</td><td>30-15 IFT, VIFT (km/h)</td><td>la valeur est haute</td></tr>
+          <tr><td>Core</td><td>Moyenne des notes Shirado (fléchisseurs) et Sorensen (extenseurs)</td><td>les durées sont longues</td></tr>
+        </tbody>
+      </table>
+      <p>L’agilité utilise la <strong>moyenne</strong> des deux côtés, pas l’asymétrie : un joueur peut avoir une bonne note d’agilité et une asymétrie à surveiller. Les deux informations se lisent ensemble.</p>
+    </section>
+
+    <section class="card" id="note10">
+      <h2>Comment la note sur 10 est calculée</h2>
+      <p class="faq-formula">Note = 5 + 2 × z, bornée entre 0 et 10</p>
+      <p><strong>z</strong> est l’écart du joueur à la moyenne du groupe, exprimé en écarts-types. Pour les tests où une valeur basse est meilleure (sprints, 505), l’écart est inversé : plus rapide que le groupe donne une note au-dessus de 5.</p>
+      <ul>
+        <li><strong>5</strong> = moyenne du groupe · <strong>7</strong> = +1 écart-type · <strong>3</strong> = −1 écart-type · <strong>10</strong> = +2,5 écarts-types ou plus.</li>
+        <li><strong>Groupe de référence</strong> : les joueurs de la même équipe, sur la même session de tests de la même saison.</li>
+        <li><strong>Minimum 3 valeurs</strong> dans le groupe pour un test ; en dessous, la note reste vide. Si tous les joueurs ont la même valeur, la note vaut 5.</li>
+        <li><strong>Core</strong> : moyenne des notes Shirado et Sorensen disponibles.</li>
+        <li><strong>Import Excel</strong> : quand le classeur fournit des notes, ce sont elles qui sont gardées. L’application ne calcule les notes que pour les tests saisis à la main.</li>
+      </ul>
+      <p class="faq-note">Une note stable d’une session à l’autre veut dire que le joueur a progressé <em>au même rythme que le groupe</em>. Pour lire la progression réelle, regardez les valeurs brutes.</p>
+    </section>
+
+    <section class="card" id="radar">
+      <h2>Lire le radar</h2>
+      <ul>
+        <li><strong>Zone dorée</strong> : le joueur, pour la session choisie (pré-saison, mi-saison, fin de saison).</li>
+        <li><strong>Trait gris en pointillés</strong> : la moyenne du groupe sur la même session.</li>
+        <li><strong>Zone bleue</strong> : le deuxième joueur, quand vous en choisissez un dans « Comparer avec ». Réservé au staff.</li>
+        <li>Un axe sans note n’est pas tracé : il n’est jamais ramené à zéro.</li>
+      </ul>
+    </section>
+
+    <section class="card" id="groupe">
+      <h2>Moyenne du groupe, écart et rang</h2>
+      <ul>
+        <li><strong>Moyenne du groupe</strong> : dernière valeur de chaque joueur sur la session, pour la saison la plus récente. Au moins 3 joueurs, sinon elle n’est pas affichée.</li>
+        <li><strong>Valeurs exclues</strong> : une valeur hors des bornes attendues n’entre pas dans la moyenne. C’est presque toujours une saisie dans la mauvaise colonne. Elle reste visible et signalée sur la fiche du joueur.</li>
+        <li><strong>Écart</strong> : différence entre le joueur et la moyenne, orientée pour que <span class="text-success">vert = mieux que la moyenne</span>, quel que soit le sens du test.</li>
+        <li><strong>Rang</strong> : place du joueur dans le groupe sur ce test (staff uniquement).</li>
+      </ul>
+      <table class="faq-table">
+        <thead><tr><th>Test</th><th>Bornes retenues</th></tr></thead>
+        <tbody>
+          <tr><td>Sprint 10 m</td><td>1,2 à 2,6 s</td></tr>
+          <tr><td>Sprint 40 m</td><td>4,0 à 8,0 s</td></tr>
+          <tr><td>505 (gauche, droit, moyenne)</td><td>1,8 à 3,6 s</td></tr>
+          <tr><td>Asymétrie 505</td><td>0 à 40 %</td></tr>
+          <tr><td>VIFT</td><td>12 à 25 km/h</td></tr>
+          <tr><td>Shirado, Sorensen</td><td>5 à 600 s</td></tr>
+          <tr><td>Ratio Shirado / Sorensen</td><td>0,1 à 6</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="asymetrie">
+      <h2>Asymétrie au 505</h2>
+      <p class="faq-formula">Asymétrie (%) = |gauche − droit| ÷ la plus grande des deux valeurs × 100</p>
+      <ul>
+        <li>Un passage sur appui gauche, un passage sur appui droit ; la moyenne et l’asymétrie sont calculées automatiquement.</li>
+        <li>Au-delà de <strong>15 %</strong>, le classeur colore la valeur en rouge. C’est un repère de terrain, pas un seuil diagnostique : il n’existe pas de valeur consensuelle, et la variabilité du 505 est du même ordre.</li>
+        <li>Une asymétrie isolée sur une session ne veut rien dire. Ce qui compte, c’est une asymétrie qui se répète d’une session à l’autre.</li>
+        <li>Indicateur réservé au staff : il n’est jamais montré au joueur.</li>
+      </ul>
+    </section>
+
+    <section class="card" id="masse-grasse">
+      <h2>Masse grasse — Durnin &amp; Womersley</h2>
+      <p>Le calcul est fait <strong>dans le classeur</strong> ; FootSession Pro importe le résultat. En saisie manuelle, c’est la valeur tapée qui est enregistrée.</p>
+      <ul>
+        <li>Plis mesurés : biceps, triceps, sous-scapulaire et supra-iliaque, en mm, côté droit.</li>
+        <li>Densité corporelle, 17 à 19 ans : <span class="faq-inline">D = 1,1620 − 0,0630 × log10(Σ4 plis)</span></li>
+        <li>Densité corporelle, 20 ans et plus : <span class="faq-inline">D = 1,1631 − 0,0632 × log10(Σ4 plis)</span></li>
+        <li>Équation de Siri : <span class="faq-inline">%MG = (495 ÷ D) − 450</span></li>
+      </ul>
+      <p class="faq-note">Limites : ces équations ne sont pas validées en dessous de 17 ans et surestiment souvent la masse grasse chez le sportif entraîné. Elles servent à suivre l’évolution d’un joueur dans le temps, pas à donner une valeur absolue ni à comparer deux joueurs entre eux. Toujours le même opérateur et la même pince d’une session à l’autre.</p>
+    </section>
+
+    <section class="card" id="ratio">
+      <h2>Ratio Shirado / Sorensen</h2>
+      <p class="faq-formula">Ratio = durée Shirado ÷ durée Sorensen</p>
+      <p>Un déséquilibre marqué entre fléchisseurs et extenseurs du tronc est un point d’attention en prévention lombaire.</p>
+      <table class="faq-table">
+        <thead><tr><th>Ratio</th><th>Lecture (notice du classeur)</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; 0,7</td><td>Déséquilibre en faveur des lombaires : le dos est très endurant, mais les abdominaux fatiguent trop vite. Risque de compensation postérieure.</td></tr>
+          <tr><td>0,7 à 0,8</td><td>Ratio idéal : les extenseurs sont naturellement environ 30 % plus endurants que les fléchisseurs. Risque de lombalgie faible.</td></tr>
+          <tr><td>&gt; 1</td><td>Déséquilibre en défaveur des lombaires : les abdominaux ont une bonne endurance, mais la chaîne postérieure fatigue trop vite. Risque élevé de lombalgie.</td></tr>
+        </tbody>
+      </table>
+      <p class="text-muted">La notice ne donne pas de lecture entre 0,8 et 1 ; FootSession Pro n’en ajoute pas. Indicateur réservé au staff.</p>
+    </section>
+
+    <section class="card" id="saisons">
+      <h2>Saisons et équipes</h2>
+      <ul>
+        <li>La saison (ex. 2026-2027) est déduite de la date, à partir du mois de début de saison du club (<em>Mon club</em>, août par défaut).</li>
+        <li>Une seule ligne par joueur et par mois pour les mesures, et par session pour les tests : un nouvel import met à jour la ligne existante au lieu de la dupliquer.</li>
+        <li>Les fiches affichent la saison la plus récente.</li>
+        <li>Chaque équipe (N2, U19…) est son propre groupe de référence : un joueur de N2 n’est jamais noté par rapport aux U19.</li>
+      </ul>
+    </section>
+
+    <section class="card" id="droits">
+      <h2>Qui voit quoi</h2>
+      <table class="faq-table">
+        <thead><tr><th></th><th>Voit</th><th>Modifie</th></tr></thead>
+        <tbody>
+          <tr><td>Admin</td><td>Tout</td><td>Tout, y compris utilisateurs, équipes et données physiques</td></tr>
+          <tr><td>Coach</td><td>Séances, joueurs, vidéos, performance, statistiques de visionnage</td><td>Séances, joueurs, vidéos, objectifs et préventions — pas les données physiques</td></tr>
+          <tr><td>Préparateur physique</td><td>Joueurs, performance, préventions</td><td>Données physiques, tests, import Excel, objectifs et préventions — pas les vidéos</td></tr>
+          <tr><td>Joueur</td><td>Ses propres données : poids, masse grasse, chronos, radar, vidéos, objectifs et préventions qui lui sont destinés</td><td>Rien, sauf sa sélection de vidéos</td></tr>
+        </tbody>
+      </table>
+      <p class="text-muted">Le joueur ne voit ni l’asymétrie, ni les plis cutanés, ni le ratio, ni les données d’un autre joueur. Ces règles sont appliquées par la base de données elle-même (RLS), pas seulement par l’affichage.</p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    (async () => {
+      const ctx = await requireAuth();
+      if (!ctx) return;
+      const p = ctx.profile;
+      document.getElementById('uName').textContent = p.nom || 'Utilisateur';
+      document.getElementById('uRole').textContent = (ROLE_LABELS[p.role] || p.role).toUpperCase();
+      document.getElementById('uAvatar').textContent = (p.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+    })();
+  </script>
+</body>
+</html>

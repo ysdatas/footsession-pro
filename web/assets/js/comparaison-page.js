@@ -79,8 +79,12 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
 })();
 
 async function loadData() {
+  // Équipe choisie dans le menu : effectif, moyennes et classements
+  // ne mélangent jamais deux équipes.
+  let rosterQuery = sb.from('players').select('id, nom, prenom, numero, poste').order('nom');
+  if (currentTeamId()) rosterQuery = rosterQuery.eq('team_id', currentTeamId());
   const [rRes, tRes, mRes] = await Promise.all([
-    sb.from('players').select('id, nom, prenom, numero, poste').order('nom'),
+    rosterQuery,
     sb.from('player_physical_tests').select('*'),
     sb.from('player_physical_measurements').select('*'),
   ]);
@@ -93,12 +97,15 @@ async function loadData() {
   }
 
   roster = rRes.data || [];
+  const inRoster = new Set(roster.map(p => p.id));
+  const tRows = (tRes.data || []).filter(r => inRoster.has(r.player_id));
+  const mRows = (mRes.data || []).filter(r => inRoster.has(r.player_id));
   // Une saison à la fois — la plus récente —, comme la fiche joueur :
   // mois et sessions se répètent d'une saison à l'autre.
-  const season = latestSeasonOf([...(tRes.data || []), ...(mRes.data || [])]);
+  const season = latestSeasonOf([...tRows, ...mRows]);
   const inSeason = r => !season || r.season_key === season;
-  allTests = (tRes.data || []).filter(inSeason);
-  allMeasures = (mRes.data || []).filter(inSeason);
+  allTests = tRows.filter(inSeason);
+  allMeasures = mRows.filter(inSeason);
   cmpSeason = season;
 
   const n = roster.length;

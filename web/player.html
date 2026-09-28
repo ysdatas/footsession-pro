@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FootSession Pro — Fiche joueur</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/players.css">
+  <link rel="stylesheet" href="assets/css/player.css">
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
+    <nav class="nav" aria-label="Menu principal"></nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <a class="back-link" href="players.html">← Joueurs</a>
+    <div class="page-head fiche-head">
+      <div class="fiche-identity">
+        <div id="ficheAvatar" class="pc-avatar av0 fiche-avatar">?</div>
+        <div>
+          <h1 id="ficheName">Chargement…</h1>
+          <p class="subtitle" id="ficheSub"></p>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-primary" id="linkPerformance" href="#">Performance</a>
+        <a class="btn hidden" id="linkVideos" href="#">Vidéos</a>
+        <a class="btn" id="linkPreventions" href="#">Préventions</a>
+      </div>
+    </div>
+
+    <div class="fiche-grid">
+      <section class="card fiche-info">
+        <div class="fiche-card-head"><h3>Informations</h3><span class="text-muted" id="infoHint"></span></div>
+        <form id="infoForm" class="fiche-form">
+          <label>Prénom<input name="prenom" autocomplete="off"></label>
+          <label>Nom<input name="nom" required autocomplete="off"></label>
+          <label>Numéro<input name="numero" type="number" min="0" max="99"></label>
+          <label>Poste<input name="poste" list="posteList" autocomplete="off"></label>
+          <label class="hidden" id="teamField">Équipe<select name="team_id"><option value="">Sans équipe</option></select></label>
+          <label>Date de naissance<input name="date_naissance" type="date"></label>
+          <label>Nationalité<input name="nationalite" autocomplete="off"></label>
+          <label>Pied fort<select name="pied_fort"><option value="">—</option><option>Droit</option><option>Gauche</option><option>Les deux</option></select></label>
+          <label>Statut<input name="statut" list="statutList" autocomplete="off"></label>
+          <label>Fin de contrat<input name="contrat_fin" type="date"></label>
+          <div class="fiche-form-actions hidden" id="infoActions">
+            <button class="btn btn-primary btn-sm" type="submit">Enregistrer</button>
+          </div>
+        </form>
+        <datalist id="posteList"><option>GB</option><option>DC</option><option>DD</option><option>DG</option><option>MDF</option><option>MC</option><option>MO</option><option>AD</option><option>AG</option><option>BU</option></datalist>
+        <datalist id="statutList"><option>Pro</option><option>Aspirant</option><option>Stagiaire</option><option>Amateur</option></datalist>
+      </section>
+
+      <section class="card">
+        <div class="fiche-card-head"><h3>Présence</h3></div>
+        <div id="attendanceBox"><p class="text-muted">Chargement…</p></div>
+      </section>
+
+      <section class="card">
+        <div class="fiche-card-head"><h3>Suivi physique</h3><a class="text-muted" id="physLink" href="#">Tout voir →</a></div>
+        <div id="physBox"><p class="text-muted">Chargement…</p></div>
+      </section>
+
+      <section class="card">
+        <div class="fiche-card-head"><h3>Profil athlétique</h3><span class="text-muted" id="profileWhen"></span></div>
+        <div id="profileBox"><p class="text-muted">Chargement…</p></div>
+      </section>
+
+      <section class="card">
+        <div class="fiche-card-head"><h3>Préventions en cours</h3><a class="text-muted" id="progLink" href="#">Gérer →</a></div>
+        <div id="programBox"><p class="text-muted">Chargement…</p></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/perf-metrics.js"></script>
+  <script src="assets/js/player-page.js"></script>
+</body>
+</html>

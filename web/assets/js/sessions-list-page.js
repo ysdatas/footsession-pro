@@ -69,15 +69,20 @@ function syncControls() {
 async function loadList() {
   const wrap = document.getElementById('listWrap');
   try {
+    // team_id n'existe qu'après la migration des équipes : on ne le
+    // demande que si le club a des équipes (donc la migration est passée).
+    const withTeams = (window.CLUB_TEAMS || []).length > 0;
+    let query = sb.from('sessions')
+      .select(`id, titre, date_seance, equipe, duree_min,${withTeams ? ' team_id,' : ''} procedures(id, duree_min, nb_sequences, duree_sequence_min, temps_recup_min)`)
+      .order('date_seance', { ascending: false }).order('id', { ascending: false });
+    if (currentTeamId()) query = query.eq('team_id', currentTeamId());
     const [{ data: sessions, error }, { data: club }] = await Promise.all([
-      sb.from('sessions')
-        .select('id, titre, date_seance, equipe, duree_min, procedures(id, duree_min, nb_sequences, duree_sequence_min, temps_recup_min)')
-        .order('date_seance', { ascending: false }).order('id', { ascending: false }),
+      query,
       sb.from('clubs').select('saison_start').eq('id', myProfile.club_id).maybeSingle(),
     ]);
     if (error) throw error;
 
-    sessionsCache = sessions || [];
+    sessionsCache = (sessions || []).map(s => ({ ...s, equipe: teamName(s.team_id) || s.equipe }));
     // Sans date de reprise renseignée, la semaine de la séance la plus
     // ancienne fait office de Semaine 1.
     saisonStart = club?.saison_start

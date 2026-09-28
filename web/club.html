@@ -14,17 +14,7 @@
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
     <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
-    <nav class="nav">
-      <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
-      <a class="nav-item" href="sessions.html"><span class="nav-dot"></span>Séances</a>
-      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Joueurs</a>
-      <a class="nav-item" href="comparaison.html"><span class="nav-dot"></span>Comparaison</a>
-      <a class="nav-item" href="tactical-board.html"><span class="nav-dot"></span>Tableau tactique</a>
-      <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
-      <a class="nav-item" href="videos.html"><span class="nav-dot"></span>Vidéos joueurs</a>
-      <a class="nav-item active" href="club.html"><span class="nav-dot"></span>Mon club</a>
-      <a class="nav-item" href="settings.html"><span class="nav-dot"></span>Paramètres</a>
-    </nav>
+    <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
       <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
@@ -70,7 +60,18 @@
     </div>
 
     <div class="card" style="margin-top:18px;">
-      <h3>Membres du club</h3>\n      <p class="text-muted" style="font-size:.84rem;">Pour donner un accès joueur, choisissez le rôle « Joueur », puis associez le compte à une fiche joueur existante.</p>
+      <h3>Équipes</h3>
+      <p class="text-muted" style="font-size:.84rem;">Chaque joueur et chaque séance peut être rattaché à une équipe (N2, U19, Réserve…). Le sélecteur en haut du menu filtre ensuite toutes les pages sur l'équipe choisie.</p>
+      <div id="teamList" class="team-list"><p class="text-muted">Chargement…</p></div>
+      <form id="teamForm" class="team-form hidden">
+        <input id="teamName" placeholder="Nom de l'équipe, ex. U19" maxlength="40" required aria-label="Nom de la nouvelle équipe">
+        <button class="btn btn-primary btn-sm" type="submit">Ajouter</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h3>Membres du club</h3>
+      <p class="text-muted" style="font-size:.84rem;">Pour donner un accès joueur, choisissez le rôle « Joueur », puis associez le compte à une fiche joueur existante.</p>
       <div id="memberList"><p class="text-muted">Chargement…</p></div>
     </div>
   </main>
@@ -78,6 +79,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/club-page.js"></script>
 </body>

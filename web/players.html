@@ -14,17 +14,7 @@
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
     <div class="brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
-    <nav class="nav">
-      <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
-      <a class="nav-item" href="sessions.html"><span class="nav-dot"></span>Séances</a>
-      <a class="nav-item active" href="players.html"><span class="nav-dot"></span>Joueurs</a>
-      <a class="nav-item" href="comparaison.html"><span class="nav-dot"></span>Comparaison</a>
-      <a class="nav-item" href="tactical-board.html"><span class="nav-dot"></span>Tableau tactique</a>
-      <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
-      <a class="nav-item" href="videos.html"><span class="nav-dot"></span>Vidéos joueurs</a>
-      <a class="nav-item" href="club.html"><span class="nav-dot"></span>Mon club</a>
-      <a class="nav-item" href="settings.html"><span class="nav-dot"></span>Paramètres</a>
-    </nav>
+    <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
       <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
@@ -38,21 +28,17 @@
         <p class="subtitle" id="playersSub">Chargement…</p>
       </div>
       <div class="page-actions">
-        <div class="segmented" id="viewSwitch">
-          <button data-view="grid" class="active">Grille</button>
-          <button data-view="matrix">Présence</button>
-        </div>
         <button class="btn hidden" id="btnImportExcel" type="button" title="Met à jour tous les joueurs présents dans le fichier">Importer l’Excel</button>
         <button class="btn btn-primary hidden" id="btnAddPlayer" type="button">+ Ajouter</button>
       </div>
     </div>
 
-    <div class="field" style="max-width:340px;">
-      <input id="searchPlayer" placeholder="Rechercher…">
+    <div class="players-filters">
+      <input id="searchPlayer" type="search" placeholder="Rechercher un joueur…" aria-label="Rechercher un joueur par son nom">
+      <select id="posteFilter" aria-label="Filtrer par poste"><option value="">Tous les postes</option></select>
     </div>
 
     <div id="gridView"><div class="empty">Chargement…</div></div>
-    <div id="matrixView" class="hidden"></div>
   </main>
 
   <!-- Modale ajout/édition -->
@@ -75,6 +61,9 @@
           </datalist>
         </div>
       </div>
+      <div class="field hidden" id="m-team-field"><label for="m-team">Équipe</label>
+        <select id="m-team"><option value="">Sans équipe</option></select>
+      </div>
       <div class="modal-actions">
         <button class="btn" type="button" data-close="playerModal">Annuler</button>
         <button class="btn btn-primary" id="m-save" type="button">Enregistrer</button>
@@ -82,16 +71,11 @@
     </div>
   </div>
 
-  <!-- Modale détail -->
-  <div class="modal-backdrop" id="detailModal">
-    <div class="modal" id="detailBody"></div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
-  <script src="assets/js/procedure-time.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="assets/js/perf-metrics.js"></script>
   <script src="assets/js/excel-import.js"></script>

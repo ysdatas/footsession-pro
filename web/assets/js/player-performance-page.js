@@ -14,21 +14,31 @@ let squadTests = [];       // tests du club retenus pour la session affichée (s
 let clubTestsAll = [];     // tous les tests du club, toutes sessions (staff)
 let clubPlayers = [];      // effectif du club (staff)
 let squadLoadFailed = false;
-let career = [];           // parcours en club du joueur
-let careerMissing = false; // table player_career absente : migration non passée
 let identityMissing = false; // colonnes d'identité absentes : migration non passée
-let canEditPlayer = false; // identité + parcours : mêmes droits que la fiche joueur
+let canEditPlayer = false; // identité : mêmes droits que la fiche joueur
+let canEditPlans = false;  // objectifs, points forts/amélioration : admin, coach, prépa
+let compareId = null;      // joueur superposé sur le radar (staff)
+let programs = [];         // préventions / développement visibles
 let expandedTests = new Set();
 let clubLogoUrl = null;
 let currentSeason = null;  // saison affichée : la plus récente du joueur
 
 /* Rôles du staff ayant accès à la performance (can_view_performance()
    côté base). Ce sont aussi ceux qui modifient la fiche (can_edit()). */
-const STAFF_ROLES = ['admin', 'coach', 'analyste', 'prepa'];
-const isStaff = () => STAFF_ROLES.includes(ctxProfile?.role);
+const PERF_STAFF_ROLES = ['admin', 'coach', 'analyste', 'prepa'];
+const isStaff = () => PERF_STAFF_ROLES.includes(ctxProfile?.role);
+
+/* Indicateurs internes au staff : jamais montrés au joueur (et jamais
+   renvoyés par my_physical_tests() côté base). */
+const STAFF_ONLY_METRICS = ['five05_asymmetry_pct', 'core_ratio'];
+const visibleTestRows = () => isStaff() ? PERF_METRICS : PERF_METRICS.filter(m => !STAFF_ONLY_METRICS.includes(m.key));
+
+/* Référence : l'équipe du joueur quand il en a une, sinon le club. */
+const refLabel = () => (player?.team_id ? 'Moyenne équipe' : 'Moyenne club');
 
 /* Colonnes d'identité ajoutées par supabase/player_profile_career.sql. */
 const PLAYER_BASE_COLS = 'id, nom, prenom, numero, poste, club_id, auth_user_id, photo_path';
+const PLAYER_TEAM_COL = 'team_id';
 const PLAYER_IDENTITY_COLS = 'date_naissance, nationalite, pied_fort, statut, contrat_fin';
 
 const SCORE_LABELS = [
@@ -124,10 +134,11 @@ function radarSeries(values, cls) {
   return svg;
 }
 
-function radarSvg(test, reference = clubAverages) {
+function radarSvg(test, reference = clubAverages, compare = null) {
   const { W, H, cx, cy, R } = RADAR;
   const values = SCORE_LABELS.map(([key]) => scoreValue(test, key));
   const refs = SCORE_LABELS.map(([key]) => scoreValue(reference, key));
+  const others = compare ? SCORE_LABELS.map(([key]) => scoreValue(compare, key)) : null;
 
   let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Radar du profil athlétique">`;
 
@@ -157,6 +168,7 @@ function radarSvg(test, reference = clubAverages) {
 
   // La moyenne du club passe sous le joueur pour rester lisible.
   if (refs.some(v => v !== null)) svg += radarSeries(refs, 'radar-ref');
+  if (others?.some(v => v !== null)) svg += radarSeries(others, 'radar-compare');
   svg += radarSeries(values, 'radar-area');
   svg += `<circle cx="${cx}" cy="${cy}" r="2.5" class="radar-center"/>`;
   return svg + '</svg>';
@@ -171,27 +183,59 @@ function scoreTone(v) {
   return 'low';
 }
 
+/* Ligne de tests du joueur comparé, pour la session affichée. */
+function compareTest() {
+  if (!compareId || !isStaff()) return null;
+  return latestPerPlayer(clubTestsAll.filter(t => t.player_id === compareId && t.stage === stage))[0] || null;
+}
+function compareName() {
+  const p = clubPlayers.find(x => x.id === compareId);
+  return p ? `${p.prenom || ''} ${p.nom || ''}`.trim() : '';
+}
+
+/* Liste « Comparer avec » : les joueurs du même groupe, ceux sans test
+   sur la session affichée restent visibles mais inactifs. */
+function renderCompareSelect() {
+  const select = document.getElementById('compareSelect');
+  if (!select) return;
+  if (!isStaff() || squadLoadFailed || clubPlayers.length < 2) { select.classList.add('hidden'); return; }
+  const tested = new Set(clubTestsAll.filter(t => t.stage === stage
+    && SCORE_LABELS.some(([k]) => scoreValue(t, k) !== null)).map(t => t.player_id));
+  if (compareId && !tested.has(compareId)) compareId = null;
+  const others = clubPlayers.filter(p => p.id !== player.id)
+    .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
+  select.innerHTML = '<option value="">Comparer avec…</option>' + others.map(p =>
+    `<option value="${p.id}" ${tested.has(p.id) ? '' : 'disabled'} ${p.id === compareId ? 'selected' : ''}>${
+      esc(`${p.prenom || ''} ${p.nom || ''}`.trim())}${tested.has(p.id) ? '' : ' (pas de test)'}</option>`).join('');
+  select.classList.remove('hidden');
+}
+
 function renderRadar() {
   const test = currentTest();
+  const other = compareTest();
   const wrap = document.getElementById('radarWrap');
   const hasRef = SCORE_LABELS.some(([key]) => scoreValue(clubAverages, key) !== null);
 
+  renderCompareSelect();
   document.getElementById('radarLegend').innerHTML = `
     <span class="legend-item"><i class="legend-dot legend-player"></i>${esc(playerShortName())}</span>
+    ${other ? `<span class="legend-item"><i class="legend-dot legend-compare"></i>${esc(compareName())}</span>` : ''}
     ${hasRef
-      ? `<span class="legend-item"><i class="legend-dot legend-ref"></i>Moyenne du club${
+      ? `<span class="legend-item"><i class="legend-dot legend-ref"></i>${refLabel()}${
           clubAverages?.n_players ? ` (${clubAverages.n_players})` : ''}</span>`
       : ''}`;
 
   wrap.innerHTML = test
-    ? radarSvg(test)
+    ? radarSvg(test, clubAverages, other)
     : `<div class="empty">Aucun test pour cette session.</div>`;
 
   document.getElementById('scoreCards').innerHTML = SCORE_LABELS.map(([key, label]) => {
     const v = scoreValue(test, key);
+    const cv = other ? scoreValue(other, key) : null;
     return `<div class="score-card tone-${scoreTone(v)}">
       <span>${esc(label)}</span>
       <strong>${v === null ? '—' : fmt(v, 1)}<small>/10</small></strong>
+      ${other ? `<em class="score-vs" title="${esc(compareName())}">${cv === null ? '—' : fmt(cv, 1)}</em>` : ''}
     </div>`;
   }).join('');
 
@@ -208,7 +252,6 @@ function playerShortName() {
    bornes de vraisemblance viennent de assets/js/perf-metrics.js,
    partagé avec la page Comparaison.
    ------------------------------------------------------------ */
-const TEST_ROWS = PERF_METRICS;
 
 /* Rang du joueur et liste de l'effectif pour une métrique, sur la
    session affichée. Les valeurs hors bornes sont listées à part : elles
@@ -283,6 +326,7 @@ function renderTestSummary(test) {
     return;
   }
   const staff = isStaff() && squadTests.length > 0;
+  const TEST_ROWS = visibleTestRows();
   const hasRef = TEST_ROWS.some(r => num(clubAverages?.[r.key]) !== null);
   const cols = 3 + (hasRef ? 2 : 0) + (staff ? 1 : 0);
 
@@ -327,21 +371,21 @@ function renderTestSummary(test) {
     <div class="test-table-wrap"><table class="test-table">
     <thead><tr>
       <th>Test</th><th>Valeur</th><th>Unité</th>
-      ${hasRef ? `<th title="Moyenne des joueurs du club ayant passé ce test sur cette session">Moyenne club</th>
-                  <th title="Différence entre le joueur et la moyenne du club">Écart</th>` : ''}
-      ${staff ? '<th title="Place du joueur dans le club sur ce test">Rang</th>' : ''}
+      ${hasRef ? `<th title="Moyenne des joueurs du groupe ayant passé ce test sur cette session">${refLabel()}</th>
+                  <th title="Différence entre le joueur et la moyenne du groupe">Écart</th>` : ''}
+      ${staff ? '<th title="Place du joueur dans le groupe sur ce test">Rang</th>' : ''}
     </tr></thead>
     <tbody>${body}</tbody>
   </table></div>
   ${hasRef
     ? `<p class="text-muted table-note">
-         <strong>Moyenne club</strong> : pour chaque test, moyenne des joueurs de ${staff ? 'votre' : 'ton'} club
+         <strong>${refLabel()}</strong> : pour chaque test, moyenne des joueurs de ${staff ? 'votre' : 'ton'} ${player?.team_id ? 'équipe' : 'club'}
          qui l’ont passé en <strong>${esc(stageLabel)}</strong> — le nombre varie donc d’un test à l’autre,
          et une moyenne n’est affichée qu’à partir de 3 joueurs. Les valeurs manifestement erronées en sont exclues.
          <strong>Écart</strong> : <span class="gap-up">vert = meilleur que la moyenne</span>,
          <span class="gap-down">rouge = moins bon</span> ; un sprint plus court et un VIFT plus élevé comptent tous deux comme un gain.
        </p>`
-    : `<p class="text-muted table-note">Pas de moyenne club pour cette session : il faut au moins 3 joueurs testés.</p>`}`;
+    : `<p class="text-muted table-note">Pas de moyenne pour cette session : il faut au moins 3 joueurs testés.</p>`}`;
 
   if (!staff) return;
   const toggle = key => {
@@ -441,14 +485,16 @@ function renderMeasurements() {
 
   const ordered = orderedMeasurements();
 
-  // L'endurance de la session affichée complète la courbe ; elle n'a pas
-  // de valeur mensuelle propre, on la porte sur le dernier mois mesuré.
-  const test = currentTest();
+  // L'endurance de la session affichée complète la courbe du staff ; elle
+  // n'a pas de valeur mensuelle propre, on la porte sur le dernier mois
+  // mesuré. Le joueur ne voit que son poids et sa masse grasse.
+  const test = isStaff() ? currentTest() : null;
   const enduranceAt = ordered.length - 1;
   const rows = ordered.map((m, i) => ({
     ...m,
     endurance: i === enduranceAt ? scoreValue(test, 'profile_endurance') : null,
   }));
+  const showHeight = isStaff();
 
   if (chart) {
     const svg = trendChartSvg(rows);
@@ -462,10 +508,10 @@ function renderMeasurements() {
   }
 
   wrap.innerHTML = `<div class="measurement-table">
-    <div class="measurement-row header"><span>Mois</span><span>Taille</span><span>Poids</span><span>MG</span></div>
-    ${ordered.map(m => `<div class="measurement-row">
+    <div class="measurement-row header${showHeight ? '' : ' no-height'}"><span>Mois</span>${showHeight ? '<span>Taille</span>' : ''}<span>Poids</span><span>MG</span></div>
+    ${ordered.map(m => `<div class="measurement-row${showHeight ? '' : ' no-height'}">
       <span>${esc(m.month_label || '—')}</span>
-      <span>${m.height_cm != null ? `${fmt(m.height_cm,0)} cm` : '—'}</span>
+      ${showHeight ? `<span>${m.height_cm != null ? `${fmt(m.height_cm,0)} cm` : '—'}</span>` : ''}
       <span>${m.weight_kg != null ? `${fmt(m.weight_kg,1)} kg` : '—'}</span>
       <span>${m.body_fat_pct != null ? `${fmt(m.body_fat_pct,1)} %` : '—'}</span>
     </div>`).join('')}
@@ -511,7 +557,8 @@ function renderIdentity() {
   document.getElementById('playerInitials').textContent = initials(player);
 
   document.getElementById('playerMeta').textContent =
-    [player.poste || 'Poste non renseigné', player.numero != null ? `#${player.numero}` : null]
+    [player.poste, player.numero != null ? `#${player.numero}` : null,
+     typeof teamName === 'function' ? teamName(player.team_id) : null]
       .filter(Boolean).join(' · ');
 
   const age = ageFrom(player.date_naissance);
@@ -548,137 +595,6 @@ async function loadClubLogo() {
   if (!path) return;
   const { data } = await sb.storage.from('logos').createSignedUrl(path, 3600);
   clubLogoUrl = data?.signedUrl || null;
-}
-
-/* ------------------------------------------------------------
-   Parcours : clubs précédents, du plus récent au plus ancien.
-   ------------------------------------------------------------ */
-function monthYear(iso) {
-  if (!iso) return '';
-  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-}
-function careerDuration(from, to) {
-  if (!from) return '';
-  const a = new Date(`${String(from).slice(0, 10)}T00:00:00`);
-  const b = to ? new Date(`${String(to).slice(0, 10)}T00:00:00`) : new Date();
-  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + 1;
-  if (!Number.isFinite(months) || months <= 0) return '';
-  const y = Math.floor(months / 12), m = months % 12;
-  return [y ? `${y} an${y > 1 ? 's' : ''}` : '', m ? `${m} mois` : ''].filter(Boolean).join(' ');
-}
-
-async function loadCareer() {
-  const { data, error } = await sb.from('player_career').select('*').eq('player_id', player.id);
-  if (error) {
-    careerMissing = true;
-    career = [];
-    console.warn('Parcours indisponible :', error.message);
-    return;
-  }
-  careerMissing = false;
-  // En cours d'abord, puis du plus récent au plus ancien.
-  career = (data || []).sort((a, b) =>
-    (a.date_fin ? 1 : 0) - (b.date_fin ? 1 : 0)
-    || String(b.date_debut || '').localeCompare(String(a.date_debut || ''))
-    || (b.id - a.id));
-}
-
-function renderCareer() {
-  const box = document.getElementById('careerList');
-  if (!box) return;
-  if (careerMissing) {
-    box.innerHTML = `<div class="career-empty">Parcours indisponible.${isStaff()
-      ? '<br>Exécutez <code>supabase/player_profile_career.sql</code> dans Supabase.' : ''}</div>`;
-    return;
-  }
-  if (!career.length) {
-    box.innerHTML = `<div class="career-empty">Aucun club renseigné.${canEditPlayer
-      ? '<br>Ajoutez les clubs précédents avec « + Ajouter ».' : ''}</div>`;
-    return;
-  }
-  box.innerHTML = `<ol class="career-list">${career.map(c => {
-    const range = c.date_debut
-      ? `${monthYear(c.date_debut)} – ${c.date_fin ? monthYear(c.date_fin) : 'aujourd’hui'}`
-      : (c.date_fin ? `jusqu’à ${monthYear(c.date_fin)}` : 'Dates non renseignées');
-    const duration = careerDuration(c.date_debut, c.date_fin);
-    return `<li class="career-item${c.date_fin ? '' : ' is-current'}${canEditPlayer ? ' is-editable' : ''}"
-        ${canEditPlayer ? `data-career="${c.id}" tabindex="0" role="button" aria-label="Modifier ${esc(c.club_name)}"` : ''}>
-      <span class="career-dot" aria-hidden="true"></span>
-      <div class="career-body">
-        <strong>${esc(c.club_name)}</strong>
-        ${c.categorie ? `<span class="career-cat">${esc(c.categorie)}</span>` : ''}
-        <span class="career-range">${esc(range)}${duration ? ` · ${esc(duration)}` : ''}</span>
-        ${c.notes ? `<p class="career-notes">${esc(c.notes)}</p>` : ''}
-      </div>
-    </li>`;
-  }).join('')}</ol>`;
-
-  box.querySelectorAll('[data-career]').forEach(el => {
-    const open = () => openCareerModal(Number(el.dataset.career));
-    el.addEventListener('click', open);
-    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
-  });
-}
-
-/* <input type="month"> renvoie « AAAA-MM » ; on stocke le 1er du mois. */
-function monthToDate(v) {
-  if (!v) return null;
-  if (/^\d{4}-\d{2}$/.test(v)) return `${v}-01`;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-  return null;
-}
-
-function openCareerModal(id = null) {
-  if (!canEditPlayer) return;
-  const c = id ? career.find(x => x.id === id) : null;
-  document.getElementById('careerModalTitle').textContent = c ? 'Modifier le club' : 'Ajouter un club';
-  document.getElementById('c-id').value = c?.id || '';
-  document.getElementById('c-club').value = c?.club_name || '';
-  document.getElementById('c-cat').value = c?.categorie || '';
-  document.getElementById('c-debut').value = c?.date_debut ? String(c.date_debut).slice(0, 7) : '';
-  document.getElementById('c-fin').value = c?.date_fin ? String(c.date_fin).slice(0, 7) : '';
-  document.getElementById('c-notes').value = c?.notes || '';
-  document.getElementById('btnDeleteCareer').classList.toggle('hidden', !c);
-  openPerfModal('careerModal');
-  setTimeout(() => document.getElementById('c-club').focus(), 50);
-}
-
-async function saveCareer() {
-  if (!canEditPlayer) return;
-  const id = Number(document.getElementById('c-id').value) || null;
-  const club_name = document.getElementById('c-club').value.trim();
-  if (!club_name) return notify('Le nom du club est obligatoire.', 'error');
-  const date_debut = monthToDate(document.getElementById('c-debut').value);
-  const date_fin = monthToDate(document.getElementById('c-fin').value);
-  if (date_debut && date_fin && date_fin < date_debut) {
-    return notify('La date de fin précède la date de début.', 'error');
-  }
-  const body = {
-    club_name,
-    categorie: document.getElementById('c-cat').value.trim() || null,
-    date_debut, date_fin,
-    notes: document.getElementById('c-notes').value.trim() || null,
-  };
-  const { error } = id
-    ? await sb.from('player_career').update(body).eq('id', id)
-    : await sb.from('player_career').insert({ ...body, club_id: player.club_id, player_id: player.id, created_by: ctxProfile.id });
-  if (error) return notify(error.message, 'error');
-  closePerfModal('careerModal');
-  notify(id ? 'Club mis à jour.' : 'Club ajouté au parcours.', 'success');
-  await loadCareer();
-  renderCareer();
-}
-
-async function deleteCareer() {
-  const id = Number(document.getElementById('c-id').value) || null;
-  if (!id || !canEditPlayer || !confirm('Retirer ce club du parcours ?')) return;
-  const { error } = await sb.from('player_career').delete().eq('id', id);
-  if (error) return notify(error.message, 'error');
-  closePerfModal('careerModal');
-  notify('Club retiré du parcours.', 'success');
-  await loadCareer();
-  renderCareer();
 }
 
 /* Moyennes du club pour la session affichée. La RPC ne renvoie que des
@@ -729,8 +645,11 @@ async function loadSquad() {
   clubPlayers = []; clubTestsAll = []; squadLoadFailed = false;
   if (!isStaff() || !player) return;
   const keys = [...PERF_METRICS.map(m => m.key), ...SCORE_LABELS.map(([k]) => k)];
+  // Groupe de référence : l'équipe du joueur (comme le calcul des notes /10).
+  let playersQuery = sb.from('players').select('id, nom, prenom, numero').eq('club_id', player.club_id);
+  if (player.team_id) playersQuery = playersQuery.eq('team_id', player.team_id);
   const [pr, tr] = await Promise.all([
-    sb.from('players').select('id, nom, prenom, numero').eq('club_id', player.club_id),
+    playersQuery,
     sb.from('player_physical_tests').select('*').eq('club_id', player.club_id),
   ]);
   if (pr.error || tr.error) {
@@ -739,8 +658,10 @@ async function loadSquad() {
     return;
   }
   clubPlayers = pr.data || [];
-  // Moyennes du club : même saison que celle affichée pour le joueur.
-  clubTestsAll = (tr.data || []).filter(t => !currentSeason || t.season_key === currentSeason);
+  const inGroup = new Set(clubPlayers.map(p => p.id));
+  // Moyennes du groupe : même saison que celle affichée pour le joueur.
+  clubTestsAll = (tr.data || []).filter(t => inGroup.has(t.player_id)
+    && (!currentSeason || t.season_key === currentSeason));
 }
 
 function renderNotes() {
@@ -752,7 +673,7 @@ function renderNotes() {
           return `<article class="note-card">
             <div class="note-card-head">
               <span class="badge ${kind === 'strength' ? 'badge-success' : (kind === 'objective' ? 'badge-gold' : 'badge-gold')}">${kind === 'strength' ? 'Point fort' : (kind === 'objective' ? 'Objectif' : 'Amélioration')}</span>
-              ${canEditPerformance ? `<button class="btn btn-sm btn-danger note-delete" type="button" data-note="${n.id}">Suppr.</button>` : ''}
+              ${canEditPlans ? `<button class="btn btn-sm btn-danger note-delete" type="button" data-note="${n.id}">Suppr.</button>` : ''}
             </div>
             <h3>${esc(n.title)}</h3>
             ${n.body ? `<p>${esc(n.body).replace(/\n/g,'<br>')}</p>` : ''}
@@ -775,6 +696,54 @@ async function signMedia() {
   }));
   media = signed;
   renderNotes();
+}
+
+/* Mesures et tests du joueur affiché.
+   Un compte joueur ne lit plus les tables : il passe par des RPC qui ne
+   renvoient que les colonnes qui lui sont destinées (pas d'asymétrie,
+   de plis cutanés ni de ratio). Tant que la migration n'est pas passée,
+   la RPC n'existe pas et l'ancienne lecture directe prend le relais. */
+async function fetchPhysical() {
+  if (isStaff()) {
+    return Promise.all([
+      sb.from('player_physical_measurements').select('*').eq('player_id', player.id).order('id'),
+      sb.from('player_physical_tests').select('*').eq('player_id', player.id).order('id'),
+    ]);
+  }
+  const viaRpc = async (fn, table) => {
+    const res = await sb.rpc(fn);
+    if (!res.error) return res;
+    console.warn(`${fn} indisponible, lecture directe :`, res.error.message);
+    return sb.from(table).select('*').eq('player_id', player.id).order('id');
+  };
+  return Promise.all([
+    viaRpc('my_physical_measurements', 'player_physical_measurements'),
+    viaRpc('my_physical_tests', 'player_physical_tests'),
+  ]);
+}
+
+/* Préventions / développement du joueur (visibles par lui : filtrées par la RLS). */
+async function loadPrograms() {
+  const { data, error } = await sb.from('player_programs').select('*')
+    .eq('player_id', player.id).neq('status', 'termine').order('updated_at', { ascending: false });
+  if (error) console.warn('Préventions indisponibles :', error.message);
+  programs = error ? null : (data || []);
+}
+
+function renderPrograms() {
+  const box = document.getElementById('programList');
+  if (!box) return;
+  const link = document.getElementById('programLink');
+  if (link) link.href = `preventions.html?player=${player.id}`;
+  if (programs === null) { box.innerHTML = '<div class="empty">Rubrique indisponible.</div>'; return; }
+  box.innerHTML = programs.length ? programs.map(p => `<article class="note-card">
+      <div class="note-card-head"><span class="badge badge-gold">${esc(PROGRAM_CATEGORIES[p.category] || p.category)}</span>
+        <span class="text-muted" style="font-size:.75rem">${esc(PROGRAM_STATUS[p.status] || '')}${p.dosage ? ` · ${esc(p.dosage)}` : ''}</span></div>
+      <h3>${esc(p.title)}</h3>
+      ${p.body ? `<p>${esc(p.body).replace(/\n/g, '<br>')}</p>` : ''}
+      ${p.progress_note ? `<p class="text-muted">${esc(p.progress_note).replace(/\n/g, '<br>')}</p>` : ''}
+    </article>`).join('')
+    : '<div class="empty">Aucune prévention en cours.</div>';
 }
 
 /* Affiche à l'écran la raison d'un échec de chargement.
@@ -823,27 +792,39 @@ async function loadPage() {
       { message: 'Aucun joueur ciblé (paramètre ?id= absent et compte non lié à une fiche).' });
   }
 
-  canEditPerformance = ['admin','prepa'].includes(ctxProfile.role);
-  canEditPlayer = isStaff();
+  canEditPerformance = canEditPerformanceData(ctxProfile.role);
+  canEditPlans = canManagePlans(ctxProfile.role);
+  canEditPlayer = canEdit(ctxProfile.role);
   document.getElementById('perfRoleLabel').textContent =
     ctxProfile.role === 'joueur' ? 'Espace joueur' : 'Staff · dossier individuel';
   document.querySelectorAll('.perf-editor-only').forEach(el => el.classList.toggle('hidden', !canEditPerformance));
+  document.querySelectorAll('.perf-plans-only').forEach(el => el.classList.toggle('hidden', !canEditPlans));
   document.querySelectorAll('.perf-staff-only').forEach(el => el.classList.toggle('hidden', !isStaff()));
 
+  const back = document.getElementById('backPlayers');
+  const videoLink = document.getElementById('videoPlayerLink');
   if (ctxProfile.role === 'joueur') {
-    document.getElementById('backPlayers').classList.add('hidden');
-    document.getElementById('videoPlayerLink').href = 'mes-videos.html';
-    document.getElementById('videoPlayerLink').textContent = 'Mes vidéos';
+    back.classList.add('hidden');
+    videoLink.href = 'mes-videos.html';
+    videoLink.textContent = 'Mes vidéos';
   } else {
-    document.getElementById('videoPlayerLink').href = `videos.html?player=${playerId}`;
+    back.href = `player.html?id=${playerId}`;
+    back.textContent = '← Fiche joueur';
+    // Le préparateur physique n'a pas accès à la rubrique Vidéos.
+    videoLink.href = `videos.html?player=${playerId}`;
+    videoLink.classList.toggle('hidden', !canManageVideos(ctxProfile.role));
   }
 
   // Les colonnes d'identité n'existent qu'après player_profile_career.sql :
   // leur absence ne doit pas empêcher d'ouvrir la fiche.
   let { data: p, error } = await sb.from('players')
-    .select(`${PLAYER_BASE_COLS}, ${PLAYER_IDENTITY_COLS}`)
+    .select(`${PLAYER_BASE_COLS}, ${PLAYER_IDENTITY_COLS}, ${PLAYER_TEAM_COL}`)
     .eq('id', playerId).maybeSingle();
   identityMissing = false;
+  if (error) {
+    ({ data: p, error } = await sb.from('players')
+      .select(`${PLAYER_BASE_COLS}, ${PLAYER_IDENTITY_COLS}`).eq('id', playerId).maybeSingle());
+  }
   if (error) {
     identityMissing = true;
     ({ data: p, error } = await sb.from('players').select(PLAYER_BASE_COLS).eq('id', playerId).maybeSingle());
@@ -855,9 +836,8 @@ async function loadPage() {
   }
   player = p;
 
-  const [mRes, tRes, nRes, mediaRes] = await Promise.all([
-    sb.from('player_physical_measurements').select('*').eq('player_id', player.id).order('id', {ascending:true}),
-    sb.from('player_physical_tests').select('*').eq('player_id', player.id).order('id', {ascending:true}),
+  const [[mRes, tRes], nRes, mediaRes] = await Promise.all([
+    fetchPhysical(),
     sb.from('player_performance_notes').select('*').eq('player_id', player.id).order('sort_order').order('id'),
     sb.from('player_performance_media').select('*').eq('player_id', player.id).order('sort_order').order('id'),
   ]);
@@ -876,9 +856,9 @@ async function loadPage() {
   notes = nRes.data || [];
   media = mediaRes.data || [];
 
-  await Promise.all([loadClubLogo(), loadCareer(), loadSquad()]);
+  await Promise.all([loadClubLogo(), loadSquad(), loadPrograms()]);
   renderIdentity();
-  renderCareer();
+  renderPrograms();
 
   if (player.photo_path) {
     const { data } = await sb.storage.from('player-photos').createSignedUrl(player.photo_path, 3600);
@@ -1075,9 +1055,8 @@ async function saveTest() {
 }
 
 async function reloadData() {
-  const [mRes, tRes, nRes, mediaRes, pRes] = await Promise.all([
-    sb.from('player_physical_measurements').select('*').eq('player_id', player.id).order('id'),
-    sb.from('player_physical_tests').select('*').eq('player_id', player.id).order('id'),
+  const [[mRes, tRes], nRes, mediaRes, pRes] = await Promise.all([
+    fetchPhysical(),
     sb.from('player_performance_notes').select('*').eq('player_id', player.id).order('sort_order').order('id'),
     sb.from('player_performance_media').select('*').eq('player_id', player.id).order('sort_order').order('id'),
     sb.from('players').select('photo_path').eq('id',player.id).single(),
@@ -1093,6 +1072,7 @@ async function reloadData() {
   await loadClubAverages();
   renderRadar();
   renderMeasurements();
+  await loadPrograms(); renderPrograms();
   await signMedia(); renderNotes();
 }
 
@@ -1121,6 +1101,7 @@ async function uploadPhoto(file) {
 }
 
 async function saveNote() {
+  if (!canEditPlans) return;
   const kind=document.getElementById('noteKind').value;
   const title=document.getElementById('noteTitle').value.trim();
   const body=document.getElementById('noteBody').value.trim()||null;
@@ -1155,7 +1136,7 @@ async function saveNote() {
 }
 
 async function deleteNote(id) {
-  if (!canEditPerformance || !confirm('Supprimer ce point et ses images ?')) return;
+  if (!canEditPlans || !confirm('Supprimer ce point et ses images ?')) return;
   const files=media.filter(m=>m.note_id===id).map(m=>m.storage_path);
   if (files.length) await sb.storage.from('player-performance-media').remove(files);
   const { error }=await sb.from('player_performance_notes').delete().eq('id',id);
@@ -1173,15 +1154,16 @@ document.getElementById('stageSelect').addEventListener('change', async e => {
   renderRadar();
   renderMeasurements();
 });
+document.getElementById('compareSelect').addEventListener('change', e => {
+  compareId = Number(e.target.value) || null;
+  renderRadar();
+});
 document.getElementById('btnAddMeasurement').addEventListener('click',openMeasureModal);
 document.getElementById('btnAddTests').addEventListener('click',openTestModal);
 document.getElementById('m-date').addEventListener('change',e=>{
   const month = seasonMonthOf(e.target.value);
   if (month) document.getElementById('m-month').value = month;
 });
-document.getElementById('btnAddCareer').addEventListener('click',()=>openCareerModal());
-document.getElementById('btnSaveCareer').addEventListener('click',saveCareer);
-document.getElementById('btnDeleteCareer').addEventListener('click',deleteCareer);
 document.getElementById('btnEditPlayer').addEventListener('click',openPlayerEdit);
 document.getElementById('btnSavePlayer').addEventListener('click',savePlayerEdit);
 document.getElementById('btnSaveMeasurement').addEventListener('click',saveMeasurement);

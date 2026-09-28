@@ -66,6 +66,16 @@ async function requireAuth(opts = {}) {
 
   window.CURRENT_USER = session.user;
   window.CURRENT_PROFILE = profile;
+
+  // Menu, équipes et pages réservées à certains rôles (nav.js, pages staff).
+  if (profile.role !== 'joueur' && typeof navGuard === 'function') {
+    if (!navGuard(profile)) return null;
+    const { data: teams, error: teamsError } = await sb.from('teams')
+      .select('id, nom, sort_order').order('sort_order').order('nom');
+    if (teamsError) console.warn('Équipes indisponibles (migration roles_teams_preventions.sql non passée ?) :', teamsError.message);
+    window.CLUB_TEAMS = teams || [];
+    renderNav(profile);
+  }
   return { user: session.user, profile };
 }
 
@@ -78,6 +88,13 @@ async function logout() {
 function canEdit(role) {
   return ['admin', 'coach', 'analyste', 'prepa'].includes(role);
 }
+
+/* Mêmes règles que les helpers SQL de roles_teams_preventions.sql :
+   l'interface masque, la RLS refuse. */
+const canEditPerformanceData = (role) => ['admin', 'prepa'].includes(role);
+const canManageVideos        = (role) => ['admin', 'coach', 'analyste'].includes(role);
+const canManagePlans         = (role) => ['admin', 'coach', 'prepa'].includes(role);
+const canSeeVideoStats       = (role) => ['admin', 'coach', 'analyste'].includes(role);
 
 const ROLE_LABELS = {
   admin: 'Administrateur', coach: 'Coach', analyste: 'Analyste vidéo',

@@ -33,6 +33,7 @@ let myProfile = null;
     }
 
     const isAdmin = myProfile.role === 'admin';
+    renderTeams(isAdmin);
     if (isAdmin) {
       document.getElementById('clubName').disabled = false;
       document.getElementById('clubColor').disabled = false;
@@ -155,3 +156,61 @@ async function loadMembers(isAdmin) {
     });
   });
 }
+
+/* ---------- Équipes ---------- */
+function renderTeams(isAdmin) {
+  const list = document.getElementById('teamList');
+  const teams = window.CLUB_TEAMS || [];
+  list.innerHTML = teams.length ? teams.map(t => `
+    <div class="team-row" data-id="${t.id}">
+      <strong>${escapeHtml(t.nom)}</strong>
+      ${isAdmin ? `<span class="flex gap-sm">
+        <button class="btn btn-sm" type="button" data-action="rename">Renommer</button>
+        <button class="btn btn-sm btn-danger" type="button" data-action="delete">Supprimer</button></span>` : ''}
+    </div>`).join('')
+    : '<p class="text-muted">Aucune équipe pour l\'instant : tout le club est affiché ensemble.</p>';
+  if (!isAdmin) return;
+  document.getElementById('teamForm').classList.remove('hidden');
+}
+
+async function reloadTeams() {
+  const { data, error } = await sb.from('teams').select('id, nom, sort_order').order('sort_order').order('nom');
+  if (error) throw error;
+  window.CLUB_TEAMS = data || [];
+  renderTeams(true);
+  renderNav(myProfile);
+}
+
+document.getElementById('teamForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('teamName');
+  const nom = input.value.trim();
+  if (!nom) return;
+  try {
+    const { error } = await sb.from('teams').insert({ club_id: myProfile.club_id, nom });
+    if (error) throw error;
+    input.value = '';
+    await reloadTeams();
+    toast('Équipe ajoutée', 'success');
+  } catch (err) { toast(err.code === '23505' ? 'Cette équipe existe déjà.' : err.message, 'error'); }
+});
+
+document.getElementById('teamList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = Number(btn.closest('.team-row').dataset.id);
+  const team = (window.CLUB_TEAMS || []).find(t => t.id === id);
+  try {
+    if (btn.dataset.action === 'rename') {
+      const nom = prompt('Nouveau nom de l\'équipe', team?.nom || '')?.trim();
+      if (!nom) return;
+      const { error } = await sb.from('teams').update({ nom }).eq('id', id);
+      if (error) throw error;
+    } else {
+      if (!confirm(`Supprimer l'équipe « ${team?.nom} » ? Les joueurs et séances ne sont pas supprimés : ils redeviennent « sans équipe ».`)) return;
+      const { error } = await sb.from('teams').delete().eq('id', id);
+      if (error) throw error;
+    }
+    await reloadTeams();
+  } catch (err) { toast(err.message, 'error'); }
+});
