@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FootSession Pro — Joueurs</title>
+  <title>FootSession Pro — Comparaison</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
-  <link rel="stylesheet" href="assets/css/players.css">
+  <link rel="stylesheet" href="assets/css/comparaison.css">
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -16,8 +16,8 @@
     <nav class="nav">
       <a class="nav-item" href="dashboard.html"><span class="nav-dot"></span>Tableau de bord</a>
       <a class="nav-item" href="sessions.html"><span class="nav-dot"></span>Séances</a>
-      <a class="nav-item active" href="players.html"><span class="nav-dot"></span>Joueurs</a>
-      <a class="nav-item" href="comparaison.html"><span class="nav-dot"></span>Comparaison</a>
+      <a class="nav-item" href="players.html"><span class="nav-dot"></span>Joueurs</a>
+      <a class="nav-item active" href="comparaison.html"><span class="nav-dot"></span>Comparaison</a>
       <a class="nav-item" href="tactical-board.html"><span class="nav-dot"></span>Tableau tactique</a>
       <a class="nav-item" href="analytics.html"><span class="nav-dot"></span>Bilan &amp; Analytics</a>
       <a class="nav-item" href="videos.html"><span class="nav-dot"></span>Vidéos joueurs</a>
@@ -30,66 +30,55 @@
       <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
     </div>
   </aside>
+
   <main class="main">
     <div class="page-head">
       <div>
-        <h1>Joueurs du club</h1>
-        <p class="subtitle" id="playersSub">Chargement…</p>
+        <h1>Comparaison de l’effectif</h1>
+        <p class="subtitle" id="cmpSub">Chargement…</p>
       </div>
       <div class="page-actions">
-        <div class="segmented" id="viewSwitch">
-          <button data-view="grid" class="active">Grille</button>
-          <button data-view="matrix">Présence</button>
+        <div class="segmented" id="cmpTabs">
+          <button data-tab="tests" class="active">Tests physiques</button>
+          <button data-tab="evolution">Évolution</button>
+          <button data-tab="morpho">Données physiques</button>
         </div>
-        <button class="btn btn-primary hidden" id="btnAddPlayer" type="button">+ Ajouter</button>
       </div>
     </div>
 
-    <div class="field" style="max-width:340px;">
-      <input id="searchPlayer" placeholder="Rechercher…">
+    <div class="cmp-toolbar">
+      <label class="cmp-field">Session
+        <select id="cmpStage">
+          <option value="pre">Pré-saison</option>
+          <option value="mid">Mi-saison</option>
+          <option value="end">Fin de saison</option>
+        </select>
+      </label>
+      <label class="cmp-field cmp-metric-field hidden">Test suivi
+        <select id="cmpMetric"></select>
+      </label>
+      <label class="cmp-field cmp-grow">Rechercher
+        <input id="cmpSearch" placeholder="Nom d’un joueur…">
+      </label>
+      <label class="cmp-check"><input type="checkbox" id="cmpOnlyFlagged">
+        Valeurs suspectes seulement</label>
     </div>
 
-    <div id="gridView"><div class="empty">Chargement…</div></div>
-    <div id="matrixView" class="hidden"></div>
+    <div id="cmpAlert"></div>
+    <div id="cmpContent"><div class="empty">Chargement…</div></div>
+
+    <p class="text-muted cmp-foot">
+      Une case vide signifie que la donnée n’existe pas dans la source : rien n’est estimé ni complété.
+      Les valeurs signalées <span class="flag-pill">⚠</span> sortent des bornes physiologiques attendues
+      pour ce test — c’est presque toujours une saisie dans la mauvaise colonne, à vérifier avant de s’y fier.
+    </p>
   </main>
-
-  <!-- Modale ajout/édition -->
-  <div class="modal-backdrop" id="playerModal">
-    <div class="modal">
-      <h3 id="playerModalTitle">Nouveau joueur</h3>
-      <input type="hidden" id="m-id">
-      <div class="field-row">
-        <div class="field"><label>Prénom</label><input id="m-prenom"></div>
-        <div class="field"><label>Nom</label><input id="m-nom" required></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Numéro</label><input id="m-numero" type="number" min="0"></div>
-        <div class="field"><label>Poste</label>
-          <input id="m-poste" list="poste-list" placeholder="Ex: MC, DC, AT…">
-          <datalist id="poste-list">
-            <option>GB</option><option>DC</option><option>DD</option><option>DG</option>
-            <option>MDF</option><option>MC</option><option>MO</option>
-            <option>AD</option><option>AG</option><option>BU</option><option>RW</option><option>LW</option>
-          </datalist>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" type="button" data-close="playerModal">Annuler</button>
-        <button class="btn btn-primary" id="m-save" type="button">Enregistrer</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modale détail -->
-  <div class="modal-backdrop" id="detailModal">
-    <div class="modal" id="detailBody"></div>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/app.js"></script>
-  <script src="assets/js/procedure-time.js"></script>
-  <script src="assets/js/players-page.js"></script>
+  <script src="assets/js/perf-metrics.js"></script>
+  <script src="assets/js/comparaison-page.js"></script>
 </body>
 </html>

@@ -190,22 +190,12 @@ function playerShortName() {
 }
 
 /* ------------------------------------------------------------
-   Tableau des tests : valeur, référence club, écart.
-   `better` dit dans quel sens l'écart est favorable ; null quand
-   la métrique n'a pas de sens directionnel (ratio, asymétrie).
+   Tableau des tests : valeur, moyenne du club, écart.
+   Les métriques, leurs unités, leur sens de progression et leurs
+   bornes de vraisemblance viennent de assets/js/perf-metrics.js,
+   partagé avec la page Comparaison.
    ------------------------------------------------------------ */
-const TEST_ROWS = [
-  { label: 'Sprint 10 m',  key: 'sprint10_sec',         unit: 's',    digits: 2, better: 'lower' },
-  { label: 'Sprint 40 m',  key: 'sprint40_sec',         unit: 's',    digits: 2, better: 'lower' },
-  { label: '505 gauche',   key: 'five05_left_sec',      unit: 's',    digits: 2, better: 'lower' },
-  { label: '505 droit',    key: 'five05_right_sec',     unit: 's',    digits: 2, better: 'lower' },
-  { label: '505 moyenne',  key: 'five05_avg_sec',       unit: 's',    digits: 2, better: 'lower' },
-  { label: 'Asymétrie 505',key: 'five05_asymmetry_pct', unit: '%',    digits: 1, better: null },
-  { label: '30-15 VIFT',   key: 'vift_kmh',             unit: 'km/h', digits: 1, better: 'higher' },
-  { label: 'Shirado',      key: 'shirado_sec',          unit: 's',    digits: 0, better: 'higher' },
-  { label: 'Sorensen',     key: 'sorensen_sec',         unit: 's',    digits: 0, better: 'higher' },
-  { label: 'Ratio Shirado / Sorensen', key: 'core_ratio', unit: '', digits: 2, better: null },
-];
+const TEST_ROWS = PERF_METRICS;
 
 function renderTestSummary(test) {
   const box = document.getElementById('testSummary');

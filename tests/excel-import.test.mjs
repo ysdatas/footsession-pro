@@ -31,6 +31,7 @@ const ctx = vm.createContext({
   setTimeout, clearTimeout, console,
   Number, Math, String, Boolean, Set, Map, Promise, JSON, Object, Array, Date,
 });
+vm.runInContext(readFileSync('web/assets/js/perf-metrics.js', 'utf8'), ctx);
 vm.runInContext(readFileSync('web/assets/js/player-performance-page.js', 'utf8'), ctx);
 vm.runInContext(`importState.workbook = { Sheets: ${JSON.stringify(SHEETS)}, SheetNames: ${JSON.stringify(Object.keys(SHEETS))} };`, ctx);
 

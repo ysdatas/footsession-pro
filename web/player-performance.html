@@ -118,6 +118,18 @@
       <div id="videoPanelSlot"></div>
     </div>
 
+    <!-- Comparaison à l'effectif (staff uniquement) -->
+    <section class="card hidden perf-staff-only" id="squadCompareCard">
+      <div class="section-head">
+        <div>
+          <h2>Comparaison à l’effectif</h2>
+          <p class="text-muted">Place de ce joueur dans le club, sur la session affichée.</p>
+        </div>
+        <a class="btn btn-sm" href="comparaison.html">Tout l’effectif →</a>
+      </div>
+      <div id="squadCompare"></div>
+    </section>
+
     <!-- Saisie manuelle des tests -->
     <section class="card manual-test-box hidden perf-editor-only" id="manualTestBox">
       <div class="section-head compact"><div><h2>Ajouter une session de tests</h2></div></div>
@@ -247,6 +259,7 @@
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/app.js"></script>
+  <script src="assets/js/perf-metrics.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
 </body>
 </html>
