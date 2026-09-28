@@ -1,3 +1,7 @@
+> Note historique : cette procédure décrivait une livraison ponctuelle de fichiers
+> (chantier « Vidéos joueurs »). Pour l'architecture, les migrations et le déploiement
+> à jour, voir README.md. Conservé pour référence.
+
 # Déploiement — Vidéos joueurs (Supabase)
 
 ⚠️ Ceci remplace tout ce que je t'avais envoyé précédemment en PHP — ton site en ligne

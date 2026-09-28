@@ -1,7 +1,7 @@
 /* ============================================================
    FootSession Pro — app.js
-   Initialisation globale : helpers DOM, fetch API (+ CSRF),
-   toasts, modales, bascule de la barre latérale.
+   Initialisation globale : helpers DOM, toasts, modales,
+   bascule de la barre latérale.
    ============================================================ */
 
 /* ---------- Helpers DOM ---------- */
@@ -22,39 +22,6 @@ function el(tag, attrs = {}, ...children) {
     node.append(c.nodeType ? c : document.createTextNode(String(c)));
   }
   return node;
-}
-
-/* ---------- CSRF ---------- */
-const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-/* ---------- Wrapper fetch JSON ---------- */
-async function API(url, { method = 'GET', body = null, params = null } = {}) {
-  if (params) {
-    const q = new URLSearchParams(params).toString();
-    url += (url.includes('?') ? '&' : '?') + q;
-  }
-  const opts = { method, headers: {} };
-  if (body !== null) {
-    opts.headers['Content-Type'] = 'application/json';
-    opts.headers['X-CSRF-Token'] = CSRF;
-    opts.body = JSON.stringify(body);
-  } else if (method !== 'GET') {
-    opts.headers['X-CSRF-Token'] = CSRF;
-  }
-
-  let res, data;
-  try {
-    res = await fetch(url, opts);
-  } catch (e) {
-    throw new Error('Réseau indisponible.');
-  }
-  const text = await res.text();
-  try { data = text ? JSON.parse(text) : {}; }
-  catch { throw new Error('Réponse serveur invalide.'); }
-
-  if (res.status === 401) { window.location.href = baseUrl('index.php'); throw new Error('Session expirée.'); }
-  if (!res.ok) throw new Error(data.error || ('Erreur ' + res.status));
-  return data;
 }
 
 /* Construit une URL relative à la racine de l'app (pages à la racine). */

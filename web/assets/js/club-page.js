@@ -92,7 +92,7 @@ async function loadMembers(isAdmin) {
     sb.from('players').select('id, nom, prenom, numero, auth_user_id').eq('club_id', myProfile.club_id).order('nom')
   ]);
   if (error || rosterError) {
-    list.innerHTML = `<p class="text-danger">${escapeHtmlClub((error || rosterError).message)}</p>`;
+    list.innerHTML = `<p class="text-danger">${escapeHtml((error || rosterError).message)}</p>`;
     return;
   }
 
@@ -107,13 +107,13 @@ async function loadMembers(isAdmin) {
           <select class="player-link-select ${m.role === 'joueur' ? '' : 'hidden'}" data-profile-id="${m.id}" aria-label="Fiche joueur">
             <option value="">— Associer une fiche joueur —</option>
             ${availablePlayers.filter(p => !p.auth_user_id || p.auth_user_id === m.id).map(p =>
-              `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtmlClub(`${p.prenom || ''} ${p.nom}`.trim())}${p.numero != null ? ` #${p.numero}` : ''}</option>`
+              `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtml(`${p.prenom || ''} ${p.nom}`.trim())}${p.numero != null ? ` #${p.numero}` : ''}</option>`
             ).join('')}
           </select>
           <button type="button" class="btn btn-sm player-link-save ${m.role === 'joueur' ? '' : 'hidden'}" data-profile-id="${m.id}" ${m.id === myProfile.id ? 'disabled' : ''}>Associer</button>
         </div>`
-      : `<span class="badge badge-gold">${ROLE_LABELS[m.role] || m.role}${linked ? ` · ${escapeHtmlClub(`${linked.prenom || ''} ${linked.nom}`.trim())}` : ''}</span>`;
-    return `<div class="member-row"><span class="member-name">${escapeHtmlClub(m.nom || 'Membre')}</span>${roleCell}</div>`;
+      : `<span class="badge badge-gold">${ROLE_LABELS[m.role] || m.role}${linked ? ` · ${escapeHtml(`${linked.prenom || ''} ${linked.nom}`.trim())}` : ''}</span>`;
+    return `<div class="member-row"><span class="member-name">${escapeHtml(m.nom || 'Membre')}</span>${roleCell}</div>`;
   }).join('') || '<p class="text-muted">Aucun membre.</p>';
 
   if (!isAdmin) return;
@@ -123,8 +123,12 @@ async function loadMembers(isAdmin) {
       const profileId = sel.dataset.id;
       const role = sel.value;
       if (role === 'joueur') {
+        // club_set_member_role() refuse 'joueur' : le rôle ne bascule qu'au
+        // moment où une fiche est associée. On le dit, plutôt que de laisser
+        // croire que le changement est déjà enregistré.
         list.querySelector(`.player-link-select[data-profile-id="${profileId}"]`)?.classList.remove('hidden');
         list.querySelector(`.player-link-save[data-profile-id="${profileId}"]`)?.classList.remove('hidden');
+        toast('Choisissez une fiche joueur puis cliquez « Associer » pour appliquer le rôle.', 'info');
         return;
       }
       sel.disabled = true;
@@ -151,4 +155,3 @@ async function loadMembers(isAdmin) {
     });
   });
 }
-function escapeHtmlClub(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
