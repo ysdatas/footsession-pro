@@ -170,7 +170,8 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Formations** : menu déroulant (4-3-3, 4-4-2…) place 11 joueurs.
 - **Disposition** : outils à gauche, terrain au centre, panneau à droite (élément sélectionné,
   étapes, export).
-- **Taille** : S / M / L / XL puis −/+ ; même échelle que **Paramètres**.
+- **Taille** : tirer un coin du pion (ou du matériel, d’un texte) l’agrandit ou le réduit ;
+  ou S / M / L / XL puis −/+ dans le panneau, même échelle que **Paramètres**.
 - **Étapes** : « + Nouvelle étape » crée l'étape suivante ; cliquer une pastille (1, 2, 3…)
   l'affiche, et chaque déplacement y est enregistré. « ▶ Lire » part de l'étape 1.
 - **Export** : image de l'étape affichée, images de toutes les étapes, vidéo (MP4 quand le

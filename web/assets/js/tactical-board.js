@@ -457,7 +457,7 @@ function drawSelection() {
       // Poignée d'angle : pleine si l'angle est posé, creuse sinon (invitation à la saisir).
       const m = midOf(one); handle(m.x, m.y, !bendOf(one));
     }
-    else { const b = bounds(one); withRotation(one, () => [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].forEach(c => handle(c[0], c[1]))); }
+    else { const b = handleBounds(one); withRotation(one, () => [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].forEach(c => handle(c[0], c[1]))); }
   }
 }
 function handle(x, y, hollow) {
@@ -476,6 +476,14 @@ function bounds(it) {
   // shape / logo : normaliser largeur/hauteur négatives
   const x = Math.min(it.x, it.x + it.w), y = Math.min(it.y, it.y + it.h);
   return { x, y, w: Math.abs(it.w), h: Math.abs(it.h) };
+}
+/* Cadre des poignées : écarté du pion ou du matériel, pour ne pas le
+   masquer et pouvoir le saisir sans attraper une poignée. */
+function handleBounds(it) {
+  const b = bounds(it);
+  if (it.type !== 'player' && it.type !== 'opponent' && it.type !== 'equip') return b;
+  const pad = 6;
+  return { x: b.x - pad, y: b.y - pad, w: b.w + pad * 2, h: b.h + pad * 2 };
 }
 function hitItem(p) {
   for (let i = state.items.length - 1; i >= 0; i--) {
@@ -509,7 +517,7 @@ function hitHandle(p, it) {
     return null;
   }
   const lp = localPoint(p, it);
-  const b = bounds(it);
+  const b = handleBounds(it);
   const corners = { nw: [b.x, b.y], ne: [b.x + b.w, b.y], sw: [b.x, b.y + b.h], se: [b.x + b.w, b.y + b.h] };
   for (const [k, c] of Object.entries(corners)) if (Math.hypot(lp.x - c[0], lp.y - c[1]) <= HANDLE + 2) return k;
   return null;
@@ -598,7 +606,20 @@ canvas.addEventListener('pointerdown', (e) => {
   if (state.tool === 'select') {
     // 1) poignée de redimensionnement (sélection unique)
     const one = selected();
-    if (one) { const h = hitHandle(p, one); if (h) { pushHistory(); drag = { mode: 'handle', h, it: one }; return; } }
+    if (one) {
+      const h = hitHandle(p, one);
+      if (h) {
+        pushHistory();
+        drag = { mode: 'handle', h, it: one };
+        // Pion, matériel, texte : tirer un coin agrandit ou réduit l'élément,
+        // proportionnellement à la distance au centre.
+        if (sizeKind(one)) {
+          const c = itemCenter(one);
+          drag.scale = { c, d0: Math.max(4, Math.hypot(p.x - c.x, p.y - c.y)), s0: getSize(one) };
+        }
+        return;
+      }
+    }
     const it = hitItem(p);
     // 2) Cmd/Ctrl + clic : (dé)sélection isolée d'un élément dans le groupe
     if (it && (e.metaKey || e.ctrlKey)) {
@@ -643,7 +664,7 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 
 canvas.addEventListener('pointermove', (e) => {
-  if (!drag) return;
+  if (!drag) { hoverCursor(e); return; }
   const p = getPos(e);
   if (drag.mode === 'move-group') {
     const dx = p.x - drag.ox, dy = p.y - drag.oy;
@@ -665,6 +686,11 @@ canvas.addEventListener('pointermove', (e) => {
   } else if (drag.mode === 'create-box') {
     drag.it.w = p.x - drag.ox; drag.it.h = p.y - drag.oy;
     showSizeTag(e, drag.it);
+  } else if (drag.mode === 'handle' && drag.scale) {
+    const { c, d0, s0 } = drag.scale;
+    setSize(drag.it, s0 * Math.hypot(p.x - c.x, p.y - c.y) / d0);
+    if (sizeKind(drag.it) === 'token') state.tokenR = drag.it.r;   // les prochains pions suivent
+    if (sizeKind(drag.it) === 'equip') state.equipR = drag.it.r;
   } else if (drag.mode === 'handle') {
     resizeBox(drag.it, drag.h, localPoint(p, drag.it));   // redimensionne dans le repère non-tourné
     if (drag.it.type === 'shape') showSizeTag(e, drag.it);
@@ -719,6 +745,15 @@ canvas.addEventListener('pointerup', () => {
   drag = null;
   syncSelBar(); commit();
 });
+
+/* Curseur de redimensionnement au survol d'une poignée. */
+function hoverCursor(e) {
+  const one = CAN_EDIT && state.tool === 'select' ? selected() : null;
+  const h = one && one.type !== 'arrow' && one.type !== 'line' ? hitHandle(getPos(e), one) : null;
+  // En mode portrait, l'affichage est tourné de 90° : les diagonales s'inversent.
+  const diag = (h === 'nw' || h === 'se') !== isPortrait() ? 'nwse-resize' : 'nesw-resize';
+  canvas.style.cursor = h ? diag : '';
+}
 
 /* ---------- Menu contextuel (clic droit) : Renommer / Couleur / Supprimer ---------- */
 const menu = (() => {
