@@ -46,6 +46,8 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 11. supabase/player_performance_migration.sql  mesures, tests, notes, radar, buckets photo
 12. supabase/player_video_selections.sql       sélection de séquences par le joueur
 13. supabase/fix_audit_2026_09.sql             ⚠️ OBLIGATOIRE — voir ci-dessous
+14. supabase/perf_dashboard.sql                moyennes du club (bornes + 3 joueurs minimum)
+15. supabase/player_profile_career.sql         identité du joueur + parcours en club
 ```
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter

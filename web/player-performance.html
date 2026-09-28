@@ -25,10 +25,11 @@
         <a class="btn" id="videoPlayerLink" href="#">Vidéos</a>
         <button class="btn hidden perf-editor-only" id="btnImportExcel" type="button">Importer Excel</button>
         <button class="btn hidden perf-editor-only" id="btnAddPhoto" type="button">Photo</button>
+        <button class="btn btn-primary hidden perf-staff-only" id="btnExport" type="button">Exporter la fiche</button>
       </div>
     </div>
 
-    <!-- En-tête joueur -->
+    <!-- En-tête joueur : identité, club, mesures -->
     <section class="perf-hero card">
       <div class="perf-identity">
         <div class="perf-photo-wrap">
@@ -36,36 +37,34 @@
           <div id="playerInitials" class="perf-photo-fallback">?</div>
         </div>
         <div class="perf-identity-text">
-          <div class="eyebrow">DOSSIER JOUEUR</div>
+          <div class="eyebrow-row">
+            <span class="eyebrow">DOSSIER JOUEUR</span>
+            <button class="btn btn-sm btn-ghost hidden perf-staff-only" id="btnEditPlayer" type="button">Modifier</button>
+          </div>
           <h1 id="playerName">Chargement…</h1>
           <p id="playerMeta" class="subtitle">—</p>
+          <p id="playerFacts" class="perf-facts"></p>
         </div>
       </div>
+
+      <div class="perf-club" id="playerClub"></div>
+
       <div class="perf-hero-metrics">
-        <div class="perf-metric"><span>Taille</span><strong id="metricHeight">—</strong></div>
-        <div class="perf-metric"><span>Poids</span><strong id="metricWeight">—</strong></div>
-        <div class="perf-metric"><span>Masse grasse</span><strong id="metricBodyFat">—</strong></div>
+        <div class="perf-metric"><span>Taille</span><strong id="metricHeight">—</strong><small id="metricHeightWhen"></small></div>
+        <div class="perf-metric"><span>Poids</span><strong id="metricWeight">—</strong><small id="metricWeightWhen"></small></div>
+        <div class="perf-metric"><span>Masse grasse</span><strong id="metricBodyFat">—</strong><small id="metricBodyFatWhen"></small></div>
       </div>
     </section>
 
-    <!-- Rangée haute : sidebar + radar + tests -->
+    <!-- Rangée haute : parcours + radar + tests -->
     <div class="fp-fm-shell">
       <aside class="fp-fm-sidebar" id="perfSidebar">
-        <div class="fp-fm-side-block">
-          <div class="fp-fm-side-title">Poste</div>
-          <div class="fp-mini-pitch" id="miniPitch" role="img" aria-label="Position du joueur sur le terrain"></div>
-          <div class="fp-fm-side-meta pitch-label" id="miniPitchLabel">—</div>
-        </div>
-        <div class="fp-fm-side-block">
+        <div class="fp-fm-side-block career-block">
           <div class="fp-fm-side-title side-title-row">
-            <span>Informations</span>
-            <button class="btn btn-sm hidden perf-editor-only" id="btnEditPlayer" type="button">Modifier</button>
+            <span>Parcours</span>
+            <button class="btn btn-sm hidden perf-staff-only" id="btnAddCareer" type="button">+ Ajouter</button>
           </div>
-          <div id="sidebarInfo"></div>
-        </div>
-        <div class="fp-fm-side-block">
-          <div class="fp-fm-side-title">Accès rapide</div>
-          <div class="fp-fm-quick" id="sidebarQuick"></div>
+          <div id="careerList"></div>
         </div>
       </aside>
 
@@ -93,9 +92,9 @@
           <div class="section-head">
             <div>
               <h2>Tests physiques</h2>
-              <p class="text-muted">Valeurs du joueur, comparées à la moyenne de son club sur la même session.</p>
+              <p class="text-muted" id="testsSubtitle">Valeurs du joueur, comparées à la moyenne de son club sur la même session.</p>
             </div>
-            <button class="btn btn-sm hidden perf-editor-only" id="btnAddMeasurement" type="button">+ Mesure</button>
+            <button class="btn btn-sm hidden perf-editor-only" id="btnAddTests" type="button">+ Tests</button>
           </div>
           <div id="testSummary" class="test-summary"></div>
         </section>
@@ -110,6 +109,7 @@
             <h2>Suivi physique</h2>
             <p class="text-muted">Historique des mesures du préparateur.</p>
           </div>
+          <button class="btn btn-sm hidden perf-editor-only" id="btnAddMeasurement" type="button">+ Mesure</button>
         </div>
         <div id="trendChart" class="trend-chart"></div>
         <div id="measurementHistory"></div>
@@ -117,35 +117,6 @@
       <!-- #fpVideoSelectionPanel est monté ici par le script -->
       <div id="videoPanelSlot"></div>
     </div>
-
-    <!-- Comparaison à l'effectif (staff uniquement) -->
-    <section class="card hidden perf-staff-only" id="squadCompareCard">
-      <div class="section-head">
-        <div>
-          <h2>Comparaison à l’effectif</h2>
-          <p class="text-muted">Place de ce joueur dans le club, sur la session affichée.</p>
-        </div>
-        <a class="btn btn-sm" href="comparaison.html">Tout l’effectif →</a>
-      </div>
-      <div id="squadCompare"></div>
-    </section>
-
-    <!-- Saisie manuelle des tests -->
-    <section class="card manual-test-box hidden perf-editor-only" id="manualTestBox">
-      <div class="section-head compact"><div><h2>Ajouter une session de tests</h2></div></div>
-      <div class="form-grid">
-        <label>Session<select id="manualStage"><option value="pre">Pré-saison</option><option value="mid">Mi-saison</option><option value="end">Fin de saison</option></select></label>
-        <label>Date<input type="date" id="manualTestDate"></label>
-        <label>Sprint 10 m<input type="number" step="0.01" id="t-sprint10"></label>
-        <label>505 gauche<input type="number" step="0.001" id="t-505g"></label>
-        <label>505 droit<input type="number" step="0.001" id="t-505d"></label>
-        <label>Sprint 40 m<input type="number" step="0.01" id="t-sprint40"></label>
-        <label>30-15 VIFT<input type="number" step="0.1" id="t-vift"></label>
-        <label>Shirado (s)<input type="number" step="1" id="t-shirado"></label>
-        <label>Sorensen (s)<input type="number" step="1" id="t-sorensen"></label>
-      </div>
-      <button class="btn btn-primary" id="btnSaveTest" type="button">Enregistrer les tests</button>
-    </section>
 
     <!-- Notes -->
     <div class="perf-grid-notes">
@@ -174,21 +145,6 @@
       </section>
     </div>
 
-    <section class="card hidden perf-editor-only" id="manualMeasurementBox">
-      <div class="section-head compact"><h2>Ajouter une mesure</h2></div>
-      <div class="form-grid">
-        <label>Mois<select id="m-month">
-          <option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option>
-          <option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option>
-        </select></label>
-        <label>Date<input type="date" id="m-date"></label>
-        <label>Taille (cm)<input type="number" step="0.1" id="m-height"></label>
-        <label>Poids (kg)<input type="number" step="0.1" id="m-weight"></label>
-        <label>Masse grasse (%)<input type="number" step="0.1" id="m-fat"></label>
-      </div>
-      <button class="btn btn-primary" id="btnSaveMeasurement" type="button">Enregistrer la mesure</button>
-    </section>
-
     <div id="pageToast" class="perf-toast" aria-live="polite"></div>
   </main>
 
@@ -211,17 +167,24 @@
 
   <!-- Fiche joueur -->
   <div class="modal-backdrop" id="playerEditModal">
-    <div class="modal">
+    <div class="modal modal-wide">
       <h3>Modifier la fiche joueur</h3>
-      <p class="text-muted" style="font-size:.82rem;margin-bottom:12px;">
-        Ces champs identifient le joueur dans l’application. L’import Excel s’appuie sur le
-        <strong>nom de famille</strong> : le modifier change la correspondance avec le classeur du préparateur.
+      <p class="text-muted modal-lead">
+        Ces informations complètent ce que fournit l’Excel du préparateur, qui ne les contient pas.
+        L’import s’appuie sur le <strong>nom de famille</strong> : le modifier change la correspondance avec le classeur.
       </p>
       <div class="form-grid form-grid-2">
-        <label>Prénom<input id="pe-prenom" type="text"></label>
-        <label>Nom<input id="pe-nom" type="text"></label>
-        <label>Numéro<input id="pe-numero" type="number" min="1" max="99"></label>
+        <label>Prénom<input id="pe-prenom" type="text" autocomplete="off"></label>
+        <label>Nom<input id="pe-nom" type="text" autocomplete="off"></label>
         <label>Poste<input id="pe-poste" type="text" list="posteList" placeholder="Ex : Milieu central"></label>
+        <label>Numéro<input id="pe-numero" type="number" min="1" max="99"></label>
+        <label>Date de naissance<input id="pe-naissance" type="date"></label>
+        <label>Nationalité<input id="pe-nationalite" type="text" list="nationaliteList" placeholder="Ex : France"></label>
+        <label>Pied fort<select id="pe-pied">
+          <option value="">—</option><option>Droit</option><option>Gauche</option><option>Les deux</option>
+        </select></label>
+        <label>Statut<input id="pe-statut" type="text" list="statutList" placeholder="Ex : Pro"></label>
+        <label>Fin de contrat<input id="pe-contrat" type="date"></label>
       </div>
       <datalist id="posteList">
         <option value="Gardien"></option><option value="Défenseur central"></option>
@@ -230,9 +193,142 @@
         <option value="Milieu offensif"></option><option value="Ailier droit"></option>
         <option value="Ailier gauche"></option><option value="Attaquant"></option>
       </datalist>
+      <datalist id="nationaliteList">
+        <option value="France"></option><option value="Algérie"></option><option value="Maroc"></option>
+        <option value="Tunisie"></option><option value="Sénégal"></option><option value="Côte d’Ivoire"></option>
+        <option value="Cameroun"></option><option value="Mali"></option><option value="RD Congo"></option>
+        <option value="Portugal"></option><option value="Espagne"></option><option value="Belgique"></option>
+      </datalist>
+      <datalist id="statutList">
+        <option value="Pro"></option><option value="Stagiaire pro"></option><option value="Aspirant"></option>
+        <option value="Fédéral"></option><option value="Amateur"></option><option value="Formation"></option>
+      </datalist>
       <div class="modal-actions">
         <button class="btn" data-close="playerEditModal" type="button">Annuler</button>
         <button class="btn btn-primary" id="btnSavePlayer" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mesure physique -->
+  <div class="modal-backdrop" id="measureModal">
+    <div class="modal">
+      <h3>Ajouter une mesure</h3>
+      <p class="text-muted modal-lead">La mesure la plus récente apparaît dans l’en-tête de la fiche.
+        Le mois est déduit de la date ; laissez un champ vide s’il n’a pas été mesuré.</p>
+      <div class="form-grid form-grid-2">
+        <label>Date<input type="date" id="m-date"></label>
+        <label>Mois<select id="m-month">
+          <option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option>
+          <option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option>
+        </select></label>
+        <label>Taille (cm)<input type="number" step="0.1" id="m-height"></label>
+        <label>Poids (kg)<input type="number" step="0.1" id="m-weight"></label>
+        <label>Masse grasse (%)<input type="number" step="0.1" id="m-fat"></label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" data-close="measureModal" type="button">Annuler</button>
+        <button class="btn btn-primary" id="btnSaveMeasurement" type="button">Enregistrer la mesure</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session de tests -->
+  <div class="modal-backdrop" id="testModal">
+    <div class="modal modal-wide">
+      <h3>Ajouter une session de tests</h3>
+      <p class="text-muted modal-lead">Une saisie remplace la précédente saisie manuelle de la même session.
+        Moyenne et asymétrie 505 et ratio de gainage sont calculés automatiquement.</p>
+      <div class="form-grid">
+        <label>Session<select id="manualStage"><option value="pre">Pré-saison</option><option value="mid">Mi-saison</option><option value="end">Fin de saison</option></select></label>
+        <label>Date<input type="date" id="manualTestDate"></label>
+        <label>Sprint 10 m (s)<input type="number" step="0.01" id="t-sprint10"></label>
+        <label>505 gauche (s)<input type="number" step="0.001" id="t-505g"></label>
+        <label>505 droit (s)<input type="number" step="0.001" id="t-505d"></label>
+        <label>Sprint 40 m (s)<input type="number" step="0.01" id="t-sprint40"></label>
+        <label>30-15 VIFT (km/h)<input type="number" step="0.1" id="t-vift"></label>
+        <label>Shirado (s)<input type="number" step="1" id="t-shirado"></label>
+        <label>Sorensen (s)<input type="number" step="1" id="t-sorensen"></label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" data-close="testModal" type="button">Annuler</button>
+        <button class="btn btn-primary" id="btnSaveTest" type="button">Enregistrer les tests</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Parcours -->
+  <div class="modal-backdrop" id="careerModal">
+    <div class="modal">
+      <h3 id="careerModalTitle">Ajouter un club</h3>
+      <input type="hidden" id="c-id">
+      <div class="form-grid form-grid-2">
+        <label class="span-2">Club<input id="c-club" type="text" placeholder="Ex : Stade Rennais" autocomplete="off"></label>
+        <label class="span-2">Catégorie / niveau<input id="c-cat" type="text" placeholder="Ex : U17 Nationaux"></label>
+        <label>Début<input id="c-debut" type="month"></label>
+        <label>Fin<input id="c-fin" type="month"><small class="field-hint">Vide = en cours</small></label>
+        <label class="span-2">Notes<textarea id="c-notes" rows="3" placeholder="Facultatif"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-danger hidden" id="btnDeleteCareer" type="button">Supprimer</button>
+        <span class="spacer"></span>
+        <button class="btn" data-close="careerModal" type="button">Annuler</button>
+        <button class="btn btn-primary" id="btnSaveCareer" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="modal-backdrop" id="exportModal">
+    <div class="modal modal-wide">
+      <h3>Exporter la fiche</h3>
+      <p class="text-muted modal-lead">Le document s’ouvre dans la fenêtre d’impression : choisissez
+        <strong>« Enregistrer au format PDF »</strong> comme destination.</p>
+
+      <div class="export-block">
+        <div class="export-title">Période</div>
+        <div class="export-presets" id="exportPresets">
+          <button type="button" class="chip active" data-preset="all">Toute la saison</button>
+          <button type="button" class="chip" data-preset="pre">Pré-saison</button>
+          <button type="button" class="chip" data-preset="mid">Mi-saison</button>
+          <button type="button" class="chip" data-preset="end">Fin de saison</button>
+        </div>
+        <div class="export-period">
+          <div>
+            <span class="export-sub">Sessions de tests</span>
+            <label class="check"><input type="checkbox" name="exp-stage" value="pre" checked> Pré-saison</label>
+            <label class="check"><input type="checkbox" name="exp-stage" value="mid" checked> Mi-saison</label>
+            <label class="check"><input type="checkbox" name="exp-stage" value="end" checked> Fin de saison</label>
+          </div>
+          <div>
+            <span class="export-sub">Mesures physiques</span>
+            <div class="export-range">
+              <label>de <select id="exp-from"></select></label>
+              <label>à <select id="exp-to"></select></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="export-block">
+        <div class="export-title">Contenu</div>
+        <div class="export-sections">
+          <label class="check"><input type="checkbox" name="exp-sec" value="identity" checked> Identité et parcours</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="measures" checked> Mesures physiques</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="tests" checked> Tests physiques</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="compare" checked> Comparaison à la moyenne du club</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="radar" checked> Profil athlétique /10</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="strength" checked> Points forts</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="improvement" checked> Points d’amélioration</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="objective" checked> Objectifs &amp; prévention</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="images"> Images des notes</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="videos"> Séquences vidéo sélectionnées</label>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" data-close="exportModal" type="button">Annuler</button>
+        <button class="btn btn-primary" id="btnRunExport" type="button">Générer le PDF</button>
       </div>
     </div>
   </div>
@@ -261,5 +357,7 @@
   <script src="assets/js/app.js"></script>
   <script src="assets/js/perf-metrics.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
+  <script src="assets/js/perf-export.js"></script>
+  <div id="printSheet" class="print-sheet" aria-hidden="true"></div>
 </body>
 </html>

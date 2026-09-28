@@ -11,7 +11,25 @@ let stage = 'pre';
 let canEditPerformance = false;
 let importState = { entries: [], fileName: '', mode: 'single' };
 let clubAverages = null;   // moyennes du club pour la session affichée
-let squadTests = [];       // lignes de tests du club (staff uniquement)
+let squadTests = [];       // tests du club retenus pour la session affichée (staff)
+let clubTestsAll = [];     // tous les tests du club, toutes sessions (staff)
+let clubPlayers = [];      // effectif du club (staff)
+let squadLoadFailed = false;
+let career = [];           // parcours en club du joueur
+let careerMissing = false; // table player_career absente : migration non passée
+let identityMissing = false; // colonnes d'identité absentes : migration non passée
+let canEditPlayer = false; // identité + parcours : mêmes droits que la fiche joueur
+let expandedTests = new Set();
+let clubLogoUrl = null;
+
+/* Rôles du staff ayant accès à la performance (can_view_performance()
+   côté base). Ce sont aussi ceux qui modifient la fiche (can_edit()). */
+const STAFF_ROLES = ['admin', 'coach', 'analyste', 'prepa'];
+const isStaff = () => STAFF_ROLES.includes(ctxProfile?.role);
+
+/* Colonnes d'identité ajoutées par supabase/player_profile_career.sql. */
+const PLAYER_BASE_COLS = 'id, nom, prenom, numero, poste, club_id, auth_user_id, photo_path';
+const PLAYER_IDENTITY_COLS = 'date_naissance, nationalite, pied_fort, statut, contrat_fin';
 
 const MONTHS = ['Août','Septembre','Octobre','Novembre','Décembre','Janvier','Février','Mars','Avril','Mai','Juin'];
 const STAGES = [
@@ -60,15 +78,25 @@ function openPerfModal(id) {
 function closePerfModal(id) {
   document.getElementById(id)?.classList.remove('open');
 }
-function latestMeasurement() {
-  if (!measurements.length) return null;
-  // measured_at fait foi (multi-saisons) ; l'ordre des mois de la saison
-  // sert de repli quand la date n'est pas renseignée.
-  const key = m => [m.measured_at || '', MONTHS.indexOf(m.month_label), m.id || 0];
-  return [...measurements].sort((a,b) => {
-    const ka = key(a), kb = key(b);
-    return String(ka[0]).localeCompare(String(kb[0])) || (ka[1]-kb[1]) || (ka[2]-kb[2]);
-  }).at(-1);
+/* Ordre chronologique d'une mesure dans la saison.
+   Le mois fait foi : c'est ce que portent aussi bien l'Excel que la saisie
+   manuelle. La date départage deux mesures du même mois, puis l'ordre
+   d'enregistrement. Le tableau, la courbe et l'en-tête utilisent tous ce
+   même ordre — ils ne peuvent donc plus se contredire. */
+function measurementOrder(a, b) {
+  return (MONTHS.indexOf(a.month_label) - MONTHS.indexOf(b.month_label))
+    || String(a.measured_at || '').localeCompare(String(b.measured_at || ''))
+    || ((a.id || 0) - (b.id || 0));
+}
+function orderedMeasurements() {
+  return [...measurements].sort(measurementOrder);
+}
+/* Dernière valeur connue d'un champ, avec son mois.
+   Une mesure récente qui ne porte que le poids ne doit pas faire
+   disparaître la taille mesurée le mois précédent. */
+function latestValue(field) {
+  const row = orderedMeasurements().filter(m => num(m[field]) !== null).at(-1);
+  return row ? { value: num(row[field]), month: row.month_label } : null;
 }
 function scoreValue(t, key) {
   const v = t?.[key];
@@ -112,10 +140,10 @@ function radarSeries(values, cls) {
   return svg;
 }
 
-function radarSvg(test) {
+function radarSvg(test, reference = clubAverages) {
   const { W, H, cx, cy, R } = RADAR;
   const values = SCORE_LABELS.map(([key]) => scoreValue(test, key));
-  const refs = SCORE_LABELS.map(([key]) => scoreValue(clubAverages, key));
+  const refs = SCORE_LABELS.map(([key]) => scoreValue(reference, key));
 
   let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Radar du profil athlétique">`;
 
@@ -198,53 +226,154 @@ function playerShortName() {
    ------------------------------------------------------------ */
 const TEST_ROWS = PERF_METRICS;
 
+/* Rang du joueur et liste de l'effectif pour une métrique, sur la
+   session affichée. Les valeurs hors bornes sont listées à part : elles
+   sont exclues de la moyenne et du classement, jamais corrigées. */
+function squadForMetric(m) {
+  const nameOf = id => {
+    const pl = clubPlayers.find(x => x.id === id);
+    return pl ? (`${pl.prenom || ''} ${pl.nom || ''}`.trim() || `Fiche #${id}`) : `Fiche #${id}`;
+  };
+  const entries = squadTests
+    .map(t => ({ id: t.player_id, name: nameOf(t.player_id), value: num(t[m.key]) }))
+    .filter(e => e.value !== null);
+  const ranked = entries.filter(e => !isImplausible(m.key, e.value))
+    .sort((a, b) => m.better === 'lower' ? a.value - b.value : b.value - a.value);
+  const flagged = entries.filter(e => isImplausible(m.key, e.value));
+  const tested = new Set(entries.map(e => e.id));
+  const untested = clubPlayers
+    .filter(pl => !tested.has(pl.id))
+    .map(pl => `${pl.prenom || ''} ${pl.nom || ''}`.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  return { ranked, flagged, untested };
+}
+
+function squadPanel(m, colspan) {
+  const { ranked, flagged, untested } = squadForMetric(m);
+  const avg = perfAverage(squadTests, m.key);
+  const stageLabel = STAGES.find(x => x.key === stage)?.label || '';
+  const values = ranked.map(e => e.value);
+  const lo = Math.min(...values), hi = Math.max(...values);
+  // Barre : position dans l'amplitude du groupe, le meilleur à 100 %.
+  const width = v => {
+    if (!values.length || hi === lo) return 100;
+    const t = m.better === 'lower' ? (hi - v) / (hi - lo) : (v - lo) / (hi - lo);
+    return Math.round(12 + t * 88);
+  };
+  const unit = m.unit ? ` ${m.unit}` : '';
+
+  return `<tr class="t-squad"><td colspan="${colspan}">
+    <div class="squad-panel">
+      <div class="squad-head">
+        <strong>${esc(m.label)}</strong> — ${esc(stageLabel)} ·
+        ${avg.value !== null
+          ? `moyenne <strong>${fmt(avg.value, m.digits)}${esc(unit)}</strong> sur ${avg.n} joueur${avg.n > 1 ? 's' : ''}`
+          : `${avg.n} joueur${avg.n > 1 ? 's' : ''} testé${avg.n > 1 ? 's' : ''} : moyenne affichée à partir de 3`}
+        ${flagged.length ? ` · ${flagged.length} valeur${flagged.length > 1 ? 's' : ''} écartée${flagged.length > 1 ? 's' : ''}` : ''}
+      </div>
+      <ol class="squad-list">
+        ${ranked.map((e, i) => `<li class="${e.id === player.id ? 'is-me' : ''}">
+          <span class="sq-rank">${i + 1}</span>
+          <a class="sq-name" href="player-performance.html?id=${e.id}">${esc(e.name)}</a>
+          <span class="sq-bar"><i style="width:${width(e.value)}%"></i></span>
+          <span class="sq-val">${fmt(e.value, m.digits)}${esc(unit)}</span>
+        </li>`).join('')}
+        ${flagged.map(e => `<li class="is-flagged${e.id === player.id ? ' is-me' : ''}"
+            title="Hors des bornes attendues (${m.min}–${m.max}${esc(unit)}) : exclue de la moyenne et du classement.">
+          <span class="sq-rank">⚠</span>
+          <a class="sq-name" href="player-performance.html?id=${e.id}">${esc(e.name)}</a>
+          <span class="sq-bar sq-bar-flag">valeur à vérifier</span>
+          <span class="sq-val">${fmt(e.value, m.digits)}${esc(unit)}</span>
+        </li>`).join('')}
+      </ol>
+      ${untested.length ? `<p class="squad-untested">Non testés : ${untested.map(esc).join(', ')}</p>` : ''}
+    </div>
+  </td></tr>`;
+}
+
 function renderTestSummary(test) {
   const box = document.getElementById('testSummary');
   if (!test) {
     box.innerHTML = `<div class="empty">Aucun test pour cette session.</div>`;
     return;
   }
+  const staff = isStaff() && squadTests.length > 0;
   const hasRef = TEST_ROWS.some(r => num(clubAverages?.[r.key]) !== null);
+  const cols = 3 + (hasRef ? 2 : 0) + (staff ? 1 : 0);
 
   const body = TEST_ROWS.map(r => {
     const value = num(test[r.key]);
     const ref = num(clubAverages?.[r.key]);
+    const flagged = isImplausible(r.key, value);
     let gap = '<span class="gap-none">—</span>';
-    if (value !== null && ref !== null && r.better) {
-      const delta = r.better === 'lower' ? ref - value : value - ref;
+    const delta = flagged ? null : perfDelta(r.key, value, ref);
+    if (delta !== null) {
       const good = delta >= 0;
       gap = `<span class="gap ${good ? 'gap-up' : 'gap-down'}">${good ? '↗' : '↘'} ${
         good ? '+' : '−'}${fmt(Math.abs(delta), r.digits)}</span>`;
     }
-    return `<tr>
-      <td class="t-name">${esc(r.label)}</td>
-      <td class="t-value ${value === null ? 'is-empty' : ''}">${fmt(value, r.digits)}</td>
+    let rankCell = '';
+    if (staff) {
+      const { ranked } = squadForMetric(r);
+      const pos = ranked.findIndex(e => e.id === player.id);
+      rankCell = `<td class="t-rank">${r.better && pos >= 0 ? `${pos + 1}<small>/${ranked.length}</small>` : '—'}</td>`;
+    }
+    const open = staff && expandedTests.has(r.key);
+    const row = `<tr class="${staff ? 't-clickable' : ''}${open ? ' is-open' : ''}"
+        ${staff ? `data-metric="${r.key}" tabindex="0" aria-expanded="${open}"` : ''}>
+      <td class="t-name">${staff ? '<span class="t-caret" aria-hidden="true">›</span>' : ''}${esc(r.label)}</td>
+      <td class="t-value ${value === null ? 'is-empty' : ''}${flagged ? ' v-flagged' : ''}"
+        ${flagged ? 'title="Hors des bornes attendues : à vérifier"' : ''}>${fmt(value, r.digits)}${flagged ? ' ⚠' : ''}</td>
       <td class="t-unit">${esc(r.unit || '—')}</td>
       ${hasRef ? `<td class="t-ref">${fmt(ref, r.digits)}</td><td class="t-gap">${gap}</td>` : ''}
+      ${rankCell}
     </tr>`;
+    return row + (open ? squadPanel(r, cols) : '');
   }).join('');
 
   const stageLabel = STAGES.find(x => x.key === stage)?.label || '';
-  const n = clubAverages?.n_players;
+  const allOpen = staff && TEST_ROWS.every(r => expandedTests.has(r.key));
 
-  box.innerHTML = `<div class="test-table-wrap"><table class="test-table">
+  box.innerHTML = `
+    ${staff ? `<div class="test-toolbar">
+      <span>Cliquez sur un test pour voir tout l’effectif.</span>
+      <button type="button" class="btn btn-sm btn-ghost" id="btnToggleSquad">${allOpen ? 'Tout replier' : 'Tout déplier'}</button>
+    </div>` : ''}
+    <div class="test-table-wrap"><table class="test-table">
     <thead><tr>
       <th>Test</th><th>Valeur</th><th>Unité</th>
-      ${hasRef ? `<th title="Moyenne des joueurs du club testés sur cette session">Moyenne club</th>
+      ${hasRef ? `<th title="Moyenne des joueurs du club ayant passé ce test sur cette session">Moyenne club</th>
                   <th title="Différence entre le joueur et la moyenne du club">Écart</th>` : ''}
+      ${staff ? '<th title="Place du joueur dans le club sur ce test">Rang</th>' : ''}
     </tr></thead>
     <tbody>${body}</tbody>
   </table></div>
   ${hasRef
     ? `<p class="text-muted table-note">
-         <strong>Moyenne club</strong> : moyenne des ${n ? `${n} joueurs` : 'joueurs'} de votre club
-         ayant passé les tests de <strong>${esc(stageLabel)}</strong>.
-         <strong>Écart</strong> : différence entre ce joueur et cette moyenne —
-         <span class="gap-up">vert = meilleur que la moyenne</span>,
-         <span class="gap-down">rouge = moins bon</span>.
-         Un sprint plus court et un VIFT plus élevé comptent tous deux comme un gain.
+         <strong>Moyenne club</strong> : pour chaque test, moyenne des joueurs de ${staff ? 'votre' : 'ton'} club
+         qui l’ont passé en <strong>${esc(stageLabel)}</strong> — le nombre varie donc d’un test à l’autre,
+         et une moyenne n’est affichée qu’à partir de 3 joueurs. Les valeurs manifestement erronées en sont exclues.
+         <strong>Écart</strong> : <span class="gap-up">vert = meilleur que la moyenne</span>,
+         <span class="gap-down">rouge = moins bon</span> ; un sprint plus court et un VIFT plus élevé comptent tous deux comme un gain.
        </p>`
     : `<p class="text-muted table-note">Pas de moyenne club pour cette session : il faut au moins 3 joueurs testés.</p>`}`;
+
+  if (!staff) return;
+  const toggle = key => {
+    expandedTests.has(key) ? expandedTests.delete(key) : expandedTests.add(key);
+    renderTestSummary(currentTest());
+  };
+  box.querySelectorAll('tr[data-metric]').forEach(tr => {
+    tr.addEventListener('click', e => { if (!e.target.closest('a')) toggle(tr.dataset.metric); });
+    tr.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(tr.dataset.metric); }
+    });
+  });
+  document.getElementById('btnToggleSquad')?.addEventListener('click', () => {
+    expandedTests = allOpen ? new Set() : new Set(TEST_ROWS.map(r => r.key));
+    renderTestSummary(currentTest());
+  });
 }
 
 /* ------------------------------------------------------------
@@ -318,10 +447,7 @@ function renderMeasurements() {
   const wrap = document.getElementById('measurementHistory');
   const chart = document.getElementById('trendChart');
 
-  const latest = latestMeasurement();
-  document.getElementById('metricHeight').textContent = latest?.height_cm != null ? `${fmt(latest.height_cm,0)} cm` : '—';
-  document.getElementById('metricWeight').textContent = latest?.weight_kg != null ? `${fmt(latest.weight_kg,1)} kg` : '—';
-  document.getElementById('metricBodyFat').textContent = latest?.body_fat_pct != null ? `${fmt(latest.body_fat_pct,1)} %` : '—';
+  renderHeroMetrics();
 
   if (!measurements.length) {
     if (chart) chart.innerHTML = '';
@@ -329,10 +455,7 @@ function renderMeasurements() {
     return;
   }
 
-  const ordered = [...measurements].sort((a,b) => {
-    const da = MONTHS.indexOf(a.month_label), db = MONTHS.indexOf(b.month_label);
-    return da - db || ((a.id||0) - (b.id||0));
-  });
+  const ordered = orderedMeasurements();
 
   // L'endurance de la session affichée complète la courbe ; elle n'a pas
   // de valeur mensuelle propre, on la porte sur le dernier mois mesuré.
@@ -365,57 +488,213 @@ function renderMeasurements() {
   </div>`;
 }
 
+function renderHeroMetrics() {
+  const set = (id, field, digits, unit) => {
+    const v = latestValue(field);
+    document.getElementById(id).textContent = v ? `${fmt(v.value, digits)} ${unit}` : '—';
+    const when = document.getElementById(`${id}When`);
+    if (when) when.textContent = v ? v.month : '';
+  };
+  set('metricHeight', 'height_cm', 0, 'cm');
+  set('metricWeight', 'weight_kg', 1, 'kg');
+  set('metricBodyFat', 'body_fat_pct', 1, '%');
+}
+
 /* ------------------------------------------------------------
-   Panneau latéral : poste sur le terrain et informations de fiche.
-   Uniquement des champs réellement présents en base.
+   Identité : à droite du nom, uniquement les champs renseignés.
+   L'âge est calculé à partir de la date de naissance, jamais saisi.
    ------------------------------------------------------------ */
-const PITCH_SPOTS = [
-  { test: /gardien|goal|gk/,                     x: 50, y: 90, label: 'Gardien' },
-  { test: /lateral|laterale|arriere|piston/,     x: 18, y: 72, label: 'Latéral' },
-  { test: /defenseur|defense|central|stoppeur/,  x: 50, y: 74, label: 'Défenseur' },
-  { test: /recuperateur|sentinelle|6/,           x: 50, y: 60, label: 'Milieu défensif' },
-  { test: /milieu offensif|meneur|10/,           x: 50, y: 40, label: 'Milieu offensif' },
-  { test: /milieu|relayeur|box to box/,          x: 50, y: 52, label: 'Milieu' },
-  { test: /ailier|extreme|winger/,               x: 20, y: 32, label: 'Ailier' },
-  { test: /attaquant|buteur|avant|pointe/,       x: 50, y: 18, label: 'Attaquant' },
-];
+function frDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = String(iso).slice(0, 10).split('-');
+  return d && m && y ? `${d}.${m}.${y}` : '';
+}
+function ageFrom(iso) {
+  if (!iso) return null;
+  const birth = new Date(`${String(iso).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const m = now.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+  return age >= 0 && age < 100 ? age : null;
+}
 
-function renderSidebar() {
-  const poste = player?.poste || '';
-  const normalized = normalizeName(poste);
-  const spot = PITCH_SPOTS.find(s => s.test.test(normalized));
+function renderIdentity() {
+  if (!player) return;
+  const fullName = `${player.prenom || ''} ${player.nom || ''}`.trim();
+  document.getElementById('playerName').textContent = fullName || 'Joueur';
+  document.getElementById('playerInitials').textContent = initials(player);
 
-  const pitch = document.getElementById('miniPitch');
-  if (pitch) {
-    pitch.innerHTML = spot
-      ? `<span class="fp-mini-pitch-dot" style="left:${spot.x}%;top:${spot.y}%"></span>`
-      : '';
+  document.getElementById('playerMeta').textContent =
+    [player.poste || 'Poste non renseigné', player.numero != null ? `#${player.numero}` : null]
+      .filter(Boolean).join(' · ');
+
+  const age = ageFrom(player.date_naissance);
+  const facts = [
+    player.nationalite || null,
+    age !== null ? `${age} ans (${frDate(player.date_naissance)})` : null,
+    player.pied_fort ? `Pied ${player.pied_fort === 'Les deux' ? 'droit et gauche' : player.pied_fort.toLowerCase()}` : null,
+  ].filter(Boolean);
+  document.getElementById('playerFacts').innerHTML = facts.map(f => `<span>${esc(f)}</span>`).join('');
+
+  const club = ctxProfile?.clubs || null;
+  const clubBox = document.getElementById('playerClub');
+  const contract = player.contrat_fin ? `Contrat jusqu’au ${frDate(player.contrat_fin)}` : null;
+  if (!club?.nom && !contract && !player.statut) {
+    clubBox.innerHTML = '';
+    clubBox.classList.add('hidden');
+    return;
   }
-  const pitchLabel = document.getElementById('miniPitchLabel');
-  if (pitchLabel) pitchLabel.textContent = poste || 'Poste non renseigné';
+  clubBox.classList.remove('hidden');
+  const clubInitials = (club?.nom || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+  clubBox.innerHTML = `
+    ${clubLogoUrl
+      ? `<img class="perf-club-logo" src="${esc(clubLogoUrl)}" alt="">`
+      : `<div class="perf-club-logo perf-club-initials" style="${club?.color ? `border-color:${esc(club.color)}` : ''}">${esc(clubInitials)}</div>`}
+    <div class="perf-club-text">
+      <strong>${esc(club?.nom || 'Club')}</strong>
+      ${contract ? `<span>${esc(contract)}</span>` : ''}
+      ${player.statut ? `<span>${esc(player.statut)}</span>` : ''}
+    </div>`;
+}
 
-  const rows = [
-    ['Numéro', player?.numero != null ? `#${player.numero}` : '—'],
-    ['Poste', poste || '—'],
-    // typeof : ROLE_LABELS vient d'auth.js ; `?.` ne protège pas d'un identifiant non déclaré.
-    ['Accès', ctxProfile?.role === 'joueur' ? 'Espace joueur'
-      : ((typeof ROLE_LABELS !== 'undefined' && ROLE_LABELS[ctxProfile?.role]) || 'Staff')],
-    ['Vidéos reçues', String(fpFmVideos.length)],
-  ];
-  const info = document.getElementById('sidebarInfo');
-  if (info) {
-    info.innerHTML = rows.map(([k, v]) =>
-      `<div class="fp-fm-info-row"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('');
-  }
+async function loadClubLogo() {
+  const path = ctxProfile?.clubs?.logo_path;
+  if (!path) return;
+  const { data } = await sb.storage.from('logos').createSignedUrl(path, 3600);
+  clubLogoUrl = data?.signedUrl || null;
+}
 
-  const quick = document.getElementById('sidebarQuick');
-  const videoLink = document.getElementById('videoPlayerLink');
-  if (quick) {
-    quick.innerHTML = `
-      <a href="#radarWrap"><span>Profil athlétique</span><strong>→</strong></a>
-      <a href="#trendChart"><span>Suivi physique</span><strong>→</strong></a>
-      ${videoLink ? `<a href="${esc(videoLink.getAttribute('href') || '#')}"><span>Bibliothèque vidéos</span><strong>→</strong></a>` : ''}`;
+/* ------------------------------------------------------------
+   Parcours : clubs précédents, du plus récent au plus ancien.
+   ------------------------------------------------------------ */
+function monthYear(iso) {
+  if (!iso) return '';
+  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+}
+function careerDuration(from, to) {
+  if (!from) return '';
+  const a = new Date(`${String(from).slice(0, 10)}T00:00:00`);
+  const b = to ? new Date(`${String(to).slice(0, 10)}T00:00:00`) : new Date();
+  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + 1;
+  if (!Number.isFinite(months) || months <= 0) return '';
+  const y = Math.floor(months / 12), m = months % 12;
+  return [y ? `${y} an${y > 1 ? 's' : ''}` : '', m ? `${m} mois` : ''].filter(Boolean).join(' ');
+}
+
+async function loadCareer() {
+  const { data, error } = await sb.from('player_career').select('*').eq('player_id', player.id);
+  if (error) {
+    careerMissing = true;
+    career = [];
+    console.warn('Parcours indisponible :', error.message);
+    return;
   }
+  careerMissing = false;
+  // En cours d'abord, puis du plus récent au plus ancien.
+  career = (data || []).sort((a, b) =>
+    (a.date_fin ? 1 : 0) - (b.date_fin ? 1 : 0)
+    || String(b.date_debut || '').localeCompare(String(a.date_debut || ''))
+    || (b.id - a.id));
+}
+
+function renderCareer() {
+  const box = document.getElementById('careerList');
+  if (!box) return;
+  if (careerMissing) {
+    box.innerHTML = `<div class="career-empty">Parcours indisponible.${isStaff()
+      ? '<br>Exécutez <code>supabase/player_profile_career.sql</code> dans Supabase.' : ''}</div>`;
+    return;
+  }
+  if (!career.length) {
+    box.innerHTML = `<div class="career-empty">Aucun club renseigné.${canEditPlayer
+      ? '<br>Ajoutez les clubs précédents avec « + Ajouter ».' : ''}</div>`;
+    return;
+  }
+  box.innerHTML = `<ol class="career-list">${career.map(c => {
+    const range = c.date_debut
+      ? `${monthYear(c.date_debut)} – ${c.date_fin ? monthYear(c.date_fin) : 'aujourd’hui'}`
+      : (c.date_fin ? `jusqu’à ${monthYear(c.date_fin)}` : 'Dates non renseignées');
+    const duration = careerDuration(c.date_debut, c.date_fin);
+    return `<li class="career-item${c.date_fin ? '' : ' is-current'}${canEditPlayer ? ' is-editable' : ''}"
+        ${canEditPlayer ? `data-career="${c.id}" tabindex="0" role="button" aria-label="Modifier ${esc(c.club_name)}"` : ''}>
+      <span class="career-dot" aria-hidden="true"></span>
+      <div class="career-body">
+        <strong>${esc(c.club_name)}</strong>
+        ${c.categorie ? `<span class="career-cat">${esc(c.categorie)}</span>` : ''}
+        <span class="career-range">${esc(range)}${duration ? ` · ${esc(duration)}` : ''}</span>
+        ${c.notes ? `<p class="career-notes">${esc(c.notes)}</p>` : ''}
+      </div>
+    </li>`;
+  }).join('')}</ol>`;
+
+  box.querySelectorAll('[data-career]').forEach(el => {
+    const open = () => openCareerModal(Number(el.dataset.career));
+    el.addEventListener('click', open);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
+}
+
+/* <input type="month"> renvoie « AAAA-MM » ; on stocke le 1er du mois. */
+function monthToDate(v) {
+  if (!v) return null;
+  if (/^\d{4}-\d{2}$/.test(v)) return `${v}-01`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  return null;
+}
+
+function openCareerModal(id = null) {
+  if (!canEditPlayer) return;
+  const c = id ? career.find(x => x.id === id) : null;
+  document.getElementById('careerModalTitle').textContent = c ? 'Modifier le club' : 'Ajouter un club';
+  document.getElementById('c-id').value = c?.id || '';
+  document.getElementById('c-club').value = c?.club_name || '';
+  document.getElementById('c-cat').value = c?.categorie || '';
+  document.getElementById('c-debut').value = c?.date_debut ? String(c.date_debut).slice(0, 7) : '';
+  document.getElementById('c-fin').value = c?.date_fin ? String(c.date_fin).slice(0, 7) : '';
+  document.getElementById('c-notes').value = c?.notes || '';
+  document.getElementById('btnDeleteCareer').classList.toggle('hidden', !c);
+  openPerfModal('careerModal');
+  setTimeout(() => document.getElementById('c-club').focus(), 50);
+}
+
+async function saveCareer() {
+  if (!canEditPlayer) return;
+  const id = Number(document.getElementById('c-id').value) || null;
+  const club_name = document.getElementById('c-club').value.trim();
+  if (!club_name) return notify('Le nom du club est obligatoire.', 'error');
+  const date_debut = monthToDate(document.getElementById('c-debut').value);
+  const date_fin = monthToDate(document.getElementById('c-fin').value);
+  if (date_debut && date_fin && date_fin < date_debut) {
+    return notify('La date de fin précède la date de début.', 'error');
+  }
+  const body = {
+    club_name,
+    categorie: document.getElementById('c-cat').value.trim() || null,
+    date_debut, date_fin,
+    notes: document.getElementById('c-notes').value.trim() || null,
+  };
+  const { error } = id
+    ? await sb.from('player_career').update(body).eq('id', id)
+    : await sb.from('player_career').insert({ ...body, club_id: player.club_id, player_id: player.id, created_by: ctxProfile.id });
+  if (error) return notify(error.message, 'error');
+  closePerfModal('careerModal');
+  notify(id ? 'Club mis à jour.' : 'Club ajouté au parcours.', 'success');
+  await loadCareer();
+  renderCareer();
+}
+
+async function deleteCareer() {
+  const id = Number(document.getElementById('c-id').value) || null;
+  if (!id || !canEditPlayer || !confirm('Retirer ce club du parcours ?')) return;
+  const { error } = await sb.from('player_career').delete().eq('id', id);
+  if (error) return notify(error.message, 'error');
+  closePerfModal('careerModal');
+  notify('Club retiré du parcours.', 'success');
+  await loadCareer();
+  renderCareer();
 }
 
 /* Moyennes du club pour la session affichée. La RPC ne renvoie que des
@@ -441,20 +720,12 @@ function latestPerPlayer(rows) {
 async function loadClubAverages() {
   const metricKeys = [...PERF_METRICS.map(m => m.key), ...SCORE_LABELS.map(([k]) => k)];
 
-  if (ctxProfile?.role !== 'joueur') {
-    const { data, error } = await sb.from('player_physical_tests')
-      .select(['id', 'player_id', 'stage', ...metricKeys].join(', '))
-      .eq('stage', stage);
-
-    if (!error) {
-      squadTests = latestPerPlayer(data || []);
-      clubAverages = { n_players: squadTests.length };
-      for (const key of metricKeys) clubAverages[key] = perfAverage(squadTests, key).value;
-      if (!squadTests.length) clubAverages = null;
-      renderSquadCompare();
-      return;
-    }
-    console.warn('Lecture des tests du club impossible :', error.message);
+  if (isStaff() && !squadLoadFailed) {
+    squadTests = latestPerPlayer(clubTestsAll.filter(t => t.stage === stage));
+    if (!squadTests.length) { clubAverages = null; return; }
+    clubAverages = { n_players: squadTests.length };
+    for (const key of metricKeys) clubAverages[key] = perfAverage(squadTests, key).value;
+    return;
   }
 
   squadTests = [];
@@ -462,85 +733,29 @@ async function loadClubAverages() {
   if (error) {
     console.warn('club_test_averages indisponible :', error.message);
     clubAverages = null;
-    renderSquadCompare();
     return;
   }
   clubAverages = Array.isArray(data) ? (data[0] || null) : data;
-  renderSquadCompare();
 }
 
-/* ------------------------------------------------------------
-   Carte « Comparaison à l'effectif » — staff uniquement.
-   Montre, test par test, la valeur du joueur, la moyenne du club et
-   son rang. Les valeurs hors bornes sont signalées et sorties du
-   classement, jamais corrigées.
-   ------------------------------------------------------------ */
-function renderSquadCompare() {
-  const card = document.getElementById('squadCompareCard');
-  const box = document.getElementById('squadCompare');
-  if (!card || !box) return;
-
-  const isStaff = ctxProfile && ctxProfile.role !== 'joueur';
-  card.classList.toggle('hidden', !isStaff);
-  if (!isStaff) return;
-
-  const mine = currentTest();
-  if (!mine || !squadTests.length) {
-    box.innerHTML = `<div class="empty">${mine
-      ? 'Aucun autre joueur testé sur cette session.'
-      : 'Ce joueur n’a pas de test sur cette session.'}</div>`;
+/* Effectif et tests du club, chargés une fois pour toutes les sessions.
+   Réservé au staff : un compte joueur n'a pas le droit de lire les
+   lignes des autres et passe par la RPC d'agrégats. */
+async function loadSquad() {
+  clubPlayers = []; clubTestsAll = []; squadLoadFailed = false;
+  if (!isStaff() || !player) return;
+  const keys = [...PERF_METRICS.map(m => m.key), ...SCORE_LABELS.map(([k]) => k)];
+  const [pr, tr] = await Promise.all([
+    sb.from('players').select('id, nom, prenom, numero').eq('club_id', player.club_id),
+    sb.from('player_physical_tests').select(['id', 'player_id', 'stage', ...keys].join(', ')).eq('club_id', player.club_id),
+  ]);
+  if (pr.error || tr.error) {
+    squadLoadFailed = true;
+    console.warn('Effectif du club indisponible :', (pr.error || tr.error).message);
     return;
   }
-
-  const stageLabel = STAGES.find(x => x.key === stage)?.label || '';
-  const rows = PERF_METRICS.filter(m => m.better).map(m => {
-    const value = num(mine[m.key]);
-    const { value: avg, n, excluded } = perfAverage(squadTests, m.key);
-    const flagged = isImplausible(m.key, value);
-
-    // Classement : valeurs présentes et plausibles uniquement.
-    const pool = squadTests
-      .map(t => num(t[m.key]))
-      .filter(v => v !== null && !isImplausible(m.key, v))
-      .sort((a, b) => m.better === 'lower' ? a - b : b - a);
-    const rank = (value !== null && !flagged) ? pool.indexOf(value) + 1 : 0;
-
-    const delta = flagged ? null : perfDelta(m.key, value, avg);
-    // Barre : position dans l'amplitude du groupe, jamais une note.
-    const lo = pool.length ? pool[m.better === 'lower' ? 0 : pool.length - 1] : null;
-    const hi = pool.length ? pool[m.better === 'lower' ? pool.length - 1 : 0] : null;
-    const pct = (value !== null && !flagged && lo !== null && hi !== null && hi !== lo)
-      ? Math.round(((value - lo) / (hi - lo)) * 100) : null;
-
-    return { m, value, avg, n, excluded, rank, total: pool.length, delta, flagged, pct };
-  });
-
-  const podium = r => r.rank === 1 ? 'rank-1' : r.rank === 2 ? 'rank-2' : r.rank === 3 ? 'rank-3' : '';
-
-  box.innerHTML = `
-    <p class="cmp-inline-hint">Session <strong>${esc(stageLabel)}</strong> ·
-      ${squadTests.length} joueur${squadTests.length > 1 ? 's' : ''} testé${squadTests.length > 1 ? 's' : ''}.
-      Le rang et la moyenne ignorent les valeurs hors bornes.</p>
-    <div class="squad-rows">
-      ${rows.map(r => `
-        <div class="squad-row${r.value === null ? ' is-empty' : ''}">
-          <span class="sr-label">${esc(r.m.label)}</span>
-          <span class="sr-value ${podium(r)}${r.flagged ? ' v-flagged' : ''}">
-            ${fmt(r.value, r.m.digits)}${r.value !== null && r.m.unit ? `<small>${esc(r.m.unit)}</small>` : ''}
-            ${r.flagged ? '<span class="flag-pill" title="Hors des bornes attendues, à vérifier">⚠</span>' : ''}
-          </span>
-          <span class="sr-bar${r.pct === null ? ' sr-bar-none' : ''}" aria-hidden="true"
-            >${r.pct === null ? '' : `<i style="width:${100 - r.pct}%"></i>`}</span>
-          <span class="sr-rank">${r.rank ? `${r.rank}<small>/${r.total}</small>` : '—'}</span>
-          <span class="sr-avg">${fmt(r.avg, r.m.digits)}</span>
-          <span class="sr-delta ${r.delta === null ? '' : (r.delta >= 0 ? 'gain' : 'loss')}">
-            ${r.delta === null ? '—' : `${r.delta >= 0 ? '↗ +' : '↘ −'}${fmt(Math.abs(r.delta), r.m.digits)}`}
-          </span>
-        </div>`).join('')}
-    </div>
-    <div class="squad-legend">
-      <span>Rang</span><span>Moyenne club</span><span>Écart</span>
-    </div>`;
+  clubPlayers = pr.data || [];
+  clubTestsAll = tr.data || [];
 }
 
 function renderNotes() {
@@ -624,9 +839,11 @@ async function loadPage() {
   }
 
   canEditPerformance = ['admin','prepa'].includes(ctxProfile.role);
+  canEditPlayer = isStaff();
   document.getElementById('perfRoleLabel').textContent =
     ctxProfile.role === 'joueur' ? 'Espace joueur' : 'Staff · dossier individuel';
   document.querySelectorAll('.perf-editor-only').forEach(el => el.classList.toggle('hidden', !canEditPerformance));
+  document.querySelectorAll('.perf-staff-only').forEach(el => el.classList.toggle('hidden', !isStaff()));
 
   if (ctxProfile.role === 'joueur') {
     document.getElementById('backPlayers').classList.add('hidden');
@@ -636,9 +853,16 @@ async function loadPage() {
     document.getElementById('videoPlayerLink').href = `videos.html?player=${playerId}`;
   }
 
-  const { data: p, error } = await sb.from('players')
-    .select('id, nom, prenom, numero, poste, club_id, auth_user_id, photo_path')
+  // Les colonnes d'identité n'existent qu'après player_profile_career.sql :
+  // leur absence ne doit pas empêcher d'ouvrir la fiche.
+  let { data: p, error } = await sb.from('players')
+    .select(`${PLAYER_BASE_COLS}, ${PLAYER_IDENTITY_COLS}`)
     .eq('id', playerId).maybeSingle();
+  identityMissing = false;
+  if (error) {
+    identityMissing = true;
+    ({ data: p, error } = await sb.from('players').select(PLAYER_BASE_COLS).eq('id', playerId).maybeSingle());
+  }
   if (error) return showLoadError('lecture de la fiche joueur', error);
   if (!p) {
     return showLoadError('lecture de la fiche joueur',
@@ -668,11 +892,9 @@ async function loadPage() {
   notes = nRes.data || [];
   media = mediaRes.data || [];
 
-  const fullName = `${player.prenom || ''} ${player.nom || ''}`.trim();
-  document.getElementById('playerName').textContent = fullName || 'Joueur';
-  document.getElementById('playerMeta').textContent =
-    `${player.poste || 'Poste non renseigné'}${player.numero != null ? ` · #${player.numero}` : ''}`;
-  document.getElementById('playerInitials').textContent = initials(player);
+  await Promise.all([loadClubLogo(), loadCareer(), loadSquad()]);
+  renderIdentity();
+  renderCareer();
 
   if (player.photo_path) {
     const { data } = await sb.storage.from('player-photos').createSignedUrl(player.photo_path, 3600);
@@ -688,7 +910,6 @@ async function loadPage() {
   document.getElementById('stageSelect').value = stage;
 
   await loadClubAverages();
-  renderSidebar();
   renderRadar();
   renderMeasurements();
   await signMedia();
@@ -698,40 +919,93 @@ async function loadPage() {
 /* Édition de la fiche joueur depuis le dossier Performance.
    Les mêmes champs que la page Joueurs, pour ne pas avoir à en sortir. */
 function openPlayerEdit() {
-  if (!canEditPerformance || !player) return;
-  document.getElementById('pe-prenom').value = player.prenom || '';
-  document.getElementById('pe-nom').value = player.nom || '';
-  document.getElementById('pe-numero').value = player.numero ?? '';
-  document.getElementById('pe-poste').value = player.poste || '';
+  if (!canEditPlayer || !player) return;
+  const set = (id, v) => { document.getElementById(id).value = v ?? ''; };
+  set('pe-prenom', player.prenom);
+  set('pe-nom', player.nom);
+  set('pe-numero', player.numero);
+  set('pe-poste', player.poste);
+  set('pe-naissance', player.date_naissance ? String(player.date_naissance).slice(0, 10) : '');
+  set('pe-nationalite', player.nationalite);
+  set('pe-pied', player.pied_fort);
+  set('pe-statut', player.statut);
+  set('pe-contrat', player.contrat_fin ? String(player.contrat_fin).slice(0, 10) : '');
+  // Sans la migration, ces champs ne peuvent pas être enregistrés.
+  ['pe-naissance','pe-nationalite','pe-pied','pe-statut','pe-contrat']
+    .forEach(id => { document.getElementById(id).disabled = identityMissing; });
   openPerfModal('playerEditModal');
 }
 
 async function savePlayerEdit() {
-  if (!canEditPerformance || !player) return;
-  const nom = document.getElementById('pe-nom').value.trim();
+  if (!canEditPlayer || !player) return;
+  const val = id => document.getElementById(id).value.trim();
+  const nom = val('pe-nom');
   if (!nom) return notify('Le nom est obligatoire.', 'error');
 
-  const numeroRaw = document.getElementById('pe-numero').value;
+  const numeroRaw = val('pe-numero');
   const body = {
     nom,
-    prenom: document.getElementById('pe-prenom').value.trim() || null,
+    prenom: val('pe-prenom') || null,
     numero: numeroRaw !== '' ? Number(numeroRaw) : null,
-    poste: document.getElementById('pe-poste').value.trim() || null,
+    poste: val('pe-poste') || null,
   };
+  if (!identityMissing) {
+    Object.assign(body, {
+      date_naissance: val('pe-naissance') || null,
+      nationalite: val('pe-nationalite') || null,
+      pied_fort: val('pe-pied') || null,
+      statut: val('pe-statut') || null,
+      contrat_fin: val('pe-contrat') || null,
+    });
+  }
 
   const { error } = await sb.from('players').update(body).eq('id', player.id);
   if (error) return notify(error.message, 'error');
 
   Object.assign(player, body);
   closePerfModal('playerEditModal');
-  notify('Fiche joueur mise à jour.', 'success');
+  notify(identityMissing
+    ? 'Fiche mise à jour. Naissance, nationalité et contrat nécessitent la migration player_profile_career.sql.'
+    : 'Fiche joueur mise à jour.', identityMissing ? 'info' : 'success');
+  renderIdentity();
+}
 
-  const fullName = `${player.prenom || ''} ${player.nom || ''}`.trim();
-  document.getElementById('playerName').textContent = fullName || 'Joueur';
-  document.getElementById('playerMeta').textContent =
-    `${player.poste || 'Poste non renseigné'}${player.numero != null ? ` · #${player.numero}` : ''}`;
-  document.getElementById('playerInitials').textContent = initials(player);
-  renderSidebar();
+/* Date du jour en heure locale. toISOString() passe en UTC : à Paris, entre
+   minuit et 2 h, il renverrait la veille — et le 1er du mois, le mois d'avant. */
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/* Mois de la saison correspondant à une date (juillet n'en fait pas partie). */
+function seasonMonthOf(iso) {
+  if (!iso) return null;
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return ({ 7:'Août', 8:'Septembre', 9:'Octobre', 10:'Novembre', 11:'Décembre',
+            0:'Janvier', 1:'Février', 2:'Mars', 3:'Avril', 4:'Mai', 5:'Juin' })[d.getMonth()] || null;
+}
+
+/* La fenêtre s'ouvre sur la date du jour : c'était « Août » par défaut, si
+   bien qu'une saisie non corrigée se rangeait avant les mesures de
+   l'Excel et n'apparaissait jamais dans l'en-tête. */
+function openMeasureModal() {
+  if (!canEditPerformance) return;
+  const today = localToday();
+  document.getElementById('m-date').value = today;
+  const month = seasonMonthOf(today);
+  if (month) document.getElementById('m-month').value = month;
+  ['m-height','m-weight','m-fat'].forEach(id => { document.getElementById(id).value = ''; });
+  openPerfModal('measureModal');
+}
+
+function openTestModal() {
+  if (!canEditPerformance) return;
+  document.getElementById('manualStage').value = stage;
+  document.getElementById('manualTestDate').value = localToday();
+  ['t-sprint10','t-505g','t-505d','t-sprint40','t-vift','t-shirado','t-sorensen']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  openPerfModal('testModal');
 }
 
 async function saveMeasurement() {
@@ -755,7 +1029,7 @@ async function saveMeasurement() {
     .upsert(body, { onConflict:'club_id,player_id,month_label,source_file_name' });
   if (error) return notify(error.message,'error');
   notify('Mesure enregistrée.','success');
-  document.getElementById('manualMeasurementBox').classList.add('hidden');
+  closePerfModal('measureModal');
   await reloadData();
 }
 
@@ -783,6 +1057,8 @@ async function saveTest() {
     .upsert(body, { onConflict:'club_id,player_id,stage,source_file_name' });
   if (error) return notify(error.message,'error');
   notify('Session de tests enregistrée.','success');
+  closePerfModal('testModal');
+  stage = body.stage;
   await reloadData();
 }
 
@@ -799,11 +1075,11 @@ async function reloadData() {
   notes=nRes.data||[];
   media=mediaRes.data||[];
   if (pRes.data) player.photo_path=pRes.data.photo_path;
+  await loadSquad();
   const availableStages=STAGES.filter(s=>tests.some(t=>t.stage===s.key)).map(s=>s.key);
   if (!availableStages.includes(stage)) stage=availableStages[0]||'pre';
   document.getElementById('stageSelect').value=stage;
   await loadClubAverages();
-  renderSidebar();
   renderRadar();
   renderMeasurements();
   await signMedia(); renderNotes();
@@ -1443,9 +1719,15 @@ document.getElementById('stageSelect').addEventListener('change', async e => {
   renderRadar();
   renderMeasurements();
 });
-document.getElementById('btnAddMeasurement').addEventListener('click',()=>{
-  document.getElementById('manualMeasurementBox').classList.toggle('hidden');
+document.getElementById('btnAddMeasurement').addEventListener('click',openMeasureModal);
+document.getElementById('btnAddTests').addEventListener('click',openTestModal);
+document.getElementById('m-date').addEventListener('change',e=>{
+  const month = seasonMonthOf(e.target.value);
+  if (month) document.getElementById('m-month').value = month;
 });
+document.getElementById('btnAddCareer').addEventListener('click',()=>openCareerModal());
+document.getElementById('btnSaveCareer').addEventListener('click',saveCareer);
+document.getElementById('btnDeleteCareer').addEventListener('click',deleteCareer);
 document.getElementById('btnEditPlayer').addEventListener('click',openPlayerEdit);
 document.getElementById('btnSavePlayer').addEventListener('click',savePlayerEdit);
 document.getElementById('btnSaveMeasurement').addEventListener('click',saveMeasurement);
@@ -1943,7 +2225,6 @@ async function initFmPerformanceUpgrade() {
 
   try {
     await fpFmLoadVideos();
-    renderSidebar();   // le compteur de vidéos n'est connu qu'ici
   } catch (error) {
     const panel = document.getElementById('fpVideoSelectionPanel');
 

@@ -55,17 +55,24 @@ function perfDelta(key, value, reference) {
   return m.better === 'lower' ? Number(reference) - Number(value) : Number(value) - Number(reference);
 }
 
+/* En dessous de ce nombre de joueurs, une moyenne n'est pas affichée :
+   elle ne décrit pas un groupe et, pour un compte joueur, reviendrait à
+   divulguer une valeur individuelle. Même seuil que club_test_averages(). */
+const PERF_MIN_SAMPLE = 3;
+
 /* Moyenne d'un tableau en ignorant les valeurs absentes ET celles hors
    bornes : une donnée manifestement fausse ne doit pas tirer la
    référence de tout le groupe. Renvoie aussi les compteurs, pour dire
-   honnêtement sur combien de joueurs la moyenne porte. */
+   honnêtement sur combien de joueurs la moyenne porte.
+   Attention : Number(null) vaut 0, donc on filtre les absents d'abord. */
 function perfAverage(rows, key) {
-  const all = rows.map(r => Number(r?.[key])).filter(v => Number.isFinite(v));
+  const all = rows
+    .map(r => r?.[key])
+    .filter(v => v !== null && v !== undefined && v !== '')
+    .map(Number)
+    .filter(v => Number.isFinite(v));
   const kept = all.filter(v => !isImplausible(key, v));
-  if (!kept.length) return { value: null, n: 0, excluded: all.length };
-  return {
-    value: kept.reduce((s, v) => s + v, 0) / kept.length,
-    n: kept.length,
-    excluded: all.length - kept.length,
-  };
+  const excluded = all.length - kept.length;
+  if (kept.length < PERF_MIN_SAMPLE) return { value: null, n: kept.length, excluded };
+  return { value: kept.reduce((s, v) => s + v, 0) / kept.length, n: kept.length, excluded };
 }

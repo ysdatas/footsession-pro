@@ -96,4 +96,49 @@ assert.ok(withRef.indexOf('radar-ref') < withRef.indexOf('class="radar-area"'),
   'la moyenne club passe sous le joueur');
 vm.runInContext(`clubAverages = null;`, ctx);
 
-console.log('OK — détection Excel et radar partiel vérifiés.');
+/* ---------- 4) Moyenne du club ---------- */
+const perfAverage = vm.runInContext('perfAverage', ctx);
+// Number(null) vaut 0 : un test non passé ne doit pas compter comme un zéro.
+const core = perfAverage([{ profile_core: null }, { profile_core: null },
+  { profile_core: 5 }, { profile_core: 6 }, { profile_core: 7 }], 'profile_core');
+assert.equal(core.value, 6, 'les absents ne sont pas comptés comme 0');
+assert.equal(core.n, 3);
+assert.equal(perfAverage([{ vift_kmh: 20 }, { vift_kmh: 22 }], 'vift_kmh').value, null,
+  'moins de 3 joueurs : pas de moyenne');
+// Le cas réel : un Shirado de 240 s tombé dans la colonne VIFT.
+const vift = perfAverage([{ vift_kmh: 240 }, { vift_kmh: 20.5 }, { vift_kmh: 22 }, { vift_kmh: 19 }], 'vift_kmh');
+assert.equal(vift.value, 20.5, 'la valeur hors bornes est exclue de la moyenne');
+assert.equal(vift.excluded, 1);
+
+/* ---------- 5) En-tête : dernière valeur connue par champ ---------- */
+const latestValue = vm.runInContext('latestValue', ctx);
+vm.runInContext(`measurements = [
+  { id: 1, month_label: 'Septembre', measured_at: null,         height_cm: null, weight_kg: 64.5, source_file_name: 'Tests.xlsx' },
+  { id: 2, month_label: 'Août',      measured_at: '2026-08-20', height_cm: 178,  weight_kg: 63.9, source_file_name: '' },
+];`, ctx);
+// Objet créé dans le contexte vm : on compare les champs, pas le prototype.
+const lv = f => { const r = latestValue(f); return r && { value: r.value, month: r.month }; };
+assert.deepEqual(lv('weight_kg'), { value: 64.5, month: 'Septembre' },
+  'le poids le plus récent est celui de septembre');
+assert.deepEqual(lv('height_cm'), { value: 178, month: 'Août' },
+  'une mesure récente sans taille ne fait pas disparaître la taille d’août');
+// Deux mesures du même mois : la saisie datée passe après la ligne Excel non datée.
+vm.runInContext(`measurements.push({ id: 3, month_label: 'Septembre', measured_at: '2026-09-28',
+  height_cm: null, weight_kg: 65.1, source_file_name: '' });`, ctx);
+assert.equal(latestValue('weight_kg').value, 65.1, 'la saisie du jour apparaît dans l’en-tête');
+assert.equal(latestValue('body_fat_pct'), null, 'jamais mesurée : reste absente');
+vm.runInContext(`measurements = [];`, ctx);
+
+/* ---------- 6) Âge calculé, jamais saisi ---------- */
+const ageFrom = vm.runInContext('ageFrom', ctx);
+const now = new Date();
+// Date locale « AAAA-MM-JJ » : toISOString() passerait en UTC et décalerait
+// le jour d'une unité à Paris le soir.
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const bday = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate());
+assert.equal(ageFrom(iso(bday)), 18, 'anniversaire aujourd’hui : 18 ans');
+const tomorrow = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate() + 1);
+assert.equal(ageFrom(iso(tomorrow)), 17, 'anniversaire demain : encore 17 ans');
+assert.equal(ageFrom(null), null);
+
+console.log('OK — détection Excel, radar partiel, moyenne club, en-tête et âge vérifiés.');

@@ -1,0 +1,273 @@
+/* ============================================================
+   FootSession Pro — perf-export.js
+   Export de la fiche joueur en PDF, via la fenêtre d'impression du
+   navigateur (« Enregistrer au format PDF »). Réservé au staff.
+
+   Le document est construit à partir des données déjà chargées par
+   player-performance-page.js : rien n'est recalculé ni complété, une
+   donnée absente reste « — ».
+   ============================================================ */
+
+/* Correspondance session de tests → mois de mesures, pour les raccourcis.
+   ponytail: découpage fixe de la saison ; à rendre réglable par club si
+   les calendriers de tests diffèrent. */
+const EXPORT_PRESETS = {
+  all: { stages: ['pre', 'mid', 'end'], from: 'Août',     to: 'Juin' },
+  pre: { stages: ['pre'],               from: 'Août',     to: 'Octobre' },
+  mid: { stages: ['mid'],               from: 'Novembre', to: 'Février' },
+  end: { stages: ['end'],               from: 'Mars',     to: 'Juin' },
+};
+
+function exportChecked(name) {
+  return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(i => i.value);
+}
+
+function applyExportPreset(key) {
+  const preset = EXPORT_PRESETS[key];
+  if (!preset) return;
+  document.querySelectorAll('input[name="exp-stage"]').forEach(i => { i.checked = preset.stages.includes(i.value); });
+  document.getElementById('exp-from').value = preset.from;
+  document.getElementById('exp-to').value = preset.to;
+  document.querySelectorAll('#exportPresets .chip').forEach(c => c.classList.toggle('active', c.dataset.preset === key));
+}
+
+function openExportModal() {
+  if (!isStaff() || !player) return;
+  openPerfModal('exportModal');
+}
+
+/* ------------------------------------------------------------
+   Construction du document
+   ------------------------------------------------------------ */
+function exportIdentity() {
+  const age = ageFrom(player.date_naissance);
+  const rows = [
+    ['Poste', player.poste],
+    ['Numéro', player.numero != null ? `#${player.numero}` : null],
+    ['Date de naissance', player.date_naissance ? `${frDate(player.date_naissance)}${age !== null ? ` (${age} ans)` : ''}` : null],
+    ['Nationalité', player.nationalite],
+    ['Pied fort', player.pied_fort],
+    ['Statut', player.statut],
+    ['Fin de contrat', player.contrat_fin ? frDate(player.contrat_fin) : null],
+  ];
+  const photo = document.getElementById('playerPhoto');
+  const photoSrc = photo && !photo.classList.contains('hidden') ? photo.src : '';
+
+  const careerHtml = career.length
+    ? `<table class="ps-table"><thead><tr><th>Club</th><th>Catégorie</th><th>Période</th><th>Durée</th></tr></thead><tbody>
+        ${career.map(c => `<tr>
+          <td><strong>${esc(c.club_name)}</strong></td>
+          <td>${esc(c.categorie || '—')}</td>
+          <td>${c.date_debut ? esc(monthYear(c.date_debut)) : '—'} – ${c.date_fin ? esc(monthYear(c.date_fin)) : 'aujourd’hui'}</td>
+          <td>${esc(careerDuration(c.date_debut, c.date_fin) || '—')}</td>
+        </tr>`).join('')}
+      </tbody></table>`
+    : '<p class="ps-empty">Aucun club renseigné.</p>';
+
+  return `<section class="ps-section ps-identity">
+    ${photoSrc ? `<img class="ps-photo" src="${esc(photoSrc)}" alt="">` : ''}
+    <div>
+      <h2>Identité</h2>
+      <dl class="ps-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v ? esc(v) : '—'}</dd>`).join('')}</dl>
+    </div>
+  </section>
+  <section class="ps-section"><h2>Parcours</h2>${careerHtml}</section>`;
+}
+
+function exportMeasures(fromIdx, toIdx) {
+  const rows = [...measurements]
+    .sort(measurementOrder)
+    .filter(m => { const i = MONTHS.indexOf(m.month_label); return i >= fromIdx && i <= toIdx; });
+  const range = `${MONTHS[fromIdx]} – ${MONTHS[toIdx]}`;
+  if (!rows.length) {
+    return `<section class="ps-section"><h2>Mesures physiques <small>${esc(range)}</small></h2>
+      <p class="ps-empty">Aucune mesure sur cette période.</p></section>`;
+  }
+  return `<section class="ps-section"><h2>Mesures physiques <small>${esc(range)}</small></h2>
+    <table class="ps-table"><thead><tr><th>Mois</th><th>Taille</th><th>Poids</th><th>Masse grasse</th><th>Σ 4 plis</th></tr></thead>
+    <tbody>${rows.map(m => `<tr>
+      <td>${esc(m.month_label)}</td>
+      <td>${m.height_cm != null ? `${fmt(m.height_cm, 0)} cm` : '—'}</td>
+      <td>${m.weight_kg != null ? `${fmt(m.weight_kg, 1)} kg` : '—'}</td>
+      <td>${m.body_fat_pct != null ? `${fmt(m.body_fat_pct, 1)} %` : '—'}</td>
+      <td>${m.skinfold_sum_4_mm != null ? `${fmt(m.skinfold_sum_4_mm, 1)} mm` : '—'}</td>
+    </tr>`).join('')}</tbody></table></section>`;
+}
+
+/* Test retenu pour une session : la ligne la plus récente du joueur. */
+function exportTestFor(stageKey) {
+  const rows = tests.filter(t => t.stage === stageKey).sort((a, b) => (a.id || 0) - (b.id || 0));
+  return rows.length ? rows[rows.length - 1] : null;
+}
+
+/* Moyennes du club pour une session, calculées comme à l'écran. */
+function exportAveragesFor(stageKey) {
+  const squad = latestPerPlayer(clubTestsAll.filter(t => t.stage === stageKey));
+  if (!squad.length) return null;
+  const keys = [...PERF_METRICS.map(m => m.key), ...SCORE_LABELS.map(([k]) => k)];
+  const out = { n_players: squad.length };
+  for (const k of keys) out[k] = perfAverage(squad, k).value;
+  return out;
+}
+
+function exportTests(stageKeys, withCompare, withRadar) {
+  const stagesWithData = STAGES.filter(s => stageKeys.includes(s.key) && exportTestFor(s.key));
+  if (!stagesWithData.length) {
+    return `<section class="ps-section"><h2>Tests physiques</h2>
+      <p class="ps-empty">Aucun test sur les sessions choisies.</p></section>`;
+  }
+  return stagesWithData.map(s => {
+    const test = exportTestFor(s.key);
+    const ref = withCompare ? exportAveragesFor(s.key) : null;
+    const hasRef = !!ref && PERF_METRICS.some(m => num(ref[m.key]) !== null);
+
+    const table = `<table class="ps-table"><thead><tr>
+        <th>Test</th><th>Valeur</th>${hasRef ? '<th>Moyenne club</th><th>Écart</th>' : ''}
+      </tr></thead><tbody>
+      ${PERF_METRICS.map(m => {
+        const v = num(test[m.key]);
+        const r = hasRef ? num(ref[m.key]) : null;
+        const flagged = isImplausible(m.key, v);
+        const d = flagged ? null : perfDelta(m.key, v, r);
+        const unit = m.unit ? ` ${m.unit}` : '';
+        return `<tr>
+          <td>${esc(m.label)}</td>
+          <td class="ps-num">${v === null ? '—' : `${fmt(v, m.digits)}${esc(unit)}`}${flagged ? ' ⚠' : ''}</td>
+          ${hasRef ? `<td class="ps-num">${r === null ? '—' : `${fmt(r, m.digits)}${esc(unit)}`}</td>
+            <td class="ps-num ${d === null ? '' : (d >= 0 ? 'ps-up' : 'ps-down')}">${d === null ? '—' : `${d >= 0 ? '+' : '−'}${fmt(Math.abs(d), m.digits)}`}</td>` : ''}
+        </tr>`;
+      }).join('')}
+      </tbody></table>`;
+
+    const radar = withRadar
+      ? `<div class="ps-radar">${radarSvg(test, hasRef ? ref : null)}
+          <div class="ps-scores">${SCORE_LABELS.map(([k, l]) => {
+            const v = scoreValue(test, k);
+            return `<div><span>${esc(l)}</span><strong>${v === null ? '—' : fmt(v, 1)}</strong></div>`;
+          }).join('')}</div></div>`
+      : '';
+
+    return `<section class="ps-section ps-stage">
+      <h2>Tests physiques — ${esc(s.label)}${test.tested_at ? ` <small>${esc(frDate(test.tested_at))}</small>` : ''}</h2>
+      <div class="ps-stage-grid${withRadar ? '' : ' no-radar'}">${table}${radar}</div>
+      ${hasRef ? `<p class="ps-note">Moyenne club : joueurs du club ayant passé chaque test lors de cette session (à partir de 3), valeurs aberrantes exclues. Écart positif = meilleur que la moyenne.</p>` : ''}
+    </section>`;
+  }).join('');
+}
+
+function exportNotes(kind, title, withImages) {
+  const list = notes.filter(n => n.kind === kind)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.id - b.id));
+  if (!list.length) return `<section class="ps-section"><h2>${esc(title)}</h2><p class="ps-empty">Aucun élément.</p></section>`;
+  return `<section class="ps-section"><h2>${esc(title)}</h2>
+    ${list.map(n => {
+      const imgs = withImages ? media.filter(m => m.note_id === n.id && m.signed_url) : [];
+      return `<article class="ps-note-card">
+        <h3>${esc(n.title)}</h3>
+        ${n.body ? `<p>${esc(n.body).replace(/\n/g, '<br>')}</p>` : ''}
+        ${imgs.length ? `<div class="ps-images">${imgs.map(m => `<figure><img src="${esc(m.signed_url)}" alt=""><figcaption>${esc(m.caption || '')}</figcaption></figure>`).join('')}</div>` : ''}
+      </article>`;
+    }).join('')}
+  </section>`;
+}
+
+function exportVideos() {
+  const chosen = (typeof fpFmVideos !== 'undefined' ? fpFmVideos : [])
+    .filter(v => fpFmSelections?.get(Number(v.id))?.selected && fpFmSelections.get(Number(v.id))?.validated_at);
+  return `<section class="ps-section"><h2>Séquences vidéo sélectionnées par le joueur</h2>
+    ${chosen.length
+      ? `<ul class="ps-list">${chosen.map(v => `<li>${esc(v.titre || 'Séquence')}${v.created_at ? ` <small>${esc(new Date(v.created_at).toLocaleDateString('fr-FR'))}</small>` : ''}</li>`).join('')}</ul>`
+      : '<p class="ps-empty">Aucune séquence validée.</p>'}
+  </section>`;
+}
+
+function buildExportDocument() {
+  const sections = new Set(exportChecked('exp-sec'));
+  const stageKeys = exportChecked('exp-stage');
+  let fromIdx = MONTHS.indexOf(document.getElementById('exp-from').value);
+  let toIdx = MONTHS.indexOf(document.getElementById('exp-to').value);
+  if (fromIdx > toIdx) [fromIdx, toIdx] = [toIdx, fromIdx];
+
+  const fullName = `${player.prenom || ''} ${player.nom || ''}`.trim();
+  const club = ctxProfile?.clubs?.nom || '';
+  const period = [
+    stageKeys.length === 3 ? 'toutes les sessions' : STAGES.filter(s => stageKeys.includes(s.key)).map(s => s.label).join(', ') || 'aucune session',
+    `mesures ${MONTHS[fromIdx]} – ${MONTHS[toIdx]}`,
+  ].join(' · ');
+
+  const parts = [];
+  if (sections.has('identity')) parts.push(exportIdentity());
+  if (sections.has('measures')) parts.push(exportMeasures(fromIdx, toIdx));
+  if (sections.has('tests') || sections.has('radar')) {
+    parts.push(exportTests(stageKeys, sections.has('compare') && sections.has('tests'), sections.has('radar')));
+  }
+  const withImages = sections.has('images');
+  if (sections.has('strength')) parts.push(exportNotes('strength', 'Points forts', withImages));
+  if (sections.has('improvement')) parts.push(exportNotes('improvement', 'Points d’amélioration', withImages));
+  if (sections.has('objective')) parts.push(exportNotes('objective', 'Objectifs & prévention', withImages));
+  if (sections.has('videos')) parts.push(exportVideos());
+
+  return `<header class="ps-header">
+      <div>
+        <div class="ps-eyebrow">${esc(club || 'FootSession Pro')} · Dossier joueur</div>
+        <h1>${esc(fullName || 'Joueur')}</h1>
+        <div class="ps-sub">${esc([player.poste, player.numero != null ? `#${player.numero}` : null].filter(Boolean).join(' · '))}</div>
+      </div>
+      <div class="ps-meta">
+        <div>Exporté le ${esc(new Date().toLocaleDateString('fr-FR'))}</div>
+        <div>${esc(period)}</div>
+      </div>
+    </header>
+    ${parts.join('') || '<p class="ps-empty">Aucune rubrique sélectionnée.</p>'}
+    <footer class="ps-footer">Données issues de FootSession Pro. Une valeur absente de la source est notée « — » ; rien n’est estimé.</footer>`;
+}
+
+/* Attend le chargement des images (photo, notes) avant d'imprimer, sinon
+   elles sortent vides dans le PDF. */
+function waitForImages(root) {
+  const imgs = [...root.querySelectorAll('img')];
+  return Promise.all(imgs.map(img => img.complete ? null
+    : new Promise(res => { img.onload = img.onerror = res; setTimeout(res, 4000); })));
+}
+
+async function runExport() {
+  if (!isStaff() || !player) return;
+  if (!exportChecked('exp-sec').length) return notify('Choisissez au moins une rubrique.', 'error');
+
+  const sheet = document.getElementById('printSheet');
+  sheet.innerHTML = buildExportDocument();
+  closePerfModal('exportModal');
+
+  const title = document.title;
+  document.title = `Fiche ${`${player.prenom || ''} ${player.nom || ''}`.trim()} — ${localToday()}`;
+  document.body.classList.add('is-printing');
+  await waitForImages(sheet);
+
+  const cleanup = () => {
+    document.body.classList.remove('is-printing');
+    document.title = title;
+    sheet.innerHTML = '';
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+}
+
+(function initExport() {
+  const from = document.getElementById('exp-from');
+  const to = document.getElementById('exp-to');
+  if (!from || !to) return;
+  const options = MONTHS.map(m => `<option>${m}</option>`).join('');
+  from.innerHTML = options;
+  to.innerHTML = options;
+  applyExportPreset('all');
+
+  document.getElementById('btnExport')?.addEventListener('click', openExportModal);
+  document.getElementById('btnRunExport')?.addEventListener('click', runExport);
+  document.querySelectorAll('#exportPresets .chip').forEach(c =>
+    c.addEventListener('click', () => applyExportPreset(c.dataset.preset)));
+  // Une modification manuelle de la période désactive le raccourci actif.
+  document.querySelectorAll('input[name="exp-stage"], #exp-from, #exp-to').forEach(el =>
+    el.addEventListener('change', () =>
+      document.querySelectorAll('#exportPresets .chip').forEach(c => c.classList.remove('active'))));
+})();
