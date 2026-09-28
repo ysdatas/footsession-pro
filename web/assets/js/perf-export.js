@@ -44,13 +44,10 @@ function exportIdentity() {
   const age = ageFrom(player.date_naissance);
   const rows = [
     ['Poste', player.poste],
-    ['Numéro', player.numero != null ? `#${player.numero}` : null],
     ['Équipe', typeof teamName === 'function' ? teamName(player.team_id) : null],
     ['Date de naissance', player.date_naissance ? `${frDate(player.date_naissance)}${age !== null ? ` (${age} ans)` : ''}` : null],
-    ['Nationalité', player.nationalite],
     ['Pied fort', player.pied_fort],
     ['Statut', player.statut],
-    ['Fin de contrat', player.contrat_fin ? frDate(player.contrat_fin) : null],
   ];
   const photo = document.getElementById('playerPhoto');
   const photoSrc = photo && !photo.classList.contains('hidden') ? photo.src : '';
@@ -213,7 +210,7 @@ function buildExportDocument() {
       <div>
         <div class="ps-eyebrow">${esc(club || 'FootSession Pro')} · Dossier joueur</div>
         <h1>${esc(fullName || 'Joueur')}</h1>
-        <div class="ps-sub">${esc([player.poste, player.numero != null ? `#${player.numero}` : null,
+        <div class="ps-sub">${esc([player.poste,
           typeof teamName === 'function' ? teamName(player.team_id) : null].filter(Boolean).join(' · '))}</div>
       </div>
       <div class="ps-meta">

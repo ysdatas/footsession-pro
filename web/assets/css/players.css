@@ -44,3 +44,28 @@
   padding: 10px 14px; margin-bottom: 16px; border-radius: var(--radius-md);
   border: 1px solid var(--gold-border); background: rgba(201,168,76,.08); font-size: .88rem;
 }
+
+/* ----- Rubriques par ligne ----- */
+.lines-hint { font-size: .8rem; color: var(--text-secondary); margin: -4px 0 14px; }
+.line-group { margin-bottom: 22px; border-radius: var(--radius-lg); padding: 4px; transition: background .15s, box-shadow .15s; }
+.line-group.is-over { background: rgba(201,168,76,.06); box-shadow: inset 0 0 0 1px var(--gold-border); }
+.line-title {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding-left: 10px;
+  font-size: .82rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  border-left: 3px solid var(--line-color, var(--gold));
+}
+.line-title span {
+  font-size: .72rem; font-weight: 600; letter-spacing: 0; color: var(--text-secondary);
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px;
+}
+.line-gardien   { --line-color: #E2C97E; }
+.line-defenseur { --line-color: #3aa0ff; }
+.line-milieu    { --line-color: #4CAF50; }
+.line-attaquant { --line-color: #ff8a5b; }
+.line-none      { --line-color: var(--text-muted); }
+.line-empty {
+  grid-column: 1 / -1; padding: 18px; text-align: center; font-size: .82rem; color: var(--text-muted);
+  border: 1px dashed var(--border); border-radius: var(--radius-lg);
+}
+.player-card[draggable="true"] { cursor: grab; }
+.player-card.is-dragging { opacity: .4; }

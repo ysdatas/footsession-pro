@@ -190,8 +190,8 @@ function ranksFor(rows, key) {
   const usable = rows
     .map(r => ({ id: r.player.id, v: r.values[key] }))
     .filter(r => r.v !== null && !isImplausible(key, r.v));
-  if (!m.better) return {};
-  usable.sort((a, b) => m.better === 'lower' ? a.v - b.v : b.v - a.v);
+  if (!m) return {};
+  usable.sort((a, b) => perfRankKey(key, a.v) - perfRankKey(key, b.v) || a.v - b.v);
   return Object.fromEntries(usable.map((r, i) => [r.id, i + 1]));
 }
 

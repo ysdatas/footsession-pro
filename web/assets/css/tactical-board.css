@@ -32,9 +32,12 @@
   box-shadow: var(--shadow);
 }
 
-/* ---------- Layout : outils à gauche, terrain à droite ---------- */
-.tb-layout { display: flex; gap: 12px; align-items: flex-start; }
-.tb-main-col { flex: 1; min-width: 0; }
+/* ---------- Layout : outils | terrain | panneau ---------- */
+.tb-layout {
+  display: grid; grid-template-columns: 202px minmax(0, 1fr) 262px;
+  gap: 12px; align-items: start;
+}
+.tb-main-col { min-width: 0; }
 
 /* Barre d'outils latérale, compacte */
 .tb-toolbar {
@@ -45,15 +48,9 @@
   position: sticky; top: 12px;
   max-height: calc(100vh - 24px); overflow-y: auto;
 }
-.tb-bottombar {
-  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius-md); padding: 8px 10px; margin-top: 10px;
-}
 /* Chaque groupe = un intitulé + ses boutons */
 .tb-group { display: flex; flex-direction: column; gap: 5px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .tb-toolbar .tb-group:last-child { border-bottom: none; padding-bottom: 0; }
-.tb-bottombar .tb-group { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 0; border-bottom: none; }
 .tb-glabel { font-size: .56rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
 .tb-btns { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
@@ -118,10 +115,18 @@
   box-shadow: var(--shadow);
 }
 
+/* Écran moyen : le panneau passe sous le terrain, ses blocs côte à côte. */
+@media (max-width: 1280px) {
+  .tb-layout { grid-template-columns: 202px minmax(0, 1fr); grid-template-areas: "tools pitch" "tools panel"; }
+  .tb-toolbar { grid-area: tools; }
+  .tb-main-col { grid-area: pitch; }
+  .tb-panel { grid-area: panel; position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: none; }
+}
 @media (max-width: 900px) {
-  .tb-layout { flex-direction: column; }
+  .tb-layout { grid-template-columns: 1fr; grid-template-areas: "tools" "pitch" "panel"; }
   .tb-toolbar { width: 100%; flex: none; position: static; max-height: none; flex-direction: row; flex-wrap: wrap; }
   .tb-group { border-bottom: none; padding-right: 10px; border-right: 1px solid var(--border); }
+  .tb-panel { grid-template-columns: 1fr; }
 }
 
 .tb-tool {
@@ -140,20 +145,65 @@
   padding: 2px; border: 1px solid var(--border);
   background: var(--bg-surface); cursor: pointer;
 }
-.tb-selbar select { width: auto; padding: 7px 9px; height: 34px; }
 
-/* Barre sélection */
-.tb-selbar {
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(201,168,76,.08); border: 1px solid var(--gold-border);
-  border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 10px;
-  min-height: 50px;   /* toujours présente : pas de saut de mise en page à la sélection */
+/* ---------- Panneau de droite ---------- */
+.tb-panel {
+  display: grid; gap: 10px; position: sticky; top: 12px;
+  max-height: calc(100vh - 24px); overflow-y: auto;
 }
-.tb-selbar input[type="color"] { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); }
-/* Rien de sélectionné : on garde la hauteur, on masque juste les contrôles (visibility, pas display). */
-.tb-selbar.empty { background: transparent; border-color: var(--border); }
-.tb-selbar.empty > *:not(#selLabel) { visibility: hidden; }
-.tb-selbar.empty #selLabel { color: var(--text-muted); font-style: italic; }
+.tb-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+}
+.tb-card-title {
+  margin: 0; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-secondary); display: flex; justify-content: space-between; gap: 8px;
+}
+.tb-card-title span { color: var(--gold); letter-spacing: 0; text-transform: none; font-weight: 600; }
+.tb-card-hint { margin: 0; font-size: .78rem; color: var(--text-muted); line-height: 1.45; }
+.tb-card-actions { display: grid; gap: 6px; }
+.tb-card-actions .tb-tool { width: 100%; height: 34px; font-size: .8rem; justify-content: center; }
+.tb-tool:disabled { opacity: .4; cursor: not-allowed; }
+
+.tb-props { display: flex; flex-direction: column; gap: 9px; }
+.tb-props.hidden, .tb-prop.hidden { display: none; }
+.tb-prop { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .8rem; color: var(--text-secondary); }
+.tb-prop input[type="color"] { width: 38px; height: 30px; padding: 2px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-surface); cursor: pointer; }
+.tb-prop input[type="text"] { width: 140px; padding: 7px 9px; font-size: .85rem; }
+.tb-prop-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tb-prop-actions .tb-tool { flex: 1; height: 32px; font-size: .78rem; }
+
+/* Tailles S / M / L / XL et −/+ : même échelle que la page Paramètres. */
+.tb-sizes { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.tb-sizes button {
+  min-width: 28px; height: 30px; padding: 0 6px; background: var(--bg-surface); border: 0;
+  border-right: 1px solid var(--border); color: var(--text-primary); font-size: .76rem; font-weight: 600; cursor: pointer;
+}
+.tb-sizes button:last-child { border-right: 0; }
+.tb-sizes button:hover { background: var(--bg-hover); }
+.tb-sizes button.active { background: rgba(201,168,76,.18); color: var(--gold); }
+
+/* Étapes : une pastille par étape */
+.tb-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.tb-steps:empty { display: none; }
+.tb-step {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--bg-surface); color: var(--text-primary); font-weight: 700; font-size: .85rem; cursor: pointer;
+}
+.tb-step:hover { border-color: var(--gold-border); }
+.tb-step.active { background: var(--gold); border-color: var(--gold); color: #0A0A0A; }
+
+/* Cadrage de l'export */
+.tb-crop { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .8rem; color: var(--text-secondary); }
+.tb-crop .tb-tool { height: 32px; font-size: .76rem; }
+.tb-crop .tb-tool.active { color: var(--gold); }
+.tb-linkbtn { background: none; border: 0; color: var(--gold); cursor: pointer; font-size: .8rem; text-decoration: underline; padding: 0 0 0 6px; }
+.tb-cropchip {
+  position: absolute; top: 10px; right: 10px; z-index: 5; border: 0; cursor: pointer;
+  background: rgba(10,10,10,.75); color: var(--gold); font: 600 12px/1 var(--font-main);
+  padding: 7px 10px; border-radius: 999px; box-shadow: var(--shadow);
+}
+.tb-cropchip.hidden { display: none; }
 
 /* Menu contextuel (clic droit) */
 .tb-menu {
@@ -196,17 +246,37 @@
   display: flex; justify-content: center; overflow: visible;
 }
 #pitch {
-  width: 100%; max-width: 1040px; cursor: crosshair; touch-action: none; display: block;
+  width: 100%; cursor: crosshair; touch-action: none; display: block;
   border-radius: 16px;                    /* rebords légèrement arrondis */
   box-shadow: 0 10px 30px rgba(0,0,0,.45);
 }
 #pitch.tool-select { cursor: default; }
 
-/* Mode présentation plein écran (vestiaire) */
-.tb-stage.presenting { background: #060606; padding: 0; align-items: center; }
-.tb-stage.presenting #pitch { max-width: 96vw; max-height: 95vh; width: auto; height: 95vh; }
-.tb-stage:fullscreen { display: flex; align-items: center; justify-content: center; }
+/* Mode présentation (vestiaire) : occupe l'écran, avec sa propre barre
+   de commande — on n'est jamais bloqué dedans. */
+.tb-presentbar { display: none; }
+.tb-stage.presenting {
+  position: fixed; inset: 0; z-index: 1000; background: #060606;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px;
+}
+.tb-stage.presenting #pitch { width: auto; height: auto; max-width: 96vw; max-height: calc(100vh - 110px); }
+.tb-stage.presenting .tb-cropchip { display: none; }
+.tb-stage.presenting .tb-presentbar {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(20,20,20,.9); border: 1px solid var(--border); border-radius: 999px; padding: 6px 8px;
+}
+.tb-presentbar button {
+  height: 36px; min-width: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-surface); color: var(--text-primary); font-weight: 600; cursor: pointer;
+}
+.tb-presentbar button:hover { border-color: var(--gold-border); }
+.tb-presentbar .tb-presexit { background: rgba(244,67,54,.14); border-color: rgba(244,67,54,.4); color: #ff8a80; }
+.tb-presentbar span { color: var(--text-secondary); font-size: .85rem; padding: 0 6px; min-width: 90px; text-align: center; }
 
 @media (max-width: 760px) {
   .tb-group { border-right: none; }
 }
+
+/* Le tableau tactique prend toute la largeur de l'écran : le terrain est
+   la pièce centrale, il ne doit pas être bridé à 1280 px comme les pages de texte. */
+.main.tb-page { max-width: none; padding-top: 22px; }

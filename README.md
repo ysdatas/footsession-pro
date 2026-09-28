@@ -50,6 +50,7 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 15. supabase/player_profile_career.sql         identité du joueur + parcours en club
 16. supabase/performance_one_row_per_period.sql  une ligne par joueur/saison/mois : fin des doublons
 17. supabase/roles_teams_preventions.sql     droits par rôle, équipes, vue joueur filtrée
+18. supabase/player_lines.sql               ligne de jeu (Gardiens / Défenseurs / Milieux / Attaquants)
 ```
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter
@@ -144,7 +145,8 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Séances** — liste, recherche, export PDF, suppression.
 - **Créer / Modifier une séance** — procédés dynamiques, présence, schéma tactique.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
-- **Joueurs** — effectif, recherche par nom, filtre par poste.
+- **Joueurs** — effectif rangé en Gardiens / Défenseurs / Milieux / Attaquants (ligne déduite du
+  poste, ou choisie en glissant la carte dans une autre rubrique), recherche, filtre par poste.
 - **Fiche joueur** (`player.html`) — informations modifiables sur place, présence,
   derniers relevés, profil /10, parcours ; accès Performance / Vidéos.
 - **Performance** (`player-performance.html`) — dossier individuel : photo, mesures
@@ -166,9 +168,16 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Zones** : choisir une forme puis **glisser** sur le terrain ; la sélectionner
   (outil ↖) puis **tirer un coin** pour la redimensionner.
 - **Formations** : menu déroulant (4-3-3, 4-4-2…) place 11 joueurs.
-- **Étapes animées** : `+ Étape` enregistre les positions, `▶ Jouer` anime la séquence.
+- **Disposition** : outils à gauche, terrain au centre, panneau à droite (élément sélectionné,
+  étapes, export).
+- **Taille** : S / M / L / XL puis −/+ ; même échelle que **Paramètres**.
+- **Étapes** : « + Nouvelle étape » crée l'étape suivante ; cliquer une pastille (1, 2, 3…)
+  l'affiche, et chaque déplacement y est enregistré. « ▶ Lire » part de l'étape 1.
+- **Export** : image de l'étape affichée, images de toutes les étapes, vidéo (MP4 quand le
+  navigateur le permet), présentation plein écran avec sa barre (étapes, lecture, quitter).
+  « Cadrer une zone » limite l'export ; Échap ou le même bouton annule, « ✕ » retire le cadrage.
 - **Raccourcis** : `Ctrl+Z` annuler, `Suppr` supprimer l'élément sélectionné.
-- **Sauvegarde** : auto en LocalStorage (30 s) ; `💾 Sauver` enregistre le JSON en
+- **Sauvegarde** : auto en LocalStorage (30 s) ; « Enregistrer » (panneau Exporter) enregistre le JSON en
   base ; **Valider ce schéma** enregistre l'image dans le procédé et revient à la séance.
 
 > Pour lier un schéma à un procédé, **enregistrez d'abord la séance**.
@@ -199,6 +208,7 @@ Vérifications (Node ≥ 18, aucun framework, aucun `node_modules`) :
 node tests/perf-logic.test.mjs    # détection du joueur dans l'Excel + radar partiel
 node tests/excel-import.test.mjs  # import validé sur le vrai Tests_Physiques_N2-5.xlsx
 node tests/nav.test.mjs           # menu : rôles, ordre, rubriques masquées, pages interdites
+node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classement de chaque test
 ```
 
 Le second tourne sur une extraction du classeur réel

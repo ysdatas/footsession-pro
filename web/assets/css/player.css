@@ -12,17 +12,18 @@
 .fiche-hero-text { flex: 1; min-width: 200px; }
 .fiche-hero-text h1 { margin: 0; font-size: 1.7rem; letter-spacing: -.02em; }
 .fiche-sub { margin: 4px 0 0; color: var(--gold); font-weight: 600; font-size: .92rem; }
-.fiche-facts { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.fiche-facts span {
-  font-size: .78rem; color: var(--text-secondary); background: var(--bg-surface);
-  border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
-}
+.fiche-facts { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; }
+.fiche-facts:empty { display: none; }
+/* Séparés par un trait vertical, pas enfermés dans des bulles. */
+.fiche-facts span { font-size: .92rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+.fiche-facts span + span { border-left: 1px solid var(--border-gold); margin-left: 12px; padding-left: 12px; }
 .fiche-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Mise en page : informations à gauche, cartes à droite */
 .fiche-layout { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
 .fiche-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .fiche-layout .card, .fiche-grid .card { margin: 0; }
+.fiche-grid .fiche-wide { grid-column: 1 / -1; }
 .fiche-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 .fiche-card-head h3 { margin: 0; font-size: 1rem; }
 .fiche-link { font-size: .8rem; color: var(--text-secondary); }
@@ -40,19 +41,6 @@
 .fiche-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 .fiche-form label { display: flex; flex-direction: column; gap: 5px; font-size: .74rem; color: var(--text-secondary); margin: 0; }
 .fiche-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
-
-/* Présence */
-.stat-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-.stat-big { font-size: 2rem; font-weight: 700; color: var(--gold); line-height: 1; }
-.stat-sub { font-size: .82rem; color: var(--text-secondary); }
-.stat-bar { height: 6px; background: var(--bg-surface); border-radius: 999px; overflow: hidden; margin-bottom: 12px; }
-.stat-bar span { display: block; height: 100%; background: linear-gradient(90deg, #9c7f30, var(--gold)); }
-.mini-list { display: grid; max-height: 230px; overflow-y: auto; }
-.mini-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .84rem; }
-.mini-row:last-child { border-bottom: 0; }
-.mini-row a { color: var(--text-primary); }
-.mini-row a:hover { color: var(--gold); }
-.mini-row small { color: var(--text-secondary); margin-left: 6px; }
 
 /* Suivi physique */
 .phys-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }

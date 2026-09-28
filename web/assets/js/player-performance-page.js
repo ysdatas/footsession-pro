@@ -266,7 +266,8 @@ function squadForMetric(m) {
     .map(t => ({ id: t.player_id, name: nameOf(t.player_id), value: num(t[m.key]) }))
     .filter(e => e.value !== null);
   const ranked = entries.filter(e => !isImplausible(m.key, e.value))
-    .sort((a, b) => m.better === 'lower' ? a.value - b.value : b.value - a.value);
+    .map(e => ({ ...e, rank: perfRankKey(m.key, e.value) }))
+    .sort((a, b) => a.rank - b.rank || a.value - b.value);
   const flagged = entries.filter(e => isImplausible(m.key, e.value));
   const tested = new Set(entries.map(e => e.id));
   const untested = clubPlayers
@@ -281,13 +282,13 @@ function squadPanel(m, colspan) {
   const { ranked, flagged, untested } = squadForMetric(m);
   const avg = perfAverage(squadTests, m.key);
   const stageLabel = STAGES.find(x => x.key === stage)?.label || '';
-  const values = ranked.map(e => e.value);
-  const lo = Math.min(...values), hi = Math.max(...values);
+  const keys = ranked.map(e => e.rank);
+  const lo = Math.min(...keys), hi = Math.max(...keys);
   // Barre : position dans l'amplitude du groupe, le meilleur à 100 %.
   const width = v => {
-    if (!values.length || hi === lo) return 100;
-    const t = m.better === 'lower' ? (hi - v) / (hi - lo) : (v - lo) / (hi - lo);
-    return Math.round(12 + t * 88);
+    const k = perfRankKey(m.key, v);
+    if (!keys.length || hi === lo || k === null) return 100;
+    return Math.round(12 + ((hi - k) / (hi - lo)) * 88);
   };
   const unit = m.unit ? ` ${m.unit}` : '';
 
@@ -299,6 +300,8 @@ function squadPanel(m, colspan) {
           ? `moyenne <strong>${fmt(avg.value, m.digits)}${esc(unit)}</strong> sur ${avg.n} joueur${avg.n > 1 ? 's' : ''}`
           : `${avg.n} joueur${avg.n > 1 ? 's' : ''} testé${avg.n > 1 ? 's' : ''} : moyenne affichée à partir de 3`}
         ${flagged.length ? ` · ${flagged.length} valeur${flagged.length > 1 ? 's' : ''} écartée${flagged.length > 1 ? 's' : ''}` : ''}
+        ${m.key === 'core_ratio' ? '<div class="squad-hint">Classement : du plus proche au plus éloigné de la zone idéale 0,7 – 0,8.</div>' : ''}
+        ${m.key === 'five05_asymmetry_pct' ? '<div class="squad-hint">Classement : de la plus faible à la plus forte asymétrie.</div>' : ''}
       </div>
       <ol class="squad-list">
         ${ranked.map((e, i) => `<li class="${e.id === player.id ? 'is-me' : ''}">
@@ -346,7 +349,7 @@ function renderTestSummary(test) {
     if (staff) {
       const { ranked } = squadForMetric(r);
       const pos = ranked.findIndex(e => e.id === player.id);
-      rankCell = `<td class="t-rank">${r.better && pos >= 0 ? `${pos + 1}<small>/${ranked.length}</small>` : '—'}</td>`;
+      rankCell = `<td class="t-rank">${pos >= 0 ? `${pos + 1}<small>/${ranked.length}</small>` : '—'}</td>`;
     }
     const open = staff && expandedTests.has(r.key);
     const row = `<tr class="${staff ? 't-clickable' : ''}${open ? ' is-open' : ''}"
@@ -526,22 +529,20 @@ function renderIdentity() {
   document.getElementById('playerInitials').textContent = initials(player);
 
   document.getElementById('playerMeta').textContent =
-    [player.poste, player.numero != null ? `#${player.numero}` : null,
-     typeof teamName === 'function' ? teamName(player.team_id) : null]
+    [player.poste, typeof teamName === 'function' ? teamName(player.team_id) : null]
       .filter(Boolean).join(' · ');
 
   const age = ageFrom(player.date_naissance);
   const facts = [
-    player.nationalite || null,
     age !== null ? `${age} ans (${frDate(player.date_naissance)})` : null,
     player.pied_fort ? `Pied ${player.pied_fort === 'Les deux' ? 'droit et gauche' : player.pied_fort.toLowerCase()}` : null,
+    player.statut || null,
   ].filter(Boolean);
   document.getElementById('playerFacts').innerHTML = facts.map(f => `<span>${esc(f)}</span>`).join('');
 
   const club = ctxProfile?.clubs || null;
   const clubBox = document.getElementById('playerClub');
-  const contract = player.contrat_fin ? `Contrat jusqu’au ${frDate(player.contrat_fin)}` : null;
-  if (!club?.nom && !contract && !player.statut) {
+  if (!club?.nom) {
     clubBox.innerHTML = '';
     clubBox.classList.add('hidden');
     return;
@@ -553,9 +554,7 @@ function renderIdentity() {
       ? `<img class="perf-club-logo" src="${esc(clubLogoUrl)}" alt="">`
       : `<div class="perf-club-logo perf-club-initials" style="${club?.color ? `border-color:${esc(club.color)}` : ''}">${esc(clubInitials)}</div>`}
     <div class="perf-club-text">
-      <strong>${esc(club?.nom || 'Club')}</strong>
-      ${contract ? `<span>${esc(contract)}</span>` : ''}
-      ${player.statut ? `<span>${esc(player.statut)}</span>` : ''}
+      <strong>${esc(club.nom)}</strong>
     </div>`;
 }
 
@@ -963,15 +962,12 @@ function openPlayerEdit() {
   const set = (id, v) => { document.getElementById(id).value = v ?? ''; };
   set('pe-prenom', player.prenom);
   set('pe-nom', player.nom);
-  set('pe-numero', player.numero);
   set('pe-poste', player.poste);
   set('pe-naissance', player.date_naissance ? String(player.date_naissance).slice(0, 10) : '');
-  set('pe-nationalite', player.nationalite);
   set('pe-pied', player.pied_fort);
   set('pe-statut', player.statut);
-  set('pe-contrat', player.contrat_fin ? String(player.contrat_fin).slice(0, 10) : '');
   // Sans la migration, ces champs ne peuvent pas être enregistrés.
-  ['pe-naissance','pe-nationalite','pe-pied','pe-statut','pe-contrat']
+  ['pe-naissance','pe-pied','pe-statut']
     .forEach(id => { document.getElementById(id).disabled = identityMissing; });
   openPerfModal('playerEditModal');
 }
@@ -982,20 +978,16 @@ async function savePlayerEdit() {
   const nom = val('pe-nom');
   if (!nom) return notify('Le nom est obligatoire.', 'error');
 
-  const numeroRaw = val('pe-numero');
   const body = {
     nom,
     prenom: val('pe-prenom') || null,
-    numero: numeroRaw !== '' ? Number(numeroRaw) : null,
     poste: val('pe-poste') || null,
   };
   if (!identityMissing) {
     Object.assign(body, {
       date_naissance: val('pe-naissance') || null,
-      nationalite: val('pe-nationalite') || null,
       pied_fort: val('pe-pied') || null,
       statut: val('pe-statut') || null,
-      contrat_fin: val('pe-contrat') || null,
     });
   }
 

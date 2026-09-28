@@ -62,12 +62,9 @@ const fullName = (p) => `${p.prenom || ''} ${p.nom}`.trim();
 /* ---------- Grille ---------- */
 async function loadGrid() {
   try {
-    // team_id n'existe qu'après la migration des équipes : sans équipe
-    // choisie, on n'en a pas besoin et la page marche sans elle.
-    const withTeams = (window.CLUB_TEAMS || []).length > 0;
-    const query = byTeam(sb.from('players')
-      .select(`id, nom, prenom, numero, poste, photo_path${withTeams ? ', team_id' : ''}`).order('nom'));
-    const { data: players, error } = await query;
+    // select('*') : team_id et ligne n'existent qu'après leurs migrations ;
+    // une liste explicite ferait échouer la page tant qu'elles manquent.
+    const { data: players, error } = await byTeam(sb.from('players').select('*').order('nom'));
     if (error) throw error;
 
     const photoResults = await Promise.all(players.map(p =>
@@ -95,6 +92,30 @@ function fillPosteFilter() {
   select.value = postes.includes(current) ? current : '';
 }
 
+/* Glisser une carte vers une autre rubrique enregistre la ligne du
+   joueur (colonne players.ligne). Sans cette colonne (migration
+   player_lines.sql non passée), les cartes ne se déplacent pas. */
+const canDragLines = () => CAN_EDIT_PLAYERS && playersCache.some(p => 'ligne' in p);
+
+function playerCard(p) {
+  const i = playersCache.indexOf(p);
+  const photo = p.photo_url
+    ? `<img class="pc-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy" draggable="false">`
+    : `<div class="pc-avatar ${avatarClass(i)}">${escapeHtml(playerInitials(p))}</div>`;
+  // L'équipe n'est rappelée que lorsque toutes les équipes sont affichées.
+  const team = !currentTeamId() && 'team_id' in p ? (teamName(p.team_id) || 'Sans équipe') : '';
+  return `<a class="player-card" href="player.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
+    <div class="pc-top">
+      ${photo}
+      <div>
+        <div class="pc-name">${escapeHtml(fullName(p))}</div>
+        ${p.poste ? `<div class="pc-poste">${escapeHtml(p.poste)}</div>` : ''}
+        ${team ? `<div class="pc-team">${escapeHtml(team)}</div>` : ''}
+      </div>
+    </div>
+  </a>`;
+}
+
 function renderGrid() {
   const wrap = document.getElementById('gridView');
   if (!playersCache.length) {
@@ -103,30 +124,71 @@ function renderGrid() {
   }
   const q = normalizeName(document.getElementById('searchPlayer').value);
   const poste = document.getElementById('posteFilter').value;
+  const filtering = !!(q || poste);
   const shown = playersCache.filter(p =>
     (!q || normalizeName(fullName(p)).includes(q)) && (!poste || (p.poste || '').trim() === poste));
   if (!shown.length) {
     wrap.innerHTML = '<div class="empty">Aucun joueur ne correspond à cette recherche.</div>';
     return;
   }
-  wrap.innerHTML = `<div class="players-grid">` + shown.map(p => {
-    const i = playersCache.indexOf(p);
-    const photo = p.photo_url
-      ? `<img class="pc-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy">`
-      : `<div class="pc-avatar ${avatarClass(i)}">${escapeHtml(playerInitials(p))}</div>`;
-    return `<a class="player-card" href="player.html?id=${p.id}">
-      <div class="pc-top">
-        ${photo}
-        <div>
-          <div class="pc-name">${escapeHtml(fullName(p))}</div>
-          ${p.poste ? `<div class="pc-poste">${escapeHtml(p.poste)}</div>` : ''}
-          ${'team_id' in p ? `<div class="pc-team">${escapeHtml(teamName(p.team_id) || 'Sans équipe')}</div>` : ''}
-        </div>
-        ${p.numero != null ? `<span class="pc-num">#${p.numero}</span>` : ''}
-      </div>
-    </a>`;
-  }).join('') + `</div>`;
+  const drag = canDragLines();
+  const groups = [...PLAYER_LINES, { key: null, label: 'À classer' }];
+  wrap.innerHTML = (drag ? '<p class="lines-hint">Glissez une carte d’une rubrique à l’autre pour changer la ligne du joueur.</p>' : '')
+    + groups.map(g => {
+      const members = shown.filter(p => lineOf(p) === g.key);
+      // Rubriques vides : gardées comme zones de dépôt, sauf pendant une recherche.
+      if (!members.length && (g.key === null || filtering || !drag)) return '';
+      return `<section class="line-group line-${g.key || 'none'}" ${g.key && drag ? `data-line="${g.key}"` : ''}>
+        <h2 class="line-title">${g.label}<span>${members.length}</span></h2>
+        <div class="players-grid">${members.map(playerCard).join('')
+          || '<div class="line-empty">Glissez un joueur ici</div>'}</div>
+      </section>`;
+    }).join('');
 }
+
+/* ---------- Glisser-déposer entre rubriques ---------- */
+let draggedId = null;
+document.getElementById('gridView').addEventListener('dragstart', (e) => {
+  const card = e.target.closest('.player-card[draggable="true"]');
+  if (!card) return;
+  draggedId = Number(card.dataset.id);
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(draggedId));
+  card.classList.add('is-dragging');
+});
+document.getElementById('gridView').addEventListener('dragend', (e) => {
+  e.target.closest('.player-card')?.classList.remove('is-dragging');
+  document.querySelectorAll('.line-group.is-over').forEach(g => g.classList.remove('is-over'));
+  draggedId = null;
+});
+document.getElementById('gridView').addEventListener('dragover', (e) => {
+  const group = e.target.closest('.line-group[data-line]');
+  if (!group || draggedId === null) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.line-group.is-over').forEach(g => { if (g !== group) g.classList.remove('is-over'); });
+  group.classList.add('is-over');
+});
+document.getElementById('gridView').addEventListener('drop', async (e) => {
+  const group = e.target.closest('.line-group[data-line]');
+  if (!group || draggedId === null) return;
+  e.preventDefault();
+  const p = playersCache.find(x => x.id === draggedId);
+  const target = group.dataset.line;
+  if (!p || lineOf(p) === target) return;
+  const previous = p.ligne;
+  p.ligne = target;
+  renderGrid();
+  const { error } = await sb.from('players').update({ ligne: target }).eq('id', p.id);
+  if (error) {
+    p.ligne = previous;
+    renderGrid();
+    console.error('Changement de ligne refusé', error);
+    toast(/ligne/.test(error.message) ? 'Base à mettre à jour : exécutez supabase/player_lines.sql.' : error.message, 'error');
+    return;
+  }
+  toast(`${fullName(p)} → ${LINE_SINGULAR[target]}`, 'success');
+});
 
 /* ---------- Joueurs sans équipe ---------- */
 /* Une équipe est choisie et des fiches n'en ont pas encore : on propose
@@ -155,7 +217,7 @@ function renderUnassigned() {
 function openPlayerModal() {
   document.getElementById('playerModalTitle').textContent = 'Nouveau joueur';
   document.getElementById('m-id').value = '';
-  for (const id of ['m-prenom', 'm-nom', 'm-numero', 'm-poste']) document.getElementById(id).value = '';
+  for (const id of ['m-prenom', 'm-nom', 'm-poste']) document.getElementById(id).value = '';
   const teams = window.CLUB_TEAMS || [];
   document.getElementById('m-team-field').classList.toggle('hidden', !teams.length);
   document.getElementById('m-team').innerHTML = '<option value="">Sans équipe</option>'
@@ -166,12 +228,10 @@ function openPlayerModal() {
 
 async function savePlayer() {
   const nom = document.getElementById('m-nom').value.trim();
-  const numeroRaw = document.getElementById('m-numero').value;
   if (!nom) return toast('Le nom est obligatoire.', 'error');
   const body = {
     club_id: myProfile.club_id,
     nom, prenom: document.getElementById('m-prenom').value.trim() || null,
-    numero: numeroRaw !== '' ? Number(numeroRaw) : null,
     poste: document.getElementById('m-poste').value.trim() || null,
   };
   const teamId = document.getElementById('m-team').value;

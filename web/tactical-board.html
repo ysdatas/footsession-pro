@@ -20,7 +20,7 @@
       <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
     </div>
   </aside>
-  <main class="main">
+  <main class="main tb-page">
     <div class="tb-topbar">
       <div class="tb-title">
         Mode Schéma — <span class="text-muted" id="tbContext">dessinez puis cliquez « Valider »</span>
@@ -112,46 +112,80 @@
           </select>
           <label class="tb-tool" for="logoInput" title="Importer un logo">Logo</label>
           <input type="file" id="logoInput" accept="image/*" hidden>
-          <button class="tb-tool" id="screenBtn" title="Cadrer une zone pour l'export (zoom)">⛶ Screen</button>
-          <button class="tb-tool" id="screenReset" title="Réinitialiser le cadrage">Plein terrain</button>
           <button class="tb-tool" id="undoBtn" title="Annuler (Ctrl+Z)">↶ Annuler</button>
           <button class="tb-tool danger" id="clearBtn" title="Tout effacer">Effacer</button>
         </div>
       </div>
     </div>
 
-    <!-- Colonne droite : barre de sélection + terrain -->
+    <!-- Terrain -->
     <div class="tb-main-col">
-      <div class="tb-selbar empty" id="selBar">
-        <span id="selLabel">Sélectionnez un élément</span>
-        <input type="color" id="selColor" title="Couleur">
-        <label class="tb-mini">Taille</label>
-        <input type="range" id="selSize" min="6" max="80" value="22">
-        <input type="text" id="selText" class="hidden" placeholder="Texte / n°" style="width:120px;">
-        <button class="tb-tool hidden" id="selBend" title="Ajouter ou retirer un point d'angle au milieu du tracé">Angle</button>
-        <button class="tb-tool danger" id="selDelete">Supprimer</button>
-      </div>
       <div class="tb-stage">
         <canvas id="pitch"></canvas>
-        <div class="tb-screenhint hidden" id="screenHint">Tracez la zone à exporter</div>
+        <div class="tb-screenhint hidden" id="screenHint">Tracez la zone à exporter · Échap pour annuler</div>
+        <button class="tb-cropchip hidden" id="cropChip" type="button" title="Retirer le cadrage">Zone cadrée ✕</button>
+        <div class="tb-presentbar" id="presentBar">
+          <button type="button" id="presPrev" title="Étape précédente">◀</button>
+          <span id="presStep"></span>
+          <button type="button" id="presNext" title="Étape suivante">▶</button>
+          <button type="button" id="presPlay">Lire</button>
+          <button type="button" id="presExit" class="tb-presexit">✕ Quitter</button>
+        </div>
       </div>
-    </div>
     </div>
 
-    <!-- Barre du bas -->
-    <div class="tb-bottombar">
-      <div class="tb-group">
-        <span class="tb-mini">Étapes</span>
-        <button class="tb-tool" id="addStep">+ Étape</button>
-        <button class="tb-tool" id="playSteps">▶ Jouer</button>
-        <span class="tb-mini" id="stepInfo">0 étape</span>
-      </div>
-      <div class="tb-group">
-        <button class="tb-tool" id="presentBtn" title="Plein écran (vestiaire)">⛶ Présentation</button>
-        <button class="tb-tool" id="exportVideo" title="Exporter l'animation en vidéo">Vidéo</button>
-        <button class="tb-tool hidden" id="saveBtn">Sauver</button>
-        <button class="tb-tool" id="exportPng">Export PNG</button>
-      </div>
+    <!-- Panneau de droite : élément, étapes, export -->
+    <aside class="tb-panel">
+      <section class="tb-card" id="selBar">
+        <h3 class="tb-card-title">Élément <span id="selLabel">—</span></h3>
+        <p class="tb-card-hint" id="selEmpty">Cliquez sur un élément du terrain pour le modifier. Clic droit : plus d'options.</p>
+        <div class="tb-props" id="selProps">
+          <div class="tb-prop"><span>Couleur</span><input type="color" id="selColor" title="Couleur"></div>
+          <div class="tb-prop" id="propSize"><span>Taille</span>
+            <div class="tb-sizes" id="selSizes">
+              <button type="button" data-step="-2" title="Plus petit">−</button>
+              <button type="button" data-preset="0">S</button>
+              <button type="button" data-preset="1">M</button>
+              <button type="button" data-preset="2">L</button>
+              <button type="button" data-preset="3">XL</button>
+              <button type="button" data-step="2" title="Plus grand">+</button>
+            </div>
+          </div>
+          <div class="tb-prop" id="propText"><span id="selTextLabel">Texte</span><input type="text" id="selText" placeholder="Texte / n°"></div>
+          <div class="tb-prop-actions">
+            <button class="tb-tool hidden" id="selBend" type="button" title="Ajouter ou retirer un point d'angle au milieu du tracé">Angle</button>
+            <button class="tb-tool" id="selRotate" type="button" title="Pivoter de 90° (touche R)">Pivoter</button>
+            <button class="tb-tool danger" id="selDelete" type="button">Supprimer</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="tb-card">
+        <h3 class="tb-card-title">Étapes <span id="stepInfo"></span></h3>
+        <div class="tb-steps" id="stepList"></div>
+        <p class="tb-card-hint" id="stepHint"></p>
+        <div class="tb-card-actions">
+          <button class="tb-tool" id="addStep" type="button">+ Nouvelle étape</button>
+          <button class="tb-tool" id="playSteps" type="button">▶ Lire</button>
+          <button class="tb-tool danger" id="deleteStep" type="button" title="Supprimer l'étape affichée">Suppr. l'étape</button>
+        </div>
+      </section>
+
+      <section class="tb-card">
+        <h3 class="tb-card-title">Exporter</h3>
+        <div class="tb-crop">
+          <span id="cropStatus">Plein terrain</span>
+          <button class="tb-tool" id="screenBtn" type="button" title="Tracer la zone à exporter">Cadrer une zone</button>
+        </div>
+        <div class="tb-card-actions tb-export">
+          <button class="tb-tool" id="exportPng" type="button">Image (étape affichée)</button>
+          <button class="tb-tool" id="exportAllPng" type="button">Images de toutes les étapes</button>
+          <button class="tb-tool" id="exportVideo" type="button">Vidéo de l'animation</button>
+          <button class="tb-tool" id="presentBtn" type="button">⛶ Présentation plein écran</button>
+          <button class="tb-tool hidden" id="saveBtn" type="button">Enregistrer</button>
+        </div>
+      </section>
+    </aside>
     </div>
   </main>
 

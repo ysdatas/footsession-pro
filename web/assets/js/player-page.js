@@ -1,7 +1,7 @@
 /* ============================================================
    FootSession Pro — player-page.js (fiche joueur)
    Point central d'un joueur côté staff : identité (modifiable),
-   présence, derniers relevés physiques, profil /10 et parcours,
+   derniers relevés physiques, profil /10 et parcours,
    avec des accès vers Performance et Vidéos.
    Réservée au staff (nav.js) ; la RLS ne renvoie de toute façon
    que les joueurs du club de l'utilisateur.
@@ -12,9 +12,9 @@ let ficheProfile = null;
 let fichePlayer = null;
 
 const IDENTITY_FIELDS = [
-  ['prenom', 'Prénom'], ['nom', 'Nom'], ['numero', 'Numéro'], ['poste', 'Poste'],
-  ['team_id', 'Équipe'], ['date_naissance', 'Date de naissance'], ['nationalite', 'Nationalité'],
-  ['pied_fort', 'Pied fort'], ['statut', 'Statut'], ['contrat_fin', 'Fin de contrat'],
+  ['prenom', 'Prénom'], ['nom', 'Nom'], ['poste', 'Poste'], ['ligne', 'Ligne'],
+  ['team_id', 'Équipe'], ['date_naissance', 'Date de naissance'],
+  ['pied_fort', 'Pied fort'], ['statut', 'Statut'],
 ];
 
 (async () => {
@@ -47,7 +47,7 @@ const IDENTITY_FIELDS = [
   fichePlayer = data;
   renderHeader();
   setupInfo();
-  await Promise.all([loadAttendance(), loadPhysical(), loadCareer(), loadPhoto()]);
+  await Promise.all([loadPhysical(), loadCareer(), loadPhoto()]);
 })();
 
 const fullName = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim();
@@ -68,11 +68,11 @@ function renderHeader() {
   document.getElementById('ficheName').textContent = fullName(p);
   document.getElementById('ficheAvatar').textContent =
     (((p.prenom || p.nom || '')[0] || '') + ((p.nom || '')[0] || '')).toUpperCase() || '?';
+  const line = lineOf(p);
   document.getElementById('ficheSub').textContent =
-    [p.poste, p.numero != null ? `#${p.numero}` : null, teamName(p.team_id)].filter(Boolean).join(' · ');
+    [p.poste || (line ? LINE_SINGULAR[line] : null), teamName(p.team_id)].filter(Boolean).join(' · ');
   const age = ageFrom(p.date_naissance);
   const facts = [
-    p.nationalite,
     age !== null ? `${age} ans` : null,
     p.pied_fort ? `Pied ${p.pied_fort === 'Les deux' ? 'droit et gauche' : p.pied_fort.toLowerCase()}` : null,
     p.statut,
@@ -96,11 +96,13 @@ function availableFields() {
 }
 
 function displayValue(key, v) {
+  if (key === 'ligne') {
+    const l = lineOf(fichePlayer);
+    return l ? `${LINE_SINGULAR[l]}${v ? '' : ' (selon le poste)'}` : '—';
+  }
   if (v === null || v === undefined || v === '') return '—';
   if (key === 'team_id') return teamName(v) || '—';
-  if (key === 'numero') return `#${v}`;
   if (key === 'date_naissance') { const a = ageFrom(v); return `${frDateShort(v)}${a !== null ? ` (${a} ans)` : ''}`; }
-  if (key === 'contrat_fin') return frDateShort(v);
   return String(v);
 }
 
@@ -141,7 +143,7 @@ function setupInfo() {
     const body = {};
     for (const k of keys) {
       const v = form[k].value.trim();
-      body[k] = v === '' ? null : (['numero', 'team_id'].includes(k) ? Number(v) : v);
+      body[k] = v === '' ? null : (k === 'team_id' ? Number(v) : v);
     }
     if (!body.nom) return toast('Le nom est obligatoire.', 'error');
     const btn = form.querySelector('button[type=submit]');
@@ -157,27 +159,6 @@ function setupInfo() {
     } catch (err) { toast(err.message, 'error'); }
     finally { btn.disabled = false; }
   });
-}
-
-/* ---------- Présence ---------- */
-async function loadAttendance() {
-  const box = document.getElementById('attendanceBox');
-  const { data, error } = await sb.from('attendance')
-    .select('present, sessions(id, titre, date_seance)').eq('player_id', playerId);
-  if (error) { box.innerHTML = `<p class="text-danger">${escapeHtml(error.message)}</p>`; return; }
-  const rows = (data || []).filter(r => r.sessions)
-    .sort((a, b) => String(b.sessions.date_seance).localeCompare(String(a.sessions.date_seance)));
-  if (!rows.length) { box.innerHTML = '<p class="text-muted">Aucune séance enregistrée.</p>'; return; }
-  const present = rows.filter(r => r.present).length;
-  const pct = Math.round(present / rows.length * 100);
-  box.innerHTML = `
-    <div class="stat-row"><span class="stat-big">${pct} %</span>
-      <span class="stat-sub">${present} séance${present > 1 ? 's' : ''} sur ${rows.length}</span></div>
-    <div class="stat-bar"><span style="width:${pct}%"></span></div>
-    <div class="mini-list">${rows.slice(0, 12).map(r => `
-      <div class="mini-row"><a href="session-edit.html?id=${r.sessions.id}">${escapeHtml(r.sessions.titre || 'Séance')}<small>${escapeHtml(fmtDate(r.sessions.date_seance))}</small></a>
-        <span class="${r.present ? 'text-success' : 'text-danger'}">${r.present ? 'Présent' : 'Absent'}</span></div>`).join('')}
-    </div>`;
 }
 
 /* ---------- Suivi physique + profil /10 ---------- */

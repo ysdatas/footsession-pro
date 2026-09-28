@@ -19,6 +19,8 @@ const state = {
   drawColor: '#C9A84C', jersey: '#E03131', opp: '#1f6feb',
   showNumbers: true, nextNum: 1, nextOpp: 1, tokenR: 18, equipR: 16, textFont: 'Inter, sans-serif',
   steps: [], history: [],
+  curStep: null,     // index de l'étape affichée et modifiée (null = pas d'étapes)
+  playing: false,    // animation ou enregistrement en cours : terrain non modifiable
   // Cadrage d'export (mode « Screen ») : {x, y, w, h} en coordonnées paysage, ou null = plein terrain.
   screen: null,
 };
@@ -27,6 +29,30 @@ const PROC = new URLSearchParams(location.search).get('procedure_id') ? Number(n
 let CAN_EDIT = false;   // déterminé après authentification (boot()), avant tout rendu
 let CLUB_ID = null;
 const LS_KEY = 'tb_' + (PROC || 'scratch');
+
+/* ---------- Tailles ----------
+   Une seule échelle pour le tableau ET la page Paramètres (mêmes valeurs
+   dans settings.html) : S / M / L / XL, puis −/+ par pas de 2, bornés. */
+const SIZE_PRESETS = {
+  token: [14, 18, 22, 28],
+  equip: [12, 16, 20, 26],
+  text:  [16, 22, 30, 40],
+};
+const SIZE_LIMITS = { token: [10, 36], equip: [8, 34], text: [12, 56] };
+function sizeKind(it) {
+  if (it.type === 'player' || it.type === 'opponent') return 'token';
+  if (it.type === 'equip') return 'equip';
+  if (it.type === 'text') return 'text';
+  return null;
+}
+function getSize(it) { return sizeKind(it) === 'text' ? it.size : it.r; }
+function setSize(it, v) {
+  const k = sizeKind(it); if (!k) return;
+  const [lo, hi] = SIZE_LIMITS[k];
+  v = Math.max(lo, Math.min(hi, Math.round(v)));
+  if (k === 'text') it.size = v; else it.r = v;
+}
+const clampSize = (kind, v) => Math.max(SIZE_LIMITS[kind][0], Math.min(SIZE_LIMITS[kind][1], Number(v) || SIZE_PRESETS[kind][1]));
 
 /* ---------- Couleurs ---------- */
 /* Normalise une couleur en #rrggbb (valeur attendue par <input type="color">). */
@@ -174,7 +200,7 @@ function render() {
   ctx.clearRect(-5, -5, LW + 10, LH + 10);
   drawPitch();
   for (const it of state.items) withRotation(it, () => drawItem(it));
-  if (CAN_EDIT && state.tool === 'select') drawSelection();
+  if (CAN_EDIT && state.tool === 'select' && !state.playing) drawSelection();
   if (state.tool !== 'view') drawScreenFrame();   // masqué pendant l'export
 }
 
@@ -187,7 +213,7 @@ function drawScreenFrame() {
   if (!f) return;
   ctx.save();
   // Assombrit l'extérieur du cadre pour visualiser ce qui sera exporté.
-  ctx.fillStyle = 'rgba(0,0,0,0.42)';
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
   ctx.fillRect(0, 0, LW, f.y);
   ctx.fillRect(0, f.y + f.h, LW, LH - (f.y + f.h));
   ctx.fillRect(0, f.y, f.x, f.h);
@@ -557,7 +583,7 @@ function showSizeTag(e, it) {
 function hideSizeTag() { if (sizeTag) sizeTag.style.display = 'none'; }
 
 canvas.addEventListener('pointerdown', (e) => {
-  if (!CAN_EDIT) return;
+  if (!CAN_EDIT || state.playing) return;
   if (e.button === 2) return;          // clic droit géré par le menu contextuel
   hideMenu();
   canvas.setPointerCapture(e.pointerId);
@@ -684,8 +710,8 @@ canvas.addEventListener('pointerup', () => {
       toast('Cadre trop petit — tracez une zone plus large.', 'error');
     }
     drag = null;
-    document.getElementById('screenHint')?.classList.add('hidden');
     setTool('select');
+    syncCrop();
     commit();
     return;
   }
@@ -828,6 +854,10 @@ function addToken(type, p, color) {
 function setTool(t) {
   state.tool = t;
   $$('.tb-tool[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+  // Mode cadrage : le même bouton l'annule, Échap aussi.
+  $('#screenHint')?.classList.toggle('hidden', t !== 'screen');
+  const sb = $('#screenBtn');
+  if (sb) { sb.classList.toggle('active', t === 'screen'); sb.textContent = t === 'screen' ? 'Annuler le cadrage' : 'Cadrer une zone'; }
   canvas.classList.toggle('tool-select', t === 'select');
   if (t !== 'select') { state.selIds = []; syncSelBar(); }
   render();
@@ -857,62 +887,83 @@ updatePionDots();
 $('#toggleNumbers').addEventListener('click', () => { state.showNumbers = !state.showNumbers; render(); scheduleSave(); });
 $('#formationSelect').addEventListener('change', e => { if (e.target.value) { applyFormation(e.target.value); e.target.value = ''; } });
 document.getElementById('screenBtn')?.addEventListener('click', () => {
+  if (state.tool === 'screen') { setTool('select'); return; }
   setTool('screen');
-  document.getElementById('screenHint')?.classList.remove('hidden');
-  toast('Tracez la zone du terrain à exporter');
 });
-document.getElementById('screenReset')?.addEventListener('click', () => {
+function clearCrop() {
   state.screen = null;
-  document.getElementById('screenHint')?.classList.add('hidden');
-  toast('Cadrage réinitialisé — export en plein terrain', 'success');
+  syncCrop();
+  toast('Cadrage retiré : export en plein terrain', 'success');
   commit();
-});
+}
+/* Affiche l'état du cadrage (panneau Exporter + pastille sur le terrain). */
+function syncCrop() {
+  const on = !!state.screen;
+  const status = $('#cropStatus');
+  if (status) status.innerHTML = on
+    ? 'Zone cadrée <button type="button" class="tb-linkbtn" id="cropClear">Retirer</button>'
+    : 'Plein terrain';
+  $('#cropClear')?.addEventListener('click', clearCrop);
+  $('#cropChip')?.classList.toggle('hidden', !on);
+}
+document.getElementById('cropChip')?.addEventListener('click', clearCrop);
 $('#undoBtn').addEventListener('click', undo);
 $('#clearBtn').addEventListener('click', () => { if (confirm('Tout effacer ?')) { pushHistory(); state.items = []; state.selIds = []; commit(); } });
 $('#logoInput').addEventListener('change', importLogo);
-$('#addStep').addEventListener('click', addStep);
+$('#addStep').addEventListener('click', newStep);
 $('#playSteps').addEventListener('click', () => playSteps());
+$('#deleteStep').addEventListener('click', deleteStep);
+$('#stepList').addEventListener('click', e => {
+  const b = e.target.closest('[data-step]');
+  if (b && !state.playing) goToStep(Number(b.dataset.step));
+});
 $('#exportPng').addEventListener('click', exportPNG);
+$('#exportAllPng').addEventListener('click', exportAllSteps);
 document.getElementById('presentBtn')?.addEventListener('click', togglePresent);
 document.getElementById('exportVideo')?.addEventListener('click', exportVideo);
 document.getElementById('saveBtn')?.addEventListener('click', () => saveToDB(false));
 document.getElementById('tbValidate')?.addEventListener('click', () => saveToDB(true));
 
-/* Barre de l'élément sélectionné */
-/* La barre reste TOUJOURS présente (classe .empty quand rien n'est sélectionné)
-   → aucune apparition/disparition, donc aucun saut/scroll de la page. */
+/* Panneau « Élément » : couleur, taille, texte / n°, angle, rotation. */
 function syncSelBar() {
-  const bar = $('#selBar');
   const sels = selectedItems();
-  const sizeInput = $('#selSize'), textInput = $('#selText');
-  if (!sels.length) { bar.classList.add('empty'); $('#selLabel').textContent = 'Sélectionnez un élément'; return; }
-  bar.classList.remove('empty');
+  const props = $('#selProps');
+  $('#selEmpty').classList.toggle('hidden', sels.length > 0);
+  props.classList.toggle('hidden', !sels.length);
+  if (!sels.length) { $('#selLabel').textContent = '—'; return; }
 
-  if (sels.length > 1) {
-    $('#selLabel').textContent = sels.length + ' éléments';
-    $('#selColor').value = toHex(sels[0].color || '#C9A84C');
-    sizeInput.classList.remove('hidden'); sizeInput.value = sels.find(s => s.r)?.r || state.tokenR;
-    textInput.classList.add('hidden');
-    return;
-  }
   const it = sels[0];
-  $('#selLabel').textContent = TYPE_LABEL[it.type] || 'Élément';
+  $('#selLabel').textContent = sels.length > 1 ? `${sels.length} éléments` : (TYPE_LABEL[it.type] || 'Élément');
   $('#selColor').value = toHex(it.color || '#C9A84C');
-  const isToken = it.type === 'player' || it.type === 'opponent';
-  const hasR = isToken || it.type === 'equip';
-  if (hasR) sizeInput.value = it.r; else if (it.type === 'text') sizeInput.value = it.size;
-  sizeInput.classList.toggle('hidden', !(hasR || it.type === 'text'));
-  textInput.classList.toggle('hidden', !(isToken || it.type === 'text' || it.type === 'shape'));
-  if (it.type === 'text') { textInput.value = it.text || ''; textInput.placeholder = 'Texte'; }
-  else if (isToken) { textInput.value = it.number ?? ''; textInput.placeholder = 'n°'; }
-  else if (it.type === 'shape') { textInput.value = it.label || ''; textInput.placeholder = 'Nom de la zone'; }
+
+  // Taille : seulement pour pions, matériel et textes.
+  const sized = sels.filter(x => sizeKind(x));
+  $('#propSize').classList.toggle('hidden', !sized.length);
+  if (sized.length) {
+    const kind = sizeKind(sized[0]);
+    const same = sized.every(x => sizeKind(x) === kind && getSize(x) === getSize(sized[0]));
+    $$('#selSizes [data-preset]').forEach(b =>
+      b.classList.toggle('active', same && SIZE_PRESETS[kind][Number(b.dataset.preset)] === getSize(sized[0])));
+  }
+
+  // Texte / numéro / nom de zone : sélection unique.
+  const one = sels.length === 1 ? it : null;
+  const isToken = one && (one.type === 'player' || one.type === 'opponent');
+  const hasText = one && (isToken || one.type === 'text' || one.type === 'shape');
+  $('#propText').classList.toggle('hidden', !hasText);
+  if (hasText) {
+    const input = $('#selText');
+    if (one.type === 'text') { $('#selTextLabel').textContent = 'Texte'; input.value = one.text || ''; input.placeholder = 'Texte'; }
+    else if (isToken) { $('#selTextLabel').textContent = 'Numéro'; input.value = one.number ?? ''; input.placeholder = 'n°'; }
+    else { $('#selTextLabel').textContent = 'Nom'; input.value = one.label || ''; input.placeholder = 'Nom de la zone'; }
+  }
 
   // Bouton d'angle : réservé aux tracés, il pose ou retire le coude.
   const bendBtn = $('#selBend');
-  const isSeg = it.type === 'arrow' || it.type === 'line';
+  const isSeg = one && (one.type === 'arrow' || one.type === 'line');
   bendBtn.classList.toggle('hidden', !isSeg);
   if (isSeg) {
-    const has = !!bendOf(it);
+    const has = !!bendOf(one);
     bendBtn.textContent = has ? 'Redresser' : 'Angle';
     bendBtn.classList.toggle('active', has);
   }
@@ -935,14 +986,21 @@ $('#selColor').addEventListener('input', e => {
   const sels = selectedItems(); if (!sels.length) return;
   sels.forEach(it => it.color = e.target.value); render(); scheduleSave();   // s'applique à toute la sélection
 });
-$('#selSize').addEventListener('input', e => {
-  const v = Number(e.target.value); const sels = selectedItems(); if (!sels.length) return;
+$('#selSizes').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const sels = selectedItems().filter(x => sizeKind(x)); if (!sels.length) return;
+  pushHistory();
   sels.forEach(it => {
-    if (it.type === 'player' || it.type === 'opponent') { it.r = v; state.tokenR = v; }
-    else if (it.type === 'equip') it.r = v;
-    else if (it.type === 'text') it.size = v;
+    const kind = sizeKind(it);
+    setSize(it, b.dataset.preset != null ? SIZE_PRESETS[kind][Number(b.dataset.preset)] : getSize(it) + Number(b.dataset.step));
+    if (kind === 'token') state.tokenR = it.r;   // les prochains pions prennent cette taille
+    if (kind === 'equip') state.equipR = it.r;
   });
-  render(); scheduleSave();
+  syncSelBar(); commit();
+});
+$('#selRotate').addEventListener('click', () => {
+  const sels = selectedItems(); if (!sels.length) return;
+  pushHistory(); sels.forEach(it => rotateItem(it, 90)); commit();
 });
 $('#selText').addEventListener('input', e => {
   const it = selected(); if (!it) return;
@@ -986,8 +1044,9 @@ function pasteClipboard() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') hideMenu();
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'Escape') { hideMenu(); if (state.tool === 'screen') { drag = null; setTool('select'); } }
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+  if (state.playing) return;
   if (!CAN_EDIT) return;
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
@@ -1014,7 +1073,7 @@ function applyFormation(name) {
   state.items = state.items.filter(i => i.type !== 'player');
   state.nextNum = 1;
   FORMATIONS[name].forEach(([px, py]) => {
-    state.items.push({ id: nid(), type: 'player', x: px / 100 * LW, y: py / 100 * LH, r: 18, number: state.nextNum++, color: state.jersey });
+    state.items.push({ id: nid(), type: 'player', x: px / 100 * LW, y: py / 100 * LH, r: state.tokenR, number: state.nextNum++, color: state.jersey });
   });
   commit();
 }
@@ -1035,72 +1094,187 @@ function importLogo(e) {
 
 /* ============================================================
    ÉTAPES ANIMÉES
+   Chaque étape mémorise la position de tous les éléments. L'étape
+   affichée (pastille active) est celle que l'on modifie : chaque
+   déplacement y est enregistré automatiquement. « Lire » part de
+   l'étape 1 et enchaîne jusqu'à la dernière.
    ============================================================ */
+const POS_KEYS = ['x', 'y', 'x1', 'y1', 'x2', 'y2', 'mx', 'my'];
 function snapshot() {
   const s = {};
-  for (const it of state.items) s[it.id] = { x: it.x, y: it.y, x1: it.x1, y1: it.y1, x2: it.x2, y2: it.y2, mx: it.mx, my: it.my };
+  for (const it of state.items) {
+    const o = {};
+    for (const k of POS_KEYS) if (typeof it[k] === 'number') o[k] = it[k];
+    s[it.id] = o;
+  }
   return s;
 }
-function addStep() { state.steps.push(snapshot()); updateStepInfo(); scheduleSave(); toast('Étape ' + state.steps.length + ' enregistrée', 'success'); }
-function updateStepInfo() { $('#stepInfo').textContent = state.steps.length + ' étape' + (state.steps.length > 1 ? 's' : ''); }
-
-function playSteps(done) {
-  if (state.steps.length < 1) { if (typeof done !== 'function') toast('Ajoutez au moins une étape (+ Étape).', 'error'); else done(); return; }
-  const seq = [snapshot(), ...state.steps];
-  let i = 0;
-  const stepTo = () => {
-    if (i >= seq.length - 1) { render(); if (typeof done === 'function') done(); return; }
-    tween(seq[i], seq[i + 1], 800, () => { i++; stepTo(); });
-  };
-  stepTo();
+/* Place les éléments comme dans une étape. Un élément ajouté après
+   coup (absent de l'étape) garde sa position ; un coude absent de
+   l'étape est retiré. */
+function applySnapshot(snap) {
+  for (const it of state.items) {
+    const o = snap?.[it.id]; if (!o) continue;
+    for (const k of POS_KEYS) {
+      if (typeof o[k] === 'number') it[k] = o[k];
+      else if ((k === 'mx' || k === 'my') && k in it) delete it[k];
+    }
+  }
+}
+function recordStep() {
+  if (state.curStep !== null && state.steps[state.curStep]) state.steps[state.curStep] = snapshot();
+}
+function newStep() {
+  if (state.playing) return;
+  if (!state.steps.length) { state.steps = [snapshot()]; state.curStep = 0; }
+  else recordStep();
+  const at = (state.curStep ?? state.steps.length - 1) + 1;
+  state.steps.splice(at, 0, snapshot());
+  state.curStep = at;
+  renderSteps(); scheduleSave();
+  toast(at === 1
+    ? 'Étape 1 = position de départ. Déplacez maintenant les éléments pour l’étape 2.'
+    : `Étape ${at + 1} créée : déplacez les éléments.`, 'success');
+}
+function goToStep(i) {
+  if (i === state.curStep || !state.steps[i]) return;
+  recordStep();
+  const from = snapshot();
+  state.curStep = i;
+  state.selIds = []; syncSelBar();
+  renderSteps();
+  tween(from, state.steps[i], 380, () => { applySnapshot(state.steps[i]); render(); scheduleSave(); });
+}
+function deleteStep() {
+  if (state.curStep === null || state.playing) return;
+  if (!confirm(`Supprimer l’étape ${state.curStep + 1} ?`)) return;
+  state.steps.splice(state.curStep, 1);
+  if (state.steps.length < 2) {
+    // Une étape seule n'anime rien : on revient à un schéma statique.
+    state.steps = []; state.curStep = null;
+  } else {
+    state.curStep = Math.min(state.curStep, state.steps.length - 1);
+    applySnapshot(state.steps[state.curStep]);
+  }
+  renderSteps(); commit();
+}
+function renderSteps() {
+  const n = state.steps.length, cur = state.curStep;
+  $('#stepList').innerHTML = state.steps.map((_, i) =>
+    `<button type="button" class="tb-step${i === cur ? ' active' : ''}" data-step="${i}" title="Afficher l’étape ${i + 1}">${i + 1}</button>`).join('');
+  $('#stepInfo').textContent = !n ? '' : (cur === null ? `${n} étapes` : `${cur + 1} / ${n}`);
+  $('#stepHint').textContent = !n
+    ? 'Placez vos éléments, puis « + Nouvelle étape » pour créer la suite du mouvement.'
+    : 'Cliquez une étape pour l’afficher : ce que vous déplacez y est enregistré.';
+  $('#playSteps').disabled = n < 2;
+  $('#deleteStep').disabled = cur === null;
+  $('#exportAllPng').disabled = n < 2;
+  $('#exportVideo').disabled = n < 2;
+  const ps = $('#presStep'); if (ps) ps.textContent = n && cur !== null ? `Étape ${cur + 1} / ${n}` : '';
 }
 
-/* ---------- Mode présentation (plein écran) ---------- */
+function playSteps(done) {
+  const finish = () => { if (typeof done === 'function') done(); };
+  if (state.playing) return;
+  if (state.steps.length < 2) { toast('Créez au moins 2 étapes pour lancer l’animation.', 'error'); return finish(); }
+  recordStep();
+  state.playing = true; state.selIds = []; syncSelBar();
+  applySnapshot(state.steps[0]); state.curStep = 0; renderSteps(); render();
+  let i = 0;
+  const next = () => {
+    if (i >= state.steps.length - 1) {
+      state.playing = false; render(); renderSteps(); return finish();
+    }
+    // Courte pause sur chaque étape, puis transition fluide vers la suivante.
+    setTimeout(() => tween(state.steps[i], state.steps[i + 1], 1100, () => {
+      i++; state.curStep = i; renderSteps(); next();
+    }), i === 0 ? 350 : 250);
+  };
+  next();
+}
+
+/* ---------- Mode présentation (plein écran) ----------
+   Barre de commande intégrée (étapes, lecture, quitter) : on n'est
+   jamais bloqué en plein écran. Si le navigateur refuse le plein écran
+   (iPhone…), la présentation occupe la fenêtre. */
 function togglePresent() {
   const stage = document.querySelector('.tb-stage');
-  if (!document.fullscreenElement) {
-    stage.classList.add('presenting');
-    (stage.requestFullscreen ? stage.requestFullscreen() : Promise.resolve()).catch(() => {});
-  } else document.exitFullscreen();
+  if (stage.classList.contains('presenting')) return exitPresent();
+  stage.classList.add('presenting');
+  state.selIds = []; syncSelBar(); render();
+  if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
+}
+function exitPresent() {
+  document.querySelector('.tb-stage')?.classList.remove('presenting');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  render();
 }
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) document.querySelector('.tb-stage')?.classList.remove('presenting');
   render();
 });
+$('#presExit').addEventListener('click', exitPresent);
+$('#presPlay').addEventListener('click', () => playSteps());
+$('#presPrev').addEventListener('click', () => { if (state.curStep > 0) goToStep(state.curStep - 1); });
+$('#presNext').addEventListener('click', () => {
+  const n = state.steps.length; if (!n) return;
+  goToStep(state.curStep === null ? 0 : Math.min(n - 1, state.curStep + 1));
+});
 
-/* ---------- Export vidéo de l'animation (WebM) ---------- */
+/* ---------- Export vidéo de l'animation ----------
+   MP4 quand le navigateur sait l'enregistrer (lisible partout, y compris
+   QuickTime et WhatsApp), sinon WebM. Respecte la zone cadrée. */
 async function exportVideo() {
-  if (!canvas.captureStream || !window.MediaRecorder) return toast('Export vidéo non supporté par ce navigateur.', 'error');
-  if (state.steps.length < 1) return toast('Ajoutez des étapes (+ Étape) pour animer.', 'error');
-  const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  if (!window.MediaRecorder || !canvas.captureStream) return toast('Export vidéo non supporté par ce navigateur.', 'error');
+  if (state.steps.length < 2) return toast('Créez au moins 2 étapes pour exporter une vidéo.', 'error');
+  const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
   const mime = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
-  const stream = canvas.captureStream(30);
-  const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+
+  // Source : le terrain entier, ou une copie recadrée image par image.
+  const keepTool = state.tool; state.tool = 'view';
+  let source = canvas, copyLoop = null;
+  if (state.screen) {
+    const dpr = window.devicePixelRatio || 1, s = state.screen;
+    const r = isPortrait() ? { x: s.y, y: LW - (s.x + s.w), w: s.h, h: s.w } : { x: s.x, y: s.y, w: s.w, h: s.h };
+    source = document.createElement('canvas');
+    source.width = Math.round(r.w * dpr); source.height = Math.round(r.h * dpr);
+    const g = source.getContext('2d');
+    const copy = () => { g.drawImage(canvas, r.x * dpr, r.y * dpr, r.w * dpr, r.h * dpr, 0, 0, source.width, source.height); copyLoop = requestAnimationFrame(copy); };
+    copy();
+  }
+  const rec = new MediaRecorder(source.captureStream(30), mime ? { mimeType: mime } : undefined);
   const chunks = [];
   rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  const btn = $('#exportVideo'); btn.disabled = true; btn.textContent = 'Enregistrement…';
   rec.onstop = () => {
+    if (copyLoop) cancelAnimationFrame(copyLoop);
+    state.tool = keepTool; render();
+    btn.disabled = false; btn.textContent = 'Vidéo de l’animation';
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
-    a.download = 'animation-tactique.webm'; a.click();
+    a.href = URL.createObjectURL(new Blob(chunks, { type: mime.split(';')[0] || 'video/webm' }));
+    a.download = `animation-tactique.${ext}`; a.click();
     toast('Vidéo exportée', 'success');
   };
-  toast('Enregistrement de l\'animation…');
   rec.start();
-  playSteps(() => setTimeout(() => rec.stop(), 500));
+  playSteps(() => setTimeout(() => rec.stop(), 700));
 }
+
+/* Transition entre deux étapes : easeInOutCubic, coudes compris. */
 function tween(from, to, dur, done) {
   const t0 = performance.now();
   const frame = (now) => {
     const k = Math.min(1, (now - t0) / dur);
-    const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; // easeInOut
+    const e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
     for (const it of state.items) {
       const a = from[it.id], b = to[it.id]; if (!a || !b) continue;
-      for (const key of ['x', 'y', 'x1', 'y1', 'x2', 'y2']) {
-        if (a[key] != null && b[key] != null) it[key] = a[key] + (b[key] - a[key]) * e;
+      for (const key of POS_KEYS) {
+        if (typeof a[key] === 'number' && typeof b[key] === 'number') it[key] = a[key] + (b[key] - a[key]) * e;
+        else if (typeof b[key] === 'number' && k >= 1) it[key] = b[key];
       }
     }
     render();
-    if (k < 1) requestAnimationFrame(frame); else done && done();
+    if (k < 1) requestAnimationFrame(frame); else if (done) done();
   };
   requestAnimationFrame(frame);
 }
@@ -1110,7 +1284,7 @@ function tween(from, to, dur, done) {
    ============================================================ */
 function serialize() {
   return {
-    view: state.view, showNumbers: state.showNumbers, steps: state.steps,
+    view: state.view, showNumbers: state.showNumbers, steps: state.steps, curStep: state.curStep,
     nextNum: state.nextNum, nextOpp: state.nextOpp, screen: state.screen,
     items: state.items.map(it => { const c = { ...it }; delete c._img; return c; }),
   };
@@ -1119,7 +1293,8 @@ function deserialize(data) {
   state.view = data.view || 'complet';
   state.screen = data.screen || null;
   state.showNumbers = data.showNumbers !== false;
-  state.steps = data.steps || [];
+  state.steps = Array.isArray(data.steps) ? data.steps : [];
+  state.curStep = Number.isInteger(data.curStep) && state.steps[data.curStep] ? data.curStep : null;
   state.nextNum = data.nextNum || (data.items?.filter(i => i.type === 'player').length + 1) || 1;
   state.nextOpp = data.nextOpp || 1;
   state.items = (data.items || []).map(it => {
@@ -1128,7 +1303,7 @@ function deserialize(data) {
   });
   idSeq = Math.max(0, ...state.items.map(i => i.id)) + 1;
   $$('#viewGroup .tb-tool').forEach(x => x.classList.toggle('active', x.dataset.view === state.view));
-  updateStepInfo();
+  renderSteps(); syncCrop();
 }
 
 function pushHistory() { state.history.push(JSON.stringify(serialize().items)); if (state.history.length > 50) state.history.shift(); }
@@ -1136,9 +1311,10 @@ function undo() {
   if (!state.history.length) return;
   const items = JSON.parse(state.history.pop());
   state.items = items.map(it => { if (it.type === 'logo' && it.src) { const img = new Image(); img.src = it.src; it._img = img; } return it; });
-  state.selIds = []; syncSelBar(); render(); scheduleSave();
+  state.selIds = []; syncSelBar(); render(); recordStep(); scheduleSave();
 }
-function commit() { render(); scheduleSave(); }
+/* Chaque modification est aussi enregistrée dans l'étape affichée. */
+function commit() { render(); recordStep(); scheduleSave(); }
 
 /* Autosave LocalStorage (debounce + intervalle 30 s) */
 let saveTimer = null;
@@ -1179,7 +1355,24 @@ function exportClean() {
 }
 function exportPNG() {
   const a = document.createElement('a');
-  a.href = exportClean(); a.download = 'schema-tactique.png'; a.click();
+  const n = state.curStep !== null ? `-etape-${state.curStep + 1}` : '';
+  a.href = exportClean(); a.download = `schema-tactique${n}.png`; a.click();
+}
+/* Une image par étape, dans l'ordre (le navigateur peut demander
+   l'autorisation de télécharger plusieurs fichiers). */
+async function exportAllSteps() {
+  if (state.steps.length < 2) return toast('Créez au moins 2 étapes.', 'error');
+  recordStep();
+  const keep = state.curStep;
+  for (let i = 0; i < state.steps.length; i++) {
+    applySnapshot(state.steps[i]);
+    const a = document.createElement('a');
+    a.href = exportClean(); a.download = `schema-tactique-etape-${i + 1}.png`; a.click();
+    await new Promise(r => setTimeout(r, 300));
+  }
+  if (keep !== null) applySnapshot(state.steps[keep]);
+  render();
+  toast(`${state.steps.length} images exportées`, 'success');
 }
 
 async function saveToDB(validate) {
@@ -1218,8 +1411,8 @@ function applyPrefs(prefs) {
   if (prefs.jersey) { state.jersey = prefs.jersey; const el = $('#jerseyColor'); if (el) el.value = prefs.jersey; }
   if (prefs.opp)    { state.opp = prefs.opp;       const el = $('#oppColor');    if (el) el.value = prefs.opp; }
   if (prefs.draw)   { state.drawColor = prefs.draw; const el = $('#drawColor');  if (el) el.value = prefs.draw; }
-  if (prefs.tokenR) state.tokenR = Number(prefs.tokenR);
-  if (prefs.equipR) state.equipR = Number(prefs.equipR);
+  if (prefs.tokenR) state.tokenR = clampSize('token', prefs.tokenR);
+  if (prefs.equipR) state.equipR = clampSize('equip', prefs.equipR);
   if (prefs.font)   { state.textFont = prefs.font; const el = $('#fontSelect');  if (el) el.value = prefs.font; }
   if (typeof prefs.showNumbers === 'boolean') state.showNumbers = prefs.showNumbers;
   // La vue par défaut ne s'applique qu'à un nouveau schéma (sinon on écraserait
@@ -1261,6 +1454,7 @@ async function boot() {
     if (ls) { try { deserialize(JSON.parse(ls)); loaded = true; } catch (e) {} }
   }
   setTool('select');
+  renderSteps(); syncCrop(); syncSelBar();
   resizeCanvas();   // ajuste l'orientation si le schéma chargé était en mode Horizontal
 }
 boot();

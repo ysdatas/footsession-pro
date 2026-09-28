@@ -42,10 +42,6 @@ const DEFAULT_PREFS = {
   document.getElementById('resetMenu').addEventListener('click', () => renderMenuEditor({}));
   renderMenuEditor(myProfile.prefs || {});
 
-  // Retours visuels des curseurs
-  const tok = document.getElementById('pf-token'), eqp = document.getElementById('pf-equip');
-  tok.addEventListener('input', () => document.getElementById('pf-tokenVal').textContent = tok.value);
-  eqp.addEventListener('input', () => document.getElementById('pf-equipVal').textContent = eqp.value);
 
   fillPrefs(await loadPrefs());
 
@@ -67,13 +63,18 @@ function fillPrefs(p) {
   document.getElementById('pf-jersey').value = p.jersey;
   document.getElementById('pf-opp').value = p.opp;
   document.getElementById('pf-draw').value = p.draw;
-  document.getElementById('pf-token').value = p.tokenR;
-  document.getElementById('pf-equip').value = p.equipR;
-  document.getElementById('pf-tokenVal').textContent = p.tokenR;
-  document.getElementById('pf-equipVal').textContent = p.equipR;
+  // Mêmes tailles S / M / L / XL que dans le tableau tactique : une
+  // ancienne valeur libre est ramenée à la taille la plus proche.
+  document.getElementById('pf-token').value = nearestOption('pf-token', p.tokenR);
+  document.getElementById('pf-equip').value = nearestOption('pf-equip', p.equipR);
   document.getElementById('pf-view').value = p.view;
   document.getElementById('pf-font').value = p.font;
   document.getElementById('pf-numbers').value = p.showNumbers ? '1' : '0';
+}
+
+function nearestOption(selectId, value) {
+  const opts = [...document.getElementById(selectId).options].map(o => Number(o.value));
+  return String(opts.reduce((best, v) => Math.abs(v - value) < Math.abs(best - value) ? v : best, opts[0]));
 }
 
 async function savePrefs() {

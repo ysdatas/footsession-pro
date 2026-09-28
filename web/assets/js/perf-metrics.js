@@ -55,6 +55,26 @@ function perfDelta(key, value, reference) {
   return m.better === 'lower' ? Number(reference) - Number(value) : Number(value) - Number(reference);
 }
 
+/* Clé de classement, plus petite = meilleure, pour TOUS les tests :
+   chaque test a un classement dans l'effectif.
+   - sens « lower » / « higher » : la valeur elle-même ;
+   - asymétrie 505 : moins il y en a, mieux c'est ;
+   - ratio Shirado / Sorensen : distance à la zone idéale 0,7–0,8 donnée
+     par la notice du classeur (0 à l'intérieur de la zone).
+   Renvoie null pour une valeur absente. */
+const RATIO_IDEAL = [0.7, 0.8];
+function perfRankKey(key, value) {
+  const m = PERF_METRIC_BY_KEY[key];
+  if (!m || value === null || value === undefined || value === '') return null;
+  const v = Number(value);
+  if (!Number.isFinite(v)) return null;
+  if (key === 'core_ratio') return v < RATIO_IDEAL[0] ? RATIO_IDEAL[0] - v : (v > RATIO_IDEAL[1] ? v - RATIO_IDEAL[1] : 0);
+  if (key === 'five05_asymmetry_pct') return v;
+  if (m.better === 'lower') return v;
+  if (m.better === 'higher') return -v;
+  return null;
+}
+
 /* En dessous de ce nombre de joueurs, une moyenne n'est pas affichée :
    elle ne décrit pas un groupe et, pour un compte joueur, reviendrait à
    divulguer une valeur individuelle. Même seuil que club_test_averages(). */
@@ -127,3 +147,25 @@ const SCORE_AXES = [
   { key: 'profile_endurance', label: 'Endurance' },
   { key: 'profile_core',      label: 'Core' },
 ];
+
+/* Lignes de jeu (page Joueurs, fiche joueur). */
+const PLAYER_LINES = [
+  { key: 'gardien',   label: 'Gardiens' },
+  { key: 'defenseur', label: 'Défenseurs' },
+  { key: 'milieu',    label: 'Milieux' },
+  { key: 'attaquant', label: 'Attaquants' },
+];
+const LINE_SINGULAR = { gardien: 'Gardien', defenseur: 'Défenseur', milieu: 'Milieu', attaquant: 'Attaquant' };
+
+/* Ligne d'un joueur : le choix enregistré (colonne ligne) s'il existe,
+   sinon déduite du poste. null = à classer. */
+function lineOf(p) {
+  if (PLAYER_LINES.some(l => l.key === p?.ligne)) return p.ligne;
+  const poste = normalizeName(p?.poste);
+  if (!poste) return null;
+  if (/^(gb|gk|g)$|gardien|portier/.test(poste)) return 'gardien';
+  if (/^(dc|dd|dg|dl|dr|ld|lg|lat|def|axe)\b|defens|arriere|lateral|libero/.test(poste)) return 'defenseur';
+  if (/^(mdf|mdc|mc|mo|moc|md|mg|mil|mr|ml|cm|dm|am)\b|milieu|sentinelle|relayeur|meneur/.test(poste)) return 'milieu';
+  if (/^(bu|bt|at|att|ad|ag|ai|rw|lw|st|cf|sa|ac|av)\b|attaqu|ailier|avant|buteur|pointe/.test(poste)) return 'attaquant';
+  return null;
+}
