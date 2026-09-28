@@ -151,6 +151,16 @@
     async function afterAuth() {
       const { data: { session } } = await sb.auth.getSession();
       if (!session) return;
+
+      // Un compte staff/admin qui atterrit ici (lien, favori, historique)
+      // n'a rien à faire d'un code joueur : on le renvoie à son espace.
+      const { data: profile } = await sb.from('profiles')
+        .select('role, club_id').eq('id', session.user.id).maybeSingle();
+      if (profile && profile.role !== 'joueur') {
+        window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
+        return;
+      }
+
       const { data: player } = await sb.from('players').select('id').eq('auth_user_id', session.user.id).maybeSingle();
       if (player) { window.location.href = 'mes-videos.html'; return; }
       showCodeForm();

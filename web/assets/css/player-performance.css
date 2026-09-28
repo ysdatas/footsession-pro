@@ -235,3 +235,92 @@
 .fp-fm-shell .section-head{margin-bottom:10px;}
 .fp-fm-shell .section-head p{margin:0;font-size:.78rem;}
 .fp-fm-shell .card{padding:14px 18px;}
+
+/* ============================================================
+   Harmonie des cartes
+   Une rubrique ne doit pas devenir visuellement plus lourde qu'une
+   autre juste parce qu'elle contient plus de lignes : les cartes
+   d'une même rangée ont la même hauteur, et c'est le contenu long
+   qui défile à l'intérieur.
+   ============================================================ */
+.fp-fm-shell,
+.perf-grid-bottom,
+.perf-grid-notes{align-items:stretch;}
+
+.dash-grid.perf-grid-main > .card,
+.perf-grid-bottom > .card,
+.perf-grid-bottom > #videoPanelSlot > .card,
+.perf-grid-notes > .card{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+/* L'entête reste fixe, le contenu prend la place restante. */
+.perf-grid-bottom > .card > .section-head,
+.perf-grid-notes > .card > .section-head{flex:0 0 auto;}
+
+/* Historique des mesures : hauteur bornée, défilement interne. */
+#measurementHistory{flex:1 1 auto;min-height:0;overflow-y:auto;max-height:260px;}
+.measurement-table{border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;}
+.measurement-row.header{position:sticky;top:0;z-index:1;background:#15181c;}
+
+/* Liste de vidéos : même traitement, la carte ne s'allonge pas. */
+.fp-video-panel .fp-video-grid{
+  flex:1 1 auto;min-height:0;overflow-y:auto;max-height:340px;
+  align-content:start;padding-right:4px;
+}
+.fp-video-panel .fp-video-head,
+.fp-video-panel .fp-video-filters{flex:0 0 auto;}
+
+/* Notes : la carte garde sa hauteur, la liste défile. */
+.perf-grid-notes .note-grid{
+  flex:1 1 auto;min-height:0;overflow-y:auto;max-height:320px;
+  align-content:start;padding-right:4px;
+}
+
+/* Barres de défilement discrètes, pour ne pas casser le rythme visuel. */
+#measurementHistory,.fp-video-panel .fp-video-grid,.perf-grid-notes .note-grid{
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent;
+}
+#measurementHistory::-webkit-scrollbar,
+.fp-video-panel .fp-video-grid::-webkit-scrollbar,
+.perf-grid-notes .note-grid::-webkit-scrollbar{width:7px;}
+#measurementHistory::-webkit-scrollbar-thumb,
+.fp-video-panel .fp-video-grid::-webkit-scrollbar-thumb,
+.perf-grid-notes .note-grid::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.16);border-radius:4px;
+}
+
+/* ---------- Notes : aucun chevauchement texte / images ---------- */
+.note-card{display:flex;flex-direction:column;gap:8px;min-width:0;}
+.note-card h3{margin:0;font-size:.95rem;line-height:1.3;overflow-wrap:anywhere;}
+.note-card p{margin:0;overflow-wrap:anywhere;}
+.note-card-head{gap:8px;flex-wrap:wrap;}
+.note-card-head .badge{flex:0 0 auto;}
+.media-grid{margin-top:2px;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));}
+.media-grid figure{margin:0;min-width:0;}
+.media-grid img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;display:block;}
+.media-grid figcaption{
+  padding:5px 7px;font-size:.68rem;line-height:1.25;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+
+/* ---------- Panneau latéral ---------- */
+.side-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.side-title-row .btn{
+  padding:3px 9px;font-size:.68rem;text-transform:none;letter-spacing:0;font-weight:600;
+}
+.fp-fm-info-row span:first-child{flex:0 0 auto;}
+.fp-fm-info-row strong{text-align:right;overflow-wrap:anywhere;min-width:0;}
+
+/* ---------- Formulaires de modale ---------- */
+.form-grid-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+@media (max-width:520px){ .form-grid-2{grid-template-columns:1fr;} }
+
+@media (max-width:1400px){
+  /* En colonne unique, plus besoin de brider les hauteurs. */
+  #measurementHistory,.fp-video-panel .fp-video-grid,.perf-grid-notes .note-grid{
+    max-height:none;overflow-y:visible;
+  }
+}

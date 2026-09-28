@@ -57,7 +57,10 @@
           <div class="fp-fm-side-meta pitch-label" id="miniPitchLabel">—</div>
         </div>
         <div class="fp-fm-side-block">
-          <div class="fp-fm-side-title">Informations</div>
+          <div class="fp-fm-side-title side-title-row">
+            <span>Informations</span>
+            <button class="btn btn-sm hidden perf-editor-only" id="btnEditPlayer" type="button">Modifier</button>
+          </div>
           <div id="sidebarInfo"></div>
         </div>
         <div class="fp-fm-side-block">
@@ -90,7 +93,7 @@
           <div class="section-head">
             <div>
               <h2>Tests physiques</h2>
-              <p class="text-muted">Valeurs brutes et écart à la moyenne du club.</p>
+              <p class="text-muted">Valeurs du joueur, comparées à la moyenne de son club sur la même session.</p>
             </div>
             <button class="btn btn-sm hidden perf-editor-only" id="btnAddMeasurement" type="button">+ Mesure</button>
           </div>
@@ -190,6 +193,34 @@
       <div class="modal-actions">
         <button class="btn" data-close="noteModal" type="button">Annuler</button>
         <button class="btn btn-primary" id="btnSaveNote" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fiche joueur -->
+  <div class="modal-backdrop" id="playerEditModal">
+    <div class="modal">
+      <h3>Modifier la fiche joueur</h3>
+      <p class="text-muted" style="font-size:.82rem;margin-bottom:12px;">
+        Ces champs identifient le joueur dans l’application. L’import Excel s’appuie sur le
+        <strong>nom de famille</strong> : le modifier change la correspondance avec le classeur du préparateur.
+      </p>
+      <div class="form-grid form-grid-2">
+        <label>Prénom<input id="pe-prenom" type="text"></label>
+        <label>Nom<input id="pe-nom" type="text"></label>
+        <label>Numéro<input id="pe-numero" type="number" min="1" max="99"></label>
+        <label>Poste<input id="pe-poste" type="text" list="posteList" placeholder="Ex : Milieu central"></label>
+      </div>
+      <datalist id="posteList">
+        <option value="Gardien"></option><option value="Défenseur central"></option>
+        <option value="Latéral droit"></option><option value="Latéral gauche"></option>
+        <option value="Milieu défensif"></option><option value="Milieu central"></option>
+        <option value="Milieu offensif"></option><option value="Ailier droit"></option>
+        <option value="Ailier gauche"></option><option value="Attaquant"></option>
+      </datalist>
+      <div class="modal-actions">
+        <button class="btn" data-close="playerEditModal" type="button">Annuler</button>
+        <button class="btn btn-primary" id="btnSavePlayer" type="button">Enregistrer</button>
       </div>
     </div>
   </div>

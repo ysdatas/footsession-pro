@@ -26,6 +26,16 @@
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { window.location.href = 'player-join.html'; return; }
 
+    /* Un compte staff n'a pas de fiche joueur liée : sans ce contrôle il
+       était renvoyé sur player-join.html et se voyait réclamer un code
+       joueur, alors que son compte est parfaitement associé à un club. */
+    const { data: profile } = await sb.from('profiles')
+      .select('role, club_id').eq('id', session.user.id).maybeSingle();
+    if (profile && profile.role !== 'joueur') {
+      window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
+      return;
+    }
+
     const { data: player } = await sb.from('players').select('id').eq('auth_user_id', session.user.id).maybeSingle();
     if (!player) { window.location.href = 'player-join.html'; return; }
 

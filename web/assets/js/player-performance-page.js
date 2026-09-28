@@ -233,14 +233,27 @@ function renderTestSummary(test) {
     </tr>`;
   }).join('');
 
+  const stageLabel = STAGES.find(x => x.key === stage)?.label || '';
+  const n = clubAverages?.n_players;
+
   box.innerHTML = `<div class="test-table-wrap"><table class="test-table">
     <thead><tr>
       <th>Test</th><th>Valeur</th><th>Unité</th>
-      ${hasRef ? '<th>Réf. club</th><th>Écart</th>' : ''}
+      ${hasRef ? `<th title="Moyenne des joueurs du club testés sur cette session">Moyenne club</th>
+                  <th title="Différence entre le joueur et la moyenne du club">Écart</th>` : ''}
     </tr></thead>
     <tbody>${body}</tbody>
   </table></div>
-  ${hasRef ? '' : '<p class="text-muted table-note">Référence club indisponible : il faut au moins 3 joueurs testés sur la session.</p>'}`;
+  ${hasRef
+    ? `<p class="text-muted table-note">
+         <strong>Moyenne club</strong> : moyenne des ${n ? `${n} joueurs` : 'joueurs'} de votre club
+         ayant passé les tests de <strong>${esc(stageLabel)}</strong>.
+         <strong>Écart</strong> : différence entre ce joueur et cette moyenne —
+         <span class="gap-up">vert = meilleur que la moyenne</span>,
+         <span class="gap-down">rouge = moins bon</span>.
+         Un sprint plus court et un VIFT plus élevé comptent tous deux comme un gain.
+       </p>`
+    : `<p class="text-muted table-note">Pas de moyenne club pour cette session : il faut au moins 3 joueurs testés.</p>`}`;
 }
 
 /* ------------------------------------------------------------
@@ -576,6 +589,45 @@ async function loadPage() {
   renderMeasurements();
   await signMedia();
   renderNotes();
+}
+
+/* Édition de la fiche joueur depuis le dossier Performance.
+   Les mêmes champs que la page Joueurs, pour ne pas avoir à en sortir. */
+function openPlayerEdit() {
+  if (!canEditPerformance || !player) return;
+  document.getElementById('pe-prenom').value = player.prenom || '';
+  document.getElementById('pe-nom').value = player.nom || '';
+  document.getElementById('pe-numero').value = player.numero ?? '';
+  document.getElementById('pe-poste').value = player.poste || '';
+  openPerfModal('playerEditModal');
+}
+
+async function savePlayerEdit() {
+  if (!canEditPerformance || !player) return;
+  const nom = document.getElementById('pe-nom').value.trim();
+  if (!nom) return notify('Le nom est obligatoire.', 'error');
+
+  const numeroRaw = document.getElementById('pe-numero').value;
+  const body = {
+    nom,
+    prenom: document.getElementById('pe-prenom').value.trim() || null,
+    numero: numeroRaw !== '' ? Number(numeroRaw) : null,
+    poste: document.getElementById('pe-poste').value.trim() || null,
+  };
+
+  const { error } = await sb.from('players').update(body).eq('id', player.id);
+  if (error) return notify(error.message, 'error');
+
+  Object.assign(player, body);
+  closePerfModal('playerEditModal');
+  notify('Fiche joueur mise à jour.', 'success');
+
+  const fullName = `${player.prenom || ''} ${player.nom || ''}`.trim();
+  document.getElementById('playerName').textContent = fullName || 'Joueur';
+  document.getElementById('playerMeta').textContent =
+    `${player.poste || 'Poste non renseigné'}${player.numero != null ? ` · #${player.numero}` : ''}`;
+  document.getElementById('playerInitials').textContent = initials(player);
+  renderSidebar();
 }
 
 async function saveMeasurement() {
@@ -1290,6 +1342,8 @@ document.getElementById('stageSelect').addEventListener('change', async e => {
 document.getElementById('btnAddMeasurement').addEventListener('click',()=>{
   document.getElementById('manualMeasurementBox').classList.toggle('hidden');
 });
+document.getElementById('btnEditPlayer').addEventListener('click',openPlayerEdit);
+document.getElementById('btnSavePlayer').addEventListener('click',savePlayerEdit);
 document.getElementById('btnSaveMeasurement').addEventListener('click',saveMeasurement);
 document.getElementById('btnSaveTest').addEventListener('click',saveTest);
 document.getElementById('btnAddStrength').addEventListener('click',()=>{
