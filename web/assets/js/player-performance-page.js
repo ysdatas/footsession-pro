@@ -1122,97 +1122,11 @@ function fpFmCounts() {
   return counts;
 }
 
-function fpFmPositionPercent() {
-  const poste = normalizeName(player?.poste || '');
-
-  if (/gardien|goalkeeper/.test(poste)) return { x: 50, y: 88 };
-  if (/defenseur|defensif|defenseur central|lateral/.test(poste)) return { x: 50, y: 70 };
-  if (/milieu/.test(poste)) return { x: 50, y: 52 };
-  if (/ailier|extreme/.test(poste)) return { x: 25, y: 38 };
-  if (/attaquant|buteur/.test(poste)) return { x: 50, y: 20 };
-
-  return { x: 50, y: 50 };
-}
-
-function fpFmBuildSidebar() {
-  const dash = document.querySelector('.perf-grid-main');
-  if (!dash || document.getElementById('fpFmShell')) return;
-
-  const shell = document.createElement('div');
-  shell.id = 'fpFmShell';
-  shell.className = 'fp-fm-shell';
-
-  const sidebar = document.createElement('aside');
-  sidebar.className = 'fp-fm-sidebar';
-
-  const fullName = `${player?.prenom || ''} ${player?.nom || ''}`.trim() || 'Joueur';
-  const poste = player?.poste || 'Poste non renseigné';
-  const number = player?.numero != null ? `#${player.numero}` : '—';
-  const photo = document.getElementById('playerPhoto')?.src || '';
-  const initials = document.getElementById('playerInitials')?.textContent || '??';
-  const position = fpFmPositionPercent();
-
-  sidebar.innerHTML = `
-    <div class="fp-fm-side-player">
-      ${
-        photo && !photo.endsWith('/')
-          ? `<img class="fp-fm-side-photo" src="${esc(photo)}" alt="${esc(fullName)}">`
-          : `<div class="fp-fm-side-initials">${esc(initials)}</div>`
-      }
-      <div class="fp-fm-side-name">${esc(fullName)}</div>
-      <div class="fp-fm-side-meta">${esc(poste)} · ${esc(number)}</div>
-    </div>
-
-    <div class="fp-fm-side-block">
-      <div class="fp-fm-side-title">Poste</div>
-      <div class="fp-mini-pitch">
-        <span
-          class="fp-mini-pitch-dot"
-          style="left:${position.x}%;top:${position.y}%"
-          aria-hidden="true"></span>
-      </div>
-      <div class="fp-fm-side-meta" style="margin-top:8px;text-align:center;">
-        ${esc(poste)}
-      </div>
-    </div>
-
-    <div class="fp-fm-side-block">
-      <div class="fp-fm-side-title">Informations</div>
-      <div class="fp-fm-info-row">
-        <span>Numéro</span><strong>${esc(number)}</strong>
-      </div>
-      <div class="fp-fm-info-row">
-        <span>Rôle</span><strong>${ctxProfile?.role === 'joueur' ? 'Joueur' : 'Staff'}</strong>
-      </div>
-      <div class="fp-fm-info-row">
-        <span>Accès vidéos</span><strong>${fpFmVideos.length}</strong>
-      </div>
-    </div>
-
-    <div class="fp-fm-side-block">
-      <div class="fp-fm-side-title">Accès rapide</div>
-      <div class="fp-fm-quick">
-        <a href="#radarWrap">
-          <span>Performance</span><strong>→</strong>
-        </a>
-        <a href="#fpVideoSelectionPanel">
-          <span>Vidéos</span><strong>→</strong>
-        </a>
-        ${
-          document.getElementById('videoPlayerLink')
-            ? `<a href="${esc(document.getElementById('videoPlayerLink').href)}">
-                 <span>Bibliothèque vidéos</span><strong>→</strong>
-               </a>`
-            : ''
-        }
-      </div>
-    </div>
-  `;
-
-  dash.parentNode.insertBefore(shell, dash);
-  shell.appendChild(sidebar);
-  shell.appendChild(dash);
-}
+/* La sidebar « FM » (photo, mini-terrain, accès rapide) a été retirée :
+   elle déplaçait .perf-grid-main dans une grille 2 colonnes écrite pour une
+   autre structure de page, ce qui écrasait le radar et le suivi physique.
+   Elle n'avait de fait jamais fonctionné (elle cherchait .dash-grid, absent
+   d'ici). À refaire, si besoin, avec un CSS conçu pour cette page. */
 
 function fpFmEnhanceCards() {
   const radarCard = document.getElementById('radarWrap')?.closest('.card');
@@ -1601,17 +1515,11 @@ async function initFmPerformanceUpgrade() {
   fpFmEnsureStyle();
   document.body.classList.add('fp-fm-page');
 
-  fpFmBuildSidebar();
   fpFmEnhanceCards();
   fpFmMountVideoPanel();
 
   try {
     await fpFmLoadVideos();
-
-    const sideCount =
-      document.querySelector('.fp-fm-sidebar .fp-fm-side-block:nth-of-type(3) .fp-fm-info-row:last-child strong');
-
-    if (sideCount) sideCount.textContent = String(fpFmVideos.length);
   } catch (error) {
     const panel = document.getElementById('fpVideoSelectionPanel');
 

@@ -185,6 +185,32 @@ grant execute on function public.track_video_view(bigint,bigint,int,int,boolean,
 --    NULL <> NULL, donc chaque enregistrement manuel créait une
 --    ligne de plus. On utilise '' comme source manuelle.
 -- ------------------------------------------------------------
+-- Les doublons déjà en base viennent précisément de ce défaut : passer
+-- NULL à '' les ferait entrer en collision avec l'index d'unicité et
+-- ferait échouer TOUTE la migration. On dédoublonne d'abord, en gardant
+-- la ligne la plus récente de chaque (club, joueur, mois) / (…, session).
+delete from public.player_physical_measurements a
+where a.source_file_name is null
+  and exists (
+    select 1 from public.player_physical_measurements b
+    where b.source_file_name is null
+      and b.club_id = a.club_id
+      and b.player_id = a.player_id
+      and b.month_label = a.month_label
+      and (b.updated_at, b.id) > (a.updated_at, a.id)
+  );
+
+delete from public.player_physical_tests a
+where a.source_file_name is null
+  and exists (
+    select 1 from public.player_physical_tests b
+    where b.source_file_name is null
+      and b.club_id = a.club_id
+      and b.player_id = a.player_id
+      and b.stage = a.stage
+      and (b.updated_at, b.id) > (a.updated_at, a.id)
+  );
+
 update public.player_physical_measurements
   set source_file_name = '' where source_file_name is null;
 update public.player_physical_tests
