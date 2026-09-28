@@ -219,7 +219,10 @@ create unique index if not exists player_physical_tests_period_uq
 --    Remplace la version de perf_dashboard.sql, qui mélangeait les
 --    saisons.
 -- ------------------------------------------------------------
-create or replace function public.club_test_averages(p_stage text)
+-- Les colonnes renvoyées ont changé d'une version à l'autre : PostgreSQL
+-- refuse de modifier le type de retour avec « create or replace ».
+drop function if exists public.club_test_averages(text);
+create function public.club_test_averages(p_stage text)
 returns table (
   n_players integer,
   sprint10_sec numeric, five05_left_sec numeric, five05_right_sec numeric,

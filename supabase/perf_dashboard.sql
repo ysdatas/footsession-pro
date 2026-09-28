@@ -25,7 +25,10 @@
 -- ============================================================
 begin;
 
-create or replace function public.club_test_averages(p_stage text)
+-- Les colonnes renvoyées ont changé d'une version à l'autre : PostgreSQL
+-- refuse de modifier le type de retour avec « create or replace ».
+drop function if exists public.club_test_averages(text);
+create function public.club_test_averages(p_stage text)
 returns table (
   n_players integer,
   sprint10_sec numeric,
