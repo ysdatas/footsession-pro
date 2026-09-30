@@ -53,6 +53,7 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 18. supabase/player_lines.sql               ligne de jeu (Gardiens / Défenseurs / Milieux / Attaquants)
 19. supabase/player_program.sql             programme individuel : exercices, images, schémas, vidéos
 20. supabase/platform_v2.sql                trois rôles, accès par e-mail, séquences vidéo annotées, vidéo liée au schéma
+21. supabase/video_status.sql               statuts des séquences : « Vu » (seen_at) et « Modifié » (edited_at)
 ```
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter
@@ -165,17 +166,28 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   **Objectifs** (objectifs et exercices physiques avec images), parcours, **Générer le PDF**.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques.
 - **FAQ** (`faq.html`) — questions cliquables : prise en main, puis données et calculs.
-- **Vidéos** (`videos.html`) — rangées **par joueur** : séquences sélectionnées, séquences
-  annotées, vidéos disponibles (statistiques). « Travail à voir » ne garde que les analyses
-  en attente de retour.
-- **Séquences vidéo** (`video-workspace.js`, `video-ink.js`) — staff et joueur découpent une
-  vidéo en séquences (« Séquence 1 – Jean »…), puis ajustent début et fin, coupent en deux,
-  dupliquent ; chaque opération s'annule et se rétablit. Le joueur coche celles à travailler, dessine
-  sur l'image (flèche, cercle, zone, trait), écrit son analyse et l'envoie ; le staff la
-  relit et répond. Table `video_sequences` ; le trigger `guard_video_sequence` limite
-  chacun à sa part (le joueur ne peut pas écrire le retour du staff, et inversement).
-- **Espace joueur** — Ma performance · Mon programme terrain · Mes vidéos, même barre (avec
-  Déconnexion) sur chaque page (`player-nav.js`, garde commune `requirePlayer()`).
+- **Vidéos** (`videos.html`) — en haut, **À voir** : les séquences envoyées par les joueurs
+  et pas encore commentées, les plus récentes d'abord (un toucher l'ouvre, elle passe « Vu »).
+  Puis tout est rangé **par joueur** : séquences sélectionnées, annotées, vidéos disponibles.
+- **Séquences vidéo** — poste de travail commun au joueur et au staff, pensé pour le téléphone :
+  - `video-timeline.js` : timeline tactile, séquences en filigrane, **deux poignées** (début,
+    fin) à tirer, tête de lecture, durée ; elle zoome seule sur une séquence courte d'une
+    longue vidéo. **Mode précision** (loupe) : image par image, timecode au dixième ;
+  - « Nouvelle séquence » la crée autour de l'image affichée (« Séquence 1 – Jean »),
+    « Couper ici », « Dupliquer », « Supprimer » ; ↶ / ↷ défont et rétablissent tout ; la
+    vidéo source n'est jamais modifiée (« Vidéo entière ») ; ralenti 1× · 0,5× · 0,25× ;
+  - `video-ink.js` : **habillage** directement sur la vidéo — flèche, trajectoire, repère
+    joueur (anneau au sol + n°), cercle, zone, projecteur, titre / texte. Chaque annotation a
+    un instant, une durée d'affichage et, au choix, un **arrêt sur image** : elle se rejoue
+    pendant la lecture. Stockée dans `drawings` : `{ t, d, freeze, shapes }` ;
+  - **Envoi au staff** avec aperçu (séquences, durée, annotations, analyse, destinataire),
+    une ou plusieurs séquences à la fois ;
+  - **Statuts** (`video-status.js`), les mêmes pour tous : Brouillon, Prêt, Envoyé, Vu,
+    Modifié (changée depuis l'envoi), Retour.
+  Table `video_sequences` ; le trigger `guard_video_sequence` limite chacun à sa part et
+  date lui-même l'envoi, la lecture et les modifications (jamais l'horloge du téléphone).
+- **Espace joueur** — même coque sur chaque page (`player-nav.js`) : en-tête avec le logo et,
+  sur téléphone, onglets en bas (Performance · Programme · Vidéos) ; garde `requirePlayer()`.
 - **Points** (objectifs, points forts, axes) — `notes.js` : un clic ouvre le point en grand
   (images, légendes, consignes) ; « Modifier » ajoute, légende ou retire des images.
 - **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
@@ -183,7 +195,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Design system** — `main.css` : échelle typographique unique (`--fs-xs` à `--fs-2xl`,
   toutes les tailles de l'app en font partie), espacements, rayons, profondeur, durées
   d'animation ; icônes Lucide en sprite SVG. Le projet reste sans build : pas de React ni
-  de Tailwind, le « Liquid Glass » est en CSS natif.
+  de Tailwind, le « Liquid Glass » est en CSS natif, réservé à ce qui flotte au-dessus d'un
+  terrain ou d'une vidéo. **Logo** : le même partout (`.brand-accent` + `.brand-pro`) —
+  menu du staff, barre du haut sur téléphone (`nav.js`), espace joueur, connexion. Cibles
+  tactiles de 44 px sur téléphone. Règles détaillées : `docs/audit-mobile-ux.md`.
 - **Couleurs** — partout (club, paramètres, tableau tactique) des pastilles d'une palette
   commune, plus « autre couleur » (`enhanceColorInputs`, `app.js`).
 - **Analytics** — graphiques Chart.js, export PDF.
@@ -200,8 +215,16 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Disposition** : le terrain est fixe et plein cadre (herbe texturée jusqu'aux bords) ;
   rien ne le réduit ni ne le déplace. Tout flotte par-dessus, en « verre » (`.glass`,
   `.glass-btn` dans `main.css`) : outils en haut à gauche, joueurs 1 à 11 à gauche,
-  Matériel / Terrain / Couleurs / Exporter / Vidéo à droite (un clic ouvre le panneau
-  par-dessus), animation en bas, réglages de l'élément juste au-dessus de lui.
+  Matériel / Terrain / Exporter / Vidéo à droite (un clic ouvre le panneau par-dessus),
+  animation en bas, réglages de l'élément juste au-dessus de lui (en bas, au pouce, sur
+  téléphone). Pendant qu'on déplace un élément, ses réglages s'effacent et les barres
+  s'estompent ; tout revient au relâchement.
+- **Couleurs** : plus de panneau. Toucher à nouveau l'équipe active ouvre sa couleur ; la
+  pastille au bout des outils règle celle des flèches, zones et textes. Les éléments suivants
+  la reprennent, et elle est mémorisée dans le compte (comme dans **Paramètres**). Un élément
+  sélectionné change de couleur seul, par la pastille de sa barre.
+- **Téléphone** : un nouveau schéma s'ouvre en terrain vertical ; les barres défilent au doigt ;
+  au doigt, la prise d'un pion est élargie et saisir son corps le déplace.
 - **Joueurs** : choisir l'équipe (pastille), puis un numéro : chaque clic pose le joueur et
   passe au numéro suivant, une équipe se place en onze clics.
 - **Dessin libre** (crayon), en plus des flèches, traits, zones et textes.
@@ -210,8 +233,9 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   affichée (le début reste, la suite devient un nouveau clip), retirer avant / après,
   renommer, supprimer. Vitesse de lecture 0,5× à 2×.
 - **Matériel** : cônes et coupelles en plusieurs couleurs, piquet, haie, échelle, cage, ballon.
-- **Taille** : tirer un coin du pion (ou du matériel, d’un texte) l’agrandit ou le réduit ;
-  ou S / M / L / XL puis −/+ dans le panneau, même échelle que **Paramètres**.
+- **Taille** : un curseur dans la barre de l'élément (glisser → voir → relâcher), plus de
+  S / M / L ; les pions suivants gardent la taille choisie. À la souris, tirer un coin marche
+  aussi. **Paramètres** règle la taille par défaut avec le même curseur.
 - **Étapes** : « + Étape » crée l'étape suivante ; cliquer une pastille (1, 2, 3…)
   l'affiche, et chaque déplacement y est enregistré. « ▶ Lire » part de l'étape 1.
 - **Fiche tactique (PDF)** : titre, objectif, consignes (pré-remplis depuis le procédé ou

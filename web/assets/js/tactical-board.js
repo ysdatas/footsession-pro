@@ -46,13 +46,8 @@ let PROC_SCHEMA = null;  // ligne tactical_schemas existante (vidéo liée)
 const LS_KEY = 'tb_' + (PROC || (EXO ? 'exo_' + EXO : 'scratch'));
 
 /* ---------- Tailles ----------
-   Une seule échelle pour le tableau ET la page Paramètres (mêmes valeurs
-   dans settings.html) : S / M / L / XL, puis −/+ par pas de 2, bornés. */
-const SIZE_PRESETS = {
-  token: [14, 18, 22, 28],
-  equip: [12, 16, 20, 26],
-  text:  [16, 22, 30, 40],
-};
+   Réglées au curseur, ici comme dans Paramètres, entre ces bornes. */
+const SIZE_DEFAULT = { token: 18, equip: 16, text: 22 };
 const SIZE_LIMITS = { token: [10, 36], equip: [8, 34], text: [12, 56] };
 function sizeKind(it) {
   if (it.type === 'player' || it.type === 'opponent') return 'token';
@@ -67,7 +62,7 @@ function setSize(it, v) {
   v = Math.max(lo, Math.min(hi, Math.round(v)));
   if (k === 'text') it.size = v; else it.r = v;
 }
-const clampSize = (kind, v) => Math.max(SIZE_LIMITS[kind][0], Math.min(SIZE_LIMITS[kind][1], Number(v) || SIZE_PRESETS[kind][1]));
+const clampSize = (kind, v) => Math.max(SIZE_LIMITS[kind][0], Math.min(SIZE_LIMITS[kind][1], Number(v) || SIZE_DEFAULT[kind]));
 
 /* ---------- Couleurs ---------- */
 /* Normalise une couleur en #rrggbb (valeur attendue par <input type="color">). */
@@ -608,21 +603,29 @@ function handleBounds(it) {
   const pad = 6;
   return { x: b.x - pad, y: b.y - pad, w: b.w + pad * 2, h: b.h + pad * 2 };
 }
-function hitItem(p) {
+/* `pad` élargit la prise (unités du terrain) : au doigt, un pion de
+   quelques pixels à l'écran doit rester facile à attraper. */
+function hitItem(p, pad = 0) {
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
-    if (it.type === 'arrow' || it.type === 'line') { if (distSeg(p, it) < 9) return it; continue; }
+    if (it.type === 'arrow' || it.type === 'line') { if (distSeg(p, it) < 9 + pad) return it; continue; }
     if (it.type === 'path') {
       const lp0 = localPoint(p, it), q = (i) => ({ x: it.x + it.pts[i][0], y: it.y + it.pts[i][1] });
-      if (it.pts.some((_, i) => i && distToSegment(lp0, q(i - 1), q(i)) < 9)) return it;
+      if (it.pts.some((_, i) => i && distToSegment(lp0, q(i - 1), q(i)) < 9 + pad)) return it;
       continue;
     }
     const lp = localPoint(p, it);      // repère non-tourné
-    if (it.type === 'player' || it.type === 'opponent') { if (Math.hypot(lp.x - it.x, lp.y - it.y) <= it.r + 2) return it; continue; }
+    if (it.type === 'player' || it.type === 'opponent') { if (Math.hypot(lp.x - it.x, lp.y - it.y) <= it.r + 2 + pad) return it; continue; }
     const b = bounds(it);
-    if (lp.x >= b.x && lp.x <= b.x + b.w && lp.y >= b.y && lp.y <= b.y + b.h) return it;
+    if (lp.x >= b.x - pad && lp.x <= b.x + b.w + pad && lp.y >= b.y - pad && lp.y <= b.y + b.h + pad) return it;
   }
   return null;
+}
+/* Largeur de doigt (~14 px à l'écran) convertie en unités du terrain ; 0 à la souris. */
+function touchPad(e) {
+  if (e.pointerType === 'mouse') return 0;
+  const w = canvas.getBoundingClientRect().width || 1;
+  return 14 * curW() / w;
 }
 function distToSegment(p, A, B) {
   const dx = B.x - A.x, dy = B.y - A.y, l2 = dx * dx + dy * dy || 1;
@@ -636,18 +639,19 @@ function distSeg(p, it) {
   if (!bend) return distToSegment(p, A, B);
   return Math.min(distToSegment(p, A, bend), distToSegment(p, bend, B));
 }
-function hitHandle(p, it) {
+function hitHandle(p, it, pad = 0) {
+  const R = HANDLE + 2 + pad;
   if (it.type === 'arrow' || it.type === 'line') {
-    if (Math.hypot(p.x - it.x1, p.y - it.y1) <= HANDLE + 2) return 'p1';
-    if (Math.hypot(p.x - it.x2, p.y - it.y2) <= HANDLE + 2) return 'p2';
+    if (Math.hypot(p.x - it.x1, p.y - it.y1) <= R) return 'p1';
+    if (Math.hypot(p.x - it.x2, p.y - it.y2) <= R) return 'p2';
     const m = midOf(it);
-    if (Math.hypot(p.x - m.x, p.y - m.y) <= HANDLE + 2) return 'pm';
+    if (Math.hypot(p.x - m.x, p.y - m.y) <= R) return 'pm';
     return null;
   }
   const lp = localPoint(p, it);
   const b = handleBounds(it);
   const corners = { nw: [b.x, b.y], ne: [b.x + b.w, b.y], sw: [b.x, b.y + b.h], se: [b.x + b.w, b.y + b.h] };
-  for (const [k, c] of Object.entries(corners)) if (Math.hypot(lp.x - c[0], lp.y - c[1]) <= HANDLE + 2) return k;
+  for (const [k, c] of Object.entries(corners)) if (Math.hypot(lp.x - c[0], lp.y - c[1]) <= R) return k;
   return null;
 }
 const selectedItems = () => state.items.filter(i => state.selIds.includes(i.id));
@@ -722,7 +726,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (!CAN_EDIT || state.playing) return;
   if (e.button === 2) return;          // clic droit géré par le menu contextuel
   hideMenu();
-  canvas.setPointerCapture(e.pointerId);
+  try { canvas.setPointerCapture(e.pointerId); } catch { /* pointeur déjà relâché */ }
   const p = getPos(e);
 
   // Mode « Screen » : on trace le cadre d'export (aucun élément n'est créé).
@@ -732,10 +736,14 @@ canvas.addEventListener('pointerdown', (e) => {
   }
 
   if (state.tool === 'select') {
-    // 1) poignée de redimensionnement (sélection unique)
+    // 1) poignée de redimensionnement (sélection unique). Au doigt : saisir
+    //    le corps de l'élément le déplace, et un pion, du matériel ou un
+    //    texte se redimensionnent au curseur de la barre, pas aux coins.
+    const pad = touchPad(e);
     const one = selected();
     if (one) {
-      const h = hitHandle(p, one);
+      const onBody = pad && one.type !== 'arrow' && one.type !== 'line' && hitItem(p) === one;
+      const h = !onBody && !(pad && sizeKind(one)) && hitHandle(p, one, pad * .6);
       if (h) {
         pushHistory();
         drag = { mode: 'handle', h, it: one };
@@ -748,7 +756,7 @@ canvas.addEventListener('pointerdown', (e) => {
         return;
       }
     }
-    const it = hitItem(p);
+    const it = hitItem(p, pad);
     // 2) Cmd/Ctrl + clic : (dé)sélection isolée d'un élément dans le groupe
     if (it && (e.metaKey || e.ctrlKey)) {
       state.selIds = isSel(it.id) ? state.selIds.filter(x => x !== it.id) : [...state.selIds, it.id];
@@ -799,6 +807,13 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   if (!drag) { hoverCursor(e); return; }
   const p = getPos(e);
+  // Dès que l'élément bouge vraiment, on libère la place autour de lui.
+  const k = canvas.getBoundingClientRect().width / curW();   // px écran par unité du terrain
+  if ((drag.mode === 'move-group' || drag.mode === 'handle') && !drag.moving
+      && (drag.mode === 'handle' || Math.hypot(p.x - drag.ox, p.y - drag.oy) * k > 4)) {
+    drag.moving = true;
+    canvas.parentElement.classList.add('is-dragging');
+  }
   if (drag.mode === 'move-group') {
     const dx = p.x - drag.ox, dy = p.y - drag.oy;
     for (const o of drag.orig) {
@@ -837,6 +852,7 @@ canvas.addEventListener('pointermove', (e) => {
 
 canvas.addEventListener('pointerup', () => {
   hideSizeTag();
+  canvas.parentElement.classList.remove('is-dragging');
   if (!drag) return;
   if (drag.mode === 'create-box') {
     const it = drag.it;
@@ -1062,7 +1078,12 @@ function setRailTeam(team) {
   $$('.tb-num').forEach(b => { b.dataset.tool = team; b.style.setProperty('--num-color', team === 'player' ? state.jersey : state.opp); });
   if (state.tool === 'player' || state.tool === 'opponent') setTool(team, null, state.fixedNum);
 }
-$$('[data-team]').forEach(b => b.addEventListener('click', () => setRailTeam(b.dataset.team)));
+// Toucher l'autre équipe la choisit ; toucher l'équipe active ouvre sa couleur.
+$$('[data-team]').forEach(b => b.addEventListener('click', () => {
+  if (state.railTeam !== b.dataset.team) return setRailTeam(b.dataset.team);
+  const mine = b.dataset.team === 'player';
+  openPalette(b, 'team', mine ? state.jersey : state.opp, mine ? 'Couleur de mon équipe' : 'Couleur des adversaires');
+}));
 $('#logoBtn')?.addEventListener('click', () => $('#logoInput').click());
 $$('#viewGroup .tb-tool').forEach(b => b.addEventListener('click', () => {
   state.view = b.dataset.view;
@@ -1070,20 +1091,86 @@ $$('#viewGroup .tb-tool').forEach(b => b.addEventListener('click', () => {
   resizeCanvas(); scheduleSave();   // resize (orientation portrait/paysage) puis rendu
 }));
 
-$('#drawColor').addEventListener('input', e => { state.drawColor = e.target.value; });
 $('#fontSelect').addEventListener('change', e => {
   state.textFont = e.target.value;                 // police par défaut pour les nouveaux textes
   const it = selected();
   if (it && it.type === 'text') { it.font = e.target.value; render(); scheduleSave(); }   // + applique au texte sélectionné
 });
-$('#jerseyColor').addEventListener('input', e => { state.jersey = e.target.value; updatePionDots(); });
-$('#oppColor').addEventListener('input', e => { state.opp = e.target.value; updatePionDots(); });
-
-/* Reflète les couleurs choisies sur les pastilles des boutons Joueur/Adversaire. */
+/* Reflète les couleurs de création sur les pastilles (équipes, tracés). */
 function updatePionDots() {
-  $$('#pionDotRed, #pionDotRed2').forEach(d => d.style.background = state.jersey);
-  $$('#pionDotBlue, #pionDotBlue2').forEach(d => d.style.background = state.opp);
+  $('#pionDotRed').style.background = state.jersey;
+  $('#pionDotBlue').style.background = state.opp;
+  $('#drawDot').style.background = state.drawColor;
   $$('.tb-num').forEach(b => b.style.setProperty('--num-color', state.railTeam === 'player' ? state.jersey : state.opp));
+}
+
+/* ---------- Palette : une pastille, une palette qui s'ouvre à côté ----------
+   Couleur de création (tracés, équipe active) : les éléments suivants la
+   reprennent, et elle est mémorisée dans les préférences du compte.
+   Couleur d'un élément sélectionné : ne change que lui. */
+let paletteTarget = null;   // 'draw' | 'team' | 'selection'
+let palettePushed = false;  // un seul « annuler » par choix de couleur
+(() => {
+  const grid = $('#tbPaletteGrid');
+  COLOR_PALETTE.forEach((c, i) => grid.append(el('button', {
+    type: 'button', class: 'sw', role: 'radio', title: COLOR_NAMES[i], 'aria-label': COLOR_NAMES[i],
+    style: `background:${c}`, dataset: { c: c.toLowerCase() }, onclick: () => pickColor(c),
+  })));
+  const custom = el('input', { type: 'color', class: 'tb-palette-custom', 'aria-label': 'Autre couleur', title: 'Autre couleur' });
+  custom.addEventListener('input', () => pickColor(custom.value, true));
+  custom.addEventListener('change', () => closePalette());
+  grid.append(custom);
+})();
+function openPalette(anchor, target, current, title) {
+  const pal = $('#tbPalette');
+  if (!pal.classList.contains('hidden') && paletteTarget === target) return closePalette();
+  paletteTarget = target; palettePushed = false;
+  $('#tbPaletteTitle').textContent = title;
+  const cur = toHex(current).toLowerCase();
+  $$('#tbPaletteGrid .sw').forEach(b => b.setAttribute('aria-checked', String(b.dataset.c === cur)));
+  $('.tb-palette-custom').value = toHex(current);
+  pal.classList.remove('hidden');
+  // À droite d'une barre latérale, sinon sous la pastille ; toujours dans la scène.
+  const st = canvas.parentElement.getBoundingClientRect(), a = anchor.getBoundingClientRect();
+  const pw = pal.offsetWidth, ph = pal.offsetHeight, m = 8;
+  const side = !!anchor.closest('.tb-players');
+  let left = side ? a.right - st.left + m : a.left - st.left + a.width / 2 - pw / 2;
+  let top = side ? a.top - st.top : a.bottom - st.top + m;
+  if (!side && top + ph > st.height - m) top = a.top - st.top - ph - m;
+  pal.style.left = `${Math.max(m, Math.min(st.width - pw - m, left))}px`;
+  pal.style.top = `${Math.max(m, Math.min(st.height - ph - m, top))}px`;
+}
+function closePalette() { $('#tbPalette').classList.add('hidden'); paletteTarget = null; }
+function pickColor(c, keepOpen = false) {
+  if (paletteTarget === 'selection') {
+    const sels = selectedItems(); if (!sels.length) return closePalette();
+    if (!palettePushed) { pushHistory(); palettePushed = true; }
+    sels.forEach(it => { it.color = c; });
+    commit(); syncSelBar();
+  } else {
+    if (paletteTarget === 'draw') state.drawColor = c;
+    else if (paletteTarget === 'team') state[state.railTeam === 'player' ? 'jersey' : 'opp'] = c;
+    updatePionDots(); rememberPrefs();
+  }
+  if (!keepOpen) closePalette();
+}
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('#tbPalette, .tb-colorbtn, [data-team]')) closePalette();
+});
+$('#drawColorBtn').addEventListener('click', (e) =>
+  openPalette(e.currentTarget, 'draw', state.drawColor, 'Couleur des flèches, zones et textes'));
+$('#selColorBtn').addEventListener('click', (e) =>
+  openPalette(e.currentTarget, 'selection', selectedItems()[0]?.color || state.drawColor, 'Couleur de l’élément'));
+
+/* Couleurs et tailles de création mémorisées dans le compte (et donc
+   aussi dans Paramètres) : un pion rouge reste rouge au prochain schéma. */
+let prefsTimer = null;
+function rememberPrefs() {
+  if (!CAN_EDIT || !window.CURRENT_PROFILE) return;
+  clearTimeout(prefsTimer);
+  prefsTimer = setTimeout(() => savePrefsPatch({
+    jersey: state.jersey, opp: state.opp, draw: state.drawColor, tokenR: state.tokenR, equipR: state.equipR,
+  }).catch(e => console.warn('Préférences du tableau non enregistrées', e)), 800);
 }
 updatePionDots();
 $('#toggleNumbers').addEventListener('click', () => { state.showNumbers = !state.showNumbers; render(); scheduleSave(); });
@@ -1134,9 +1221,10 @@ function toScreen(x, y) {
 }
 /* La barre de réglages se pose juste au-dessus de la sélection (ou
    en dessous s'il n'y a pas la place) : on règle l'élément là où il est. */
+let selBarFrozen = false;   // pendant le glissement du curseur de taille
 function positionSelBar() {
   const bar = $('#selBar'), sels = selectedItems();
-  if (!bar || bar.classList.contains('hidden') || !sels.length) return;
+  if (!bar || bar.classList.contains('hidden') || !sels.length || selBarFrozen) return;
   const pts = sels.flatMap(it => { const b = itemBounds(it); return [toScreen(b.x, b.y), toScreen(b.x + b.w, b.y + b.h)]; });
   const stage = canvas.parentElement.getBoundingClientRect();
   const minX = Math.min(...pts.map(p => p.x)), maxX = Math.max(...pts.map(p => p.x));
@@ -1147,35 +1235,44 @@ function positionSelBar() {
   // Jamais sous les barres fixes : on reste dans la zone du terrain.
   const cs = getComputedStyle(canvas.parentElement);
   const padL = parseFloat(cs.paddingLeft), padR = parseFloat(cs.paddingRight), padT = parseFloat(cs.paddingTop), padB = parseFloat(cs.paddingBottom);
+  // Téléphone : barre posée en bas, au pouce, sans couvrir les barres latérales
+  // ni l'élément (s'il est tout en bas, elle passe en haut).
+  if (stage.width < 640) {
+    const low = stage.height - padB - bh - 6;
+    top = maxY - stage.top > low - 10 ? padT : low;
+    bar.style.transform = `translate(${Math.round((stage.width - bw) / 2)}px, ${Math.round(top)}px)`;
+    return;
+  }
   if (top < padT) top = maxY + gap - stage.top;        // pas de place au-dessus : en dessous
-  left = Math.max(padL, Math.min(stage.width - padR - bw, left));
+  // Écran étroit : la barre peut déborder sur les marges, jamais hors de la scène.
+  const [lo, hi] = bw > stage.width - padL - padR ? [8, stage.width - 8 - bw] : [padL, stage.width - padR - bw];
+  left = Math.max(lo, Math.min(hi, left));
   top = Math.max(padT, Math.min(stage.height - padB - bh, top));
   bar.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
 }
 
-/* Réglages de l'élément : couleur, taille, texte / n°, angle, rotation. */
+/* Réglages de l'élément, au-dessus de lui : couleur (pastille), taille
+   (curseur), n° ou texte, police, angle, rotation, duplication. */
 function syncSelBar() {
   const sels = selectedItems();
   const bar = $('#selBar');
   const wasHidden = bar.classList.contains('hidden');
   bar.classList.toggle('hidden', !sels.length || state.playing);
-  if (!sels.length) { $('#selLabel').textContent = '—'; return; }
+  if (!sels.length) { closePalette(); return; }
   if (wasHidden) { bar.classList.remove('is-in'); void bar.offsetWidth; bar.classList.add('is-in'); }
   requestAnimationFrame(positionSelBar);
 
   const it = sels[0];
-  $('#selLabel').textContent = sels.length > 1 ? `${sels.length} éléments` : (TYPE_LABEL[it.type] || 'Élément');
-  $('#selColor').value = toHex(it.color || '#C9A84C');
+  $('#selLabel').textContent = `${sels.length} éléments`;
+  $('#selLabel').classList.toggle('hidden', sels.length < 2);
+  const colored = sels.some(x => x.type !== 'logo');
+  $('#selColorBtn').classList.toggle('hidden', !colored);
+  $('#selDot').style.background = it.color || (it.type === 'equip' ? '#F76707' : state.drawColor);
 
-  // Taille : seulement pour pions, matériel et textes.
+  // Taille : seulement pour pions, matériel et textes, au curseur.
   const sized = sels.filter(x => sizeKind(x));
   $('#propSize').classList.toggle('hidden', !sized.length);
-  if (sized.length) {
-    const kind = sizeKind(sized[0]);
-    const same = sized.every(x => sizeKind(x) === kind && getSize(x) === getSize(sized[0]));
-    $$('#selSizes [data-preset]').forEach(b =>
-      b.classList.toggle('active', same && SIZE_PRESETS[kind][Number(b.dataset.preset)] === getSize(sized[0])));
-  }
+  if (sized.length) $('#selSize').value = String(Math.round(sizeToSlider(sized[0])));
 
   // Texte / numéro / nom de zone : sélection unique.
   const one = sels.length === 1 ? it : null;
@@ -1185,9 +1282,14 @@ function syncSelBar() {
   if (hasText) {
     const input = $('#selText');
     if (one.type === 'text') { $('#selTextLabel').textContent = 'Texte'; input.value = one.text || ''; input.placeholder = 'Texte'; }
-    else if (isToken) { $('#selTextLabel').textContent = 'Numéro'; input.value = one.number ?? ''; input.placeholder = 'n°'; }
+    else if (isToken) { $('#selTextLabel').textContent = 'N°'; input.value = one.number ?? ''; input.placeholder = '—'; }
     else { $('#selTextLabel').textContent = 'Nom'; input.value = one.label || ''; input.placeholder = 'Nom de la zone'; }
   }
+
+  $('#fontSelect').classList.toggle('hidden', !(one && one.type === 'text'));
+  if (one && one.type === 'text') $('#fontSelect').value = one.font || state.textFont;
+  // Pivoter n'a de sens que pour ce qui a une orientation (pas un pion rond).
+  $('#selRotate').classList.toggle('hidden', !sels.some(x => ['shape', 'equip', 'text', 'logo', 'path'].includes(x.type)));
 
   // Bouton d'angle : réservé aux tracés, il pose ou retire le coude.
   const bendBtn = $('#selBend');
@@ -1213,21 +1315,30 @@ $('#selBend').addEventListener('click', () => {
   }
   syncSelBar(); render(); scheduleSave();
 });
-$('#selColor').addEventListener('input', e => {
-  const sels = selectedItems(); if (!sels.length) return;
-  sels.forEach(it => it.color = e.target.value); render(); scheduleSave();   // s'applique à toute la sélection
-});
-$('#selSizes').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
+/* Taille au curseur : glisser → voir → relâcher. Un seul « annuler » par
+   geste, et la barre ne bouge pas sous le doigt pendant le glissement. */
+const sizeToSlider = (it) => { const [lo, hi] = SIZE_LIMITS[sizeKind(it)]; return (getSize(it) - lo) / (hi - lo) * 100; };
+let sizing = false;
+$('#selSize').addEventListener('input', e => {
   const sels = selectedItems().filter(x => sizeKind(x)); if (!sels.length) return;
-  pushHistory();
+  if (!sizing) { pushHistory(); sizing = true; selBarFrozen = true; }
+  const v = Number(e.target.value) / 100;
   sels.forEach(it => {
-    const kind = sizeKind(it);
-    setSize(it, b.dataset.preset != null ? SIZE_PRESETS[kind][Number(b.dataset.preset)] : getSize(it) + Number(b.dataset.step));
-    if (kind === 'token') state.tokenR = it.r;   // les prochains pions prennent cette taille
-    if (kind === 'equip') state.equipR = it.r;
+    const [lo, hi] = SIZE_LIMITS[sizeKind(it)];
+    setSize(it, lo + v * (hi - lo));
+    if (sizeKind(it) === 'token') state.tokenR = it.r;   // les prochains pions prennent cette taille
+    if (sizeKind(it) === 'equip') state.equipR = it.r;
   });
-  syncSelBar(); commit();
+  render();
+});
+$('#selSize').addEventListener('change', () => {
+  sizing = false; selBarFrozen = false;
+  commit(); positionSelBar(); rememberPrefs();
+});
+$('#selDup').addEventListener('click', () => {
+  const keep = clipboard;
+  copySelection(true); pasteClipboard(true);
+  clipboard = keep;
 });
 $('#selRotate').addEventListener('click', () => {
   const sels = selectedItems(); if (!sels.length) return;
@@ -1249,12 +1360,12 @@ $('#selDelete').addEventListener('click', () => {
 
 /* Copier / coller la sélection (sans avoir à cliquer sur le terrain). */
 let clipboard = [];
-function copySelection() {
+function copySelection(quiet = false) {
   const sels = selectedItems(); if (!sels.length) return;
   clipboard = sels.map(it => { const c = { ...it }; delete c._img; delete c.id; return c; });
-  toast(sels.length + ' élément' + (sels.length > 1 ? 's' : '') + ' copié' + (sels.length > 1 ? 's' : ''), 'success');
+  if (!quiet) toast(sels.length + ' élément' + (sels.length > 1 ? 's' : '') + ' copié' + (sels.length > 1 ? 's' : ''), 'success');
 }
-function pasteClipboard() {
+function pasteClipboard(quiet = false) {
   if (!clipboard.length) return;
   pushHistory();
   const off = 34;
@@ -1271,7 +1382,7 @@ function pasteClipboard() {
   state.items.push(...added);
   state.selIds = added.map(i => i.id);
   syncSelBar(); commit();
-  toast(added.length + ' collé' + (added.length > 1 ? 's' : ''), 'success');
+  if (!quiet) toast(added.length + ' collé' + (added.length > 1 ? 's' : ''), 'success');
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1285,7 +1396,7 @@ document.addEventListener('keydown', (e) => {
   else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
   else if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); }
   else if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteClipboard(); }
-  else if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); copySelection(); pasteClipboard(); } // duplication rapide
+  else if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); $('#selDup').click(); } // duplication rapide
   else if (!mod && e.key.toLowerCase() === 'r' && state.selIds.length) { e.preventDefault(); pushHistory(); selectedItems().forEach(it => rotateItem(it, 90)); commit(); } // pivoter 90°
   else if ((e.key === 'Delete' || e.key === 'Backspace') && state.selIds.length) { e.preventDefault(); $('#selDelete').click(); }
 });
@@ -1782,9 +1893,9 @@ async function saveExerciseSchema(validate) {
    par défaut du tableau : couleurs, tailles, police, vue, numéros. */
 function applyPrefs(prefs) {
   if (!prefs) return;
-  if (prefs.jersey) { state.jersey = prefs.jersey; const el = $('#jerseyColor'); if (el) el.value = prefs.jersey; }
-  if (prefs.opp)    { state.opp = prefs.opp;       const el = $('#oppColor');    if (el) el.value = prefs.opp; }
-  if (prefs.draw)   { state.drawColor = prefs.draw; const el = $('#drawColor');  if (el) el.value = prefs.draw; }
+  if (prefs.jersey) state.jersey = prefs.jersey;
+  if (prefs.opp)    state.opp = prefs.opp;
+  if (prefs.draw)   state.drawColor = prefs.draw;
   if (prefs.tokenR) state.tokenR = clampSize('token', prefs.tokenR);
   if (prefs.equipR) state.equipR = clampSize('equip', prefs.equipR);
   if (prefs.font)   { state.textFont = prefs.font; const el = $('#fontSelect');  if (el) el.value = prefs.font; }
@@ -1839,6 +1950,10 @@ async function boot() {
   if (!loaded) {
     const ls = localStorage.getItem(LS_KEY);
     if (ls) { try { deserialize(JSON.parse(ls)); loaded = true; } catch (e) {} }
+  }
+  if (!loaded && window.matchMedia('(max-width: 700px) and (orientation: portrait)').matches) {
+    state.view = 'horizontal';
+    $$('#viewGroup .tb-tool').forEach(x => x.classList.toggle('active', x.dataset.view === state.view));
   }
   setTool('select');
   setRailTeam(state.railTeam); setSpeed(state.speed); syncHistoryButtons();

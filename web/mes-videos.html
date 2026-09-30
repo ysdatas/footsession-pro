@@ -2,21 +2,20 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Mes vidéos — FootSession Pro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/videos.css">
 </head>
-<body>
+<body data-shell="player">
 <div class="pv-wrap pv-wide">
   <div class="pv-head">
     <div>
       <h1>Mes vidéos</h1>
       <p class="subtitle" id="pvSub">Chargement…</p>
     </div>
-    <nav id="playerNav"></nav>
   </div>
 
   <div id="pvContent"><div class="empty">Chargement…</div></div>
@@ -26,9 +25,11 @@
 <script src="assets/js/supabase-client.js"></script>
 <script src="assets/js/app.js"></script>
 <script src="assets/js/player-nav.js"></script>
+<script src="assets/js/video-status.js"></script>
 <script>
-  /* Vidéos brutes envoyées par le staff. Chaque vidéo s'ouvre dans le
-     poste de travail : séquences, sélection, annotation, envoi. */
+  /* Vidéos envoyées par le staff. Chaque vidéo s'ouvre dans le poste de
+     travail : séquences, annotations, analyse, envoi au staff. La carte
+     dit où en est le travail (statuts de video-status.js). */
   (async () => {
     const box = document.getElementById('pvContent');
     try {
@@ -37,29 +38,33 @@
       const [{ data: videos, error }, { data: seqs }] = await Promise.all([
         sb.from('player_videos').select('id, titre, description, created_at')
           .eq('player_id', player.id).order('created_at', { ascending: false }),
-        sb.from('video_sequences').select('video_id, selected, submitted_at, staff_feedback').eq('player_id', player.id),
+        sb.from('video_sequences').select('*').eq('player_id', player.id),
       ]);
       if (error) throw error;
-      const stats = (id) => {
-        const list = (seqs || []).filter(s => s.video_id === id);
-        return { n: list.length, sel: list.filter(s => s.selected).length,
-          sent: list.filter(s => s.submitted_at).length, fb: list.filter(s => s.staff_feedback).length };
-      };
-      document.getElementById('pvSub').textContent =
-        `Bonjour ${player.prenom || player.nom} — ${videos.length} vidéo${videos.length > 1 ? 's' : ''}. Ouvre une vidéo pour la découper en séquences et l’annoter.`;
+      const count = (list, keys) => list.filter(s => keys.includes(seqStatus(s))).length;
+      const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+      document.getElementById('pvSub').textContent = videos.length
+        ? `Bonjour ${player.prenom || player.nom} — ouvre une vidéo pour la découper, l’annoter et l’envoyer à ton staff.`
+        : `Bonjour ${player.prenom || player.nom}.`;
       if (!videos.length) { box.innerHTML = '<div class="empty">Aucune vidéo pour le moment. Ton staff ne t’a encore rien envoyé.</div>'; return; }
       box.innerHTML = `<div class="pv-grid">${videos.map(v => {
-        const s = stats(v.id);
+        const list = (seqs || []).filter(s => s.video_id === v.id);
+        const toSend = count(list, ['ready', 'modified']), answered = count(list, ['answered']);
+        const sent = count(list, ['sent', 'seen']);
         return `<a class="card pv-card" href="voir-video.html?id=${v.id}">
           <div class="pv-card-top">
-            <span class="text-muted" style="font-size:var(--fs-sm);">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
-            ${s.fb ? '<span class="vw-flag is-ok">Retour du staff</span>' : ''}
+            <span class="pv-date">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
+            ${answered ? `<span class="vw-status is-answered">${plural(answered, 'retour', 'retours')} du staff</span>` : ''}
           </div>
           <h3>${escapeHtml(v.titre)}</h3>
-          ${v.description ? `<p class="text-muted" style="font-size:var(--fs-md);">${escapeHtml(v.description)}</p>` : ''}
-          <div class="pv-card-meta">${s.n
-            ? `${s.n} séquence${s.n > 1 ? 's' : ''} · ${s.sel} à travailler${s.sent ? ` · ${s.sent} envoyée${s.sent > 1 ? 's' : ''}` : ''}`
-            : 'Pas encore de séquence'}</div>
+          ${v.description ? `<p class="pv-desc">${escapeHtml(v.description)}</p>` : ''}
+          <div class="pv-card-meta">
+            <span>${list.length ? plural(list.length, 'séquence', 'séquences') : 'Pas encore de séquence'}</span>
+            <span class="pv-card-status">
+              ${toSend ? `<span class="vw-status is-ready">${toSend} à envoyer</span>` : ''}
+              ${sent ? `<span class="vw-status is-sent">${plural(sent, 'envoyée', 'envoyées')}</span>` : ''}
+            </span>
+          </div>
         </a>`;
       }).join('')}</div>`;
     } catch (e) {

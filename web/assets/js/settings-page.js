@@ -63,19 +63,23 @@ function fillPrefs(p) {
   document.getElementById('pf-jersey').value = p.jersey;
   document.getElementById('pf-opp').value = p.opp;
   document.getElementById('pf-draw').value = p.draw;
-  // Mêmes tailles S / M / L / XL que dans le tableau tactique : une
-  // ancienne valeur libre est ramenée à la taille la plus proche.
-  document.getElementById('pf-token').value = nearestOption('pf-token', p.tokenR);
-  document.getElementById('pf-equip').value = nearestOption('pf-equip', p.equipR);
+  // Tailles au curseur, comme dans le tableau tactique, avec l'aperçu du pion.
+  ['token', 'equip'].forEach(k => {
+    const input = document.getElementById(`pf-${k}`);
+    input.value = p[`${k}R`];
+    syncSizePreview(input);
+  });
   document.getElementById('pf-view').value = p.view;
   document.getElementById('pf-font').value = p.font;
   document.getElementById('pf-numbers').value = p.showNumbers ? '1' : '0';
 }
 
-function nearestOption(selectId, value) {
-  const opts = [...document.getElementById(selectId).options].map(o => Number(o.value));
-  return String(opts.reduce((best, v) => Math.abs(v - value) < Math.abs(best - value) ? v : best, opts[0]));
+/* Aperçu : un rond de la taille réelle du pion à l'écran du tableau. */
+function syncSizePreview(input) {
+  const prev = document.getElementById(`${input.id}-prev`);
+  prev.style.width = prev.style.height = `${Number(input.value) * 2 * .8}px`;
 }
+['pf-token', 'pf-equip'].forEach(id => document.getElementById(id)?.addEventListener('input', (e) => syncSizePreview(e.target)));
 
 async function savePrefs() {
   const prefs = {

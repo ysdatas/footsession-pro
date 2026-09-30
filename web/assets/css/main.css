@@ -421,3 +421,83 @@ body.lb-open { overflow: hidden; }
 
 /* Icônes (sprite Lucide) : même taille et même trait partout. */
 .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+
+/* ============================================================
+   Logo FootSession Pro : le même partout (menu du staff, barre du
+   haut sur téléphone, espace joueur, connexion).
+   ============================================================ */
+.brand-accent { color: var(--text-primary); }
+.brand-pro {
+  display: inline-block; vertical-align: middle;
+  font-size: var(--fs-xs); font-weight: 700; line-height: 1;
+  color: var(--gold); background: rgba(201,168,76,.12);
+  border: 1px solid var(--gold-border); border-radius: 5px;
+  padding: 3px 6px; letter-spacing: .06em; margin-left: 4px;
+  position: relative; top: -1px;
+}
+
+/* ============================================================
+   Espace joueur (player-nav.js) : même en-tête sur chaque page ;
+   sur téléphone, onglets en bas, à portée de pouce.
+   ============================================================ */
+.pa-bar {
+  position: sticky; top: 0; z-index: 60;
+  display: flex; align-items: center; gap: 16px; height: 56px;
+  padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+  background: rgba(10,10,10,.8); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--border);
+}
+.pa-brand { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
+.pa-links { display: flex; gap: 4px; margin-left: auto; }
+.pa-link {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 999px;
+  color: var(--text-secondary); font-size: var(--fs-md); font-weight: 500;
+  transition: background var(--dur-micro) ease, color var(--dur-micro) ease;
+}
+.pa-link:hover { color: var(--text-primary); background: var(--bg-surface); }
+.pa-link.is-active { color: #0A0A0A; background: var(--gold); font-weight: 600; }
+.pa-link .ic { width: 16px; height: 16px; }
+.pa-logout {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-size: var(--fs-sm);
+}
+.pa-logout:hover { color: var(--danger); border-color: rgba(244,67,54,.35); }
+.pa-logout .ic { width: 16px; height: 16px; }
+.pa-tabbar { display: none; }
+@media (max-width: 760px) {
+  .pa-links { display: none; }
+  .pa-logout { margin-left: auto; width: 40px; padding: 0; }
+  .pa-logout span { display: none; }
+  .pa-tabbar {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: rgba(12,12,12,.86); -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+  .pa-tab {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px;
+    border-radius: 12px; color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 600;
+    -webkit-tap-highlight-color: transparent; transition: color var(--dur-micro) ease, background var(--dur-micro) ease;
+  }
+  .pa-tab:active { background: rgba(255,255,255,.06); }
+  .pa-tab .ic { width: 22px; height: 22px; }
+  .pa-tab.is-active { color: var(--gold); }
+  .pa-tab.is-active .ic { filter: drop-shadow(0 0 6px rgba(201,168,76,.45)); }
+  body.pa-body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  body.pa-body #toast-stack { bottom: calc(84px + env(safe-area-inset-bottom)); }
+}
+/* Page Performance vue par le joueur : la coque remplace la barre du staff. */
+body.pa-body .perf-topbar { display: none; }
+
+/* Toasts : pleine largeur sur téléphone, au-dessus du pouce. */
+@media (max-width: 560px) {
+  #toast-stack { left: 12px; right: 12px; bottom: 16px; }
+  .toast { min-width: 0; }
+}
+
+/* Réglage d'une taille au curseur (Paramètres) : aperçu à côté. */
+.size-pref { display: flex; align-items: center; gap: 14px; min-height: 60px; }
+.size-pref input[type="range"] { flex: 1; padding: 0; height: 36px; accent-color: var(--gold); background: transparent; border: 0; }
+.size-pref input[type="range"]:focus { box-shadow: none; }
+.size-preview { flex-shrink: 0; border-radius: 50%; background: #E03131; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }

@@ -621,7 +621,7 @@ body.fp-fm-page {
 
 @media (max-width: 1000px) {
   .fp-fm-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);   /* le contenu ne peut pas élargir la page sur téléphone */
   }
 
   .fp-fm-sidebar {

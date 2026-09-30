@@ -37,7 +37,6 @@
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-pitch" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/><path d="M2 9h3v6H2M22 9h-3v6h3"/></symbol>
-    <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/><circle cx="8.5" cy="7.5" r="1"/><circle cx="6.5" cy="12.5" r="1"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
     <symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.41V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
     <symbol id="i-present" viewBox="0 0 24 24"><path d="M10 7.75a.75.75 0 0 1 1.14-.64l3.67 2.25a.75.75 0 0 1 0 1.28l-3.67 2.25a.75.75 0 0 1-1.14-.64z"/><path d="M12 17v4"/><path d="M8 21h8"/><rect x="2" y="3" width="20" height="14" rx="2"/></symbol>
@@ -72,6 +71,8 @@
           <button class="glass-btn tb-tool" data-tool="square" type="button" title="Zone rectangle" aria-label="Zone rectangle"><svg class="ic"><use href="#i-square"/></svg></button>
           <button class="glass-btn tb-tool" data-tool="circle" type="button" title="Zone cercle" aria-label="Zone cercle"><svg class="ic"><use href="#i-circle"/></svg></button>
           <button class="glass-btn tb-tool" data-tool="text" type="button" title="Texte" aria-label="Texte"><svg class="ic"><use href="#i-type"/></svg></button>
+          <span class="tb-pill-sep"></span>
+          <button class="glass-btn tb-colorbtn" id="drawColorBtn" type="button" title="Couleur des flèches, zones et textes : les prochains la reprennent" aria-label="Couleur des tracés"><span class="tb-dot" id="drawDot"></span></button>
         </div>
         <div class="glass tb-pill" role="toolbar" aria-label="Historique">
           <button class="glass-btn" id="undoBtn" type="button" title="Annuler (Ctrl+Z)" aria-label="Annuler"><svg class="ic"><use href="#i-undo"/></svg></button>
@@ -93,7 +94,6 @@
       <div class="glass tb-float tb-panels" role="toolbar" aria-label="Panneaux">
         <button class="glass-btn tb-railbtn" data-panel="equip" type="button" title="Matériel"><svg class="ic"><use href="#i-cone"/></svg><span>Matériel</span></button>
         <button class="glass-btn tb-railbtn" data-panel="pitch" type="button" title="Terrain et formation"><svg class="ic"><use href="#i-pitch"/></svg><span>Terrain</span></button>
-        <button class="glass-btn tb-railbtn" data-panel="style" type="button" title="Couleurs"><svg class="ic"><use href="#i-palette"/></svg><span>Couleurs</span></button>
         <button class="glass-btn tb-railbtn" data-panel="export" type="button" title="Fiche PDF, images, vidéo"><svg class="ic"><use href="#i-download"/></svg><span>Exporter</span></button>
         <button class="glass-btn tb-railbtn hidden" data-panel="video" id="railVideo" type="button" title="Vidéo liée"><svg class="ic"><use href="#i-video"/></svg><span>Vidéo</span></button>
         <button class="glass-btn" id="presentBtn" type="button" title="Présentation plein écran"><svg class="ic"><use href="#i-present"/></svg><span>Présenter</span></button>
@@ -102,8 +102,8 @@
       <!-- Gauche : joueurs, numéros 1 à 11 -->
       <div class="glass tb-float tb-players" role="toolbar" aria-label="Joueurs">
         <div class="tb-team" role="radiogroup" aria-label="Équipe">
-          <button class="glass-btn" type="button" data-team="player" aria-pressed="true" title="Mon équipe"><span class="pion-dot" id="pionDotRed"></span></button>
-          <button class="glass-btn" type="button" data-team="opponent" aria-pressed="false" title="Adversaires"><span class="pion-dot" id="pionDotBlue"></span></button>
+          <button class="glass-btn" type="button" data-team="player" aria-pressed="true" title="Mon équipe · touchez encore pour changer sa couleur" aria-label="Mon équipe"><span class="pion-dot" id="pionDotRed"></span></button>
+          <button class="glass-btn" type="button" data-team="opponent" aria-pressed="false" title="Adversaires · touchez encore pour changer leur couleur" aria-label="Adversaires"><span class="pion-dot" id="pionDotBlue"></span></button>
         </div>
         <span class="tb-pill-sep is-h"></span>
         <button class="glass-btn tb-tool tb-num" data-tool="player" type="button" title="Pion (numéro suivant)" aria-label="Pion, numéro suivant"><svg class="ic"><use href="#i-circle"/></svg></button>
@@ -150,25 +150,6 @@
           <input type="file" id="logoInput" accept="image/*" hidden>
         </section>
 
-        <section class="tb-pane" data-pane="style">
-          <h3 class="tb-pane-title">Couleurs <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h3>
-          <label class="tb-field"><span><span class="pion-dot" id="pionDotRed2"></span> Joueurs</span><input type="color" id="jerseyColor" value="#E03131" aria-label="Couleur des joueurs"></label>
-          <label class="tb-field"><span><span class="pion-dot" id="pionDotBlue2"></span> Adversaires</span><input type="color" id="oppColor" value="#1F6FEB" aria-label="Couleur des adversaires"></label>
-          <label class="tb-field"><span>Tracés et zones</span><input type="color" id="drawColor" value="#C9A84C" aria-label="Couleur des tracés"></label>
-          <label class="tb-field">Police des textes
-            <select id="fontSelect">
-              <option value="Inter, sans-serif">Inter</option>
-              <option value="Arial, sans-serif">Arial</option>
-              <option value="Georgia, serif">Georgia</option>
-              <option value="'Times New Roman', serif">Times</option>
-              <option value="'Courier New', monospace">Courier</option>
-              <option value="Impact, sans-serif">Impact</option>
-              <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
-              <option value="Verdana, sans-serif">Verdana</option>
-            </select>
-          </label>
-        </section>
-
         <section class="tb-pane" data-pane="export">
           <h3 class="tb-pane-title">Exporter <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h3>
           <div class="tb-crop">
@@ -205,28 +186,37 @@
         </section>
       </aside>
 
-      <!-- Élément sélectionné : ses réglages apparaissent juste au-dessus de lui -->
-        <div class="glass tb-selbar hidden" id="selBar" role="toolbar" aria-label="Élément sélectionné">
-          <span class="tb-sel-label" id="selLabel">—</span>
-          <span class="tb-sel-empty hidden" id="selEmpty"></span>
-          <div class="tb-selprops" id="selProps">
-            <input type="color" id="selColor" data-palette="compact" aria-label="Couleur de l’élément">
-            <div class="tb-sizes" id="propSize" aria-label="Taille">
-              <span id="selSizes">
-                <button type="button" data-step="-2" title="Plus petit">−</button>
-                <button type="button" data-preset="0">S</button>
-                <button type="button" data-preset="1">M</button>
-                <button type="button" data-preset="2">L</button>
-                <button type="button" data-preset="3">XL</button>
-                <button type="button" data-step="2" title="Plus grand">+</button>
-              </span>
-            </div>
-            <label class="tb-prop" id="propText"><span id="selTextLabel">Texte</span><input type="text" id="selText" placeholder="Texte / n°"></label>
-            <button class="glass-btn tb-tool hidden" id="selBend" type="button" title="Ajouter ou retirer un point d'angle"><svg class="ic"><use href="#i-spline"/></svg>Angle</button>
-            <button class="glass-btn tb-tool" id="selRotate" type="button" title="Pivoter de 90° (R)" aria-label="Pivoter"><svg class="ic"><use href="#i-rotate"/></svg></button>
-            <button class="glass-btn tb-tool is-danger" id="selDelete" type="button" title="Supprimer (Suppr)" aria-label="Supprimer"><svg class="ic"><use href="#i-trash"/></svg></button>
-          </div>
-        </div>
+      <!-- Élément sélectionné : ses réglages apparaissent au-dessus de lui, et s'effacent pendant qu'on le déplace -->
+      <div class="glass tb-selbar hidden" id="selBar" role="toolbar" aria-label="Élément sélectionné">
+        <span class="tb-sel-label hidden" id="selLabel"></span>
+        <button class="glass-btn tb-colorbtn" id="selColorBtn" type="button" title="Couleur" aria-label="Couleur de l’élément"><span class="tb-dot" id="selDot"></span></button>
+        <label class="tb-size" id="propSize" title="Taille : glissez">
+          <span class="tb-size-min" aria-hidden="true"></span>
+          <input type="range" id="selSize" min="0" max="100" step="1" aria-label="Taille">
+          <span class="tb-size-max" aria-hidden="true"></span>
+        </label>
+        <label class="tb-prop" id="propText"><span id="selTextLabel">N°</span><input type="text" id="selText" autocomplete="off"></label>
+        <select id="fontSelect" class="tb-font hidden" aria-label="Police du texte">
+              <option value="Inter, sans-serif">Inter</option>
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Times New Roman', serif">Times</option>
+              <option value="'Courier New', monospace">Courier</option>
+              <option value="Impact, sans-serif">Impact</option>
+              <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+              <option value="Verdana, sans-serif">Verdana</option>
+            </select>
+        <button class="glass-btn tb-tool hidden" id="selBend" type="button" title="Ajouter ou retirer un point d’angle"><svg class="ic"><use href="#i-spline"/></svg>Angle</button>
+        <button class="glass-btn tb-tool" id="selRotate" type="button" title="Pivoter de 90° (R)" aria-label="Pivoter"><svg class="ic"><use href="#i-rotate"/></svg></button>
+        <button class="glass-btn tb-tool" id="selDup" type="button" title="Dupliquer (Ctrl+D)" aria-label="Dupliquer"><svg class="ic"><use href="#i-copy"/></svg></button>
+        <button class="glass-btn tb-tool is-danger" id="selDelete" type="button" title="Supprimer (Suppr)" aria-label="Supprimer"><svg class="ic"><use href="#i-trash"/></svg></button>
+      </div>
+
+      <!-- Palette : s'ouvre à côté de la pastille touchée, se ferme au choix -->
+      <div class="glass tb-palette hidden" id="tbPalette" role="dialog" aria-labelledby="tbPaletteTitle">
+        <div class="tb-palette-title" id="tbPaletteTitle">Couleur</div>
+        <div class="tb-palette-grid" id="tbPaletteGrid" role="radiogroup" aria-labelledby="tbPaletteTitle"></div>
+      </div>
 
       <!-- Bas : animation (étapes) et clips -->
       <div class="glass tb-float tb-timeline tb-stepsbar" role="toolbar" aria-label="Animation">

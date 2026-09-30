@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Performance joueur — FootSession Pro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
     <!-- Barre d'actions -->
     <div class="perf-topbar">
       <div>
-        <div class="perf-brand">Foot<span>Session</span> Pro</div>
+        <div class="perf-brand">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></div>
         <div class="text-muted" id="perfRoleLabel">Chargement…</div>
       </div>
       <div class="perf-actions">
@@ -26,7 +26,6 @@
         <button class="btn hidden perf-editor-only" id="btnImportExcel" type="button">Importer Excel</button>
         <button class="btn btn-primary hidden perf-staff-only" id="btnExport" type="button">Générer le PDF</button>
         <a class="btn hidden perf-staff-only" id="perfLogout" href="#" title="Se déconnecter">Déconnexion</a>
-        <nav id="playerNav" class="hidden"></nav>
       </div>
     </div>
 

@@ -90,6 +90,12 @@ async function savePrefsPatch(patch) {
 function renderNav(profile) {
   const nav = document.querySelector('#sidebar .nav');
   if (!nav) return;
+  // Téléphone : le menu est replié, le logo reste visible dans la barre du
+  // haut (sauf sur le tableau tactique, plein écran).
+  if (!document.querySelector('.m-appbar, .tb-page')) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<header class="m-appbar">Foot<span class="brand-accent">Session</span>&nbsp;<span class="brand-pro">Pro</span></header>');
+  }
   const page = currentPageName();
   const activeKey = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;
   nav.innerHTML = orderedNavItems(profile.role, profile.prefs)

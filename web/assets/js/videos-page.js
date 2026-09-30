@@ -1,6 +1,9 @@
 /* ============================================================
    FootSession Pro — videos-page.js (staff)
-   Vidéos organisées PAR JOUEUR :
+   En haut, « À voir » : les séquences envoyées par les joueurs et
+   pas encore commentées, les plus récentes d'abord. Un toucher ouvre
+   la séquence, qui passe « Vu » pour le joueur.
+   Puis les vidéos organisées PAR JOUEUR :
      Joueur
        → Séquences sélectionnées (à travailler, pas encore annotées)
        → Séquences annotées (dessins / analyse, envoyées ou non)
@@ -15,7 +18,6 @@ let playersCache = [];
 let videosCache = [];
 let seqsCache = [];
 let requestedPlayerId = null;
-let vpFilter = 'all';
 let vpQuery = '';
 
 (async () => {
@@ -55,7 +57,6 @@ let vpQuery = '';
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const fmtMo = (bytes) => `${Math.round(bytes / (1024 * 1024))} Mo`;
 const fullName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
-const toSee = (s) => s.submitted_at && (!s.feedback_at || s.feedback_at < s.submitted_at);
 
 /* ---------- Chargement ---------- */
 async function loadVideos() {
@@ -89,17 +90,31 @@ function videoStats(v) {
   return `<span class="vw-flag is-ok">Vue ${views.length}×</span> <span class="vp-stat">${Math.round(total / 60)} min${pct !== null ? ` · ${pct} %` : ''}</span>`;
 }
 
+const annCount = (s) => { const n = (s.drawings || []).length; return n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans annotation'; };
+
 function seqRow(s) {
   const v = videosCache.find(x => x.id === s.video_id);
   return `<button type="button" class="vp-row vp-seq" data-open-video="${s.video_id}" data-seq="${s.id}">
     <span class="vp-row-main"><strong>${escapeHtml(s.label || 'Séquence')}</strong>
-      <span>${escapeHtml(v?.titre || 'Vidéo')} · ${fmtT(s.start_sec)} – ${fmtT(s.end_sec)}${(s.drawings || []).length ? ` · ${s.drawings.length} image${s.drawings.length > 1 ? 's' : ''}` : ''}</span></span>
-    <span class="vw-flags">
-      ${toSee(s) ? '<span class="vw-flag is-gold">À voir</span>' : ''}
-      ${s.submitted_at && !toSee(s) ? '<span class="vw-flag is-ok">Retour envoyé</span>' : ''}
-      ${hasWork(s) && !s.submitted_at ? '<span class="vw-flag">En cours</span>' : ''}
-    </span>
+      <span>${escapeHtml(v?.titre || 'Vidéo')} · ${fmtT(s.start_sec)} – ${fmtT(s.end_sec)} · ${annCount(s)}</span></span>
+    ${statusPill(s)}
   </button>`;
+}
+
+/* À voir : envoyées et sans retour postérieur, de la plus récente à la plus ancienne. */
+function renderInbox() {
+  const todo = seqsCache.filter(seqToSee).sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+  document.getElementById('vpInbox').classList.toggle('hidden', !todo.length);
+  document.getElementById('vpInboxCount').textContent = todo.length;
+  document.getElementById('vpInboxList').innerHTML = todo.map(s => {
+    const note = (s.player_note || '').trim();
+    return `<button type="button" class="vp-inbox-card" data-open-video="${s.video_id}" data-seq="${s.id}">
+      <span class="vp-inbox-top"><strong>${escapeHtml(fullName(playersCache.find(p => p.id === s.player_id)))}</strong>${statusPill(s)}</span>
+      <span class="vp-inbox-seq">${escapeHtml(s.label || 'Séquence')}</span>
+      <span class="vp-inbox-meta">${fmtDur(s.end_sec - s.start_sec)} · ${annCount(s)} · envoyée le ${escapeHtml(new Date(s.submitted_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }))}</span>
+      ${note ? `<em>« ${escapeHtml(note.length > 110 ? `${note.slice(0, 107)}…` : note)} »</em>` : ''}
+    </button>`;
+  }).join('');
 }
 
 function renderVideos() {
@@ -112,21 +127,20 @@ function renderVideos() {
     player: playersCache.find(p => p.id === id) || { id, nom: 'Joueur' }, ...g,
     selected: g.seqs.filter(s => s.selected && !hasWork(s)),
     annotated: g.seqs.filter(hasWork),
-    todo: g.seqs.filter(toSee).length,
+    todo: g.seqs.filter(seqToSee).length,
   }));
   const totalTodo = groups.reduce((n, g) => n + g.todo, 0);
   document.getElementById('videosSub').textContent =
     `${videosCache.length} vidéo${videosCache.length > 1 ? 's' : ''} · ${seqsCache.length} séquence${seqsCache.length > 1 ? 's' : ''}`
     + (totalTodo ? ` · ${totalTodo} analyse${totalTodo > 1 ? 's' : ''} de joueurs à voir` : '');
 
-  if (vpFilter === 'todo') groups = groups.filter(g => g.todo);
+  renderInbox();
   if (vpQuery) groups = groups.filter(g => fullName(g.player).toLowerCase().includes(vpQuery));
   groups.sort((a, b) => (b.todo - a.todo) || fullName(a.player).localeCompare(fullName(b.player), 'fr'));
 
   const list = document.getElementById('vpList');
   if (!groups.length) {
-    list.innerHTML = `<div class="empty">${vpFilter === 'todo' ? 'Aucune analyse de joueur en attente.'
-      : videosCache.length ? 'Aucun joueur ne correspond.' : 'Aucune vidéo envoyée pour le moment.'}</div>`;
+    list.innerHTML = `<div class="empty">${videosCache.length ? 'Aucun joueur ne correspond.' : 'Aucune vidéo envoyée pour le moment.'}</div>`;
     return;
   }
   const openAll = groups.length === 1;
@@ -135,7 +149,7 @@ function renderVideos() {
       <summary>
         <span class="vp-name">${escapeHtml(fullName(g.player))}</span>
         <span class="vp-meta">${g.videos.length} vidéo${g.videos.length > 1 ? 's' : ''} · ${g.selected.length} sélectionnée${g.selected.length > 1 ? 's' : ''} · ${g.annotated.length} annotée${g.annotated.length > 1 ? 's' : ''}</span>
-        ${g.todo ? `<span class="vw-flag is-gold">${g.todo} à voir</span>` : ''}
+        ${g.todo ? `<span class="vw-status is-sent">${g.todo} à voir</span>` : ''}
       </summary>
       <div class="vp-body">
         <section>
@@ -163,18 +177,12 @@ function renderVideos() {
     </details>`).join('');
 }
 
-document.getElementById('vpList').addEventListener('click', (e) => {
+['vpList', 'vpInboxList'].forEach(id => document.getElementById(id).addEventListener('click', (e) => {
   const open = e.target.closest('[data-open-video]');
   if (open) return openWorkspace(Number(open.dataset.openVideo), Number(open.dataset.seq) || null);
   const del = e.target.closest('[data-del-video]');
   if (del) return deleteVideo(Number(del.dataset.delVideo));
-});
-document.getElementById('videoFilter').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-filter]'); if (!b) return;
-  vpFilter = b.dataset.filter;
-  document.querySelectorAll('#videoFilter button').forEach(x => x.classList.toggle('active', x === b));
-  renderVideos();
-});
+}));
 document.getElementById('vpSearch').addEventListener('input', (e) => {
   vpQuery = e.target.value.trim().toLowerCase();
   renderVideos();

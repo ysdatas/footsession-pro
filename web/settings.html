@@ -69,17 +69,11 @@
       <div class="field-row">
         <div class="field">
           <label for="pf-token">Taille des pions</label>
-          <select id="pf-token">
-            <option value="14">S — petit</option><option value="18">M — moyen</option>
-            <option value="22">L — grand</option><option value="28">XL — très grand</option>
-          </select>
+          <div class="size-pref"><input type="range" id="pf-token" min="10" max="36" step="1"><span class="size-preview" id="pf-token-prev" aria-hidden="true"></span></div>
         </div>
         <div class="field">
           <label for="pf-equip">Taille du matériel</label>
-          <select id="pf-equip">
-            <option value="12">S — petit</option><option value="16">M — moyen</option>
-            <option value="20">L — grand</option><option value="26">XL — très grand</option>
-          </select>
+          <div class="size-pref"><input type="range" id="pf-equip" min="8" max="34" step="1"><span class="size-preview" id="pf-equip-prev" aria-hidden="true"></span></div>
         </div>
       </div>
       <div class="field-row">
