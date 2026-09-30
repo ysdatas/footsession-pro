@@ -77,9 +77,48 @@
           <div class="fiche-card-head"><h3>Parcours</h3><a class="fiche-link" id="careerLink" href="#">Modifier →</a></div>
           <div id="careerBox"><p class="text-muted">Chargement…</p></div>
         </section>
+        <section class="card fiche-wide">
+          <div class="fiche-card-head">
+            <h3>Programme</h3>
+            <button class="btn btn-sm btn-primary hidden" id="btnAddExercise" type="button">+ Exercice</button>
+          </div>
+          <div id="programBox"><p class="text-muted">Chargement…</p></div>
+        </section>
       </div>
     </div>
   </main>
+
+
+  <div class="modal-backdrop" id="programModal">
+    <div class="modal modal-wide">
+      <h3 id="programModalTitle">Nouvel exercice</h3>
+      <form id="programForm" class="fiche-form prog-form" onsubmit="return false">
+        <label>Séance<input name="seance" list="seanceList" placeholder="Ex. Séance 1 — Renforcement" autocomplete="off"></label>
+        <label>Titre<input name="title" required placeholder="Ex. Gainage latéral" autocomplete="off"></label>
+        <label class="span-all">Consignes<textarea name="instructions" rows="4" placeholder="Placement, points techniques, erreurs à éviter…"></textarea></label>
+        <label>Dosage<input name="dosage" placeholder="Ex. 3 × 10, récup 1 min" autocomplete="off"></label>
+        <label>Vidéo du joueur<select name="video_id"><option value="">Aucune</option></select></label>
+        <div class="prog-edit-block">
+          <span class="prog-edit-label">Image de l’exercice</span>
+          <div class="prog-preview" id="progImagePreview"></div>
+          <input type="file" name="image" accept="image/jpeg,image/png,image/webp">
+          <input name="image_caption" placeholder="Légende / annotation (facultatif)" autocomplete="off">
+        </div>
+        <div class="prog-edit-block">
+          <span class="prog-edit-label">Schéma (tableau tactique)</span>
+          <div class="prog-preview" id="progSchemaPreview"></div>
+          <button class="btn btn-sm" type="button" id="btnProgSchema">Dessiner le schéma</button>
+        </div>
+      </form>
+      <datalist id="seanceList"></datalist>
+      <div class="modal-actions">
+        <button class="btn btn-danger hidden" id="btnProgDelete" type="button">Supprimer</button>
+        <span style="flex:1"></span>
+        <button class="btn" type="button" data-close="programModal">Annuler</button>
+        <button class="btn btn-primary" id="btnProgSave" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
@@ -87,6 +126,9 @@
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/perf-metrics.js"></script>
+  <script src="assets/js/lightbox.js"></script>
+  <script src="assets/js/program.js"></script>
+  <script src="assets/js/program-editor.js"></script>
   <script src="assets/js/player-page.js"></script>
 </body>
 </html>

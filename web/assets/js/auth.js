@@ -52,7 +52,7 @@ async function requireAuth(opts = {}) {
      ses vidéos. */
   const currentPage = (window.location.pathname.split('/').pop() || '')
     .replace(/\.html$/i, '') || 'index';
-  const PLAYER_PAGES = ['mes-videos', 'voir-video', 'player-join', 'player-performance'];
+  const PLAYER_PAGES = ['mes-videos', 'voir-video', 'player-join', 'player-performance', 'mon-programme'];
   if (profile.role === 'joueur' && !PLAYER_PAGES.includes(currentPage)) {
     console.warn(`requireAuth: page « ${currentPage} » interdite au rôle joueur, renvoi sur mes-videos`);
     window.location.replace('mes-videos.html');

@@ -11,13 +11,17 @@
 </head>
 <body>
 <div class="pv-wrap">
-  <a class="btn btn-sm" href="mes-videos.html" style="margin-bottom:16px;display:inline-flex;">← Mes vidéos</a>
+  <div class="pv-head">
+    <a class="btn btn-sm" href="mes-videos.html">← Mes vidéos</a>
+    <nav id="playerNav"></nav>
+  </div>
   <div id="vvContent"><div class="empty">Chargement…</div></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
 <script src="assets/js/video-tracking.js"></script>
+<script src="assets/js/player-nav.js"></script>
 <script>
   const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -38,6 +42,7 @@
 
     const { data: player } = await sb.from('players').select('id').eq('auth_user_id', session.user.id).maybeSingle();
     if (!player) { window.location.href = 'player-join.html'; return; }
+    renderPlayerNav();
 
     const params = new URLSearchParams(location.search);
     const videoId = Number(params.get('id'));

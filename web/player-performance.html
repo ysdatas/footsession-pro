@@ -27,6 +27,8 @@
         <button class="btn hidden perf-editor-only" id="btnImportExcel" type="button">Importer Excel</button>
         <button class="btn hidden perf-editor-only" id="btnAddPhoto" type="button">Photo</button>
         <button class="btn btn-primary hidden perf-staff-only" id="btnExport" type="button">Générer le PDF</button>
+        <a class="btn hidden perf-staff-only" id="perfLogout" href="#" title="Se déconnecter">Déconnexion</a>
+        <nav id="playerNav" class="hidden"></nav>
       </div>
     </div>
 
@@ -160,9 +162,15 @@
     <div class="modal">
       <h3 id="noteModalTitle">Ajouter un point</h3>
       <input id="noteKind" type="hidden">
+      <input id="noteId" type="hidden">
       <div class="field"><label>Titre</label><input id="noteTitle"></div>
-      <div class="field"><label>Description</label><textarea id="noteBody" rows="5"></textarea></div>
-      <div class="field"><label>Images / exercices</label><input id="noteFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple></div>
+      <div class="field"><label>Description / consignes</label><textarea id="noteBody" rows="5"></textarea></div>
+      <div class="field">
+        <label>Images / exercices</label>
+        <div id="noteImages" class="note-images-edit"></div>
+        <input id="noteFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+        <small class="field-hint">Chaque image peut avoir sa légende (annotation), affichée quand on l’ouvre en grand.</small>
+      </div>
       <div class="modal-actions">
         <button class="btn" data-close="noteModal" type="button">Annuler</button>
         <button class="btn btn-primary" id="btnSaveNote" type="button">Enregistrer</button>
@@ -336,6 +344,8 @@
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/perf-metrics.js"></script>
+  <script src="assets/js/lightbox.js"></script>
+  <script src="assets/js/player-nav.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/perf-export.js"></script>

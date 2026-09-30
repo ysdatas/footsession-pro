@@ -763,30 +763,72 @@ async function loadSquad() {
     && (!currentSeason || t.season_key === currentSeason));
 }
 
+const NOTE_KINDS = {
+  strength:    { badge: 'Point fort',   cls: 'badge-success', empty: 'Aucun point fort.',            add: 'Ajouter un point fort' },
+  improvement: { badge: 'Amélioration', cls: 'badge-gold',    empty: 'Aucun point d’amélioration.', add: 'Ajouter un point d’amélioration' },
+  objective:   { badge: 'Objectif',     cls: 'badge-gold',    empty: 'Aucun objectif.',              add: 'Ajouter un objectif' },
+};
+const noteImages = (id) => media.filter(m => m.note_id === id && m.signed_url)
+  .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id);
+
+/* Un point s'ouvre en grand au clic : titre, consignes et images, chaque
+   image avec sa légende. */
+function openNote(id, start = 0) {
+  const n = notes.find(x => x.id === id);
+  if (!n) return;
+  openLightbox({
+    title: n.title,
+    text: n.body || '',
+    items: noteImages(id).map(m => ({ type: 'image', src: m.signed_url, caption: m.caption || '' })),
+    start,
+  });
+}
+
 function renderNotes() {
   const renderList = (kind, id) => {
+    const k = NOTE_KINDS[kind];
     const list = notes.filter(n => n.kind === kind).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0) || (a.id-b.id));
     document.getElementById(id).innerHTML = list.length
       ? list.map(n => {
-          const imgs = media.filter(m => m.note_id === n.id);
-          return `<article class="note-card">
+          const imgs = noteImages(n.id);
+          return `<article class="note-card is-openable" data-note-open="${n.id}" tabindex="0" role="button" aria-label="Ouvrir ${esc(n.title)}">
             <div class="note-card-head">
-              <span class="badge ${kind === 'strength' ? 'badge-success' : (kind === 'objective' ? 'badge-gold' : 'badge-gold')}">${kind === 'strength' ? 'Point fort' : (kind === 'objective' ? 'Objectif' : 'Amélioration')}</span>
-              ${canEditPlans ? `<button class="btn btn-sm btn-danger note-delete" type="button" data-note="${n.id}">Suppr.</button>` : ''}
+              <span class="badge ${k.cls}">${k.badge}</span>
+              ${canEditPlans ? `<div class="note-card-actions">
+                <button class="btn btn-sm" type="button" data-note-edit="${n.id}">Modifier</button>
+                <button class="btn btn-sm btn-danger" type="button" data-note-delete="${n.id}">Suppr.</button></div>` : ''}
             </div>
             <h3>${esc(n.title)}</h3>
             ${n.body ? `<p>${esc(n.body).replace(/\n/g,'<br>')}</p>` : ''}
-            ${imgs.length ? `<div class="media-grid">${imgs.map(m => `<figure><img src="${esc(m.signed_url || '')}" alt="${esc(m.caption || '')}"><figcaption>${esc(m.caption || '')}</figcaption></figure>`).join('')}</div>` : ''}
+            ${imgs.length ? `<div class="media-grid">${imgs.map((m, i) => `<figure data-img-index="${i}"><img src="${esc(m.signed_url)}" alt="${esc(m.caption || n.title)}" loading="lazy">${m.caption ? `<figcaption>${esc(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
+            <div class="note-open-hint">${imgs.length ? `${imgs.length} image${imgs.length > 1 ? 's' : ''} · cliquer pour agrandir` : 'Cliquer pour ouvrir'}</div>
           </article>`;
         }).join('')
-      : `<div class="empty">Aucun ${kind === 'strength' ? 'point fort' : (kind === 'objective' ? 'objectif' : 'point d’amélioration')}.</div>`;
+      : `<div class="empty">${k.empty}</div>`;
   };
   renderList('strength', 'strengthList');
   renderList('improvement', 'improvementList');
   renderList('objective', 'objectiveList');
-
-  document.querySelectorAll('.note-delete').forEach(btn => btn.addEventListener('click', () => deleteNote(Number(btn.dataset.note))));
 }
+
+/* Un seul écouteur par liste : ouvrir, modifier, supprimer. */
+['strengthList', 'improvementList', 'objectiveList'].forEach(listId => {
+  const list = document.getElementById(listId);
+  list.addEventListener('click', e => {
+    const edit = e.target.closest('[data-note-edit]');
+    if (edit) return openNoteModal(null, Number(edit.dataset.noteEdit));
+    const del = e.target.closest('[data-note-delete]');
+    if (del) return deleteNote(Number(del.dataset.noteDelete));
+    const card = e.target.closest('[data-note-open]');
+    if (!card) return;
+    const fig = e.target.closest('[data-img-index]');
+    openNote(Number(card.dataset.noteOpen), fig ? Number(fig.dataset.imgIndex) : 0);
+  });
+  list.addEventListener('keydown', e => {
+    const card = e.target.closest('[data-note-open]');
+    if (card && e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openNote(Number(card.dataset.noteOpen)); }
+  });
+});
 
 async function signMedia() {
   const signed = await Promise.all(media.map(async m => {
@@ -879,10 +921,12 @@ async function loadPage() {
   const back = document.getElementById('backPlayers');
   const videoLink = document.getElementById('videoPlayerLink');
   if (ctxProfile.role === 'joueur') {
+    // Même barre que sur toutes les pages du joueur, déconnexion comprise.
     back.classList.add('hidden');
-    videoLink.href = 'mes-videos.html';
-    videoLink.textContent = 'Mes vidéos';
+    videoLink.classList.add('hidden');
+    renderPlayerNav();
   } else {
+    document.getElementById('perfLogout').addEventListener('click', (e) => { e.preventDefault(); logout(); });
     back.href = `player.html?id=${playerId}`;
     back.textContent = '← Fiche joueur';
     // Le préparateur physique n'a pas accès à la rubrique Vidéos.
@@ -1167,39 +1211,116 @@ async function uploadPhoto(file) {
   notify('Photo du joueur mise à jour.','success');
 }
 
+/* ---------- Fenêtre d'ajout / de modification d'un point ----------
+   Images existantes : légende modifiable, bouton Retirer. Nouvelles
+   images : aperçu et légende avant l'envoi. */
+let noteDraft = { existing: [], pending: [] };
+
+function openNoteModal(kind, id = null) {
+  if (!canEditPlans) return;
+  const n = id ? notes.find(x => x.id === id) : null;
+  kind = n?.kind || kind;
+  document.getElementById('noteKind').value = kind;
+  document.getElementById('noteId').value = n?.id || '';
+  document.getElementById('noteModalTitle').textContent = n ? 'Modifier le point' : NOTE_KINDS[kind].add;
+  document.getElementById('noteTitle').value = n?.title || '';
+  document.getElementById('noteBody').value = n?.body || '';
+  document.getElementById('noteFiles').value = '';
+  noteDraft.pending.forEach(p => URL.revokeObjectURL(p.url));
+  noteDraft = {
+    existing: n ? noteImages(n.id).map(m => ({ id: m.id, path: m.storage_path, url: m.signed_url, caption: m.caption || '', removed: false })) : [],
+    pending: [],
+  };
+  renderNoteImages();
+  openPerfModal('noteModal');
+  setTimeout(() => document.getElementById('noteTitle').focus(), 50);
+}
+
+function renderNoteImages() {
+  const box = document.getElementById('noteImages');
+  const row = (img, key, i) => `<div class="nie-row${img.removed ? ' is-removed' : ''}">
+      <img src="${esc(img.url)}" alt="">
+      <input type="text" data-caption="${key}:${i}" value="${esc(img.caption)}" placeholder="Légende / annotation (facultatif)" ${img.removed ? 'disabled' : ''}>
+      <button class="btn btn-sm" type="button" data-img-toggle="${key}:${i}">${key === 'pending' ? 'Retirer' : (img.removed ? 'Garder' : 'Retirer')}</button>
+    </div>`;
+  box.innerHTML = noteDraft.existing.map((img, i) => row(img, 'existing', i)).join('')
+    + noteDraft.pending.map((img, i) => row(img, 'pending', i)).join('');
+}
+
+document.getElementById('noteImages').addEventListener('input', e => {
+  const [key, i] = (e.target.dataset.caption || '').split(':');
+  if (key) noteDraft[key][Number(i)].caption = e.target.value;
+});
+document.getElementById('noteImages').addEventListener('click', e => {
+  const b = e.target.closest('[data-img-toggle]'); if (!b) return;
+  const [key, i] = b.dataset.imgToggle.split(':');
+  if (key === 'pending') { URL.revokeObjectURL(noteDraft.pending[i].url); noteDraft.pending.splice(Number(i), 1); }
+  else noteDraft.existing[Number(i)].removed = !noteDraft.existing[Number(i)].removed;
+  renderNoteImages();
+});
+document.getElementById('noteFiles').addEventListener('change', e => {
+  for (const file of e.target.files) {
+    if (file.size > 5 * 1024 * 1024) { notify(`« ${file.name} » dépasse 5 Mo.`, 'error'); continue; }
+    noteDraft.pending.push({ file, url: URL.createObjectURL(file), caption: '' });
+  }
+  e.target.value = '';
+  renderNoteImages();
+});
+
 async function saveNote() {
   if (!canEditPlans) return;
-  const kind=document.getElementById('noteKind').value;
-  const title=document.getElementById('noteTitle').value.trim();
-  const body=document.getElementById('noteBody').value.trim()||null;
-  const files=[...document.getElementById('noteFiles').files];
+  const kind = document.getElementById('noteKind').value;
+  const id = Number(document.getElementById('noteId').value) || null;
+  const title = document.getElementById('noteTitle').value.trim();
+  const body = document.getElementById('noteBody').value.trim() || null;
   if (!title) return notify('Le titre est obligatoire.','error');
-  if (files.some(f=>f.size>5*1024*1024)) return notify('Chaque image doit faire 5 Mo maximum.','error');
-
-  const { data: note, error } = await sb.from('player_performance_notes').insert({
-    club_id:player.club_id, player_id:player.id, kind, title, body, created_by:ctxProfile.id
-  }).select().single();
-  if (error) return notify(error.message,'error');
-
-  for (const [index,file] of files.entries()) {
-    const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
-    const path=`${player.club_id}/${player.id}/${note.id}/${Date.now()}-${index}.${ext}`;
-    const up=await sb.storage.from('player-performance-media').upload(path,file,{contentType:file.type||'image/jpeg'});
-    if (up.error) {
-      notify(`Note créée mais une image n’a pas été envoyée : ${up.error.message}`,'error');
-      continue;
+  const btn = document.getElementById('btnSaveNote'); btn.disabled = true;
+  try {
+    let noteId = id;
+    if (id) {
+      const { error } = await sb.from('player_performance_notes').update({ title, body }).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { data: note, error } = await sb.from('player_performance_notes').insert({
+        club_id: player.club_id, player_id: player.id, kind, title, body, created_by: ctxProfile.id,
+      }).select().single();
+      if (error) throw error;
+      noteId = note.id;
     }
-    await sb.from('player_performance_media').insert({
-      club_id:player.club_id, player_id:player.id, note_id:note.id,
-      storage_path:path, caption:file.name, sort_order:index, created_by:ctxProfile.id
-    });
-  }
-  closePerfModal('noteModal');
-  document.getElementById('noteTitle').value='';
-  document.getElementById('noteBody').value='';
-  document.getElementById('noteFiles').value='';
-  notify('Point enregistré.','success');
-  await reloadData();
+
+    // Images retirées : fichier et ligne supprimés. Légendes modifiées : mises à jour.
+    const removed = noteDraft.existing.filter(m => m.removed);
+    if (removed.length) {
+      await sb.storage.from('player-performance-media').remove(removed.map(m => m.path));
+      const { error } = await sb.from('player_performance_media').delete().in('id', removed.map(m => m.id));
+      if (error) throw error;
+    }
+    for (const m of noteDraft.existing.filter(x => !x.removed)) {
+      const before = media.find(x => x.id === m.id)?.caption || '';
+      if (m.caption.trim() !== before) {
+        const { error } = await sb.from('player_performance_media').update({ caption: m.caption.trim() || null }).eq('id', m.id);
+        if (error) throw error;
+      }
+    }
+    let order = Math.max(-1, ...media.filter(m => m.note_id === noteId).map(m => m.sort_order || 0));
+    for (const [index, p] of noteDraft.pending.entries()) {
+      const ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${player.club_id}/${player.id}/${noteId}/${Date.now()}-${index}.${ext}`;
+      const up = await sb.storage.from('player-performance-media').upload(path, p.file, { contentType: p.file.type || 'image/jpeg' });
+      if (up.error) { notify(`Une image n’a pas été envoyée : ${up.error.message}`, 'error'); continue; }
+      const { error } = await sb.from('player_performance_media').insert({
+        club_id: player.club_id, player_id: player.id, note_id: noteId,
+        storage_path: path, caption: p.caption.trim() || null, sort_order: ++order, created_by: ctxProfile.id,
+      });
+      if (error) throw error;
+    }
+    closePerfModal('noteModal');
+    notify(id ? 'Point mis à jour.' : 'Point enregistré.', 'success');
+    await reloadData();
+  } catch (e) {
+    console.error('Enregistrement du point impossible', e);
+    notify(e.message, 'error');
+  } finally { btn.disabled = false; }
 }
 
 async function deleteNote(id) {
@@ -1238,21 +1359,9 @@ document.getElementById('btnEditPlayer').addEventListener('click',openPlayerEdit
 document.getElementById('btnSavePlayer').addEventListener('click',savePlayerEdit);
 document.getElementById('btnSaveMeasurement').addEventListener('click',saveMeasurement);
 document.getElementById('btnSaveTest').addEventListener('click',saveTest);
-document.getElementById('btnAddStrength').addEventListener('click',()=>{
-  document.getElementById('noteKind').value='strength';
-  document.getElementById('noteModalTitle').textContent='Ajouter un point fort';
-  openPerfModal('noteModal');
-});
-document.getElementById('btnAddImprovement').addEventListener('click',()=>{
-  document.getElementById('noteKind').value='improvement';
-  document.getElementById('noteModalTitle').textContent='Ajouter un point d’amélioration';
-  openPerfModal('noteModal');
-});
-document.getElementById('btnAddObjective').addEventListener('click',()=>{
-  document.getElementById('noteKind').value='objective';
-  document.getElementById('noteModalTitle').textContent='Ajouter un objectif';
-  openPerfModal('noteModal');
-});
+document.getElementById('btnAddStrength').addEventListener('click',()=>openNoteModal('strength'));
+document.getElementById('btnAddImprovement').addEventListener('click',()=>openNoteModal('improvement'));
+document.getElementById('btnAddObjective').addEventListener('click',()=>openNoteModal('objective'));
 document.getElementById('btnSaveNote').addEventListener('click',saveNote);
 document.getElementById('btnAddPhoto').addEventListener('click',()=>document.getElementById('photoFile').click());
 document.getElementById('photoFile').addEventListener('change',e=>uploadPhoto(e.target.files[0]));
@@ -1600,22 +1709,18 @@ function fpFmRenderVideoPanel() {
     });
   });
 
+  // Lecture en grand, avec le son. Le joueur passe par sa page de lecture,
+  // qui comptabilise le visionnage pour le staff.
   panel.querySelectorAll('[data-video-play]').forEach(button => {
     button.addEventListener('click', () => {
-      const card = button.closest('.fp-video-card');
-      const video = card?.querySelector('video');
+      const video = fpFmVideos.find(v => String(v.id) === button.dataset.videoPlay);
       if (!video) return;
-
-      if (video.paused) {
-        panel.querySelectorAll('video').forEach(v => {
-          if (v !== video) v.pause();
-        });
-        video.play().catch(() => {});
-        button.textContent = '❚❚';
-      } else {
-        video.pause();
-        button.textContent = '▶';
-      }
+      if (ctxProfile?.role === 'joueur') { window.location.href = `voir-video.html?id=${video.id}`; return; }
+      openLightbox({
+        title: video.titre || 'Séquence',
+        text: video.description || '',
+        items: [{ type: 'video', src: video.signed_url }],
+      });
     });
   });
 

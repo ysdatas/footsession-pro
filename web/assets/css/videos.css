@@ -27,3 +27,9 @@
 @media (max-width: 560px) {
   .pv-wrap { padding: 20px 14px 40px; }
 }
+.video-filter { margin-bottom: 12px; }
+
+/* Barre de l'espace joueur (player-nav.js) */
+.player-nav { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.player-nav .player-logout { color: var(--text-secondary); }
+@media (max-width: 560px) { .player-nav { width: 100%; } .player-nav .btn { flex: 1 1 auto; text-align: center; } }

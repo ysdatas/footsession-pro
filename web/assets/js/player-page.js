@@ -47,7 +47,7 @@ const IDENTITY_FIELDS = [
   fichePlayer = data;
   renderHeader();
   setupInfo();
-  await Promise.all([loadPhysical(), loadCareer(), loadPhoto()]);
+  await Promise.all([loadPhysical(), loadCareer(), loadPhoto(), initProgramEditor(fichePlayer, ficheProfile)]);
 })();
 
 const fullName = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim();

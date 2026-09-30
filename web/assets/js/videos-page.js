@@ -11,6 +11,9 @@ let recipientsCache = [];
 let CAN_EDIT_VIDEOS = false;
 let CAN_VIEW_VIDEO_STATS = false;
 let requestedPlayerId = null;
+let videosCache = [];               // vidéos chargées (avec leurs vues pour le staff)
+let validatedSelections = new Set(); // vidéos choisies et validées par leur joueur
+let videoFilter = 'all';
 
 (async () => {
   const ctx = await requireAuth();
@@ -109,8 +112,8 @@ async function loadVideos() {
     if (currentTeamId() && !requestedPlayerId) query = query.in('player_id', playersCache.map(p => p.id));
     const { data: videos, error } = await query;
     if (error) throw error;
-
-    let validatedSelections = new Set();
+    videosCache = videos || [];
+    validatedSelections = new Set();
 
     try {
       const selectionRes = await sb
@@ -128,52 +131,89 @@ async function loadVideos() {
       validatedSelections = new Set();
     }
 
-    const count = videos.length;
-    document.getElementById('videosSub').textContent =
-      `${count} vidéo${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''}`;
-
-    document.querySelectorAll('.video-stats-only').forEach(el => {
-      el.classList.toggle('hidden', !CAN_VIEW_VIDEO_STATS);
-    });
-
-    if (!videos.length) {
-      tbody.innerHTML = `<tr><td colspan="${CAN_VIEW_VIDEO_STATS ? 8 : 3}" class="text-muted" style="text-align:center;padding:24px;">Aucune vidéo envoyée pour le moment.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = videos.map(v => {
-      const views = CAN_VIEW_VIDEO_STATS ? (v.video_views || []) : [];
-      const vu = CAN_VIEW_VIDEO_STATS && views.length > 0;
-      const tempsTotal = views.reduce((s, x) => s + (x.watched_seconds || 0), 0);
-      const posMax = views.reduce((m, x) => Math.max(m, x.max_position_seconds || 0), 0);
-      const pct = v.duree_sec ? Math.min(100, Math.round(posMax / v.duree_sec * 100)) : null;
-      const derniere = views.reduce((d, x) =>
-        x.last_heartbeat_at && (!d || x.last_heartbeat_at > d) ? x.last_heartbeat_at : d, null);
-      const nom = escapeHtml(`${v.players?.prenom || ''} ${v.players?.nom || ''}`.trim());
-
-      return `<tr data-id="${v.id}">
-        <td>
-          <strong>${escapeHtml(v.titre)}</strong>
-          ${validatedSelections.has(Number(v.id))
-            ? '<br><span class="badge badge-gold" style="margin-top:4px;display:inline-flex;">✓ Sélection joueur</span>'
-            : ''}
-          <br><span class="text-muted" style="font-size:.78rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
-        </td>
-        <td>${nom}</td>
-        ${CAN_VIEW_VIDEO_STATS ? `
-        <td><span class="badge ${vu ? 'badge-success' : ''}">${vu ? 'Vue' : 'Non vue'}</span></td>
-        <td>${views.length}</td>
-        <td>${Math.round(tempsTotal / 60)} min</td>
-        <td>${pct !== null ? pct + '%' : '—'}</td>
-        <td class="text-muted">${derniere ? escapeHtml(new Date(derniere).toLocaleString('fr-FR')) : '—'}</td>
-        ` : ''}
-        <td style="text-align:right;">${CAN_EDIT_VIDEOS ? `<button class="btn btn-sm btn-danger" type="button" onclick="deleteVideo(${v.id}, '${escapeHtml(v.storage_path)}')">Suppr.</button>` : ''}</td>
-      </tr>`;
-    }).join('');
+    renderVideos();
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="${CAN_VIEW_VIDEO_STATS ? 8 : 3}" class="text-danger" style="text-align:center;padding:24px;">${escapeHtml(e.message)}</td></tr>`;
   }
 }
+
+function renderVideos() {
+  const tbody = document.getElementById('videosBody');
+  const videos = videoFilter === 'selected'
+    ? videosCache.filter(v => validatedSelections.has(Number(v.id)))
+    : videosCache;
+  const count = videosCache.length;
+  const chosen = videosCache.filter(v => validatedSelections.has(Number(v.id))).length;
+  document.getElementById('videosSub').textContent =
+    `${count} vidéo${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''} · ${chosen} choisie${chosen > 1 ? 's' : ''} par les joueurs`;
+
+  document.querySelectorAll('.video-stats-only').forEach(el => {
+    el.classList.toggle('hidden', !CAN_VIEW_VIDEO_STATS);
+  });
+
+  if (!videos.length) {
+    tbody.innerHTML = `<tr><td colspan="${CAN_VIEW_VIDEO_STATS ? 8 : 3}" class="text-muted" style="text-align:center;padding:24px;">${
+      videoFilter === 'selected' ? 'Aucune vidéo choisie par les joueurs pour l’instant.' : 'Aucune vidéo envoyée pour le moment.'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = videos.map(v => {
+    const views = CAN_VIEW_VIDEO_STATS ? (v.video_views || []) : [];
+    const vu = CAN_VIEW_VIDEO_STATS && views.length > 0;
+    const tempsTotal = views.reduce((s, x) => s + (x.watched_seconds || 0), 0);
+    const posMax = views.reduce((m, x) => Math.max(m, x.max_position_seconds || 0), 0);
+    const pct = v.duree_sec ? Math.min(100, Math.round(posMax / v.duree_sec * 100)) : null;
+    const derniere = views.reduce((d, x) =>
+      x.last_heartbeat_at && (!d || x.last_heartbeat_at > d) ? x.last_heartbeat_at : d, null);
+    const nom = escapeHtml(`${v.players?.prenom || ''} ${v.players?.nom || ''}`.trim());
+
+    return `<tr data-id="${v.id}">
+      <td>
+        <strong>${escapeHtml(v.titre)}</strong>
+        ${validatedSelections.has(Number(v.id))
+          ? '<br><span class="badge badge-gold" style="margin-top:4px;display:inline-flex;">✓ Choisie par le joueur</span>'
+          : ''}
+        <br><span class="text-muted" style="font-size:.78rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
+      </td>
+      <td>${nom}</td>
+      ${CAN_VIEW_VIDEO_STATS ? `
+      <td><span class="badge ${vu ? 'badge-success' : ''}">${vu ? 'Vue' : 'Non vue'}</span></td>
+      <td>${views.length}</td>
+      <td>${Math.round(tempsTotal / 60)} min</td>
+      <td>${pct !== null ? pct + '%' : '—'}</td>
+      <td class="text-muted">${derniere ? escapeHtml(new Date(derniere).toLocaleString('fr-FR')) : '—'}</td>
+      ` : ''}
+      <td style="text-align:right;white-space:nowrap;">
+        <button class="btn btn-sm btn-primary" type="button" data-watch="${v.id}">▶ Voir</button>
+        ${CAN_EDIT_VIDEOS ? `<button class="btn btn-sm btn-danger" type="button" onclick="deleteVideo(${v.id}, '${escapeHtml(v.storage_path)}')">Suppr.</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* Lecture d'une vidéo par le staff, en grand et avec le son. */
+document.getElementById('videosBody').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-watch]');
+  if (!btn) return;
+  const v = videosCache.find(x => String(x.id) === btn.dataset.watch);
+  if (!v) return;
+  btn.disabled = true;
+  const { data, error } = await sb.storage.from('player-videos').createSignedUrl(v.storage_path, 3600);
+  btn.disabled = false;
+  if (error || !data?.signedUrl) return toast('Vidéo introuvable dans le stockage.', 'error');
+  const who = `${v.players?.prenom || ''} ${v.players?.nom || ''}`.trim();
+  openLightbox({
+    title: v.titre || 'Vidéo',
+    text: [who ? `Joueur : ${who}` : '', v.description || ''].filter(Boolean).join('\n'),
+    items: [{ type: 'video', src: data.signedUrl }],
+  });
+});
+document.getElementById('videoFilter').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-filter]'); if (!b) return;
+  videoFilter = b.dataset.filter;
+  document.querySelectorAll('#videoFilter button').forEach(x => x.classList.toggle('active', x === b));
+  renderVideos();
+});
 
 /* ---------- Codes joueurs ---------- */
 function openCodesModal() {

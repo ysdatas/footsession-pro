@@ -28,7 +28,10 @@ const state = {
 const PROC = new URLSearchParams(location.search).get('procedure_id') ? Number(new URLSearchParams(location.search).get('procedure_id')) : null;
 let CAN_EDIT = false;   // déterminé après authentification (boot()), avant tout rendu
 let CLUB_ID = null;
-const LS_KEY = 'tb_' + (PROC || 'scratch');
+/* Schéma d'un exercice du programme d'un joueur (fiche joueur → Programme). */
+const EXO = Number(new URLSearchParams(location.search).get('exercise')) || null;
+let EXO_ROW = null;   // { id, title, club_id, player_id, schema_path } une fois chargé
+const LS_KEY = 'tb_' + (PROC || (EXO ? 'exo_' + EXO : 'scratch'));
 
 /* ---------- Tailles ----------
    Une seule échelle pour le tableau ET la page Paramètres (mêmes valeurs
@@ -1411,6 +1414,7 @@ async function exportAllSteps() {
 }
 
 async function saveToDB(validate) {
+  if (EXO) return saveExerciseSchema(validate);
   if (!PROC) return toast('Ce schéma n\'est lié à aucun procédé. Ouvrez-le depuis une séance.', 'error');
   const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
   if (btn) btn.disabled = true;
@@ -1439,6 +1443,30 @@ async function saveToDB(validate) {
   finally { if (btn) btn.disabled = false; }
 }
 
+/* Schéma d'exercice : image PNG dans le dossier du joueur, JSON sur l'exercice. */
+async function saveExerciseSchema(validate) {
+  if (!EXO_ROW) return toast('Exercice introuvable.', 'error');
+  const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const blob = await (await fetch(exportClean())).blob();
+    const path = `${EXO_ROW.club_id}/${EXO_ROW.player_id}/program/schema-${EXO}.png`;
+    const { error: upErr } = await sb.storage.from('player-performance-media')
+      .upload(path, blob, { upsert: true, contentType: 'image/png' });
+    if (upErr) throw upErr;
+    const { error } = await sb.from('program_exercises')
+      .update({ schema_json: serialize(), schema_path: path }).eq('id', EXO);
+    if (error) throw error;
+    persistLocal();
+    if (validate) {
+      toast('Schéma enregistré sur l’exercice.', 'success');
+      if (window.opener && !window.opener.closed) { try { window.opener.location.reload(); } catch (e) {} }
+      setTimeout(() => window.close(), 1100);
+    } else toast('Schéma enregistré', 'success');
+  } catch (e) { console.error('Schéma d’exercice non enregistré', e); toast(e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+
 /* Applique les préférences utilisateur (page Paramètres) aux valeurs
    par défaut du tableau : couleurs, tailles, police, vue, numéros. */
 function applyPrefs(prefs) {
@@ -1452,7 +1480,7 @@ function applyPrefs(prefs) {
   if (typeof prefs.showNumbers === 'boolean') state.showNumbers = prefs.showNumbers;
   // La vue par défaut ne s'applique qu'à un nouveau schéma (sinon on écraserait
   // la vue enregistrée avec le schéma).
-  if (prefs.view && !PROC) state.view = prefs.view;
+  if (prefs.view && !PROC && !EXO) state.view = prefs.view;
   updatePionDots();
   $$('#viewGroup .tb-tool').forEach(x => x.classList.toggle('active', x.dataset.view === state.view));
 }
@@ -1470,7 +1498,7 @@ async function boot() {
   document.getElementById('uRole') && (document.getElementById('uRole').textContent = (ROLE_LABELS[ctx.profile.role] || ctx.profile.role).toUpperCase());
   document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });
   if (!CAN_EDIT) document.getElementById('tbReadonlyNote')?.classList.remove('hidden');
-  if (PROC && CAN_EDIT) {
+  if ((PROC || EXO) && CAN_EDIT) {
     document.getElementById('tbValidate')?.classList.remove('hidden');
     document.getElementById('saveBtn')?.classList.remove('hidden');
   }
@@ -1483,6 +1511,16 @@ async function boot() {
       $('#tbContext').textContent = 'schéma lié au procédé #' + PROC;
       if (schema && schema.canvas_json) { deserialize(schema.canvas_json); loaded = true; }
     } catch (e) { /* ignore, on tentera le LocalStorage */ }
+  }
+  if (EXO) {
+    const { data: row, error } = await sb.from('program_exercises')
+      .select('id, title, club_id, player_id, schema_json').eq('id', EXO).maybeSingle();
+    if (error || !row) toast('Exercice introuvable : le schéma ne pourra pas être enregistré.', 'error');
+    else {
+      EXO_ROW = row;
+      $('#tbContext').textContent = `schéma de l’exercice « ${row.title} »`;
+      if (row.schema_json) { deserialize(row.schema_json); loaded = true; }
+    }
   }
   if (!loaded) {
     const ls = localStorage.getItem(LS_KEY);

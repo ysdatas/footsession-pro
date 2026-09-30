@@ -16,10 +16,7 @@
       <h1 id="pvTitle">Mes vidéos</h1>
       <p class="subtitle" id="pvSub">Chargement…</p>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <a class="btn" href="#" id="performanceLink">Performance</a>
-      <a class="btn" href="#" id="logoutLink">Déconnexion</a>
-    </div>
+    <nav id="playerNav"></nav>
   </div>
 
   <div id="pvContent"><div class="empty">Chargement…</div></div>
@@ -27,6 +24,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/player-nav.js"></script>
 <script>
   const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -54,14 +52,7 @@
     }
     if (!player) { window.location.href = 'player-join.html'; return; }
 
-    document.getElementById('performanceLink').href =
-      `player-performance.html?id=${player.id}`;
-
-    document.getElementById('logoutLink').addEventListener('click', async (e) => {
-      e.preventDefault();
-      await sb.auth.signOut();
-      window.location.href = 'player-join.html';
-    });
+    renderPlayerNav();
 
     const { data: videos, error } = await sb.from('player_videos')
       .select('id, titre, description, created_at')

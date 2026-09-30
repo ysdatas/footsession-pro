@@ -51,6 +51,7 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 16. supabase/performance_one_row_per_period.sql  une ligne par joueur/saison/mois : fin des doublons
 17. supabase/roles_teams_preventions.sql     droits par rôle, équipes, vue joueur filtrée
 18. supabase/player_lines.sql               ligne de jeu (Gardiens / Défenseurs / Milieux / Attaquants)
+19. supabase/player_program.sql             programme individuel : exercices, images, schémas, vidéos
 ```
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter
@@ -152,10 +153,19 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Performance** (`player-performance.html`) — dossier individuel : photo, mesures
   physiques, tests, radar /10 (avec comparaison à un 2e joueur pour le staff), points
   forts / axes / objectifs, parcours, sélection vidéo, **Générer le PDF**.
+- **Programme** (carte de la fiche joueur) — exercices regroupés par séance : consignes,
+  dosage, image légendée, schéma dessiné dans le tableau tactique (« Dessiner le schéma »
+  ouvre `tactical-board.html?exercise=ID`), vidéo du joueur. Créé par admin, coach, prépa ;
+  le joueur le consulte dans **Mon programme** (`mon-programme.html`), le marque « fait »
+  et laisse un ressenti (RPC `mark_program_exercise`), visible par le staff.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques.
 - **FAQ — calculs** (`faq.html`) — d'où vient chaque donnée et comment elle est calculée.
-- **Vidéos** (`videos.html`) — envoi d'une séquence à un joueur, statistiques staff.
-- **Mes vidéos** / **Voir vidéo** — espace joueur.
+- **Vidéos** (`videos.html`) — envoi d'une séquence à un joueur, lecture (« ▶ Voir »),
+  filtre « Choisies par les joueurs », statistiques staff.
+- **Espace joueur** — Mes vidéos · Ma performance · Mon programme, même barre (avec
+  Déconnexion) sur chaque page (`player-nav.js`).
+- **Points forts / amélioration / objectifs** — un clic ouvre le point en grand (images,
+  légendes, consignes) ; « Modifier » ajoute, légende ou retire des images (`lightbox.js`).
 - **Mon club** — identité, code d'invitation, rôles, liaison compte ↔ fiche joueur.
 - **Analytics** — graphiques Chart.js, export PDF.
 

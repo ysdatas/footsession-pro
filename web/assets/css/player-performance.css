@@ -549,3 +549,19 @@
 .trend-dot.weight{fill:#4a9de0;}
 .trend-dot.fat{fill:#e06aa8;}
 .squad-hint{font-size:.74rem;color:var(--text-muted,#9da4ae);margin-top:3px;font-weight:400;}
+/* ----- Points : carte cliquable, vignettes, édition des images ----- */
+.note-card.is-openable{cursor:pointer;transition:border-color .15s,background .15s;}
+.note-card.is-openable:hover,.note-card.is-openable:focus-visible{border-color:rgba(201,168,76,.45);background:rgba(201,168,76,.04);outline:none;}
+.note-card-actions{display:flex;gap:6px;}
+.note-open-hint{margin-top:10px;font-size:.74rem;color:var(--text-muted,#9da4ae);}
+.note-images-edit{display:grid;gap:8px;margin-bottom:8px;}
+.note-images-edit:empty{display:none;}
+.nie-row{display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:10px;}
+.nie-row img{width:64px;height:48px;object-fit:cover;border-radius:6px;}
+.nie-row input[type="text"]{width:100%;}
+.nie-row.is-removed{opacity:.4;}
+.nie-row.is-removed img{filter:grayscale(1);}
+/* Barre de l'espace joueur (player-nav.js) */
+.player-nav{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.player-nav .player-logout{color:var(--text-secondary);}
+

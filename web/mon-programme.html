@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mon programme — FootSession Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/videos.css">
+</head>
+<body>
+<div class="pv-wrap">
+  <div class="pv-head">
+    <div>
+      <h1>Mon programme</h1>
+      <p class="subtitle" id="progSub">Chargement…</p>
+    </div>
+    <nav id="playerNav"></nav>
+  </div>
+
+  <div id="programBox"><div class="empty">Chargement…</div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/player-nav.js"></script>
+<script src="assets/js/lightbox.js"></script>
+<script src="assets/js/program.js"></script>
+<script>
+  /* Espace joueur : ses exercices, en lecture seule. Il peut seulement
+     les marquer « faits » et laisser un ressenti (RPC mark_program_exercise). */
+  let exercises = [];
+
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'player-join.html'; return; }
+    const { data: profile } = await sb.from('profiles')
+      .select('role, club_id').eq('id', session.user.id).maybeSingle();
+    if (profile && profile.role !== 'joueur') {
+      window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
+      return;
+    }
+    const { data: player } = await sb.from('players').select('id')
+      .eq('auth_user_id', session.user.id).maybeSingle();
+    if (!player) { window.location.href = 'player-join.html'; return; }
+    renderPlayerNav();
+
+    const box = document.getElementById('programBox');
+    bindProgramCards(box, openExercise);
+    exercises = await loadProgram(player.id);
+    render();
+  })();
+
+  function render() {
+    renderProgramList(document.getElementById('programBox'), exercises);
+    const n = (exercises || []).length, done = (exercises || []).filter(e => e.done_at).length;
+    document.getElementById('progSub').textContent = n
+      ? `${done} exercice${done > 1 ? 's' : ''} fait${done > 1 ? 's' : ''} sur ${n} · touche un exercice pour l’ouvrir en grand`
+      : 'Exercices, images et schémas préparés par ton staff.';
+  }
+
+  function openExercise(id) {
+    const e = exercises.find(x => x.id === id);
+    if (!e) return;
+    const box = openLightbox({
+      title: e.title,
+      text: [e.dosage ? `Dosage : ${e.dosage}` : '', e.instructions || ''].filter(Boolean).join('\n\n'),
+      items: programItems(e),
+      footer: `
+        ${e.video_id ? `<a class="btn btn-sm" href="voir-video.html?id=${e.video_id}">▶ Voir la vidéo</a>` : ''}
+        <label class="lb-feedback">Mon ressenti
+          <textarea rows="2" id="lbFeedback" placeholder="Facile, difficile, douleur…">${progEsc(e.player_feedback || '')}</textarea>
+        </label>
+        <button class="btn btn-primary" type="button" id="lbDone">${e.done_at ? 'Enregistrer' : '✓ C’est fait'}</button>
+        ${e.done_at ? '<button class="btn" type="button" id="lbUndo">Pas encore fait</button>' : ''}`,
+    });
+    const save = async (done) => {
+      const feedback = box.querySelector('#lbFeedback').value;
+      const { error } = await sb.rpc('mark_program_exercise', { p_id: id, p_done: done, p_feedback: feedback });
+      if (error) { console.error('Exercice non enregistré', error); return toast(error.message, 'error'); }
+      e.done_at = done ? (e.done_at || new Date().toISOString()) : null;
+      e.player_feedback = feedback.trim() || null;
+      closeLightbox();
+      render();
+      toast(done ? 'Bien joué, c’est noté !' : 'Exercice remis à faire', 'success');
+    };
+    box.querySelector('#lbDone').addEventListener('click', () => save(true));
+    box.querySelector('#lbUndo')?.addEventListener('click', () => save(false));
+  }
+</script>
+</body>
+</html>
