@@ -196,7 +196,7 @@ function table(list) {
             <a class="btn btn-sm" href="session-edit.html?id=${s.id}">Ouvrir</a>
             <button class="btn btn-sm" type="button" title="Fiche détaillée" onclick="generateSessionPDF(${s.id})">PDF</button>
             <button class="btn btn-sm" type="button" title="Tout sur une feuille, pour le staff" onclick="generateCoachPDF(${s.id})">Fiche</button>
-            ${canWrite ? `<button class="btn btn-sm btn-danger" type="button" onclick="deleteSession(${s.id}, this)">Suppr.</button>` : ''}
+            ${canWrite ? `<button class="btn btn-sm btn-danger" type="button" onclick="deleteSession(${s.id}, this)">Supprimer</button>` : ''}
           </td>
         </tr>`).join('')}
     </tbody>

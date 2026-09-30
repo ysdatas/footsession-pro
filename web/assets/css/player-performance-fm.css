@@ -36,7 +36,7 @@ body.fp-fm-page {
 }
 
 .fp-fm-page #playerMeta {
-  font-size: .92rem;
+  font-size: var(--fs-md);
   color: var(--text-secondary);
 }
 
@@ -100,13 +100,13 @@ body.fp-fm-page {
   border: 1px solid rgba(201,168,76,.35);
   background: #181a1c;
   color: var(--gold);
-  font-size: 3rem;
+  font-size: var(--fs-2xl);
   font-weight: 800;
 }
 
 .fp-fm-side-name {
   margin-top: 12px;
-  font-size: 1.18rem;
+  font-size: var(--fs-xl);
   font-weight: 750;
   letter-spacing: -.03em;
 }
@@ -114,7 +114,7 @@ body.fp-fm-page {
 .fp-fm-side-meta {
   margin-top: 2px;
   color: var(--text-secondary);
-  font-size: .82rem;
+  font-size: var(--fs-sm);
 }
 
 .fp-fm-side-block {
@@ -127,7 +127,7 @@ body.fp-fm-page {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: .08em;
-  font-size: .69rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -137,7 +137,7 @@ body.fp-fm-page {
   gap: 10px;
   padding: 8px 0;
   border-bottom: 1px solid rgba(255,255,255,.055);
-  font-size: .82rem;
+  font-size: var(--fs-sm);
 }
 
 .fp-fm-info-row:last-child {
@@ -210,7 +210,7 @@ body.fp-fm-page {
   border: 1px solid #2b333a;
   border-radius: 10px;
   background: #15191c;
-  font-size: .8rem;
+  font-size: var(--fs-sm);
   transition: .2s ease;
 }
 
@@ -239,20 +239,20 @@ body.fp-fm-page {
 }
 
 .fp-fm-page #scoreCards .score-card span {
-  font-size: .72rem;
+  font-size: var(--fs-xs);
   color: var(--text-secondary);
 }
 
 .fp-fm-page #scoreCards .score-card strong {
   display: block;
   margin-top: 4px;
-  font-size: 1.12rem;
+  font-size: var(--fs-xl);
 }
 
 .fp-fm-page #scoreCards .score-card small {
   margin-left: 3px;
   color: var(--text-secondary);
-  font-size: .68rem;
+  font-size: var(--fs-xs);
 }
 
 .fp-fm-page .fp-fm-radar-card #radarWrap {
@@ -313,12 +313,12 @@ body.fp-fm-page {
 
 .fp-fm-page .fp-fm-tests-card .test-values span {
   color: var(--text-secondary);
-  font-size: .78rem;
+  font-size: var(--fs-sm);
 }
 
 .fp-fm-page .fp-fm-tests-card .test-values strong {
   white-space: nowrap;
-  font-size: .86rem;
+  font-size: var(--fs-md);
 }
 
 .fp-fm-page .measurement-table {
@@ -342,7 +342,7 @@ body.fp-fm-page {
 
 .fp-fm-page .measurement-row > span {
   padding: 8px 10px;
-  font-size: .8rem;
+  font-size: var(--fs-sm);
 }
 
 .fp-fm-page .measurement-row.header {
@@ -353,7 +353,7 @@ body.fp-fm-page {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: .06em;
-  font-size: .66rem;
+  font-size: var(--fs-xs);
 }
 
 .fp-fm-page .note-card {
@@ -388,7 +388,7 @@ body.fp-fm-page {
 .fp-video-title p {
   color: var(--text-secondary);
   margin: 0;
-  font-size: .82rem;
+  font-size: var(--fs-sm);
 }
 
 .fp-video-actions {
@@ -418,7 +418,7 @@ body.fp-fm-page {
   border: 1px solid #2a3238;
   background: #121619;
   color: var(--text-secondary);
-  font-size: .77rem;
+  font-size: var(--fs-sm);
 }
 
 .fp-video-filters {
@@ -434,7 +434,7 @@ body.fp-fm-page {
   color: var(--text-secondary);
   border-radius: 999px;
   padding: 7px 11px;
-  font-size: .74rem;
+  font-size: var(--fs-xs);
 }
 
 .fp-filter-btn.active {
@@ -498,7 +498,7 @@ body.fp-fm-page {
   border-radius: 50%;
   background: rgba(0,0,0,.56);
   color: #fff;
-  font-size: 1rem;
+  font-size: var(--fs-lg);
   display: grid;
   place-items: center;
 }
@@ -511,7 +511,7 @@ body.fp-fm-page {
   border-radius: 5px;
   background: rgba(0,0,0,.76);
   color: #fff;
-  font-size: .62rem;
+  font-size: var(--fs-xs);
   font-weight: 650;
 }
 
@@ -545,7 +545,7 @@ body.fp-fm-page {
   border-radius: 999px;
   background: var(--gold);
   color: #080808;
-  font-size: .6rem;
+  font-size: var(--fs-xs);
   font-weight: 800;
 }
 
@@ -555,7 +555,7 @@ body.fp-fm-page {
 
 .fp-video-body h3 {
   margin: 0 0 5px;
-  font-size: .82rem;
+  font-size: var(--fs-sm);
   line-height: 1.25;
 }
 
@@ -564,7 +564,7 @@ body.fp-fm-page {
   justify-content: space-between;
   gap: 8px;
   color: var(--text-secondary);
-  font-size: .67rem;
+  font-size: var(--fs-xs);
 }
 
 .fp-video-empty {
@@ -581,13 +581,13 @@ body.fp-fm-page {
   color: #ffb5ae;
   border-radius: 10px;
   padding: 12px;
-  font-size: .82rem;
+  font-size: var(--fs-sm);
 }
 
 .fp-video-staff-selected {
   margin-top: 8px;
   color: var(--gold-light);
-  font-size: .72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -606,7 +606,7 @@ body.fp-fm-page {
   border: 1px solid #293138;
   border-radius: 9px;
   background: #111518;
-  font-size: .75rem;
+  font-size: var(--fs-sm);
 }
 
 .fp-staff-selection-item strong {

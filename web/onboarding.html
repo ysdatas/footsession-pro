@@ -11,7 +11,7 @@
     .onb-card { width: 100%; max-width: 460px; }
     .onb-note { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; margin-bottom: 22px; }
     .onb-note strong { display: block; margin-bottom: 6px; }
-    .onb-note p { font-size: .82rem; color: var(--text-secondary); line-height: 1.5; margin: 0 0 12px; }
+    .onb-note p { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.5; margin: 0 0 12px; }
   </style>
 </head>
 <body class="auth">
@@ -28,7 +28,7 @@
 
     <form id="createForm">
       <div class="field"><label for="c-nom">Ou créez votre club</label><input id="c-nom" required placeholder="Nom du club"></div>
-      <p class="text-muted" style="font-size:.8rem;margin-bottom:14px;">Vous en deviendrez l’administrateur et pourrez donner les accès (coachs et joueurs) par adresse e-mail.</p>
+      <p class="text-muted" style="font-size:var(--fs-sm);margin-bottom:14px;">Vous en deviendrez l’administrateur et pourrez donner les accès (coachs et joueurs) par adresse e-mail.</p>
       <button class="btn btn-primary" type="submit" style="width:100%;">Créer le club</button>
     </form>
 

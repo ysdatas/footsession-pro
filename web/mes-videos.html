@@ -52,11 +52,11 @@
         const s = stats(v.id);
         return `<a class="card pv-card" href="voir-video.html?id=${v.id}">
           <div class="pv-card-top">
-            <span class="text-muted" style="font-size:.75rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
+            <span class="text-muted" style="font-size:var(--fs-sm);">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
             ${s.fb ? '<span class="vw-flag is-ok">Retour du staff</span>' : ''}
           </div>
           <h3>${escapeHtml(v.titre)}</h3>
-          ${v.description ? `<p class="text-muted" style="font-size:.85rem;">${escapeHtml(v.description)}</p>` : ''}
+          ${v.description ? `<p class="text-muted" style="font-size:var(--fs-md);">${escapeHtml(v.description)}</p>` : ''}
           <div class="pv-card-meta">${s.n
             ? `${s.n} séquence${s.n > 1 ? 's' : ''} · ${s.sel} à travailler${s.sent ? ` · ${s.sent} envoyée${s.sent > 1 ? 's' : ''}` : ''}`
             : 'Pas encore de séquence'}</div>

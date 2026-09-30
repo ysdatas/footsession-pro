@@ -1,38 +1,38 @@
 /* FootSession Pro — faq.css */
 .faq { max-width: 980px; }
 .faq section.card { margin-bottom: 16px; scroll-margin-top: 16px; }
-.faq h2 { font-size: 1.15rem; margin: 0 0 10px; }
-.faq h3 { font-size: .95rem; margin: 14px 0 8px; color: var(--gold); }
-.faq p, .faq li { font-size: .9rem; line-height: 1.55; }
+.faq h2 { font-size: var(--fs-xl); margin: 0 0 10px; }
+.faq h3 { font-size: var(--fs-lg); margin: 14px 0 8px; color: var(--gold); }
+.faq p, .faq li { font-size: var(--fs-md); line-height: 1.55; }
 .faq ul, .faq ol { padding-left: 20px; margin: 8px 0; }
 .faq li { margin-bottom: 4px; }
-.faq-toc { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 16px; font-size: .84rem; }
+.faq-toc { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 16px; font-size: var(--fs-sm); }
 .faq-toc a { color: var(--text-secondary); }
 .faq-toc a:hover { color: var(--gold); }
 .faq-formula {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .95rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-lg);
   background: var(--bg-surface); border: 1px solid var(--gold-border); border-radius: var(--radius-md);
   padding: 10px 14px; color: var(--gold-light);
 }
-.faq-inline { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; color: var(--gold-light); }
+.faq-inline { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-md); color: var(--gold-light); }
 .faq-note { border-left: 3px solid var(--gold-border); padding-left: 12px; color: var(--text-secondary); }
 .faq-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 24px; }
-.faq-table { width: 100%; border-collapse: collapse; font-size: .86rem; margin: 10px 0; }
+.faq-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); margin: 10px 0; }
 .faq-table th, .faq-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
-.faq-table th { color: var(--text-secondary); font-weight: 600; font-size: .78rem; }
+.faq-table th { color: var(--text-secondary); font-weight: 600; font-size: var(--fs-sm); }
 @media (max-width: 640px) { .faq-table { display: block; overflow-x: auto; } }
 
 /* Questions cliquables : la réponse n'apparaît qu'au clic. */
 .faq-search { width: 100%; max-width: 520px; margin-bottom: 18px; }
-.faq-group { font-size: .74rem !important; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-secondary); margin: 26px 0 10px !important; }
+.faq-group { font-size: var(--fs-xs) !important; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-secondary); margin: 26px 0 10px !important; }
 .faq-q { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px; scroll-margin-top: 16px; }
 .faq-q.hidden { display: none; }
 .faq-q > summary {
-  list-style: none; cursor: pointer; padding: 14px 18px; font-weight: 600; font-size: .95rem;
+  list-style: none; cursor: pointer; padding: 14px 18px; font-weight: 600; font-size: var(--fs-lg);
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
 .faq-q > summary::-webkit-details-marker { display: none; }
-.faq-q > summary::after { content: '+'; color: var(--gold); font-size: 1.2rem; font-weight: 400; flex-shrink: 0; }
+.faq-q > summary::after { content: '+'; color: var(--gold); font-size: var(--fs-xl); font-weight: 400; flex-shrink: 0; }
 .faq-q[open] > summary::after { content: '−'; }
 .faq-q[open] { border-color: var(--gold-border); }
 .faq-q > summary:hover { color: var(--gold); }

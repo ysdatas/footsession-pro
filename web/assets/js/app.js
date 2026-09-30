@@ -95,7 +95,9 @@ function enhanceColorInputs(root = document) {
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
     };
-    COLOR_PALETTE.forEach((c, i) => wrap.append(el('button', {
+    // data-palette="compact" : les couleurs essentielles, pour les barres flottantes.
+    const keep = input.dataset.palette === 'compact' ? [1, 3, 4, 6, 8, 9] : COLOR_PALETTE.map((_, i) => i);
+    COLOR_PALETTE.forEach((c, i) => keep.includes(i) && wrap.append(el('button', {
       type: 'button', class: 'sw', role: 'radio', title: COLOR_NAMES[i], 'aria-label': COLOR_NAMES[i],
       style: `background:${c}`, dataset: { color: c.toLowerCase() }, onclick: () => set(c),
     })));

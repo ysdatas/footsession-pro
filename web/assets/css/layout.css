@@ -16,15 +16,15 @@
   z-index: 50;
 }
 .brand {
-  font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em;
+  font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.02em;
   padding: 4px 10px 22px;
 }
 .brand-logo { max-height: 34px; max-width: 150px; display: block; margin-bottom: 4px; }
-.brand-clubname { font-size: .95rem; font-weight: 700; display: block; }
+.brand-clubname { font-size: var(--fs-lg); font-weight: 700; display: block; }
 .brand-accent { color: var(--text-primary); }
 .brand-pro {
   display: inline-block; vertical-align: middle;
-  font-size: .56rem; font-weight: 700; line-height: 1;
+  font-size: var(--fs-xs); font-weight: 700; line-height: 1;
   color: var(--gold); background: rgba(201,168,76,.12);
   border: 1px solid var(--gold-border); border-radius: 5px;
   padding: 3px 6px; letter-spacing: .06em; margin-left: 4px;
@@ -35,7 +35,7 @@
 .nav-item {
   display: flex; align-items: center; gap: 11px;
   padding: 10px 12px; border-radius: var(--radius-md);
-  color: var(--text-secondary); font-size: .9rem; font-weight: 500;
+  color: var(--text-secondary); font-size: var(--fs-md); font-weight: 500;
   border-left: 3px solid transparent;
   transition: var(--transition);
 }
@@ -60,12 +60,12 @@
 .avatar {
   width: 38px; height: 38px; border-radius: var(--radius-md);
   background: linear-gradient(135deg, var(--gold), #9c7f30);
-  color: #0A0A0A; font-weight: 700; font-size: .85rem;
+  color: #0A0A0A; font-weight: 700; font-size: var(--fs-md);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .su-meta { flex: 1; min-width: 0; }
-.su-name { font-size: .85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.su-role { font-size: .66rem; color: var(--gold); letter-spacing: .05em; }
+.su-name { font-size: var(--fs-md); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.su-role { font-size: var(--fs-xs); color: var(--gold); letter-spacing: .05em; }
 .logout { display: inline-flex; align-items: center; color: var(--text-secondary); padding: 6px; border-radius: 6px; }
 .logout:hover { color: var(--danger); background: var(--bg-surface); }
 .sidebar-toggle svg, .logout svg { display: block; }
@@ -84,7 +84,7 @@
   position: fixed; top: 14px; left: 14px; z-index: 60;
   width: 42px; height: 42px; border-radius: var(--radius-md);
   background: var(--bg-card); border: 1px solid var(--border);
-  color: var(--text-primary); font-size: 1.2rem;
+  color: var(--text-primary); font-size: var(--fs-xl);
 }
 .sidebar-backdrop {
   display: none; position: fixed; inset: 0;
@@ -107,13 +107,13 @@
 /* ----- Sélecteur d'équipe (nav.js) ----- */
 .team-switch {
   display: flex; flex-direction: column; gap: 5px;
-  margin: 0 0 14px; font-size: .72rem; font-weight: 600;
+  margin: 0 0 14px; font-size: var(--fs-xs); font-weight: 600;
   letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary);
 }
 .team-switch select {
   width: 100%; padding: 8px 10px; border-radius: var(--radius-md);
   background: var(--bg-surface); color: var(--text-primary);
-  border: 1px solid var(--gold-border); font: inherit; font-size: .88rem;
+  border: 1px solid var(--gold-border); font: inherit; font-size: var(--fs-md);
   text-transform: none; letter-spacing: 0;
 }
 
@@ -126,9 +126,9 @@
 .menu-editor li.is-hidden { opacity: .65; }
 .menu-editor label {
   display: flex; align-items: center; justify-content: flex-start; gap: 12px; flex: 1; margin: 0; cursor: pointer;
-  text-transform: none; letter-spacing: 0; font-size: .9rem; font-weight: 500; color: var(--text-primary); text-align: left;
+  text-transform: none; letter-spacing: 0; font-size: var(--fs-md); font-weight: 500; color: var(--text-primary); text-align: left;
 }
-.menu-editor label .text-muted { font-size: .78rem; font-weight: 400; }
+.menu-editor label .text-muted { font-size: var(--fs-sm); font-weight: 400; }
 .menu-editor input[type="checkbox"] {
   width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; accent-color: var(--gold); cursor: pointer;
 }

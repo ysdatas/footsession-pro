@@ -324,7 +324,7 @@ async function openLibrary() {
           <div class="lib-cat">${escapeHtml(t.categorie || '')}</div>
           <div class="lib-actions">
             <button class="btn btn-sm btn-primary" type="button" onclick="insertTemplate(${t.id})">Insérer</button>
-            <button class="btn btn-sm btn-danger" type="button" onclick="deleteTemplate(${t.id}, this)">Suppr.</button>
+            <button class="btn btn-sm btn-danger" type="button" onclick="deleteTemplate(${t.id}, this)">Supprimer</button>
           </div>
         </div>
       </div>`).join('');
@@ -556,7 +556,7 @@ function renderTeams() {
         <input type="text" data-team="${i}" data-tfield="nom" value="${escapeHtml(t.nom)}" placeholder="Nom de l'équipe" ${dis}>
         <input type="color" data-team="${i}" data-tfield="couleur" value="${escapeHtml(t.couleur)}" title="Couleur de la chasuble" ${dis}>
         <span class="team-count">${members.length} joueur${members.length > 1 ? 's' : ''}</span>
-        ${CAN_WRITE ? `<button class="btn btn-sm btn-danger" type="button" onclick="event.stopPropagation();removeTeam(${i})">Suppr.</button>` : ''}
+        ${CAN_WRITE ? `<button class="btn btn-sm btn-danger" type="button" onclick="event.stopPropagation();removeTeam(${i})">Supprimer</button>` : ''}
       </div>
       <div class="team-chips">
         ${members.map(a => chip(a, `event.stopPropagation();unassignPlayer(${a.player_id})`)).join('')}
@@ -565,13 +565,13 @@ function renderTeams() {
   }).join('');
 
   const poolHtml = !presents.length
-    ? `<p class="text-muted" style="font-size:.85rem;">Marquez d'abord des joueurs présents ci-dessus.</p>`
+    ? `<p class="text-muted" style="font-size:var(--fs-md);">Marquez d'abord des joueurs présents ci-dessus.</p>`
     : `<div class="team-pool">
          <div class="team-pool-label">Vivier — présents non affectés (${pool.length})</div>
          <div class="team-chips">${pool.map(a => chip(a, `assignToTeam(${a.player_id})`)).join('')}</div>
        </div>`;
 
-  wrap.innerHTML = (blocks || `<p class="text-muted" style="font-size:.85rem;">Aucune équipe. Cliquez sur « Ajouter une équipe ».</p>`) + poolHtml;
+  wrap.innerHTML = (blocks || `<p class="text-muted" style="font-size:var(--fs-md);">Aucune équipe. Cliquez sur « Ajouter une équipe ».</p>`) + poolHtml;
 
   const n = teams.length;
   document.getElementById('teamsCount').textContent = `${n} équipe${n > 1 ? 's' : ''}`;

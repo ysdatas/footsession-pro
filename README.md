@@ -169,7 +169,8 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   annotées, vidéos disponibles (statistiques). « Travail à voir » ne garde que les analyses
   en attente de retour.
 - **Séquences vidéo** (`video-workspace.js`, `video-ink.js`) — staff et joueur découpent une
-  vidéo en séquences (« Séquence 1 – Jean »…). Le joueur coche celles à travailler, dessine
+  vidéo en séquences (« Séquence 1 – Jean »…), puis ajustent début et fin, coupent en deux,
+  dupliquent ; chaque opération s'annule et se rétablit. Le joueur coche celles à travailler, dessine
   sur l'image (flèche, cercle, zone, trait), écrit son analyse et l'envoie ; le staff la
   relit et répond. Table `video_sequences` ; le trigger `guard_video_sequence` limite
   chacun à sa part (le joueur ne peut pas écrire le retour du staff, et inversement).
@@ -179,6 +180,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   (images, légendes, consignes) ; « Modifier » ajoute, légende ou retire des images.
 - **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
   e-mail, membres.
+- **Design system** — `main.css` : échelle typographique unique (`--fs-xs` à `--fs-2xl`,
+  toutes les tailles de l'app en font partie), espacements, rayons, profondeur, durées
+  d'animation ; icônes Lucide en sprite SVG. Le projet reste sans build : pas de React ni
+  de Tailwind, le « Liquid Glass » est en CSS natif.
 - **Couleurs** — partout (club, paramètres, tableau tactique) des pastilles d'une palette
   commune, plus « autre couleur » (`enhanceColorInputs`, `app.js`).
 - **Analytics** — graphiques Chart.js, export PDF.
@@ -192,10 +197,18 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Zones** : choisir une forme puis **glisser** sur le terrain ; la sélectionner
   (outil ↖) puis **tirer un coin** pour la redimensionner.
 - **Formations** : menu déroulant (4-3-3, 4-4-2…) place 11 joueurs.
-- **Disposition** : le terrain occupe l'écran, sans défilement. Outils de dessin à gauche ;
-  à droite, **Matériel**, **Terrain**, **Couleurs**, **Exporter**, **Vidéo** : un clic ouvre le
-  panneau, un second le ferme. L'élément sélectionné a sa barre au-dessus du terrain, les
-  étapes sont juste en dessous.
+- **Disposition** : le terrain est fixe et plein cadre (herbe texturée jusqu'aux bords) ;
+  rien ne le réduit ni ne le déplace. Tout flotte par-dessus, en « verre » (`.glass`,
+  `.glass-btn` dans `main.css`) : outils en haut à gauche, joueurs 1 à 11 à gauche,
+  Matériel / Terrain / Couleurs / Exporter / Vidéo à droite (un clic ouvre le panneau
+  par-dessus), animation en bas, réglages de l'élément juste au-dessus de lui.
+- **Joueurs** : choisir l'équipe (pastille), puis un numéro : chaque clic pose le joueur et
+  passe au numéro suivant, une équipe se place en onze clics.
+- **Dessin libre** (crayon), en plus des flèches, traits, zones et textes.
+- **Annuler / Rétablir** : `Ctrl+Z` / `Ctrl+Maj+Z`, y compris étapes et clips.
+- **Clips** : plusieurs animations sur le même terrain. Nouveau, dupliquer, découper à l'étape
+  affichée (le début reste, la suite devient un nouveau clip), retirer avant / après,
+  renommer, supprimer. Vitesse de lecture 0,5× à 2×.
 - **Matériel** : cônes et coupelles en plusieurs couleurs, piquet, haie, échelle, cage, ballon.
 - **Taille** : tirer un coin du pion (ou du matériel, d’un texte) l’agrandit ou le réduit ;
   ou S / M / L / XL puis −/+ dans le panneau, même échelle que **Paramètres**.

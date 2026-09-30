@@ -15,10 +15,10 @@
   width: 46px; height: 46px; border-radius: var(--radius-md); flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; font-weight: 700; color: #0A0A0A;
 }
-.pc-name { font-weight: 600; font-size: .95rem; }
-.pc-poste { font-size: .74rem; color: var(--gold); }
+.pc-name { font-weight: 600; font-size: var(--fs-lg); }
+.pc-poste { font-size: var(--fs-xs); color: var(--gold); }
 .pc-num {
-  margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--text-secondary);
+  margin-left: auto; font-size: var(--fs-xs); font-weight: 700; color: var(--text-secondary);
   background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px;
 }
 /* Couleurs d'avatar (rotation) */
@@ -38,24 +38,24 @@
 .players-filters select { flex: 0 1 200px; }
 .player-card { display: block; color: inherit; text-decoration: none; }
 .player-card .pc-top { margin-bottom: 0; }
-.pc-team { font-size: .72rem; color: var(--text-secondary); }
+.pc-team { font-size: var(--fs-xs); color: var(--text-secondary); }
 .unassigned-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: 10px 14px; margin-bottom: 16px; border-radius: var(--radius-md);
-  border: 1px solid var(--gold-border); background: rgba(201,168,76,.08); font-size: .88rem;
+  border: 1px solid var(--gold-border); background: rgba(201,168,76,.08); font-size: var(--fs-md);
 }
 
 /* ----- Rubriques par ligne ----- */
-.lines-hint { font-size: .8rem; color: var(--text-secondary); margin: -4px 0 14px; }
+.lines-hint { font-size: var(--fs-sm); color: var(--text-secondary); margin: -4px 0 14px; }
 .line-group { margin-bottom: 22px; border-radius: var(--radius-lg); padding: 4px; transition: background .15s, box-shadow .15s; }
 .line-group.is-over { background: rgba(201,168,76,.06); box-shadow: inset 0 0 0 1px var(--gold-border); }
 .line-title {
   display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding-left: 10px;
-  font-size: .82rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  font-size: var(--fs-sm); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   border-left: 3px solid var(--line-color, var(--gold));
 }
 .line-title span {
-  font-size: .72rem; font-weight: 600; letter-spacing: 0; color: var(--text-secondary);
+  font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0; color: var(--text-secondary);
   background: var(--bg-surface); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px;
 }
 .line-gardien   { --line-color: #E2C97E; }
@@ -64,7 +64,7 @@
 .line-attaquant { --line-color: #ff8a5b; }
 .line-none      { --line-color: var(--text-muted); }
 .line-empty {
-  grid-column: 1 / -1; padding: 18px; text-align: center; font-size: .82rem; color: var(--text-muted);
+  grid-column: 1 / -1; padding: 18px; text-align: center; font-size: var(--fs-sm); color: var(--text-muted);
   border: 1px dashed var(--border); border-radius: var(--radius-lg);
 }
 .player-card[draggable="true"] { cursor: grab; }

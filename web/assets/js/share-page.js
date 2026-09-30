@@ -87,7 +87,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       ${procsHtml}
       ${attHtml}
       ${teamsHtml}
-      <p class="text-muted" style="text-align:center;margin-top:24px;font-size:.8rem;">Généré par FootSession Pro</p>`;
+      <p class="text-muted" style="text-align:center;margin-top:24px;font-size:var(--fs-sm);">Généré par FootSession Pro</p>`;
   } catch (e) {
     wrap.innerHTML = `<div class="empty">Erreur de chargement : ${escapeHtml(e.message)}</div>`;
   }

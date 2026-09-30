@@ -18,12 +18,22 @@ const state = {
   items: [], selIds: [],
   drawColor: '#C9A84C', jersey: '#E03131', opp: '#1f6feb',
   showNumbers: true, nextNum: 1, nextOpp: 1, tokenR: 18, equipR: 16, textFont: 'Inter, sans-serif',
-  steps: [], history: [],
+  clips: [{ name: 'Clip 1', steps: [] }], clip: 0,   // plusieurs animations sur le même terrain
+  history: [], future: [],                          // annuler / rétablir
+  speed: 1,                                         // vitesse de lecture
+  railTeam: 'player', fixedNum: null,               // barre des numéros 1 à 11
   curStep: null,     // index de l'étape affichée et modifiée (null = pas d'étapes)
   playing: false,    // animation ou enregistrement en cours : terrain non modifiable
   // Cadrage d'export (mode « Screen ») : {x, y, w, h} en coordonnées paysage, ou null = plein terrain.
   screen: null,
 };
+
+/* Les étapes affichées sont celles du clip actif : tout le code existant
+   continue d'utiliser state.steps. */
+Object.defineProperty(state, 'steps', {
+  get() { return state.clips[state.clip].steps; },
+  set(v) { state.clips[state.clip].steps = v; },
+});
 
 const PROC = new URLSearchParams(location.search).get('procedure_id') ? Number(new URLSearchParams(location.search).get('procedure_id')) : null;
 let CAN_EDIT = false;   // déterminé après authentification (boot()), avant tout rendu
@@ -103,20 +113,24 @@ function resizeCanvas() {
 function fitCanvas() {
   const stage = canvas.parentElement;
   const presenting = stage.classList.contains('presenting');
-  const below = presenting ? document.getElementById('presentBar') : document.querySelector('.tb-stepsbar');
-  const steps = document.querySelector('.tb-stepsbar');
-  // Deux passes : la barre des étapes prend la largeur du terrain et peut
-  // alors passer sur deux lignes, ce qui change la hauteur disponible.
-  for (let pass = 0; pass < 2; pass++) {
-    const bar = below ? below.offsetHeight + 10 : 0;
-    const W = stage.clientWidth, H = stage.clientHeight - bar;
-    if (!W || !H) return;
-    const k = Math.min(W / curW(), H / curH());
-    const w = Math.floor(curW() * k);
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${Math.floor(curH() * k)}px`;
-    if (steps) steps.style.width = presenting ? '' : `${w}px`;
-  }
+  // Les outils flottent au-dessus : seule la barre de présentation prend de la place.
+  const bar = presenting ? (document.getElementById('presentBar')?.offsetHeight || 0) + 14 : 0;
+  // Marge de sécurité (padding CSS de .tb-stage) : les barres flottantes
+  // se posent sur l'herbe, pas sur les lignes du terrain.
+  const cs = getComputedStyle(stage);
+  const W = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const H = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - bar;
+  if (W <= 0 || H <= 0) return;
+  const k = Math.min(W / curW(), H / curH());
+  const w = Math.floor(curW() * k), h = Math.floor(curH() * k);
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  // Fond de la scène : même herbe, même échelle, calée sur le canvas.
+  const left = canvas.offsetLeft, top = canvas.offsetTop, tile = GRASS_TILE * k;
+  stage.style.backgroundImage = `linear-gradient(${GRASS_SHADE}, ${GRASS_SHADE}), url(${grassUrl()})`;
+  stage.style.backgroundSize = `auto, ${tile}px ${tile}px`;
+  stage.style.backgroundPosition = `0 0, ${left}px ${top}px`;
+  if (state.selIds?.length) positionSelBar();
 }
 new ResizeObserver(fitCanvas).observe(canvas.parentElement);
 
@@ -132,20 +146,54 @@ function getPos(e) {
    DESSIN DU TERRAIN
    ============================================================ */
 const PITCH_MARGIN = 30;
+/* Texture d'herbe générée une fois (aléatoire à graine fixe : le même
+   rendu à chaque export). Elle sert au terrain ET au fond de la scène,
+   pour que la pelouse continue jusqu'aux bords de l'écran. */
+const GRASS_TILE = 192;
+const grassTile = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = GRASS_TILE;
+  const g = c.getContext('2d');
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  g.fillStyle = '#3d7a2c'; g.fillRect(0, 0, GRASS_TILE, GRASS_TILE);
+  for (let i = 0; i < 2600; i++) {
+    const x = rnd() * GRASS_TILE, y = rnd() * GRASS_TILE, l = 1.5 + rnd() * 3.5, a = -Math.PI / 2 + (rnd() - .5) * .9;
+    const tone = rnd();
+    g.strokeStyle = tone < .45 ? `rgba(24,64,20,${.35 + rnd() * .4})` : tone < .85 ? `rgba(92,150,62,${.25 + rnd() * .35})` : `rgba(150,196,110,${.2 + rnd() * .25})`;
+    g.lineWidth = .6 + rnd() * .8;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  return c;
+})();
+const grassPattern = ctx.createPattern(grassTile, 'repeat');
+let grassDataUrl = null;
+function grassUrl() { return grassDataUrl || (grassDataUrl = grassTile.toDataURL()); }
+const GRASS_SHADE = 'rgba(0,0,0,0.16)';   // hors des lignes : herbe un peu plus sombre
+
 function drawPitch() {
-  // Pelouse (vert proche du pitch.svg de référence)
-  ctx.fillStyle = '#0b8f34';
+  // Pelouse texturée partout, plus sombre hors du terrain.
+  ctx.fillStyle = grassPattern;
   ctx.fillRect(0, 0, LW, LH);
-  // Tontes très légères
-  ctx.fillStyle = 'rgba(255,255,255,0.025)';
-  const bands = 12;
-  for (let i = 0; i < bands; i++) if (i % 2) ctx.fillRect(i * LW / bands, 0, LW / bands, LH);
+  ctx.fillStyle = GRASS_SHADE;
+  ctx.fillRect(0, 0, LW, LH);
+  const m0 = state.view === 'vierge' ? 0 : PITCH_MARGIN;
+  ctx.clearRect(m0, m0, LW - 2 * m0, LH - 2 * m0);
+  ctx.fillStyle = grassPattern;
+  ctx.fillRect(m0, m0, LW - 2 * m0, LH - 2 * m0);
+  // Bandes de tonte, dans les lignes seulement
+  const bands = 14, bw = (LW - 2 * m0) / bands;
+  for (let i = 0; i < bands; i++) {
+    ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.05)';
+    ctx.fillRect(m0 + i * bw, m0, bw, LH - 2 * m0);
+  }
 
   if (state.view === 'vierge') return;
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.72)';   // lignes blanches semi-transparentes (comme le SVG)
-  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)';   // lignes tracées à la craie
+  ctx.lineWidth = 3;
+  ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 2;
   ctx.lineJoin = 'round';
   const m = PITCH_MARGIN;
 
@@ -226,6 +274,7 @@ function render() {
   drawPitch();
   for (const it of state.items) withRotation(it, () => drawItem(it));
   if (CAN_EDIT && state.tool === 'select' && !state.playing) drawSelection();
+  if (state.selIds.length) positionSelBar();
   if (state.tool !== 'view') drawScreenFrame();   // masqué pendant l'export
 }
 
@@ -258,6 +307,7 @@ function drawItem(it) {
     case 'text':  return drawText(it);
     case 'logo':  return drawLogo(it);
     case 'equip': return drawEquip(it);
+    case 'path':  return drawPath(it);
   }
 }
 
@@ -366,6 +416,27 @@ function drawLine(it) {
   if (bend) ctx.lineTo(bend.x, bend.y);
   ctx.lineTo(it.x2, it.y2); ctx.stroke();
 }
+/* Dessin libre : points relatifs à (x, y), pour qu'il se déplace et
+   s'anime comme les autres éléments. Courbe lissée par des quadratiques. */
+function drawPath(it) {
+  const pts = it.pts || [];
+  if (pts.length < 2) return;
+  ctx.save();
+  ctx.strokeStyle = it.color; ctx.lineWidth = it.width || 3.5;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 3;
+  ctx.beginPath();
+  ctx.moveTo(it.x + pts[0][0], it.y + pts[0][1]);
+  for (let i = 1; i < pts.length - 1; i++) {
+    const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+    ctx.quadraticCurveTo(it.x + pts[i][0], it.y + pts[i][1], it.x + mx, it.y + my);
+  }
+  const last = pts[pts.length - 1];
+  ctx.lineTo(it.x + last[0], it.y + last[1]);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawText(it) {
   ctx.fillStyle = it.color; ctx.font = `600 ${it.size}px ${it.font || 'Inter, sans-serif'}`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -427,6 +498,26 @@ function drawEquip(it) {
     const step = s * 0.32;
     for (let gx = x - gw / 2 + step; gx < x + gw / 2 - 1; gx += step) { ctx.beginPath(); ctx.moveTo(gx, y - gh / 2); ctx.lineTo(gx, y + gh / 2); ctx.stroke(); }
     for (let gy = y - gh / 2 + step; gy < y + gh / 2 - 1; gy += step) { ctx.beginPath(); ctx.moveTo(x - gw / 2, gy); ctx.lineTo(x + gw / 2, gy); ctx.stroke(); }
+  } else if (it.kind === 'flag') {          // drapeau / piquet à fanion
+    ctx.strokeStyle = '#e9ecef'; ctx.lineWidth = Math.max(2, s * .14);
+    ctx.beginPath(); ctx.moveTo(x, y + s * .9); ctx.lineTo(x, y - s * 1.4); ctx.stroke();
+    ctx.fillStyle = it.color && it.color !== '#C9A84C' ? it.color : '#E03131';
+    ctx.beginPath(); ctx.moveTo(x, y - s * 1.4); ctx.lineTo(x + s * 1.1, y - s * .95); ctx.lineTo(x, y - s * .5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + s * .92, s * .45, s * .16, 0, 0, Math.PI * 2); ctx.fill();
+  } else if (it.kind === 'hoop') {          // cerceau
+    ctx.strokeStyle = it.color && it.color !== '#C9A84C' ? it.color : '#FAB005'; ctx.lineWidth = Math.max(2.5, s * .2);
+    ctx.beginPath(); ctx.ellipse(x, y, s * 1.3, s * .75, 0, 0, Math.PI * 2); ctx.stroke();
+  } else if (it.kind === 'mannequin') {     // mannequin (vue de dessus stylisée)
+    ctx.fillStyle = it.color && it.color !== '#C9A84C' ? it.color : '#FAB005';
+    ctx.beginPath(); ctx.roundRect(x - s * .55, y - s * .35, s * 1.1, s * 1.5, s * .4); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y - s * .75, s * .42, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1.2; ctx.stroke();
+  } else if (it.kind === 'minigoal') {      // mini-but
+    const gw = s * 1.8, gh = s * .9;
+    ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fillRect(x - gw / 2, y - gh / 2, gw, gh);
+    ctx.strokeStyle = '#f4f6f8'; ctx.lineWidth = Math.max(1.5, s * .12); ctx.strokeRect(x - gw / 2, y - gh / 2, gw, gh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = .8;
+    for (let gx = x - gw / 2 + s * .3; gx < x + gw / 2 - 1; gx += s * .3) { ctx.beginPath(); ctx.moveTo(gx, y - gh / 2); ctx.lineTo(gx, y + gh / 2); ctx.stroke(); }
   } else if (it.kind === 'ball') {          // ballon (motif classique pentagone/hexagone)
     // Sphère avec léger dégradé pour le volume.
     const g = ctx.createRadialGradient(x - s * 0.35, y - s * 0.4, s * 0.15, x, y, s * 1.05);
@@ -497,6 +588,11 @@ function handle(x, y, hollow) {
    GÉOMÉTRIE / HIT-TEST
    ============================================================ */
 function bounds(it) {
+  if (it.type === 'path') {
+    const xs = (it.pts || [[0, 0]]).map(p => p[0]), ys = (it.pts || [[0, 0]]).map(p => p[1]);
+    const x = it.x + Math.min(...xs), y = it.y + Math.min(...ys);
+    return { x, y, w: Math.max(4, Math.max(...xs) - Math.min(...xs)), h: Math.max(4, Math.max(...ys) - Math.min(...ys)) };
+  }
   if (it.type === 'player' || it.type === 'opponent') return { x: it.x - it.r, y: it.y - it.r, w: it.r * 2, h: it.r * 2 };
   if (it.type === 'equip') return { x: it.x - it.r * 1.15, y: it.y - it.r * 1.7, w: it.r * 2.3, h: it.r * 3.4 };
   if (it.type === 'text') { const w = (it.text || '…').length * it.size * 0.6, h = it.size; return { x: it.x - w / 2, y: it.y - h / 2, w, h }; }
@@ -516,6 +612,11 @@ function hitItem(p) {
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
     if (it.type === 'arrow' || it.type === 'line') { if (distSeg(p, it) < 9) return it; continue; }
+    if (it.type === 'path') {
+      const lp0 = localPoint(p, it), q = (i) => ({ x: it.x + it.pts[i][0], y: it.y + it.pts[i][1] });
+      if (it.pts.some((_, i) => i && distToSegment(lp0, q(i - 1), q(i)) < 9)) return it;
+      continue;
+    }
     const lp = localPoint(p, it);      // repère non-tourné
     if (it.type === 'player' || it.type === 'opponent') { if (Math.hypot(lp.x - it.x, lp.y - it.y) <= it.r + 2) return it; continue; }
     const b = bounds(it);
@@ -566,7 +667,7 @@ function itemBounds(it) {
 
 /* ---------- Rotation des éléments ---------- */
 function itemCenter(it) {
-  if (it.type === 'shape' || it.type === 'logo') { const b = bounds(it); return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
+  if (it.type === 'shape' || it.type === 'logo' || it.type === 'path') { const b = bounds(it); return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
   return { x: it.x, y: it.y };
 }
 /* Ramène un point dans le repère non-tourné de l'élément (pour le hit-test). */
@@ -676,6 +777,10 @@ canvas.addEventListener('pointerdown', (e) => {
     if (state.equipColor) it.color = state.equipColor;
     state.items.push(it); state.selIds = [it.id]; commit();
   }
+  else if (state.tool === 'pen') {
+    const it = { id: nid(), type: 'path', x: p.x, y: p.y, pts: [[0, 0]], color: c, width: 3.5 };
+    state.items.push(it); drag = { mode: 'create-path', it };
+  }
   else if (state.tool === 'text') {
     const t = prompt('Texte :', ''); if (t) { state.items.push({ id: nid(), type: 'text', x: p.x, y: p.y, text: t, color: c, size: 22, font: state.textFont }); commit(); }
   }
@@ -711,6 +816,10 @@ canvas.addEventListener('pointermove', (e) => {
     else if (drag.h === 'p1') { drag.it.x1 = p.x; drag.it.y1 = p.y; }
     else if (drag.h === 'pm') { drag.it.mx = p.x; drag.it.my = p.y; }   // pose ou déplace l'angle
     else { drag.it.x2 = p.x; drag.it.y2 = p.y; }
+  } else if (drag.mode === 'create-path') {
+    const it = drag.it, last = it.pts[it.pts.length - 1];
+    const px = p.x - it.x, py = p.y - it.y;
+    if (Math.hypot(px - last[0], py - last[1]) > 2.5) it.pts.push([Math.round(px * 10) / 10, Math.round(py * 10) / 10]);
   } else if (drag.mode === 'create-box') {
     drag.it.w = p.x - drag.ox; drag.it.h = p.y - drag.oy;
     showSizeTag(e, drag.it);
@@ -736,6 +845,9 @@ canvas.addEventListener('pointerup', () => {
       state.items = state.items.filter(x => x.id !== it.id);
       state.selIds = [];
     } else normalizeBox(it);
+  }
+  if (drag.mode === 'create-path' && drag.it.pts.length < 3) {   // un simple clic ne dessine rien
+    state.items = state.items.filter(x => x.id !== drag.it.id);
   }
   if (drag.mode === 'create-seg') {
     const it = drag.it;
@@ -895,7 +1007,7 @@ canvas.addEventListener('contextmenu', (e) => {
 });
 
 function resizeBox(it, h, p) {
-  if (it.type === 'text' || it.type === 'player' || it.type === 'opponent' || it.type === 'equip') return;
+  if (['text', 'player', 'opponent', 'equip', 'path'].includes(it.type)) return;
   const b = bounds(it);
   let x1 = b.x, y1 = b.y, x2 = b.x + b.w, y2 = b.y + b.h;
   if (h.includes('w')) x1 = p.x; if (h.includes('e')) x2 = p.x;
@@ -909,17 +1021,25 @@ function normalizeBox(it) {
 
 function addToken(type, p, color) {
   const numRef = type === 'player' ? 'nextNum' : 'nextOpp';
-  state.items.push({ id: nid(), type, x: p.x, y: p.y, r: state.tokenR, number: state[numRef]++, color });
+  let number;
+  if (state.fixedNum !== null) {
+    // Numéro choisi dans la barre de gauche ; on passe au suivant pour
+    // placer une équipe en onze clics.
+    number = state.fixedNum;
+    state.fixedNum = number < 11 ? number + 1 : null;
+    syncToolButtons();
+  } else number = state[numRef]++;
+  state.items.push({ id: nid(), type, x: p.x, y: p.y, r: state.tokenR, number, color });
 }
 
 /* ============================================================
    BARRE D'OUTILS / UI
    ============================================================ */
-function setTool(t, color = null) {
+function setTool(t, color = null, num = null) {
   state.tool = t;
   state.equipColor = t.startsWith('equip-') ? color : null;
-  $$('.tb-tool[data-tool]').forEach(b => b.classList.toggle('active',
-    b.dataset.tool === t && (b.dataset.color || null) === state.equipColor));
+  state.fixedNum = num;
+  syncToolButtons();
   // Mode cadrage : le même bouton l'annule, Échap aussi.
   $('#screenHint')?.classList.toggle('hidden', t !== 'screen');
   const sb = $('#screenBtn');
@@ -928,7 +1048,22 @@ function setTool(t, color = null) {
   if (t !== 'select') { state.selIds = []; syncSelBar(); }
   render();
 }
-$$('.tb-tool[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool, b.dataset.color || null)));
+function syncToolButtons() {
+  $$('.tb-tool[data-tool]').forEach(b => b.classList.toggle('active',
+    b.dataset.tool === state.tool && (b.dataset.color || null) === state.equipColor
+    && (b.dataset.num ? Number(b.dataset.num) : null) === state.fixedNum));
+}
+$$('.tb-tool[data-tool]').forEach(b => b.addEventListener('click', () =>
+  setTool(b.dataset.tool, b.dataset.color || null, b.dataset.num ? Number(b.dataset.num) : null)));
+/* Barre des numéros : mon équipe ou les adversaires. */
+function setRailTeam(team) {
+  state.railTeam = team;
+  $$('[data-team]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.team === team)));
+  $$('.tb-num').forEach(b => { b.dataset.tool = team; b.style.setProperty('--num-color', team === 'player' ? state.jersey : state.opp); });
+  if (state.tool === 'player' || state.tool === 'opponent') setTool(team, null, state.fixedNum);
+}
+$$('[data-team]').forEach(b => b.addEventListener('click', () => setRailTeam(b.dataset.team)));
+$('#logoBtn')?.addEventListener('click', () => $('#logoInput').click());
 $$('#viewGroup .tb-tool').forEach(b => b.addEventListener('click', () => {
   state.view = b.dataset.view;
   $$('#viewGroup .tb-tool').forEach(x => x.classList.toggle('active', x === b));
@@ -948,6 +1083,7 @@ $('#oppColor').addEventListener('input', e => { state.opp = e.target.value; upda
 function updatePionDots() {
   $$('#pionDotRed, #pionDotRed2').forEach(d => d.style.background = state.jersey);
   $$('#pionDotBlue, #pionDotBlue2').forEach(d => d.style.background = state.opp);
+  $$('.tb-num').forEach(b => b.style.setProperty('--num-color', state.railTeam === 'player' ? state.jersey : state.opp));
 }
 updatePionDots();
 $('#toggleNumbers').addEventListener('click', () => { state.showNumbers = !state.showNumbers; render(); scheduleSave(); });
@@ -974,6 +1110,7 @@ function syncCrop() {
 }
 document.getElementById('cropChip')?.addEventListener('click', clearCrop);
 $('#undoBtn').addEventListener('click', undo);
+$('#redoBtn')?.addEventListener('click', redo);
 $('#clearBtn').addEventListener('click', () => { if (confirm('Tout effacer ?')) { pushHistory(); state.items = []; state.selIds = []; commit(); } });
 $('#logoInput').addEventListener('change', importLogo);
 $('#addStep').addEventListener('click', newStep);
@@ -990,11 +1127,41 @@ document.getElementById('exportVideo')?.addEventListener('click', exportVideo);
 document.getElementById('saveBtn')?.addEventListener('click', () => saveToDB(false));
 document.getElementById('tbValidate')?.addEventListener('click', () => saveToDB(true));
 
-/* Panneau « Élément » : couleur, taille, texte / n°, angle, rotation. */
+/* Coordonnées écran d'un point du terrain (orientation portrait comprise). */
+function toScreen(x, y) {
+  const r = canvas.getBoundingClientRect(), k = r.width / curW();
+  return isPortrait() ? { x: r.left + y * k, y: r.top + (LW - x) * k } : { x: r.left + x * k, y: r.top + y * k };
+}
+/* La barre de réglages se pose juste au-dessus de la sélection (ou
+   en dessous s'il n'y a pas la place) : on règle l'élément là où il est. */
+function positionSelBar() {
+  const bar = $('#selBar'), sels = selectedItems();
+  if (!bar || bar.classList.contains('hidden') || !sels.length) return;
+  const pts = sels.flatMap(it => { const b = itemBounds(it); return [toScreen(b.x, b.y), toScreen(b.x + b.w, b.y + b.h)]; });
+  const stage = canvas.parentElement.getBoundingClientRect();
+  const minX = Math.min(...pts.map(p => p.x)), maxX = Math.max(...pts.map(p => p.x));
+  const minY = Math.min(...pts.map(p => p.y)), maxY = Math.max(...pts.map(p => p.y));
+  const bw = bar.offsetWidth, bh = bar.offsetHeight, gap = 14;
+  let left = (minX + maxX) / 2 - bw / 2 - stage.left;
+  let top = minY - bh - gap - stage.top;
+  // Jamais sous les barres fixes : on reste dans la zone du terrain.
+  const cs = getComputedStyle(canvas.parentElement);
+  const padL = parseFloat(cs.paddingLeft), padR = parseFloat(cs.paddingRight), padT = parseFloat(cs.paddingTop), padB = parseFloat(cs.paddingBottom);
+  if (top < padT) top = maxY + gap - stage.top;        // pas de place au-dessus : en dessous
+  left = Math.max(padL, Math.min(stage.width - padR - bw, left));
+  top = Math.max(padT, Math.min(stage.height - padB - bh, top));
+  bar.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+}
+
+/* Réglages de l'élément : couleur, taille, texte / n°, angle, rotation. */
 function syncSelBar() {
   const sels = selectedItems();
-  $('#selBar').classList.toggle('hidden', !sels.length || state.playing);
+  const bar = $('#selBar');
+  const wasHidden = bar.classList.contains('hidden');
+  bar.classList.toggle('hidden', !sels.length || state.playing);
   if (!sels.length) { $('#selLabel').textContent = '—'; return; }
+  if (wasHidden) { bar.classList.remove('is-in'); void bar.offsetWidth; bar.classList.add('is-in'); }
+  requestAnimationFrame(positionSelBar);
 
   const it = sels[0];
   $('#selLabel').textContent = sels.length > 1 ? `${sels.length} éléments` : (TYPE_LABEL[it.type] || 'Élément');
@@ -1113,7 +1280,9 @@ document.addEventListener('keydown', (e) => {
   if (state.playing) return;
   if (!CAN_EDIT) return;
   const mod = e.ctrlKey || e.metaKey;
-  if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+  if (mod && e.key.toLowerCase() === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
+  else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+  else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
   else if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); }
   else if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteClipboard(); }
   else if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); copySelection(); pasteClipboard(); } // duplication rapide
@@ -1190,15 +1359,17 @@ function recordStep() {
 }
 function newStep() {
   if (state.playing) return;
+  pushHistory();
   if (!state.steps.length) { state.steps = [snapshot()]; state.curStep = 0; }
   else recordStep();
   const at = (state.curStep ?? state.steps.length - 1) + 1;
   state.steps.splice(at, 0, snapshot());
   state.curStep = at;
   renderSteps(); scheduleSave();
-  toast(at === 1
-    ? 'Étape 1 = position de départ. Déplacez maintenant les éléments pour l’étape 2.'
-    : `Étape ${at + 1} créée : déplacez les éléments.`, 'success');
+  // Explication une seule fois ; ensuite la pastille qui s'allume suffit.
+  if (at === 1) toast('Étape 1 = position de départ. Déplacez les éléments pour l’étape 2.', 'success');
+  const pill = document.querySelector(`.tb-step[data-step="${at}"]`);
+  pill?.classList.add('is-new');
 }
 function goToStep(i) {
   if (i === state.curStep || !state.steps[i]) return;
@@ -1212,6 +1383,7 @@ function goToStep(i) {
 function deleteStep() {
   if (state.curStep === null || state.playing) return;
   if (!confirm(`Supprimer l’étape ${state.curStep + 1} ?`)) return;
+  pushHistory();
   state.steps.splice(state.curStep, 1);
   if (state.steps.length < 2) {
     // Une étape seule n'anime rien : on revient à un schéma statique.
@@ -1227,14 +1399,16 @@ function renderSteps() {
   $('#stepList').innerHTML = state.steps.map((_, i) =>
     `<button type="button" class="tb-step${i === cur ? ' active' : ''}" data-step="${i}" title="Afficher l’étape ${i + 1}">${i + 1}</button>`).join('');
   $('#stepInfo').textContent = !n ? '' : (cur === null ? `${n} étapes` : `${cur + 1} / ${n}`);
-  $('#stepHint').textContent = !n
-    ? 'Placez vos éléments, puis « + Étape » pour créer la suite du mouvement.'
-    : 'Cliquez une étape pour l’afficher : ce que vous déplacez y est enregistré.';
+  $('#stepHint').textContent = !n ? 'Placez vos éléments, puis « + Étape ».' : '';
   $('#playSteps').disabled = n < 2;
   $('#deleteStep').disabled = cur === null;
   $('#exportAllPng').disabled = n < 2;
   $('#exportVideo').disabled = n < 2;
   const ps = $('#presStep'); if (ps) ps.textContent = n && cur !== null ? `Étape ${cur + 1} / ${n}` : '';
+  const prev = $('#stepPrev'), next = $('#stepNext');
+  if (prev) prev.disabled = !n || !cur;
+  if (next) next.disabled = !n || cur === n - 1;
+  renderClips();
 }
 
 function playSteps(done) {
@@ -1250,12 +1424,93 @@ function playSteps(done) {
       state.playing = false; render(); renderSteps(); return finish();
     }
     // Courte pause sur chaque étape, puis transition fluide vers la suivante.
-    setTimeout(() => tween(state.steps[i], state.steps[i + 1], 1100, () => {
+    setTimeout(() => tween(state.steps[i], state.steps[i + 1], 1100 / state.speed, () => {
       i++; state.curStep = i; renderSteps(); next();
-    }), i === 0 ? 350 : 250);
+    }), (i === 0 ? 350 : 250) / state.speed);
   };
   next();
 }
+
+/* ---------- Clips : plusieurs animations sur le même terrain ----------
+   Découper : les étapes jusqu'à l'étape affichée restent dans le clip,
+   la suite (à partir de l'étape affichée, pour garder la continuité)
+   devient un nouveau clip placé juste après. Tout est annulable. */
+function renderClips() {
+  const label = $('#clipLabel'); if (!label) return;
+  label.textContent = state.clips[state.clip].name;
+  const list = $('#clipList');
+  if (list) list.innerHTML = state.clips.map((c, i) => `
+    <button type="button" class="tb-clip${i === state.clip ? ' active' : ''}" data-clip="${i}">
+      <strong>${escapeHtml(c.name)}</strong><span>${c.steps.length} étape${c.steps.length > 1 ? 's' : ''}</span>
+    </button>`).join('');
+  const name = $('#clipName'); if (name && document.activeElement !== name) name.value = state.clips[state.clip].name;
+  const n = state.steps.length, cur = state.curStep;
+  const set = (id, off) => { const b = $(id); if (b) b.disabled = off; };
+  set('#clipSplit', !(n >= 3 && cur > 0 && cur < n - 1));
+  set('#clipTrimBefore', !(n && cur > 0));
+  set('#clipTrimAfter', !(n && cur !== null && cur < n - 1));
+  set('#clipDelete', state.clips.length < 2);
+}
+function selectClip(i) {
+  if (state.playing || !state.clips[i] || i === state.clip) return;
+  recordStep();
+  state.clip = i;
+  state.curStep = state.steps.length ? 0 : null;
+  if (state.steps.length) applySnapshot(state.steps[0]);
+  state.selIds = []; syncSelBar(); renderSteps(); render(); scheduleSave();
+}
+const nextClipName = () => `Clip ${state.clips.length + 1}`;
+function clipAction(kind) {
+  if (state.playing) return;
+  recordStep();
+  pushHistory();
+  const c = state.clips[state.clip], cur = state.curStep;
+  const copy = (steps) => JSON.parse(JSON.stringify(steps));
+  if (kind === 'new') {
+    state.clips.splice(state.clip + 1, 0, { name: nextClipName(), steps: [] });
+    state.clip++; state.curStep = null;
+    toast('Nouveau clip : placez les éléments puis « + Étape ».', 'success');
+  } else if (kind === 'dup') {
+    state.clips.splice(state.clip + 1, 0, { name: `${c.name} (copie)`, steps: copy(c.steps) });
+    state.clip++;
+    toast('Clip dupliqué : modifiez la copie, l’original reste intact.', 'success');
+  } else if (kind === 'split') {
+    const tail = copy(c.steps.slice(cur));
+    c.steps = c.steps.slice(0, cur + 1);
+    state.clips.splice(state.clip + 1, 0, { name: nextClipName(), steps: tail });
+    state.clip++; state.curStep = 0;
+    toast(`Découpé : « ${c.name} » garde les étapes 1 à ${cur + 1}, la suite forme « ${state.clips[state.clip].name} ».`, 'success');
+  } else if (kind === 'trimBefore') {
+    c.steps = c.steps.slice(cur); state.curStep = 0;
+  } else if (kind === 'trimAfter') {
+    c.steps = c.steps.slice(0, cur + 1);
+  } else if (kind === 'delete') {
+    state.clips.splice(state.clip, 1);
+    state.clip = Math.max(0, state.clip - 1);
+    state.curStep = state.steps.length ? 0 : null;
+  }
+  if (state.curStep !== null && state.steps[state.curStep]) applySnapshot(state.steps[state.curStep]);
+  state.selIds = []; syncSelBar(); renderSteps(); render(); scheduleSave();
+}
+$('#clipList')?.addEventListener('click', e => { const b = e.target.closest('[data-clip]'); if (b) selectClip(Number(b.dataset.clip)); });
+$('#clipName')?.addEventListener('change', e => {
+  const v = e.target.value.trim(); if (!v) return;
+  pushHistory(); state.clips[state.clip].name = v.slice(0, 40); renderClips(); scheduleSave();
+});
+[['#clipNew', 'new'], ['#clipDup', 'dup'], ['#clipSplit', 'split'], ['#clipTrimBefore', 'trimBefore'],
+ ['#clipTrimAfter', 'trimAfter'], ['#clipDelete', 'delete']].forEach(([id, kind]) => $(id)?.addEventListener('click', () => clipAction(kind)));
+
+function setSpeed(v) {
+  state.speed = Math.max(0.5, Math.min(2, Math.round(v * 4) / 4));
+  const el = $('#speedVal'); if (el) el.textContent = `${String(state.speed).replace('.', ',')}×`;
+}
+$('#speedDown')?.addEventListener('click', () => setSpeed(state.speed - 0.25));
+$('#speedUp')?.addEventListener('click', () => setSpeed(state.speed + 0.25));
+$('#stepPrev')?.addEventListener('click', () => { if (state.curStep > 0) goToStep(state.curStep - 1); });
+$('#stepNext')?.addEventListener('click', () => {
+  const n = state.steps.length; if (!n) return;
+  goToStep(state.curStep === null ? 0 : Math.min(n - 1, state.curStep + 1));
+});
 
 /* ---------- Mode présentation (plein écran) ----------
    Barre de commande intégrée (étapes, lecture, quitter) : on n'est
@@ -1350,6 +1605,7 @@ function tween(from, to, dur, done) {
 function serialize() {
   return {
     view: state.view, showNumbers: state.showNumbers, steps: state.steps, curStep: state.curStep,
+    clips: state.clips, clip: state.clip,
     nextNum: state.nextNum, nextOpp: state.nextOpp, screen: state.screen,
     items: state.items.map(it => { const c = { ...it }; delete c._img; return c; }),
   };
@@ -1358,7 +1614,11 @@ function deserialize(data) {
   state.view = data.view || 'complet';
   state.screen = data.screen || null;
   state.showNumbers = data.showNumbers !== false;
-  state.steps = Array.isArray(data.steps) ? data.steps : [];
+  // Anciens schémas : une seule liste d'étapes = un seul clip.
+  state.clips = Array.isArray(data.clips) && data.clips.length
+    ? data.clips.map((c, i) => ({ name: c.name || `Clip ${i + 1}`, steps: Array.isArray(c.steps) ? c.steps : [] }))
+    : [{ name: 'Clip 1', steps: Array.isArray(data.steps) ? data.steps : [] }];
+  state.clip = Number.isInteger(data.clip) && state.clips[data.clip] ? data.clip : 0;
   state.curStep = Number.isInteger(data.curStep) && state.steps[data.curStep] ? data.curStep : null;
   state.nextNum = data.nextNum || (data.items?.filter(i => i.type === 'player').length + 1) || 1;
   state.nextOpp = data.nextOpp || 1;
@@ -1371,12 +1631,36 @@ function deserialize(data) {
   renderSteps(); syncCrop();
 }
 
-function pushHistory() { state.history.push(JSON.stringify(serialize().items)); if (state.history.length > 50) state.history.shift(); }
+/* Historique : éléments, clips et étape affichée. Toute action qui
+   modifie le schéma (y compris découper ou supprimer un clip) se défait. */
+const historyState = () => JSON.stringify({ items: serialize().items, clips: state.clips, clip: state.clip, curStep: state.curStep });
+function restoreHistory(json) {
+  const h = JSON.parse(json);
+  state.items = h.items.map(it => { if (it.type === 'logo' && it.src) { const img = new Image(); img.src = it.src; it._img = img; } return it; });
+  state.clips = h.clips; state.clip = h.clip; state.curStep = h.curStep;
+  state.selIds = []; syncSelBar(); renderSteps(); render(); scheduleSave();
+}
+function pushHistory() {
+  state.history.push(historyState()); state.future = [];
+  if (state.history.length > 60) state.history.shift();
+  syncHistoryButtons();
+}
 function undo() {
-  if (!state.history.length) return;
-  const items = JSON.parse(state.history.pop());
-  state.items = items.map(it => { if (it.type === 'logo' && it.src) { const img = new Image(); img.src = it.src; it._img = img; } return it; });
-  state.selIds = []; syncSelBar(); render(); recordStep(); scheduleSave();
+  if (!state.history.length || state.playing) return;
+  state.future.push(historyState());
+  restoreHistory(state.history.pop());
+  syncHistoryButtons();
+}
+function redo() {
+  if (!state.future.length || state.playing) return;
+  state.history.push(historyState());
+  restoreHistory(state.future.pop());
+  syncHistoryButtons();
+}
+function syncHistoryButtons() {
+  const u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
+  if (u) u.disabled = !state.history.length;
+  if (r) r.disabled = !state.future.length;
 }
 /* Chaque modification est aussi enregistrée dans l'étape affichée. */
 function commit() { render(); recordStep(); scheduleSave(); }
@@ -1557,6 +1841,7 @@ async function boot() {
     if (ls) { try { deserialize(JSON.parse(ls)); loaded = true; } catch (e) {} }
   }
   setTool('select');
+  setRailTeam(state.railTeam); setSpeed(state.speed); syncHistoryButtons();
   renderSteps(); syncCrop(); syncSelBar();
   resizeCanvas();   // ajuste l'orientation si le schéma chargé était en mode Horizontal
 }

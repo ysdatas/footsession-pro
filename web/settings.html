@@ -41,7 +41,7 @@
       <!-- Sécurité -->
       <div class="card">
         <h3>Mot de passe</h3>
-        <p class="text-muted" style="font-size:.85rem;">Votre navigateur vous garde connecté : vous n'avez pas à ressaisir votre mot de passe à chaque visite.</p>
+        <p class="text-muted" style="font-size:var(--fs-md);">Votre navigateur vous garde connecté : vous n'avez pas à ressaisir votre mot de passe à chaque visite.</p>
         <div class="field"><label>Nouveau mot de passe (6+ caractères)</label><input id="p-pass" type="password" placeholder="••••••••" autocomplete="new-password"></div>
         <div class="field"><label>Confirmer</label><input id="p-pass2" type="password" placeholder="••••••••" autocomplete="new-password"></div>
         <button class="btn btn-primary btn-sm" id="savePassword" type="button">Changer le mot de passe</button>
@@ -51,7 +51,7 @@
     <!-- Menu latéral personnalisé -->
     <div class="card" style="margin-top:18px;">
       <h3>Mon menu</h3>
-      <p class="text-muted" style="font-size:.85rem;">Cochez les rubriques à afficher et réglez leur ordre avec les flèches. Ce réglage ne concerne que votre compte.</p>
+      <p class="text-muted" style="font-size:var(--fs-md);">Cochez les rubriques à afficher et réglez leur ordre avec les flèches. Ce réglage ne concerne que votre compte.</p>
       <ul class="menu-editor" id="menuEditor"></ul>
       <div class="flex gap-sm" style="flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" id="saveMenu" type="button">Enregistrer le menu</button>
@@ -62,7 +62,7 @@
     <!-- Préférences du tableau tactique -->
     <div class="card" style="margin-top:18px;">
       <h3>Préférences du tableau tactique</h3>
-      <p class="text-muted" style="font-size:.85rem;">Ces réglages sont appliqués automatiquement à chaque nouveau schéma.</p>
+      <p class="text-muted" style="font-size:var(--fs-md);">Ces réglages sont appliqués automatiquement à chaque nouveau schéma.</p>
       <div class="field"><label>Couleur des joueurs</label><input id="pf-jersey" type="color" value="#E03131" aria-label="Couleur des joueurs"></div>
       <div class="field"><label>Couleur des adversaires</label><input id="pf-opp" type="color" value="#1F6FEB" aria-label="Couleur des adversaires"></div>
       <div class="field"><label>Couleur des tracés / zones</label><input id="pf-draw" type="color" value="#C9A84C" aria-label="Couleur des tracés"></div>
@@ -117,7 +117,7 @@
     <!-- Administration (visible pour les admins uniquement) -->
     <div class="card hidden" id="adminCard" style="margin-top:18px;">
       <h3>Administration du club</h3>
-      <p class="text-muted" style="font-size:.85rem;">Réservé aux administrateurs.</p>
+      <p class="text-muted" style="font-size:var(--fs-md);">Réservé aux administrateurs.</p>
       <div id="adminStats" class="kpi-grid" style="margin-bottom:14px;"></div>
       <div class="flex gap-sm" style="flex-wrap:wrap;">
         <a class="btn btn-sm" href="club.html">Gérer les membres &amp; l'identité du club</a>

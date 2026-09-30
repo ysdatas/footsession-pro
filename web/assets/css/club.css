@@ -1,6 +1,6 @@
 .club-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
 @media (max-width: 900px) { .club-grid { grid-template-columns: 1fr; } }
-.card-lead { font-size: .84rem; margin: -4px 0 14px; line-height: 1.5; }
+.card-lead { font-size: var(--fs-sm); margin: -4px 0 14px; line-height: 1.5; }
 
 /* Identité : le logo est une tuile cliquable, pas un champ fichier. */
 .club-identity { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 14px; }
@@ -8,7 +8,7 @@
 .club-logo-tile {
   flex: 0 0 96px; width: 96px; height: 96px; border-radius: var(--radius-lg);
   border: 1px dashed var(--border); background: var(--bg-surface); color: var(--text-secondary);
-  display: grid; place-items: center; cursor: pointer; overflow: hidden; padding: 8px; font-size: .8rem;
+  display: grid; place-items: center; cursor: pointer; overflow: hidden; padding: 8px; font-size: var(--fs-sm);
 }
 .club-logo-tile:not(:disabled):hover { border-color: var(--gold); color: var(--gold); }
 .club-logo-tile:disabled { cursor: default; }
@@ -19,12 +19,12 @@
 .access-form .hidden { display: none; }
 @media (max-width: 760px) { .access-form { grid-template-columns: 1fr; } }
 .access-list { margin-top: 16px; }
-.access-list h4 { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-secondary); margin: 0 0 6px; }
+.access-list h4 { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .07em; color: var(--text-secondary); margin: 0 0 6px; }
 
 .member-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .member-row:last-child { border-bottom: none; }
 .member-name { flex: 1; min-width: 160px; font-weight: 500; }
-.member-name small { display: block; color: var(--text-secondary); font-weight: 400; font-size: .78rem; margin-top: 2px; }
+.member-name small { display: block; color: var(--text-secondary); font-weight: 400; font-size: var(--fs-sm); margin-top: 2px; }
 .member-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .member-controls select { width: auto; max-width: 240px; min-width: 140px; padding: 6px 8px; height: 34px; }
 .member-controls .hidden { display: none; }

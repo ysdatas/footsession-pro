@@ -2,20 +2,20 @@
    FootSession Pro — player.css (fiche joueur)
    ============================================================ */
 .fiche { max-width: 1240px; }
-.back-link { display: inline-block; margin-bottom: 12px; color: var(--text-secondary); font-size: .85rem; }
+.back-link { display: inline-block; margin-bottom: 12px; color: var(--text-secondary); font-size: var(--fs-md); }
 .back-link:hover { color: var(--gold); }
 
 /* En-tête */
 .fiche-hero { display: flex; align-items: center; gap: 18px; margin-bottom: 16px; flex-wrap: wrap; }
-.fiche-avatar, .fiche-photo { width: 76px; height: 76px; border-radius: 18px; flex: 0 0 76px; font-size: 1.5rem; }
+.fiche-avatar, .fiche-photo { width: 76px; height: 76px; border-radius: 18px; flex: 0 0 76px; font-size: var(--fs-2xl); }
 .fiche-photo { object-fit: cover; border: 1px solid var(--border); }
 .fiche-hero-text { flex: 1; min-width: 200px; }
-.fiche-hero-text h1 { margin: 0; font-size: 1.7rem; letter-spacing: -.02em; }
-.fiche-sub { margin: 4px 0 0; color: var(--gold); font-weight: 600; font-size: .92rem; }
+.fiche-hero-text h1 { margin: 0; font-size: var(--fs-2xl); letter-spacing: -.02em; }
+.fiche-sub { margin: 4px 0 0; color: var(--gold); font-weight: 600; font-size: var(--fs-md); }
 .fiche-facts { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; }
 .fiche-facts:empty { display: none; }
 /* Séparés par un trait vertical, pas enfermés dans des bulles. */
-.fiche-facts span { font-size: .92rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+.fiche-facts span { font-size: var(--fs-md); font-weight: 600; color: var(--text-primary); line-height: 1.2; }
 .fiche-facts span + span { border-left: 1px solid var(--border-gold); margin-left: 12px; padding-left: 12px; }
 .fiche-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -27,40 +27,40 @@
 .prog-form { grid-template-columns: 1fr 1fr; }
 .prog-form .span-all { grid-column: 1 / -1; }
 .prog-edit-block { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px dashed var(--border); border-radius: var(--radius-md); }
-.prog-edit-label { font-size: .74rem; color: var(--text-secondary); }
+.prog-edit-label { font-size: var(--fs-xs); color: var(--text-secondary); }
 .prog-preview:empty { display: none; }
 .prog-preview { display: flex; align-items: center; gap: 10px; }
 .prog-preview img { width: 96px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
 @media (max-width: 640px) { .prog-form { grid-template-columns: 1fr; } }
 .fiche-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
-.fiche-card-head h3 { margin: 0; font-size: 1rem; }
-.fiche-link { font-size: .8rem; color: var(--text-secondary); }
+.fiche-card-head h3 { margin: 0; font-size: var(--fs-lg); }
+.fiche-link { font-size: var(--fs-sm); color: var(--text-secondary); }
 .fiche-link:hover { color: var(--gold); }
-.fiche-when { font-size: .76rem; color: var(--text-secondary); }
+.fiche-when { font-size: var(--fs-sm); color: var(--text-secondary); }
 
 /* Informations : lecture */
 .fiche-dl { display: grid; grid-template-columns: auto 1fr; gap: 0; margin: 0; }
-.fiche-dl dt, .fiche-dl dd { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: .86rem; }
+.fiche-dl dt, .fiche-dl dd { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-md); }
 .fiche-dl dt { color: var(--text-secondary); padding-right: 16px; }
 .fiche-dl dd { margin: 0; text-align: right; font-weight: 600; }
 .fiche-dl dt:nth-last-of-type(1), .fiche-dl dd:last-child { border-bottom: 0; }
 
 /* Informations : édition */
 .fiche-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
-.fiche-form label { display: flex; flex-direction: column; gap: 5px; font-size: .74rem; color: var(--text-secondary); margin: 0; }
+.fiche-form label { display: flex; flex-direction: column; gap: 5px; font-size: var(--fs-xs); color: var(--text-secondary); margin: 0; }
 .fiche-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
 /* Suivi physique */
 .phys-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .phys-cell { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 10px; text-align: center; }
-.phys-cell span { display: block; font-size: .72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .05em; }
-.phys-cell strong { display: block; font-size: 1.25rem; margin: 6px 0 2px; white-space: nowrap; }
-.phys-cell small { font-size: .72rem; color: var(--text-secondary); }
-.phys-season { font-size: .76rem; color: var(--text-secondary); margin: 10px 0 0; }
+.phys-cell span { display: block; font-size: var(--fs-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: .05em; }
+.phys-cell strong { display: block; font-size: var(--fs-xl); margin: 6px 0 2px; white-space: nowrap; }
+.phys-cell small { font-size: var(--fs-xs); color: var(--text-secondary); }
+.phys-season { font-size: var(--fs-sm); color: var(--text-secondary); margin: 10px 0 0; }
 
 /* Profil /10 */
 .score-bars { display: grid; gap: 11px; }
-.score-bar { display: grid; grid-template-columns: 90px 1fr 38px; align-items: center; gap: 10px; font-size: .86rem; }
+.score-bar { display: grid; grid-template-columns: 90px 1fr 38px; align-items: center; gap: 10px; font-size: var(--fs-md); }
 .score-bar .track { height: 8px; background: var(--bg-surface); border-radius: 999px; overflow: hidden; }
 .score-bar .fill { display: block; height: 100%; background: linear-gradient(90deg, #9c7f30, var(--gold)); }
 .score-bar strong { text-align: right; }
@@ -69,8 +69,8 @@
 .career-mini { list-style: none; margin: 0; padding: 0; display: grid; }
 .career-mini li { padding: 9px 0; border-bottom: 1px solid var(--border); display: grid; gap: 2px; }
 .career-mini li:last-child { border-bottom: 0; }
-.career-mini strong { font-size: .9rem; }
-.career-mini span { font-size: .78rem; color: var(--text-secondary); }
+.career-mini strong { font-size: var(--fs-md); }
+.career-mini span { font-size: var(--fs-sm); color: var(--text-secondary); }
 .career-mini li.is-current strong { color: var(--gold); }
 
 @media (max-width: 1080px) {
@@ -81,14 +81,14 @@
   .fiche-actions { width: 100%; }
   .fiche-actions .btn { flex: 1; text-align: center; }
   .phys-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .phys-cell strong { font-size: 1.05rem; }
+  .phys-cell strong { font-size: var(--fs-lg); }
 }
 
 /* Photo : clic sur l'avatar (staff). */
 .fiche-avatar-btn { position: relative; padding: 0; border: 0; background: none; border-radius: 18px; overflow: hidden; cursor: default; flex: 0 0 76px; }
 .fiche-avatar-btn.is-editable { cursor: pointer; }
 .fiche-avatar-edit {
-  position: absolute; inset: auto 0 0 0; padding: 4px; font-size: .66rem; font-weight: 600;
+  position: absolute; inset: auto 0 0 0; padding: 4px; font-size: var(--fs-xs); font-weight: 600;
   background: rgba(0,0,0,.66); color: #fff; opacity: 0; transition: opacity .15s;
 }
 .fiche-avatar-btn.is-editable:hover .fiche-avatar-edit, .fiche-avatar-btn.is-editable:focus-visible .fiche-avatar-edit { opacity: 1; }
@@ -96,6 +96,6 @@
 /* Programme terrain : points forts | axes, puis exercices. */
 .terrain-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
 .terrain-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-.terrain-block-head h4 { margin: 0; font-size: .76rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-secondary); }
+.terrain-block-head h4 { margin: 0; font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: .07em; color: var(--text-secondary); }
 .terrain-block .note-grid { grid-template-columns: 1fr; }
 @media (max-width: 760px) { .terrain-cols { grid-template-columns: 1fr; } }

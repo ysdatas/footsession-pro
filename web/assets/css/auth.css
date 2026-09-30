@@ -22,16 +22,16 @@ body.auth {
 
 .auth-logo {
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px;
+  font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px;
 }
 .auth-logo .g { color: var(--gold); }
 .auth-pro {
-  font-size: .68rem; font-weight: 700; line-height: 1;
+  font-size: var(--fs-xs); font-weight: 700; line-height: 1;
   color: var(--gold); background: rgba(201,168,76,.12);
   border: 1px solid var(--gold-border); border-radius: 6px;
   padding: 4px 7px; letter-spacing: .06em; margin-left: 8px;
 }
-.auth-sub { text-align: center; color: var(--text-secondary); font-size: .85rem; margin-bottom: 28px; }
+.auth-sub { text-align: center; color: var(--text-secondary); font-size: var(--fs-md); margin-bottom: 28px; }
 
 .auth-card .field { margin-bottom: 16px; }
 .auth-card .btn-primary { width: 100%; justify-content: center; margin-top: 6px; padding: 11px; }
@@ -39,14 +39,14 @@ body.auth {
 .auth-error {
   background: rgba(244,67,54,.10); border: 1px solid rgba(244,67,54,.35);
   color: #ff8a80; border-radius: var(--radius-md);
-  padding: 10px 14px; font-size: .85rem; margin-bottom: 18px;
+  padding: 10px 14px; font-size: var(--fs-md); margin-bottom: 18px;
 }
 .auth-ok {
   background: rgba(76,175,80,.10); border: 1px solid rgba(76,175,80,.35);
   color: #a5d6a7; border-radius: var(--radius-md);
-  padding: 10px 14px; font-size: .85rem; margin-bottom: 18px;
+  padding: 10px 14px; font-size: var(--fs-md); margin-bottom: 18px;
 }
-.auth-foot { text-align: center; margin-top: 18px; font-size: .82rem; }
+.auth-foot { text-align: center; margin-top: 18px; font-size: var(--fs-sm); }
 .auth-foot a { color: var(--gold); }
 
-.auth-hint { font-size: .8rem; color: var(--text-muted); line-height: 1.45; margin: -4px 0 14px; }
+.auth-hint { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.45; margin: -4px 0 14px; }

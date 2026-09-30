@@ -13,7 +13,7 @@
   text-align: center; padding: 60px 20px; color: var(--text-secondary);
   border: 1px dashed var(--border); border-radius: var(--radius-lg);
 }
-.analytics-empty .big { font-size: 2.4rem; opacity: .5; margin-bottom: 10px; }
+.analytics-empty .big { font-size: var(--fs-2xl); opacity: .5; margin-bottom: 10px; }
 
 @media (max-width: 880px) {
   .charts-grid { grid-template-columns: 1fr; }

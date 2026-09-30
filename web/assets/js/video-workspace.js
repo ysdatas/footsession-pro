@@ -36,6 +36,9 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
           <button class="btn btn-sm" type="button" data-act="cut">✂ Début de séquence</button>
           <button class="btn btn-sm hidden" type="button" data-act="cut-cancel">Annuler</button>
           <span class="vw-bar-hint" data-el="cutHint">Mettez la vidéo au début d’une action, puis cliquez.</span>
+          <span class="vw-spacer"></span>
+          <button class="btn btn-sm" type="button" data-act="undo" title="Annuler la dernière opération" aria-label="Annuler" disabled>↶</button>
+          <button class="btn btn-sm" type="button" data-act="redo" title="Rétablir" aria-label="Rétablir" disabled>↷</button>
         </div>
         <div class="vw-bar vw-drawbar hidden" data-el="drawbar">
           <div class="vw-seg" role="group" aria-label="Outil">
@@ -106,6 +109,12 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
         <button class="btn btn-sm" type="button" data-act="replay">▶ Revoir</button>
         ${canDelete(s) ? '<button class="btn btn-sm btn-danger" type="button" data-act="del" aria-label="Supprimer la séquence">✕</button>' : ''}
       </div>
+      <div class="vw-edit" role="toolbar" aria-label="Montage de la séquence">
+        <button class="btn btn-sm" type="button" data-act="trim-start" title="La séquence commence à l’image affichée">⇤ Début ici</button>
+        <button class="btn btn-sm" type="button" data-act="trim-end" title="La séquence finit à l’image affichée">Fin ici ⇥</button>
+        <button class="btn btn-sm" type="button" data-act="split" title="Couper en deux séquences à l’image affichée">✂ Couper ici</button>
+        <button class="btn btn-sm" type="button" data-act="dup" title="Créer une copie à modifier">⧉ Dupliquer</button>
+      </div>
       ${staff ? '' : `<label class="vw-check"><input type="checkbox" data-act="select" ${s.selected ? 'checked' : ''}> Je veux travailler cette séquence</label>`}
       <div class="vw-block">
         <div class="vw-block-title">Images annotées</div>
@@ -154,6 +163,72 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     ink.show(true);
   }
 
+  /* ---------- Historique : chaque opération de montage se défait ---------- */
+  const hist = { undo: [], redo: [] };
+  const syncHist = () => {
+    $w('[data-act="undo"]').disabled = !hist.undo.length;
+    $w('[data-act="redo"]').disabled = !hist.redo.length;
+  };
+  async function run(op) {
+    if (!(await op.do())) return;
+    hist.undo.push(op); hist.redo = []; syncHist();
+  }
+  async function undoOp() {
+    const op = hist.undo.pop(); if (!op) return;
+    if (await op.undo()) { hist.redo.push(op); toast(`Annulé : ${op.label}`, 'success'); } else hist.undo.push(op);
+    syncHist();
+  }
+  async function redoOp() {
+    const op = hist.redo.pop(); if (!op) return;
+    if (await op.do()) { hist.undo.push(op); toast(`Rétabli : ${op.label}`, 'success'); } else hist.redo.push(op);
+    syncHist();
+  }
+  const COPY_FIELDS = ['label', 'start_sec', 'end_sec', 'selected', 'player_note', 'drawings'];
+  const copyOf = (s) => Object.fromEntries(COPY_FIELDS.map(k => [k, s[k]]));
+  async function insertSeq(fields) {
+    const { data: row, error: err } = await sb.from('video_sequences')
+      .insert({ club_id: video.club_id, player_id: video.player_id, video_id: video.id, ...fields }).select('*').single();
+    if (err) { console.error('Séquence non créée', err); toast(err.message, 'error'); return null; }
+    w.seqs.push(row); w.cur = row.id; render(); onChange?.();
+    return row;
+  }
+  async function removeSeq(s) {
+    const { error: err } = await sb.from('video_sequences').delete().eq('id', s.id);
+    if (err) { toast(err.message, 'error'); return false; }
+    w.seqs = w.seqs.filter(x => x.id !== s.id);
+    if (w.cur === s.id) { w.cur = null; ink.show(false); }
+    render(); onChange?.();
+    return true;
+  }
+  const now = () => Math.round(vid.currentTime * 10) / 10;
+  const opTrim = (s, field, value) => {
+    const old = s[field];
+    return { label: field === 'start_sec' ? 'début déplacé' : 'fin déplacée',
+      do: () => patch(s, { [field]: value }), undo: () => patch(s, { [field]: old }) };
+  };
+  const opSplit = (s, t) => {
+    const oldEnd = s.end_sec; let part = null;
+    return { label: 'séquence coupée',
+      do: async () => {
+        if (!(await patch(s, { end_sec: t }))) return false;
+        part = await insertSeq({ ...copyOf(s), label: `${s.label || 'Séquence'} (suite)`, start_sec: t, end_sec: oldEnd, drawings: (s.drawings || []).filter(f => f.t >= t) });
+        return !!part;
+      },
+      undo: async () => (await removeSeq(part)) && patch(s, { end_sec: oldEnd }) };
+  };
+  const opDup = (s) => {
+    let copy = null;
+    return { label: 'séquence dupliquée',
+      do: async () => !!(copy = await insertSeq({ ...copyOf(s), label: `${s.label || 'Séquence'} (copie)` })),
+      undo: () => removeSeq(copy) };
+  };
+  const opDelete = (s) => {
+    let row = s;
+    return { label: 'séquence supprimée',
+      do: () => removeSeq(row),
+      undo: async () => !!(row = await insertSeq(copyOf(row))) };
+  };
+
   /* ---------- Écriture ---------- */
   async function patch(s, body, okMsg) {
     const { data: row, error: err } = await sb.from('video_sequences').update(body).eq('id', s.id).select('*').single();
@@ -173,18 +248,11 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
       return;
     }
     if (t - w.cutStart < 0.5) return toast('Avancez la vidéo jusqu’à la fin de l’action, puis cliquez.', 'error');
-    const { data: row, error: err } = await sb.from('video_sequences').insert({
-      club_id: video.club_id, player_id: video.player_id, video_id: video.id,
-      label: `Séquence ${w.seqs.length + 1} – ${firstName}`,
-      start_sec: w.cutStart, end_sec: t, selected: !staff,
-    }).select('*').single();
+    const fields = { label: `Séquence ${w.seqs.length + 1} – ${firstName}`, start_sec: w.cutStart, end_sec: t, selected: !staff };
     w.cutStart = null; syncCut();
-    if (err) { console.error('Séquence non créée', err); return toast(err.message, 'error'); }
-    w.seqs.push(row);
-    w.cur = row.id;
-    render();
-    toast(`${row.label} créée.`, 'success');
-    onChange?.();
+    let row = null;
+    await run({ label: 'séquence créée', do: async () => !!(row = await insertSeq(fields)), undo: () => removeSeq(row) });
+    if (row) toast(`${row.label} créée.`, 'success');
   }
   function syncCut() {
     const on = w.cutStart !== null;
@@ -262,14 +330,24 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     if (act === 'ink-clear') return ink.clear();
     if (act === 'ink-cancel') { stopAnnotating(); return ink.show(false); }
     if (act === 'ink-save') return saveFrame();
-    if (act === 'del' && s) {
-      if (!confirm(`Supprimer « ${s.label || 'cette séquence'} » ?`)) return;
-      const { error: err } = await sb.from('video_sequences').delete().eq('id', s.id);
-      if (err) return toast(err.message, 'error');
-      w.seqs = w.seqs.filter(x => x.id !== s.id); w.cur = null; ink.show(false);
-      render(); onChange?.();
-      return;
+    if (act === 'undo') return undoOp();
+    if (act === 'redo') return redoOp();
+    // Suppression sans confirmation : ↶ la rétablit.
+    if (act === 'del' && s) { await run(opDelete(s)); return toast('Séquence supprimée. ↶ pour annuler.', 'success'); }
+    if (act === 'trim-start' && s) {
+      if (now() >= s.end_sec - 0.3) return toast('Placez la vidéo avant la fin de la séquence.', 'error');
+      return run(opTrim(s, 'start_sec', now()));
     }
+    if (act === 'trim-end' && s) {
+      if (now() <= Number(s.start_sec) + 0.3) return toast('Placez la vidéo après le début de la séquence.', 'error');
+      return run(opTrim(s, 'end_sec', now()));
+    }
+    if (act === 'split' && s) {
+      const t = now();
+      if (t <= Number(s.start_sec) + 0.3 || t >= s.end_sec - 0.3) return toast('Placez la vidéo à l’intérieur de la séquence pour la couper.', 'error');
+      return run(opSplit(s, t));
+    }
+    if (act === 'dup' && s) return run(opDup(s));
     if (act === 'send' && s) {
       const note = $w('[data-el="note"]').value.trim() || null;
       return patch(s, { player_note: note, selected: true, submitted_at: new Date().toISOString() }, 'Envoyé à ton staff.');
