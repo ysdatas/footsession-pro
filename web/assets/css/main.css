@@ -312,3 +312,43 @@ body.lb-open { overflow: hidden; }
 .modal-wide { max-width: 680px !important; }
 .lb-feedback { display: flex; flex-direction: column; gap: 5px; flex: 1 1 260px; font-size: .78rem; color: var(--text-secondary); margin: 0; }
 .lb-feedback textarea { width: 100%; }
+
+/* ---------- Pastilles de couleur (app.js : enhanceColorInputs) ---------- */
+.swatches { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.swatches .sw {
+  width: 24px; height: 24px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--bg-card); box-shadow: 0 0 0 1px rgba(255,255,255,.16);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.swatches .sw:hover:not(:disabled) { transform: scale(1.12); }
+.swatches .sw[aria-checked="true"] { box-shadow: 0 0 0 2px var(--text-primary); }
+.swatches .sw:disabled { cursor: default; opacity: .55; }
+.swatches .sw-custom {
+  background: radial-gradient(circle, var(--custom, transparent) 0 44%, transparent 46%),
+              conic-gradient(#e03131, #fab005, #2f9e44, #1098ad, #1f6feb, #7048e8, #e03131);
+}
+.swatches input[type="color"] { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* ---------- Points d'un joueur (notes.js) : objectifs, points forts, axes ---------- */
+.note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-content: start; }
+.note-card {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px;
+  background: var(--bg-surface);
+}
+.note-card.is-openable { cursor: pointer; transition: border-color .15s, background .15s; }
+.note-card.is-openable:hover, .note-card.is-openable:focus-visible { border-color: var(--gold-border); outline: none; }
+.note-card-head { display: flex; align-items: flex-start; gap: 8px; }
+.note-card-head h3 { flex: 1; min-width: 0; margin: 0; font-size: .95rem; line-height: 1.3; overflow-wrap: anywhere; }
+.note-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.note-card p { margin: 0; font-size: .86rem; line-height: 1.5; color: var(--text-secondary); overflow-wrap: anywhere; }
+.note-card .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.note-card .media-grid figure { margin: 0; border-radius: 8px; overflow: hidden; background: #0d0f12; border: 1px solid var(--border); }
+.note-card .media-grid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.note-card .media-grid figcaption { padding: 5px 7px; font-size: .7rem; color: var(--text-secondary); }
+.note-images-edit { display: grid; gap: 8px; margin-bottom: 8px; }
+.note-images-edit:empty { display: none; }
+.nie-row { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 6px; border: 1px solid var(--border); border-radius: 8px; }
+.nie-row img { width: 64px; height: 48px; object-fit: cover; border-radius: 6px; }
+.nie-row input[type="text"] { width: 100%; }
+.nie-row.is-removed { opacity: .4; }

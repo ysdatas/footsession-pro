@@ -83,3 +83,19 @@
   .phys-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .phys-cell strong { font-size: 1.05rem; }
 }
+
+/* Photo : clic sur l'avatar (staff). */
+.fiche-avatar-btn { position: relative; padding: 0; border: 0; background: none; border-radius: 18px; overflow: hidden; cursor: default; flex: 0 0 76px; }
+.fiche-avatar-btn.is-editable { cursor: pointer; }
+.fiche-avatar-edit {
+  position: absolute; inset: auto 0 0 0; padding: 4px; font-size: .66rem; font-weight: 600;
+  background: rgba(0,0,0,.66); color: #fff; opacity: 0; transition: opacity .15s;
+}
+.fiche-avatar-btn.is-editable:hover .fiche-avatar-edit, .fiche-avatar-btn.is-editable:focus-visible .fiche-avatar-edit { opacity: 1; }
+
+/* Programme terrain : points forts | axes, puis exercices. */
+.terrain-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
+.terrain-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.terrain-block-head h4 { margin: 0; font-size: .76rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-secondary); }
+.terrain-block .note-grid { grid-template-columns: 1fr; }
+@media (max-width: 760px) { .terrain-cols { grid-template-columns: 1fr; } }

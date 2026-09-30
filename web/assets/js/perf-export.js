@@ -155,28 +155,18 @@ function exportTests(stageKeys, withCompare, withRadar) {
 }
 
 function exportNotes(kind, title, withImages) {
-  const list = notes.filter(n => n.kind === kind)
+  const list = noteStore.notes.filter(n => n.kind === kind)
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.id - b.id));
   if (!list.length) return `<section class="ps-section"><h2>${esc(title)}</h2><p class="ps-empty">Aucun élément.</p></section>`;
   return `<section class="ps-section"><h2>${esc(title)}</h2>
     ${list.map(n => {
-      const imgs = withImages ? media.filter(m => m.note_id === n.id && m.signed_url) : [];
+      const imgs = withImages ? noteStore.media.filter(m => m.note_id === n.id && m.signed_url) : [];
       return `<article class="ps-note-card">
         <h3>${esc(n.title)}</h3>
         ${n.body ? `<p>${esc(n.body).replace(/\n/g, '<br>')}</p>` : ''}
         ${imgs.length ? `<div class="ps-images">${imgs.map(m => `<figure><img src="${esc(m.signed_url)}" alt=""><figcaption>${esc(m.caption || '')}</figcaption></figure>`).join('')}</div>` : ''}
       </article>`;
     }).join('')}
-  </section>`;
-}
-
-function exportVideos() {
-  const chosen = (typeof fpFmVideos !== 'undefined' ? fpFmVideos : [])
-    .filter(v => fpFmSelections?.get(Number(v.id))?.selected && fpFmSelections.get(Number(v.id))?.validated_at);
-  return `<section class="ps-section"><h2>Séquences vidéo sélectionnées par le joueur</h2>
-    ${chosen.length
-      ? `<ul class="ps-list">${chosen.map(v => `<li>${esc(v.titre || 'Séquence')}${v.created_at ? ` <small>${esc(new Date(v.created_at).toLocaleDateString('fr-FR'))}</small>` : ''}</li>`).join('')}</ul>`
-      : '<p class="ps-empty">Aucune séquence validée.</p>'}
   </section>`;
 }
 
@@ -202,9 +192,8 @@ function buildExportDocument() {
   }
   const withImages = sections.has('images');
   if (sections.has('strength')) parts.push(exportNotes('strength', 'Points forts', withImages));
-  if (sections.has('improvement')) parts.push(exportNotes('improvement', 'Points d’amélioration', withImages));
+  if (sections.has('improvement')) parts.push(exportNotes('improvement', 'Axes d’amélioration', withImages));
   if (sections.has('objective')) parts.push(exportNotes('objective', 'Objectifs', withImages));
-  if (sections.has('videos')) parts.push(exportVideos());
 
   return `<header class="ps-header">
       <div>

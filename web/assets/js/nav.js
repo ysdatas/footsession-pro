@@ -9,7 +9,7 @@
    Appelé par requireAuth() une fois le profil chargé.
    ============================================================ */
 
-const STAFF_ROLES = ['admin', 'coach', 'analyste', 'prepa', 'viewer'];
+const STAFF_ROLES = ['admin', 'coach'];
 
 /* `fixed` : toujours affichée, pour qu'on ne puisse pas se retirer
    l'accès aux Paramètres (et donc à la personnalisation du menu). */
@@ -18,11 +18,11 @@ const NAV_ITEMS = [
   { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: STAFF_ROLES },
   { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: STAFF_ROLES },
   { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: STAFF_ROLES },
-  { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: ['admin', 'coach', 'analyste'] },
+  { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: STAFF_ROLES },
   { key: 'tactical',    href: 'tactical-board.html', label: 'Tableau tactique',  roles: STAFF_ROLES },
   { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: STAFF_ROLES },
-  { key: 'faq',         href: 'faq.html',            label: 'FAQ — calculs',     roles: STAFF_ROLES },
-  { key: 'club',        href: 'club.html',           label: 'Mon club',          roles: STAFF_ROLES },
+  { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: STAFF_ROLES },
+  { key: 'club',        href: 'club.html',           label: 'Mon club',          roles: ['admin'] },
   { key: 'settings',    href: 'settings.html',       label: 'Paramètres',        roles: STAFF_ROLES, fixed: true },
 ];
 

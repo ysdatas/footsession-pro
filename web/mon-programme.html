@@ -3,23 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mon programme — FootSession Pro</title>
+  <title>Mon programme terrain — FootSession Pro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/videos.css">
 </head>
 <body>
-<div class="pv-wrap">
+<div class="pv-wrap pv-wide">
   <div class="pv-head">
     <div>
-      <h1>Mon programme</h1>
-      <p class="subtitle" id="progSub">Chargement…</p>
+      <h1>Mon programme terrain</h1>
+      <p class="subtitle">Ton développement sur le terrain : ce que tu fais bien, ce que tu travailles, et tes exercices.</p>
     </div>
     <nav id="playerNav"></nav>
   </div>
 
-  <div id="programBox"><div class="empty">Chargement…</div></div>
+  <div class="pv-two">
+    <section class="card">
+      <h2 class="pv-section">Points forts</h2>
+      <div id="strengthList" class="note-grid"><div class="empty">Chargement…</div></div>
+    </section>
+    <section class="card">
+      <h2 class="pv-section">Axes d’amélioration</h2>
+      <div id="improvementList" class="note-grid"><div class="empty">Chargement…</div></div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px;">
+    <h2 class="pv-section">Exercices <span class="text-muted" id="progSub"></span></h2>
+    <div id="programBox"><div class="empty">Chargement…</div></div>
+  </section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -28,28 +42,23 @@
 <script src="assets/js/player-nav.js"></script>
 <script src="assets/js/lightbox.js"></script>
 <script src="assets/js/program.js"></script>
+<script src="assets/js/notes.js"></script>
 <script>
-  /* Espace joueur : ses exercices, en lecture seule. Il peut seulement
-     les marquer « faits » et laisser un ressenti (RPC mark_program_exercise). */
+  /* Espace joueur, en lecture : points forts, axes d'amélioration et
+     exercices terrain préparés par le staff. Le joueur peut seulement
+     marquer un exercice « fait » et laisser un ressenti
+     (RPC mark_program_exercise). */
   let exercises = [];
 
   (async () => {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = 'player-join.html'; return; }
-    const { data: profile } = await sb.from('profiles')
-      .select('role, club_id').eq('id', session.user.id).maybeSingle();
-    if (profile && profile.role !== 'joueur') {
-      window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
-      return;
-    }
-    const { data: player } = await sb.from('players').select('id')
-      .eq('auth_user_id', session.user.id).maybeSingle();
-    if (!player) { window.location.href = 'player-join.html'; return; }
-    renderPlayerNav();
-
+    const player = await requirePlayer();
+    if (!player) return;
     const box = document.getElementById('programBox');
     bindProgramCards(box, openExercise);
-    exercises = await loadProgram(player.id);
+    [exercises] = await Promise.all([
+      loadProgram(player.id),
+      initNotes({ player, canEdit: false, lists: { strength: 'strengthList', improvement: 'improvementList' } }),
+    ]);
     render();
   })();
 
@@ -57,8 +66,7 @@
     renderProgramList(document.getElementById('programBox'), exercises);
     const n = (exercises || []).length, done = (exercises || []).filter(e => e.done_at).length;
     document.getElementById('progSub').textContent = n
-      ? `${done} exercice${done > 1 ? 's' : ''} fait${done > 1 ? 's' : ''} sur ${n} · touche un exercice pour l’ouvrir en grand`
-      : 'Exercices, images et schémas préparés par ton staff.';
+      ? `· ${done} fait${done > 1 ? 's' : ''} sur ${n} · touche un exercice pour l’ouvrir en grand` : '';
   }
 
   function openExercise(id) {

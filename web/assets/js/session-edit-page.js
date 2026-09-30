@@ -223,7 +223,7 @@ async function loadSession() {
     document.getElementById('editorSubtitle').textContent = `Créée le ${(s.created_at || '').slice(0, 10)}`;
 
     const { data: procs } = await sb.from('procedures')
-      .select('*, tactical_schemas(image_path)')
+      .select('*, tactical_schemas(*)')
       .eq('session_id', SESSION_ID).order('ordre');
     procedures = (procs || []).map(p => ({
       _uid: nextUid(), id: p.id, nom: p.nom || '', duree_min: p.duree_min || 20,
@@ -233,7 +233,7 @@ async function loadSession() {
       temps_recup_min: p.temps_recup_min ?? '',
       type_procede: p.type_procede || '', nb_sequences: p.nb_sequences ?? '',
       duree_sequence_min: p.duree_sequence_min ?? '',
-      image_path: p.tactical_schemas?.image_path || null, expanded: false,
+      image_path: p.tactical_schemas?.image_path || null, video_id: p.tactical_schemas?.video_id || null, expanded: false,
     }));
 
     const { data: att } = await sb.from('attendance').select('player_id, present').eq('session_id', SESSION_ID);
@@ -353,7 +353,8 @@ function procTemplate(p, index) {
   const dis = CAN_WRITE ? '' : 'disabled';
   const tac = p.id
     ? `<p class="schema-empty">${p.image_path ? 'Schéma enregistré.' : 'Aucun schéma pour ce procédé.'}</p>
-       <button class="btn btn-sm" type="button" onclick="openBoard(${p.id})">Ouvrir le tableau tactique →</button>`
+       <button class="btn btn-sm" type="button" onclick="openBoard(${p.id})">Ouvrir le tableau tactique →</button>
+       ${p.video_id ? `<button class="btn btn-sm" type="button" onclick="openLinkedVideo(${p.video_id})">▶ Vidéo liée</button>` : ''}`
     : `<p class="schema-empty">Enregistrez la séance pour lier un schéma tactique à ce procédé.</p>`;
 
   return `
@@ -481,6 +482,13 @@ window.moveProc = (uid, dir) => {
   if (i < 0 || j < 0 || j >= procedures.length) return;
   [procedures[i], procedures[j]] = [procedures[j], procedures[i]];
   renderProcedures(); updateMeta();
+};
+/* Vidéo associée au schéma depuis le tableau tactique (platform_v2.sql). */
+window.openLinkedVideo = async (videoId) => {
+  const { data: v } = await sb.from('player_videos').select('titre, storage_path').eq('id', videoId).maybeSingle();
+  const { data } = v ? await sb.storage.from('player-videos').createSignedUrl(v.storage_path, 3600) : { data: null };
+  if (!data?.signedUrl) return toast('Vidéo introuvable.', 'error');
+  openLightbox({ title: v.titre, items: [{ type: 'video', src: data.signedUrl }] });
 };
 window.openBoard = (procId) => { window.open('tactical-board.html?procedure_id=' + procId, '_blank'); };
 

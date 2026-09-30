@@ -1,14 +1,14 @@
 /* ============================================================
    FootSession Pro — player-nav.js
-   Barre de l'espace joueur, identique sur toutes ses pages :
-   Mes vidéos · Ma performance · Mon programme · Déconnexion.
-   Avant, on ne pouvait se déconnecter que depuis « Mes vidéos ».
+   Espace joueur : même barre sur toutes ses pages
+   (Ma performance · Mon programme terrain · Mes vidéos ·
+   Déconnexion), et garde commune de ces pages.
    ============================================================ */
 
 const PLAYER_NAV = [
-  ['mes-videos', 'Mes vidéos'],
   ['player-performance', 'Ma performance'],
-  ['mon-programme', 'Mon programme'],
+  ['mon-programme', 'Mon programme terrain'],
+  ['mes-videos', 'Mes vidéos'],
 ];
 
 function renderPlayerNav(targetId = 'playerNav') {
@@ -24,6 +24,26 @@ function renderPlayerNav(targetId = 'playerNav') {
   nav.querySelector('.player-logout').addEventListener('click', async (e) => {
     e.preventDefault();
     await sb.auth.signOut();
-    window.location.href = 'player-join.html';
+    window.location.href = 'index.html';
   });
+}
+
+/* Garde des pages du joueur : connecté, compte joueur, fiche liée.
+   Un compte staff est renvoyé vers son espace. Renvoie la fiche
+   { id, nom, prenom, club_id } ou null (redirection en cours). */
+async function requirePlayer() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return null; }
+  const { data: profile } = await sb.from('profiles')
+    .select('role, club_id').eq('id', session.user.id).maybeSingle();
+  if (profile && profile.role !== 'joueur') {
+    window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
+    return null;
+  }
+  const { data: player, error } = await sb.from('players').select('id, nom, prenom, club_id')
+    .eq('auth_user_id', session.user.id).maybeSingle();
+  if (error) throw error;
+  if (!player) { window.location.href = 'index.html'; return null; }
+  renderPlayerNav();
+  return player;
 }

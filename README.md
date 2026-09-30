@@ -52,6 +52,7 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 17. supabase/roles_teams_preventions.sql     droits par rôle, équipes, vue joueur filtrée
 18. supabase/player_lines.sql               ligne de jeu (Gardiens / Défenseurs / Milieux / Attaquants)
 19. supabase/player_program.sql             programme individuel : exercices, images, schémas, vidéos
+20. supabase/platform_v2.sql                trois rôles, accès par e-mail, séquences vidéo annotées, vidéo liée au schéma
 ```
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter
@@ -80,12 +81,11 @@ de visionnage n'enregistre rien.**
 
 | Rôle | Accès |
 |---|---|
-| `admin` | Tout : membres et rôles, équipes (page **Mon club**), données physiques, vidéos, statistiques |
-| `coach` | Séances, joueurs, vidéos, statistiques de visionnage, objectifs. **Ne modifie pas** les données physiques |
-| `analyste` | Séances, joueurs, vidéos, statistiques de visionnage |
-| `prepa` | Données physiques, tests, import Excel, objectifs. **Pas de rubrique Vidéos** |
-| `viewer` | Lecture seule |
-| `joueur` | **Uniquement sa fiche**, en lecture seule : poids, masse grasse, chronos, radar /10, objectifs qui lui sont destinés, ses vidéos et sa sélection de séquences. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
+| `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, suppression de fiches |
+| `coach` | Tout le travail du staff : séances, joueurs, données physiques et tests, import Excel, objectifs, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage |
+| `joueur` | **Uniquement ses données** : poids, masse grasse, chronos, radar /10, objectifs, programme terrain, ses vidéos. Il découpe, sélectionne et annote ses séquences et les envoie au staff. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
+
+Depuis `platform_v2.sql`, les anciens rôles `analyste`, `prepa` et `viewer` sont devenus `coach`.
 
 Les droits sont appliqués deux fois : dans l'interface (`auth.js`, `nav.js`) **et** dans la
 base (helpers `can_manage_videos()`, `can_manage_plans()`, `is_performance_editor()`).
@@ -103,10 +103,15 @@ sélecteur en haut du menu (`profiles.prefs.team_id`) filtre Joueurs, Séances,
 Performance, Vidéos et le tableau de bord. Les notes /10 et les moyennes
 sont calculées au sein de l'équipe du joueur.
 
-Le rôle `joueur` ne s'attribue pas directement : il découle de l'association d'un compte
-à une fiche joueur (`club_link_player` côté admin, ou `join_as_player` avec un
-`player_code`). Un compte qui a déjà rejoint un club ne peut plus être lié à une fiche :
-un joueur doit entrer par `player-join.html`, pas par `index.html`.
+### Accès : adresse e-mail + fonction (+ fiche joueur)
+
+Plus de codes. L'admin enregistre dans **Mon club → Donner un accès** une adresse e-mail,
+une fonction (joueur, coach, admin) et, pour un joueur, sa fiche (`club_access`). La
+personne crée son compte avec cette adresse sur `index.html` (page unique de connexion)
+et confirme l'e-mail ; à la connexion, `claim_club_access()` la rattache au club avec son
+rôle et sa fiche. Seule une adresse **confirmée** est acceptée, et un compte déjà membre
+d'un autre club n'est jamais déplacé. La liste des membres permet ensuite de changer une
+fonction ou de retirer quelqu'un du club (`club_remove_member`).
 
 Les pages ouvertes à un compte joueur sont listées dans `PLAYER_PAGES`
 (`web/assets/js/auth.js`). **Toute nouvelle page joueur doit y être ajoutée *et*
@@ -148,25 +153,34 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — effectif rangé en Gardiens / Défenseurs / Milieux / Attaquants (ligne déduite du
   poste, ou choisie en glissant la carte dans une autre rubrique), recherche, filtre par poste.
-- **Fiche joueur** (`player.html`) — informations modifiables sur place, présence,
-  derniers relevés, profil /10, parcours ; accès Performance / Vidéos.
-- **Performance** (`player-performance.html`) — dossier individuel : photo, mesures
-  physiques, tests, radar /10 (avec comparaison à un 2e joueur pour le staff), points
-  forts / axes / objectifs, parcours, sélection vidéo, **Générer le PDF**.
-- **Programme** (carte de la fiche joueur) — exercices regroupés par séance : consignes,
-  dosage, image légendée, schéma dessiné dans le tableau tactique (« Dessiner le schéma »
-  ouvre `tactical-board.html?exercise=ID`), vidéo du joueur. Créé par admin, coach, prépa ;
-  le joueur le consulte dans **Mon programme** (`mon-programme.html`), le marque « fait »
-  et laisse un ressenti (RPC `mark_program_exercise`), visible par le staff.
+- **Fiche joueur** (`player.html`) — informations modifiables sur place, photo (clic sur
+  l'avatar), derniers relevés, parcours, **Programme terrain** ; accès Performance / Vidéos.
+- **Programme terrain** (fiche joueur) — développement footballistique : points forts, axes
+  d'amélioration, exercices regroupés par séance (consignes, dosage, image légendée, schéma
+  dessiné dans le tableau tactique via `tactical-board.html?exercise=ID`, vidéo déjà sur la
+  plateforme). Le joueur le consulte dans **Mon programme terrain** (`mon-programme.html`),
+  marque un exercice « fait » et laisse un ressenti (RPC `mark_program_exercise`).
+- **Performance** (`player-performance.html`) — développement physique : photo (clic sur
+  l'avatar), mesures, tests, radar /10 (comparaison à un 2e joueur pour le staff),
+  **Objectifs** (objectifs et exercices physiques avec images), parcours, **Générer le PDF**.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques.
-- **FAQ — calculs** (`faq.html`) — d'où vient chaque donnée et comment elle est calculée.
-- **Vidéos** (`videos.html`) — envoi d'une séquence à un joueur, lecture (« ▶ Voir »),
-  filtre « Choisies par les joueurs », statistiques staff.
-- **Espace joueur** — Mes vidéos · Ma performance · Mon programme, même barre (avec
-  Déconnexion) sur chaque page (`player-nav.js`).
-- **Points forts / amélioration / objectifs** — un clic ouvre le point en grand (images,
-  légendes, consignes) ; « Modifier » ajoute, légende ou retire des images (`lightbox.js`).
-- **Mon club** — identité, code d'invitation, rôles, liaison compte ↔ fiche joueur.
+- **FAQ** (`faq.html`) — questions cliquables : prise en main, puis données et calculs.
+- **Vidéos** (`videos.html`) — rangées **par joueur** : séquences sélectionnées, séquences
+  annotées, vidéos disponibles (statistiques). « Travail à voir » ne garde que les analyses
+  en attente de retour.
+- **Séquences vidéo** (`video-workspace.js`, `video-ink.js`) — staff et joueur découpent une
+  vidéo en séquences (« Séquence 1 – Jean »…). Le joueur coche celles à travailler, dessine
+  sur l'image (flèche, cercle, zone, trait), écrit son analyse et l'envoie ; le staff la
+  relit et répond. Table `video_sequences` ; le trigger `guard_video_sequence` limite
+  chacun à sa part (le joueur ne peut pas écrire le retour du staff, et inversement).
+- **Espace joueur** — Ma performance · Mon programme terrain · Mes vidéos, même barre (avec
+  Déconnexion) sur chaque page (`player-nav.js`, garde commune `requirePlayer()`).
+- **Points** (objectifs, points forts, axes) — `notes.js` : un clic ouvre le point en grand
+  (images, légendes, consignes) ; « Modifier » ajoute, légende ou retire des images.
+- **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
+  e-mail, membres.
+- **Couleurs** — partout (club, paramètres, tableau tactique) des pastilles d'une palette
+  commune, plus « autre couleur » (`enhanceColorInputs`, `app.js`).
 - **Analytics** — graphiques Chart.js, export PDF.
 
 ---
@@ -178,12 +192,19 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Zones** : choisir une forme puis **glisser** sur le terrain ; la sélectionner
   (outil ↖) puis **tirer un coin** pour la redimensionner.
 - **Formations** : menu déroulant (4-3-3, 4-4-2…) place 11 joueurs.
-- **Disposition** : outils à gauche, terrain au centre, panneau à droite (élément sélectionné,
-  étapes, export).
+- **Disposition** : le terrain occupe l'écran, sans défilement. Outils de dessin à gauche ;
+  à droite, **Matériel**, **Terrain**, **Couleurs**, **Exporter**, **Vidéo** : un clic ouvre le
+  panneau, un second le ferme. L'élément sélectionné a sa barre au-dessus du terrain, les
+  étapes sont juste en dessous.
+- **Matériel** : cônes et coupelles en plusieurs couleurs, piquet, haie, échelle, cage, ballon.
 - **Taille** : tirer un coin du pion (ou du matériel, d’un texte) l’agrandit ou le réduit ;
   ou S / M / L / XL puis −/+ dans le panneau, même échelle que **Paramètres**.
-- **Étapes** : « + Nouvelle étape » crée l'étape suivante ; cliquer une pastille (1, 2, 3…)
+- **Étapes** : « + Étape » crée l'étape suivante ; cliquer une pastille (1, 2, 3…)
   l'affiche, et chaque déplacement y est enregistré. « ▶ Lire » part de l'étape 1.
+- **Fiche tactique (PDF)** : titre, objectif, consignes (pré-remplis depuis le procédé ou
+  l'exercice), une image par étape et la vidéo liée.
+- **Vidéo liée** : associer une vidéo déjà sur la plateforme au procédé ou à l'exercice,
+  sans la réimporter ; « ▶ » en haut la lit, la séance affiche « ▶ Vidéo liée ».
 - **Export** : image de l'étape affichée, images de toutes les étapes, vidéo (MP4 quand le
   navigateur le permet), présentation plein écran avec sa barre (étapes, lecture, quitter).
   « Cadrer une zone » limite l'export ; Échap ou le même bouton annule, « ✕ » retire le cadrage.

@@ -21,3 +21,20 @@
 .faq-table th, .faq-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .faq-table th { color: var(--text-secondary); font-weight: 600; font-size: .78rem; }
 @media (max-width: 640px) { .faq-table { display: block; overflow-x: auto; } }
+
+/* Questions cliquables : la réponse n'apparaît qu'au clic. */
+.faq-search { width: 100%; max-width: 520px; margin-bottom: 18px; }
+.faq-group { font-size: .74rem !important; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-secondary); margin: 26px 0 10px !important; }
+.faq-q { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px; scroll-margin-top: 16px; }
+.faq-q.hidden { display: none; }
+.faq-q > summary {
+  list-style: none; cursor: pointer; padding: 14px 18px; font-weight: 600; font-size: .95rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.faq-q > summary::-webkit-details-marker { display: none; }
+.faq-q > summary::after { content: '+'; color: var(--gold); font-size: 1.2rem; font-weight: 400; flex-shrink: 0; }
+.faq-q[open] > summary::after { content: '−'; }
+.faq-q[open] { border-color: var(--gold-border); }
+.faq-q > summary:hover { color: var(--gold); }
+.faq-a { padding: 0 18px 16px; }
+.faq-a > :first-child { margin-top: 0; }

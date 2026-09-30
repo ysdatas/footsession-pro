@@ -12,7 +12,7 @@
 <body class="auth">
   <div class="auth-card">
     <div class="auth-logo">Foot<span class="g">Session</span><span class="auth-pro">Pro</span></div>
-    <div class="auth-sub" id="authSub">Espace cellule vidéo &amp; coaching</div>
+    <div class="auth-sub" id="authSub">Connexion staff et joueurs</div>
 
     <div id="authError" class="auth-error hidden"></div>
     <div id="authOk" class="auth-ok hidden"></div>
@@ -44,6 +44,7 @@
         <label for="s-password">Mot de passe (6+ caractères)</label>
         <input type="password" id="s-password" required minlength="6" placeholder="••••••••">
       </div>
+      <p class="auth-hint">Utilisez l’adresse e-mail que votre club a enregistrée : votre accès (coach ou joueur) sera activé automatiquement.</p>
       <button type="submit" class="btn btn-primary">Créer mon compte</button>
     </form>
 
@@ -54,6 +55,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
   <script>
     const loginForm = document.getElementById('loginForm');
     const signupForm = document.getElementById('signupForm');
@@ -74,7 +76,7 @@
       loginForm.classList.toggle('hidden', mode !== 'login');
       signupForm.classList.toggle('hidden', mode !== 'signup');
       toggleLink.textContent = mode === 'login' ? 'Pas encore de compte ? Créer un compte' : 'Déjà un compte ? Se connecter';
-      sub.textContent = mode === 'login' ? 'Espace cellule vidéo & coaching' : 'Créez votre compte cellule';
+      sub.textContent = mode === 'login' ? 'Connexion staff et joueurs' : 'Créer mon compte';
     });
 
     loginForm.addEventListener('submit', async (e) => {
@@ -84,7 +86,7 @@
       const password = document.getElementById('l-password').value;
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) return showError('Identifiants incorrects ou compte inexistant.');
-      window.location.href = 'dashboard.html';
+      await goHome();
     });
 
     signupForm.addEventListener('submit', async (e) => {
@@ -95,14 +97,22 @@
       const password = document.getElementById('s-password').value;
       const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nom } } });
       if (error) return showError(error.message || 'Inscription impossible.');
-      if (data.session) { window.location.href = 'onboarding.html'; return; }
+      if (data.session) { await goHome(); return; }
       showOk('Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.');
     });
 
-    // Déjà connecté ? on saute direct à l'app.
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.href = 'dashboard.html';
-    });
+    /* Une seule page de connexion pour tout le monde : l'accès enregistré
+       par l'admin (e-mail + fonction + fiche) est activé, puis chacun
+       arrive dans son espace. */
+    async function goHome() {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return;
+      await claimClubAccess();
+      const { data: profile } = await sb.from('profiles')
+        .select('role, club_id').eq('id', session.user.id).maybeSingle();
+      window.location.href = homeFor(profile);
+    }
+    goHome();
   </script>
 </body>
 </html>

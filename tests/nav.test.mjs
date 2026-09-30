@@ -7,7 +7,7 @@ import vm from 'node:vm';
 
 let redirected = null;
 const window = {
-  location: { pathname: '/videos', replace: (url) => { redirected = url; } },
+  location: { pathname: '/club', replace: (url) => { redirected = url; } },
   CLUB_TEAMS: [{ id: 3, nom: 'N2' }, { id: 5, nom: 'U19' }],
   CURRENT_PROFILE: { prefs: {} },
 };
@@ -17,9 +17,10 @@ const run = (code) => vm.runInContext(code, ctx);
 const keys = (role, prefs) => run(`orderedNavItems(${JSON.stringify(role)}, ${JSON.stringify(prefs)})`)
   .filter(i => !i.hidden).map(i => i.key);
 
-// Le préparateur physique n'a pas la rubrique Vidéos, le coach si.
-assert.ok(!keys('prepa', {}).includes('videos'), 'prépa : pas de Vidéos');
+// Trois comptes : le coach a tout le travail du staff, pas la gestion du club.
 assert.ok(keys('coach', {}).includes('videos'), 'coach : Vidéos');
+assert.ok(!keys('coach', {}).includes('club'), 'coach : pas de Mon club');
+assert.ok(keys('admin', {}).includes('club'), 'admin : Mon club');
 
 // Ordre et masquage choisis par l'utilisateur.
 const prefs = { nav: { order: ['players', 'dashboard', 'sessions'], hidden: ['analytics', 'settings'] } };
@@ -31,10 +32,10 @@ assert.ok(mine.includes('settings'), 'Paramètres ne peut pas être masqué');
 assert.ok(mine.includes('faq'), 'nouvelle rubrique conservée');
 
 // Page interdite au rôle : renvoi au tableau de bord.
-assert.equal(run(`navGuard({ role: 'prepa' })`), false);
+assert.equal(run(`navGuard({ role: 'coach' })`), false);
 assert.equal(redirected, 'dashboard.html');
 redirected = null;
-assert.equal(run(`navGuard({ role: 'coach' })`), true);
+assert.equal(run(`navGuard({ role: 'admin' })`), true);
 assert.equal(redirected, null);
 
 // Équipe courante : seulement si elle existe encore dans le club.

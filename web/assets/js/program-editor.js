@@ -2,7 +2,7 @@
    FootSession Pro — program-editor.js (fiche joueur, staff)
    Carte « Programme » : liste des exercices, ouverture en grand,
    création / modification (image légendée, vidéo du joueur, schéma
-   dessiné dans le tableau tactique). Écriture : admin, coach, prépa
+   dessiné dans le tableau tactique). Écriture : admin, coach
    (can_manage_plans() côté base).
    ============================================================ */
 

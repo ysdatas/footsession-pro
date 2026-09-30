@@ -28,22 +28,19 @@
       </div>
       <div class="page-actions">
         <a class="btn hidden" id="videoBackLink" href="players.html">← Fiche joueur</a>
-        <button class="btn" id="btnCodes" type="button">Codes joueurs</button>
         <button class="btn btn-primary hidden" id="btnNewVideo" type="button">+ Envoyer une vidéo</button>
       </div>
     </div>
 
-    <div class="segmented video-filter" id="videoFilter" role="tablist" aria-label="Filtrer les vidéos">
-      <button type="button" data-filter="all" class="active">Toutes</button>
-      <button type="button" data-filter="selected">Choisies par les joueurs</button>
+    <div class="vp-toolbar">
+      <input type="search" id="vpSearch" placeholder="Rechercher un joueur" aria-label="Rechercher un joueur">
+      <div class="segmented" id="videoFilter" role="tablist" aria-label="Filtrer">
+        <button type="button" data-filter="all" class="active">Tous les joueurs</button>
+        <button type="button" data-filter="todo">Travail à voir</button>
+      </div>
     </div>
 
-    <div class="card" style="padding:6px;">
-      <table class="table">
-        <thead><tr><th>Vidéo</th><th>Joueur</th><th class="video-stats-only">Statut</th><th class="video-stats-only">Visionnages</th><th class="video-stats-only">Temps regardé</th><th class="video-stats-only">Progression</th><th class="video-stats-only">Dernière vue</th><th></th></tr></thead>
-        <tbody id="videosBody"><tr><td colspan="8" class="text-muted" style="text-align:center;padding:24px;">Chargement…</td></tr></tbody>
-      </table>
-    </div>
+    <div id="vpList"><div class="empty">Chargement…</div></div>
   </main>
 
   <!-- Modale : envoi vidéo -->
@@ -57,6 +54,7 @@
       <div class="field"><label>Titre</label><input id="v-titre" required></div>
       <div class="field"><label>Description (optionnel)</label><textarea id="v-desc" rows="2"></textarea></div>
       <div class="field"><label>Fichier vidéo (MP4 conseillé)</label><input type="file" id="v-file" accept="video/*" required></div>
+      <p class="text-muted" style="font-size:.8rem;margin:0;">Vidéo brute : le joueur et vous pourrez ensuite la découper en séquences.</p>
       <div id="v-progress" class="hidden" style="margin:10px 0;">
         <div style="height:6px;background:var(--bg-surface);border-radius:999px;overflow:hidden;">
           <div id="v-progress-bar" style="height:100%;width:30%;background:var(--gold);"></div>
@@ -69,16 +67,11 @@
     </div>
   </div>
 
-  <!-- Modale : codes joueurs -->
-  <div class="modal-backdrop" id="codesModal">
-    <div class="modal">
-      <h3>Codes joueurs</h3>
-      <p class="text-muted" style="font-size:.85rem;margin-top:-10px;">
-        Donne ce code à chaque joueur : sur <code>player-join.html</code>, il crée son compte
-        (email + mot de passe) puis entre ce code pour lier son compte à sa fiche.
-      </p>
-      <div id="codesList" class="detail-list"><p class="text-muted">Chargement…</p></div>
-      <div class="modal-actions"><button class="btn" type="button" data-close="codesModal">Fermer</button></div>
+  <!-- Poste de travail d'une vidéo (séquences, annotations, retour) -->
+  <div class="modal-backdrop" id="wsModal">
+    <div class="modal modal-xl">
+      <div class="ws-head"><h3 id="wsTitle">Vidéo</h3><button class="btn btn-sm" type="button" data-close="wsModal">Fermer</button></div>
+      <div id="wsRoot"></div>
     </div>
   </div>
 
@@ -87,7 +80,8 @@
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
-  <script src="assets/js/lightbox.js"></script>
+  <script src="assets/js/video-ink.js"></script>
+  <script src="assets/js/video-workspace.js"></script>
   <script src="assets/js/videos-page.js"></script>
 </body>
 </html>

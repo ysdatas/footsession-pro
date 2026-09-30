@@ -2,7 +2,7 @@
    FootSession Pro — comparaison-page.js
    Comparaison de l'effectif : tests bruts, évolution sur la saison,
    données physiques. Réservé au staff qui a accès à la performance
-   (admin, coach, analyste, prépa) — la RLS refuse déjà les autres,
+   (admin, coach) — la RLS refuse déjà les autres,
    la garde ci-dessous évite simplement une page vide inexpliquée.
    ============================================================ */
 
@@ -53,12 +53,11 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
     (myProfile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   document.getElementById('logoutLink').addEventListener('click', e => { e.preventDefault(); logout(); });
 
-  // can_view_performance() côté base : admin, coach, analyste, prépa.
-  if (!['admin', 'coach', 'analyste', 'prepa'].includes(myProfile.role)) {
+  // can_view_performance() côté base : admin, coach.
+  if (!canEdit(myProfile.role)) {
     document.getElementById('cmpSub').textContent = 'Accès réservé au staff technique.';
     document.getElementById('cmpContent').innerHTML =
-      `<div class="empty">Cette rubrique est réservée aux rôles ayant accès aux données de performance
-       (administrateur, coach, analyste vidéo, préparateur physique).</div>`;
+      `<div class="empty">Cette rubrique est réservée au staff (administrateur, coach).</div>`;
     document.querySelector('.cmp-toolbar')?.classList.add('hidden');
     return;
   }

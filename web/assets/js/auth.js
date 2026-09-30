@@ -52,10 +52,10 @@ async function requireAuth(opts = {}) {
      ses vidéos. */
   const currentPage = (window.location.pathname.split('/').pop() || '')
     .replace(/\.html$/i, '') || 'index';
-  const PLAYER_PAGES = ['mes-videos', 'voir-video', 'player-join', 'player-performance', 'mon-programme'];
+  const PLAYER_PAGES = ['mes-videos', 'voir-video', 'player-performance', 'mon-programme'];
   if (profile.role === 'joueur' && !PLAYER_PAGES.includes(currentPage)) {
-    console.warn(`requireAuth: page « ${currentPage} » interdite au rôle joueur, renvoi sur mes-videos`);
-    window.location.replace('mes-videos.html');
+    console.warn(`requireAuth: page « ${currentPage} » interdite au rôle joueur, renvoi sur son espace`);
+    window.location.replace(homeFor(profile));
     return null;
   }
 
@@ -79,24 +79,34 @@ async function requireAuth(opts = {}) {
   return { user: session.user, profile };
 }
 
+/* Page d'accueil selon le compte : espace joueur, tableau de bord du
+   staff, ou création de club pour un compte qui n'a encore aucun accès. */
+function homeFor(profile) {
+  if (!profile?.club_id) return 'onboarding.html';
+  return profile.role === 'joueur' ? 'player-performance.html' : 'dashboard.html';
+}
+
+/* Rattache le compte au club si l'administrateur a enregistré son adresse
+   e-mail (Mon club → Accès). Sans effet sinon. */
+async function claimClubAccess() {
+  const { error } = await sb.rpc('claim_club_access');
+  if (error) console.warn('claim_club_access :', error.message);
+}
+
 async function logout() {
   await sb.auth.signOut();
   window.location.href = 'index.html';
 }
 
-/** Vrai si le rôle courant peut créer/modifier (pas viewer). */
+/* Trois comptes (platform_v2.sql) : admin, coach, joueur. Le staff
+   (admin, coach) fait tout le travail ; l'admin gère en plus le club.
+   L'interface masque, la RLS refuse. */
 function canEdit(role) {
-  return ['admin', 'coach', 'analyste', 'prepa'].includes(role);
+  return ['admin', 'coach'].includes(role);
 }
+const canEditPerformanceData = canEdit;
+const canManageVideos        = canEdit;
+const canManagePlans         = canEdit;
+const canSeeVideoStats       = canEdit;
 
-/* Mêmes règles que les helpers SQL de roles_teams_preventions.sql :
-   l'interface masque, la RLS refuse. */
-const canEditPerformanceData = (role) => ['admin', 'prepa'].includes(role);
-const canManageVideos        = (role) => ['admin', 'coach', 'analyste'].includes(role);
-const canManagePlans         = (role) => ['admin', 'coach', 'prepa'].includes(role);
-const canSeeVideoStats       = (role) => ['admin', 'coach', 'analyste'].includes(role);
-
-const ROLE_LABELS = {
-  admin: 'Administrateur', coach: 'Coach', analyste: 'Analyste vidéo',
-  prepa: 'Préparateur physique', joueur: 'Joueur', viewer: 'Lecture seule',
-};
+const ROLE_LABELS = { admin: 'Administrateur', coach: 'Coach', joueur: 'Joueur' };

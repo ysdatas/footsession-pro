@@ -5,8 +5,6 @@ let ctxProfile = null;
 let player = null;
 let measurements = [];
 let tests = [];
-let notes = [];
-let media = [];
 let stage = 'pre';
 let canEditPerformance = false;
 let clubAverages = null;   // moyennes du club pour la session affichée
@@ -18,7 +16,7 @@ let career = [];           // parcours en club du joueur
 let careerMissing = false; // table player_career absente : migration non passée
 let identityMissing = false; // colonnes d'identité absentes : migration non passée
 let canEditPlayer = false; // identité : mêmes droits que la fiche joueur
-let canEditPlans = false;  // objectifs, points forts/amélioration : admin, coach, prépa
+let canEditPlans = false;  // objectifs, points forts/amélioration : admin, coach
 let compareId = null;      // joueur superposé sur le radar (staff)
 let expandedTests = new Set();
 let clubLogoUrl = null;
@@ -26,7 +24,7 @@ let currentSeason = null;  // saison affichée : la plus récente du joueur
 
 /* Rôles du staff ayant accès à la performance (can_view_performance()
    côté base). Ce sont aussi ceux qui modifient la fiche (can_edit()). */
-const PERF_STAFF_ROLES = ['admin', 'coach', 'analyste', 'prepa'];
+const PERF_STAFF_ROLES = ['admin', 'coach'];
 const isStaff = () => PERF_STAFF_ROLES.includes(ctxProfile?.role);
 
 /* Indicateurs internes au staff : jamais montrés au joueur (et jamais
@@ -549,11 +547,11 @@ function renderIdentity() {
   }
   clubBox.classList.remove('hidden');
   const clubInitials = (club?.nom || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
-  clubBox.innerHTML = `
-    ${clubLogoUrl
-      ? `<img class="perf-club-logo" src="${esc(clubLogoUrl)}" alt="">`
-      : `<div class="perf-club-logo perf-club-initials" style="${club?.color ? `border-color:${esc(club.color)}` : ''}">${esc(clubInitials)}</div>`}
-    <div class="perf-club-text">
+  clubBox.innerHTML = `<span>Club</span>
+    <div class="perf-club-row">
+      ${clubLogoUrl
+        ? `<img class="perf-club-logo" src="${esc(clubLogoUrl)}" alt="">`
+        : `<div class="perf-club-logo perf-club-initials" style="${club?.color ? `border-color:${esc(club.color)}` : ''}">${esc(clubInitials)}</div>`}
       <strong>${esc(club.nom)}</strong>
     </div>`;
 }
@@ -763,82 +761,6 @@ async function loadSquad() {
     && (!currentSeason || t.season_key === currentSeason));
 }
 
-const NOTE_KINDS = {
-  strength:    { badge: 'Point fort',   cls: 'badge-success', empty: 'Aucun point fort.',            add: 'Ajouter un point fort' },
-  improvement: { badge: 'Amélioration', cls: 'badge-gold',    empty: 'Aucun point d’amélioration.', add: 'Ajouter un point d’amélioration' },
-  objective:   { badge: 'Objectif',     cls: 'badge-gold',    empty: 'Aucun objectif.',              add: 'Ajouter un objectif' },
-};
-const noteImages = (id) => media.filter(m => m.note_id === id && m.signed_url)
-  .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id);
-
-/* Un point s'ouvre en grand au clic : titre, consignes et images, chaque
-   image avec sa légende. */
-function openNote(id, start = 0) {
-  const n = notes.find(x => x.id === id);
-  if (!n) return;
-  openLightbox({
-    title: n.title,
-    text: n.body || '',
-    items: noteImages(id).map(m => ({ type: 'image', src: m.signed_url, caption: m.caption || '' })),
-    start,
-  });
-}
-
-function renderNotes() {
-  const renderList = (kind, id) => {
-    const k = NOTE_KINDS[kind];
-    const list = notes.filter(n => n.kind === kind).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0) || (a.id-b.id));
-    document.getElementById(id).innerHTML = list.length
-      ? list.map(n => {
-          const imgs = noteImages(n.id);
-          return `<article class="note-card is-openable" data-note-open="${n.id}" tabindex="0" role="button" aria-label="Ouvrir ${esc(n.title)}">
-            <div class="note-card-head">
-              <span class="badge ${k.cls}">${k.badge}</span>
-              ${canEditPlans ? `<div class="note-card-actions">
-                <button class="btn btn-sm" type="button" data-note-edit="${n.id}">Modifier</button>
-                <button class="btn btn-sm btn-danger" type="button" data-note-delete="${n.id}">Suppr.</button></div>` : ''}
-            </div>
-            <h3>${esc(n.title)}</h3>
-            ${n.body ? `<p>${esc(n.body).replace(/\n/g,'<br>')}</p>` : ''}
-            ${imgs.length ? `<div class="media-grid">${imgs.map((m, i) => `<figure data-img-index="${i}"><img src="${esc(m.signed_url)}" alt="${esc(m.caption || n.title)}" loading="lazy">${m.caption ? `<figcaption>${esc(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
-            <div class="note-open-hint">${imgs.length ? `${imgs.length} image${imgs.length > 1 ? 's' : ''} · cliquer pour agrandir` : 'Cliquer pour ouvrir'}</div>
-          </article>`;
-        }).join('')
-      : `<div class="empty">${k.empty}</div>`;
-  };
-  renderList('strength', 'strengthList');
-  renderList('improvement', 'improvementList');
-  renderList('objective', 'objectiveList');
-}
-
-/* Un seul écouteur par liste : ouvrir, modifier, supprimer. */
-['strengthList', 'improvementList', 'objectiveList'].forEach(listId => {
-  const list = document.getElementById(listId);
-  list.addEventListener('click', e => {
-    const edit = e.target.closest('[data-note-edit]');
-    if (edit) return openNoteModal(null, Number(edit.dataset.noteEdit));
-    const del = e.target.closest('[data-note-delete]');
-    if (del) return deleteNote(Number(del.dataset.noteDelete));
-    const card = e.target.closest('[data-note-open]');
-    if (!card) return;
-    const fig = e.target.closest('[data-img-index]');
-    openNote(Number(card.dataset.noteOpen), fig ? Number(fig.dataset.imgIndex) : 0);
-  });
-  list.addEventListener('keydown', e => {
-    const card = e.target.closest('[data-note-open]');
-    if (card && e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openNote(Number(card.dataset.noteOpen)); }
-  });
-});
-
-async function signMedia() {
-  const signed = await Promise.all(media.map(async m => {
-    const { data } = await sb.storage.from('player-performance-media').createSignedUrl(m.storage_path, 3600);
-    return { ...m, signed_url: data?.signedUrl || '' };
-  }));
-  media = signed;
-  renderNotes();
-}
-
 /* Mesures et tests du joueur affiché.
    Un compte joueur ne lit plus les tables : il passe par des RPC qui ne
    renvoient que les colonnes qui lui sont destinées (pas d'asymétrie,
@@ -896,10 +818,10 @@ async function loadPage() {
     const { data: linked, error: linkErr } = await sb.from('players')
       .select('id').eq('auth_user_id', ctx.user.id).maybeSingle();
     // Une erreur de lecture ne doit pas être confondue avec « compte non lié » :
-    // renvoyer silencieusement sur player-join.html masquait la vraie cause.
+    // renvoyer silencieusement sur index.html masquait la vraie cause.
     if (linkErr) return showLoadError('lecture de ta fiche joueur', linkErr);
     if (!linked) {
-      window.location.href = 'player-join.html';
+      window.location.href = 'index.html';
       return;
     }
     playerId = linked.id;
@@ -919,20 +841,18 @@ async function loadPage() {
   document.querySelectorAll('.perf-staff-only').forEach(el => el.classList.toggle('hidden', !isStaff()));
 
   const back = document.getElementById('backPlayers');
-  const videoLink = document.getElementById('videoPlayerLink');
   if (ctxProfile.role === 'joueur') {
     // Même barre que sur toutes les pages du joueur, déconnexion comprise.
     back.classList.add('hidden');
-    videoLink.classList.add('hidden');
     renderPlayerNav();
   } else {
     document.getElementById('perfLogout').addEventListener('click', (e) => { e.preventDefault(); logout(); });
     back.href = `player.html?id=${playerId}`;
     back.textContent = '← Fiche joueur';
-    // Le préparateur physique n'a pas accès à la rubrique Vidéos.
-    videoLink.href = `videos.html?player=${playerId}`;
-    videoLink.classList.toggle('hidden', !canManageVideos(ctxProfile.role));
   }
+  const avatar = document.getElementById('playerAvatar');
+  avatar.disabled = !canEditPerformance;
+  avatar.classList.toggle('is-editable', canEditPerformance);
 
   // Les colonnes d'identité n'existent qu'après player_profile_career.sql :
   // leur absence ne doit pas empêcher d'ouvrir la fiche.
@@ -955,25 +875,24 @@ async function loadPage() {
   }
   player = p;
 
-  const [[mRes, tRes], nRes, mediaRes] = await Promise.all([
+  const [[mRes, tRes], notesError] = await Promise.all([
     fetchPhysical(),
-    sb.from('player_performance_notes').select('*').eq('player_id', player.id).order('sort_order').order('id'),
-    sb.from('player_performance_media').select('*').eq('player_id', player.id).order('sort_order').order('id'),
+    // Page Performance : les objectifs (développement physique). Points forts
+    // et axes d'amélioration vivent dans le Programme terrain.
+    initNotes({ player, canEdit: canEditPlans, userId: ctxProfile.id,
+      lists: { objective: 'objectiveList' }, onError: (m) => notify(m, 'error') }),
   ]);
   // Chaque erreur est affichée : des données absentes et un accès refusé
   // produisaient tous les deux une page vide, sans moyen de les distinguer.
   const dataErrors = [
     ['mesures physiques', mRes.error],
     ['tests physiques', tRes.error],
-    ['notes', nRes.error],
-    ['médias', mediaRes.error],
+    ['objectifs', notesError],
   ].filter(([, e]) => e);
   if (dataErrors.length) {
     showDataWarning(dataErrors);
   }
   setSeasonData(mRes.data || [], tRes.data || []);
-  notes = nRes.data || [];
-  media = mediaRes.data || [];
 
   await Promise.all([loadClubLogo(), loadCareer(), loadSquad()]);
   renderIdentity();
@@ -995,8 +914,6 @@ async function loadPage() {
   await loadClubAverages();
   renderRadar();
   renderMeasurements();
-  await signMedia();
-  renderNotes();
 }
 
 /* Édition de la fiche joueur depuis le dossier Performance.
@@ -1167,15 +1084,11 @@ async function saveTest() {
 }
 
 async function reloadData() {
-  const [[mRes, tRes], nRes, mediaRes, pRes] = await Promise.all([
+  const [[mRes, tRes], pRes] = await Promise.all([
     fetchPhysical(),
-    sb.from('player_performance_notes').select('*').eq('player_id', player.id).order('sort_order').order('id'),
-    sb.from('player_performance_media').select('*').eq('player_id', player.id).order('sort_order').order('id'),
     sb.from('players').select('photo_path').eq('id',player.id).single(),
   ]);
   setSeasonData(mRes.data||[], tRes.data||[]);
-  notes=nRes.data||[];
-  media=mediaRes.data||[];
   if (pRes.data) player.photo_path=pRes.data.photo_path;
   await loadSquad();
   const availableStages=STAGES.filter(s=>tests.some(t=>t.stage===s.key)).map(s=>s.key);
@@ -1184,7 +1097,6 @@ async function reloadData() {
   await loadClubAverages();
   renderRadar();
   renderMeasurements();
-  await signMedia(); renderNotes();
 }
 
 async function uploadPhoto(file) {
@@ -1209,128 +1121,6 @@ async function uploadPhoto(file) {
   }
   if (old) await sb.storage.from('player-photos').remove([old]);
   notify('Photo du joueur mise à jour.','success');
-}
-
-/* ---------- Fenêtre d'ajout / de modification d'un point ----------
-   Images existantes : légende modifiable, bouton Retirer. Nouvelles
-   images : aperçu et légende avant l'envoi. */
-let noteDraft = { existing: [], pending: [] };
-
-function openNoteModal(kind, id = null) {
-  if (!canEditPlans) return;
-  const n = id ? notes.find(x => x.id === id) : null;
-  kind = n?.kind || kind;
-  document.getElementById('noteKind').value = kind;
-  document.getElementById('noteId').value = n?.id || '';
-  document.getElementById('noteModalTitle').textContent = n ? 'Modifier le point' : NOTE_KINDS[kind].add;
-  document.getElementById('noteTitle').value = n?.title || '';
-  document.getElementById('noteBody').value = n?.body || '';
-  document.getElementById('noteFiles').value = '';
-  noteDraft.pending.forEach(p => URL.revokeObjectURL(p.url));
-  noteDraft = {
-    existing: n ? noteImages(n.id).map(m => ({ id: m.id, path: m.storage_path, url: m.signed_url, caption: m.caption || '', removed: false })) : [],
-    pending: [],
-  };
-  renderNoteImages();
-  openPerfModal('noteModal');
-  setTimeout(() => document.getElementById('noteTitle').focus(), 50);
-}
-
-function renderNoteImages() {
-  const box = document.getElementById('noteImages');
-  const row = (img, key, i) => `<div class="nie-row${img.removed ? ' is-removed' : ''}">
-      <img src="${esc(img.url)}" alt="">
-      <input type="text" data-caption="${key}:${i}" value="${esc(img.caption)}" placeholder="Légende / annotation (facultatif)" ${img.removed ? 'disabled' : ''}>
-      <button class="btn btn-sm" type="button" data-img-toggle="${key}:${i}">${key === 'pending' ? 'Retirer' : (img.removed ? 'Garder' : 'Retirer')}</button>
-    </div>`;
-  box.innerHTML = noteDraft.existing.map((img, i) => row(img, 'existing', i)).join('')
-    + noteDraft.pending.map((img, i) => row(img, 'pending', i)).join('');
-}
-
-document.getElementById('noteImages').addEventListener('input', e => {
-  const [key, i] = (e.target.dataset.caption || '').split(':');
-  if (key) noteDraft[key][Number(i)].caption = e.target.value;
-});
-document.getElementById('noteImages').addEventListener('click', e => {
-  const b = e.target.closest('[data-img-toggle]'); if (!b) return;
-  const [key, i] = b.dataset.imgToggle.split(':');
-  if (key === 'pending') { URL.revokeObjectURL(noteDraft.pending[i].url); noteDraft.pending.splice(Number(i), 1); }
-  else noteDraft.existing[Number(i)].removed = !noteDraft.existing[Number(i)].removed;
-  renderNoteImages();
-});
-document.getElementById('noteFiles').addEventListener('change', e => {
-  for (const file of e.target.files) {
-    if (file.size > 5 * 1024 * 1024) { notify(`« ${file.name} » dépasse 5 Mo.`, 'error'); continue; }
-    noteDraft.pending.push({ file, url: URL.createObjectURL(file), caption: '' });
-  }
-  e.target.value = '';
-  renderNoteImages();
-});
-
-async function saveNote() {
-  if (!canEditPlans) return;
-  const kind = document.getElementById('noteKind').value;
-  const id = Number(document.getElementById('noteId').value) || null;
-  const title = document.getElementById('noteTitle').value.trim();
-  const body = document.getElementById('noteBody').value.trim() || null;
-  if (!title) return notify('Le titre est obligatoire.','error');
-  const btn = document.getElementById('btnSaveNote'); btn.disabled = true;
-  try {
-    let noteId = id;
-    if (id) {
-      const { error } = await sb.from('player_performance_notes').update({ title, body }).eq('id', id);
-      if (error) throw error;
-    } else {
-      const { data: note, error } = await sb.from('player_performance_notes').insert({
-        club_id: player.club_id, player_id: player.id, kind, title, body, created_by: ctxProfile.id,
-      }).select().single();
-      if (error) throw error;
-      noteId = note.id;
-    }
-
-    // Images retirées : fichier et ligne supprimés. Légendes modifiées : mises à jour.
-    const removed = noteDraft.existing.filter(m => m.removed);
-    if (removed.length) {
-      await sb.storage.from('player-performance-media').remove(removed.map(m => m.path));
-      const { error } = await sb.from('player_performance_media').delete().in('id', removed.map(m => m.id));
-      if (error) throw error;
-    }
-    for (const m of noteDraft.existing.filter(x => !x.removed)) {
-      const before = media.find(x => x.id === m.id)?.caption || '';
-      if (m.caption.trim() !== before) {
-        const { error } = await sb.from('player_performance_media').update({ caption: m.caption.trim() || null }).eq('id', m.id);
-        if (error) throw error;
-      }
-    }
-    let order = Math.max(-1, ...media.filter(m => m.note_id === noteId).map(m => m.sort_order || 0));
-    for (const [index, p] of noteDraft.pending.entries()) {
-      const ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-      const path = `${player.club_id}/${player.id}/${noteId}/${Date.now()}-${index}.${ext}`;
-      const up = await sb.storage.from('player-performance-media').upload(path, p.file, { contentType: p.file.type || 'image/jpeg' });
-      if (up.error) { notify(`Une image n’a pas été envoyée : ${up.error.message}`, 'error'); continue; }
-      const { error } = await sb.from('player_performance_media').insert({
-        club_id: player.club_id, player_id: player.id, note_id: noteId,
-        storage_path: path, caption: p.caption.trim() || null, sort_order: ++order, created_by: ctxProfile.id,
-      });
-      if (error) throw error;
-    }
-    closePerfModal('noteModal');
-    notify(id ? 'Point mis à jour.' : 'Point enregistré.', 'success');
-    await reloadData();
-  } catch (e) {
-    console.error('Enregistrement du point impossible', e);
-    notify(e.message, 'error');
-  } finally { btn.disabled = false; }
-}
-
-async function deleteNote(id) {
-  if (!canEditPlans || !confirm('Supprimer ce point et ses images ?')) return;
-  const files=media.filter(m=>m.note_id===id).map(m=>m.storage_path);
-  if (files.length) await sb.storage.from('player-performance-media').remove(files);
-  const { error }=await sb.from('player_performance_notes').delete().eq('id',id);
-  if (error) return notify(error.message,'error');
-  notify('Point supprimé.','success');
-  await reloadData();
 }
 
 document.querySelectorAll('[data-close]').forEach(btn=>{
@@ -1359,11 +1149,9 @@ document.getElementById('btnEditPlayer').addEventListener('click',openPlayerEdit
 document.getElementById('btnSavePlayer').addEventListener('click',savePlayerEdit);
 document.getElementById('btnSaveMeasurement').addEventListener('click',saveMeasurement);
 document.getElementById('btnSaveTest').addEventListener('click',saveTest);
-document.getElementById('btnAddStrength').addEventListener('click',()=>openNoteModal('strength'));
-document.getElementById('btnAddImprovement').addEventListener('click',()=>openNoteModal('improvement'));
 document.getElementById('btnAddObjective').addEventListener('click',()=>openNoteModal('objective'));
-document.getElementById('btnSaveNote').addEventListener('click',saveNote);
-document.getElementById('btnAddPhoto').addEventListener('click',()=>document.getElementById('photoFile').click());
+// Photo : un clic sur l'avatar (initiales ou photo) pour l'ajouter ou la changer.
+document.getElementById('playerAvatar').addEventListener('click',()=>{ if (canEditPerformance) document.getElementById('photoFile').click(); });
 document.getElementById('photoFile').addEventListener('change',e=>uploadPhoto(e.target.files[0]));
 document.getElementById('btnImportExcel').addEventListener('click',()=>ExcelImport.open({
   clubId: player.club_id,
@@ -1373,485 +1161,4 @@ document.getElementById('btnImportExcel').addEventListener('click',()=>ExcelImpo
   onDone: reloadData,
 }));
 
-loadPage()
-  .then(() => initFmPerformanceUpgrade())
-  .catch(e => console.error('FM performance upgrade:', e));
-
-/* ============================================================
-   FootSession Pro — upgrade visuel FM + sélection vidéos joueur
-   ============================================================ */
-
-let fpFmVideos = [];
-let fpFmSelections = new Map();
-let fpFmFilter = 'all';
-
-
-function fpFmCategory(video) {
-  const text = normalizeName(`${video?.titre || ''} ${video?.description || ''}`);
-
-  if (/(but|buts|goal|goals|finition|frappe|tir)/.test(text)) return 'buts';
-  if (/(pass|passe|passes|assist|assistance)/.test(text)) return 'passes';
-  if (/(defens|defense|tacle|intercept|duel|pressing)/.test(text)) return 'defense';
-  return 'travail';
-}
-
-function fpFmCategoryLabel(key) {
-  return {
-    all: 'Toutes',
-    buts: 'Buts',
-    passes: 'Passes',
-    defense: 'Actions défensives',
-    travail: 'Séquences à travailler',
-    selection: 'Ma sélection'
-  }[key] || 'Toutes';
-}
-
-function fpFmDate(value) {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleDateString('fr-FR');
-  } catch {
-    return '—';
-  }
-}
-
-function fpFmDuration(sec) {
-  const n = Number(sec || 0);
-  if (!Number.isFinite(n) || n <= 0) return '';
-  const m = Math.floor(n / 60);
-  const s = Math.floor(n % 60);
-  return m ? `${m}:${String(s).padStart(2, '0')}` : `0:${String(s).padStart(2, '0')}`;
-}
-
-function fpFmSelected(videoId) {
-  return fpFmSelections.get(Number(videoId))?.selected === true;
-}
-
-function fpFmValidated(videoId) {
-  return !!fpFmSelections.get(Number(videoId))?.validated_at &&
-    fpFmSelections.get(Number(videoId))?.selected === true;
-}
-
-function fpFmCounts() {
-  const counts = {
-    all: fpFmVideos.length,
-    buts: 0,
-    passes: 0,
-    defense: 0,
-    travail: 0,
-    selection: 0
-  };
-
-  fpFmVideos.forEach(video => {
-    const cat = fpFmCategory(video);
-    counts[cat] += 1;
-
-    const isSelectedForPlayer =
-      ctxProfile?.role === 'joueur'
-        ? fpFmSelected(video.id)
-        : fpFmValidated(video.id);
-
-    if (isSelectedForPlayer) counts.selection += 1;
-  });
-
-  return counts;
-}
-
-/* La sidebar « FM » (photo, mini-terrain, accès rapide) a été retirée :
-   elle déplaçait .perf-grid-main dans une grille 2 colonnes écrite pour une
-   autre structure de page, ce qui écrasait le radar et le suivi physique.
-   Elle n'avait de fait jamais fonctionné (elle cherchait .dash-grid, absent
-   d'ici). À refaire, si besoin, avec un CSS conçu pour cette page. */
-
-function fpFmEnhanceCards() {
-  const radarCard = document.getElementById('radarWrap')?.closest('.card');
-  const testCard = document.getElementById('testSummary')?.closest('.card');
-  const measurementCard = document.getElementById('measurementHistory')?.closest('.card');
-
-  radarCard?.classList.add('fp-fm-radar-card');
-  testCard?.classList.add('fp-fm-tests-card');
-  measurementCard?.classList.add('fp-fm-history-card');
-}
-
-async function fpFmLoadVideos() {
-  if (!player?.id) return;
-
-  const panel = document.getElementById('fpVideoSelectionPanel');
-  if (panel) {
-    panel.innerHTML = `<div class="fp-video-empty">Chargement des séquences…</div>`;
-  }
-
-  const [videoRes, selectionRes] = await Promise.all([
-    sb.from('player_videos')
-      .select('id,titre,description,storage_path,duree_sec,created_at')
-      .eq('player_id', player.id)
-      .order('created_at', { ascending: true }),
-
-    sb.from('player_video_selections')
-      .select('video_id,selected,validated_at,updated_at')
-      .eq('player_id', player.id)
-  ]);
-
-  if (videoRes.error) {
-    throw videoRes.error;
-  }
-
-  if (selectionRes.error) {
-    if (panel) {
-      panel.innerHTML = `
-        <div class="fp-video-migration">
-          Le système de sélection vidéo n'est pas encore activé côté Supabase.<br>
-          Exécute <strong>supabase/player_video_selections.sql</strong> dans le SQL Editor Supabase.
-        </div>
-      `;
-    }
-    fpFmVideos = [];
-    fpFmSelections = new Map();
-    return;
-  }
-
-  const signedVideos = await Promise.all(
-    (videoRes.data || []).map(async video => {
-      const { data, error } =
-        await sb.storage.from('player-videos').createSignedUrl(video.storage_path, 3600);
-
-      return {
-        ...video,
-        category: fpFmCategory(video),
-        signed_url: error ? '' : (data?.signedUrl || '')
-      };
-    })
-  );
-
-  fpFmVideos = signedVideos;
-  fpFmSelections = new Map(
-    (selectionRes.data || []).map(row => [Number(row.video_id), row])
-  );
-
-  fpFmRenderVideoPanel();
-}
-
-function fpFmMatchesFilter(video) {
-  if (fpFmFilter === 'all') return true;
-
-  if (fpFmFilter === 'selection') {
-    return ctxProfile?.role === 'joueur'
-      ? fpFmSelected(video.id)
-      : fpFmValidated(video.id);
-  }
-
-  return fpFmCategory(video) === fpFmFilter;
-}
-
-function fpFmRenderVideoPanel() {
-  const panel = document.getElementById('fpVideoSelectionPanel');
-  if (!panel) return;
-
-  const counts = fpFmCounts();
-  const isPlayer = ctxProfile?.role === 'joueur';
-
-  const selectedCount = fpFmVideos.filter(video =>
-    isPlayer ? fpFmSelected(video.id) : fpFmValidated(video.id)
-  ).length;
-
-  const validatedCount = fpFmVideos.filter(video => fpFmValidated(video.id)).length;
-
-  const buttons = [
-    ['all', `Toutes (${counts.all})`],
-    ['buts', `Buts (${counts.buts})`],
-    ['passes', `Passes (${counts.passes})`],
-    ['defense', `Actions défensives (${counts.defense})`],
-    ['travail', `Séquences à travailler (${counts.travail})`],
-    ['selection', `${isPlayer ? 'Ma sélection' : 'Sélection joueur'} (${counts.selection})`]
-  ];
-
-  const filtered = fpFmVideos.filter(fpFmMatchesFilter);
-
-  panel.innerHTML = `
-    <div class="fp-video-head">
-      <div class="fp-video-title">
-        <h2>Vidéos du joueur</h2>
-        <p>
-          ${
-            isPlayer
-              ? 'Sélectionne les séquences que tu souhaites travailler avec ton staff.'
-              : 'Séquences mises à disposition et choix validés par le joueur.'
-          }
-        </p>
-      </div>
-
-      <div class="fp-video-actions">
-        <div class="fp-video-status">
-          ${isPlayer
-            ? `${selectedCount} sélectionnée${selectedCount > 1 ? 's' : ''}`
-            : `${validatedCount} validée${validatedCount > 1 ? 's' : ''} par le joueur`}
-        </div>
-
-        ${
-          isPlayer
-            ? `<button
-                 id="fpValidateVideoSelection"
-                 class="fp-video-validate"
-                 type="button"
-                 ${selectedCount ? '' : 'disabled'}>
-                 Valider ma sélection (${selectedCount})
-               </button>`
-            : ''
-        }
-      </div>
-    </div>
-
-    <div class="fp-video-filters">
-      ${buttons.map(([key, label]) => `
-        <button
-          type="button"
-          class="fp-filter-btn ${fpFmFilter === key ? 'active' : ''}"
-          data-fp-video-filter="${key}">
-          ${esc(label)}
-        </button>
-      `).join('')}
-    </div>
-
-    ${
-      filtered.length
-        ? `<div class="fp-video-grid">
-            ${filtered.map((video, index) => {
-              const selected = fpFmSelected(video.id);
-              const validated = fpFmValidated(video.id);
-              const catLabel = fpFmCategoryLabel(fpFmCategory(video));
-
-              return `
-                <article class="fp-video-card ${selected && isPlayer ? 'selected' : ''} ${validated ? 'validated' : ''}">
-                  ${
-                    isPlayer
-                      ? `<label class="fp-video-check" title="Sélectionner cette vidéo">
-                           <input
-                             type="checkbox"
-                             class="fp-video-checkbox"
-                             data-video-id="${video.id}"
-                             ${selected ? 'checked' : ''}>
-                         </label>`
-                      : validated
-                        ? `<div class="fp-video-selected-badge">✓ SÉLECTIONNÉE</div>`
-                        : ''
-                  }
-
-                  <div class="fp-video-media">
-                    ${
-                      video.signed_url
-                        ? `<video
-                             preload="metadata"
-                             muted
-                             playsinline
-                             src="${esc(video.signed_url)}">
-                           </video>`
-                        : `<div class="fp-video-empty" style="height:100%;display:grid;place-items:center;">
-                             Vidéo indisponible
-                           </div>`
-                    }
-
-                    ${
-                      video.signed_url
-                        ? `<button
-                             type="button"
-                             class="fp-video-play"
-                             data-video-play="${video.id}"
-                             aria-label="Lire la vidéo">▶</button>`
-                        : ''
-                    }
-
-                    ${
-                      video.duree_sec
-                        ? `<span class="fp-video-duration">${fpFmDuration(video.duree_sec)}</span>`
-                        : ''
-                    }
-                  </div>
-
-                  <div class="fp-video-body">
-                    <h3>#${index + 1} · ${esc(video.titre || 'Séquence')}</h3>
-                    <div class="fp-video-meta">
-                      <span>${esc(catLabel)}</span>
-                      <span>${esc(fpFmDate(video.created_at))}</span>
-                    </div>
-
-                    ${
-                      !isPlayer && validated
-                        ? `<div class="fp-video-staff-selected">
-                             À travailler en séance
-                           </div>`
-                        : ''
-                    }
-                  </div>
-                </article>
-              `;
-            }).join('')}
-          </div>`
-        : `<div class="fp-video-empty">
-             Aucune vidéo dans cette catégorie.
-           </div>`
-    }
-  `;
-
-  panel.querySelectorAll('[data-fp-video-filter]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      fpFmFilter = btn.dataset.fpVideoFilter || 'all';
-      fpFmRenderVideoPanel();
-    });
-  });
-
-  panel.querySelectorAll('.fp-video-checkbox').forEach(input => {
-    input.addEventListener('change', async event => {
-      event.stopPropagation();
-      await fpFmSetSelection(
-        Number(input.dataset.videoId),
-        input.checked
-      );
-    });
-  });
-
-  // Lecture en grand, avec le son. Le joueur passe par sa page de lecture,
-  // qui comptabilise le visionnage pour le staff.
-  panel.querySelectorAll('[data-video-play]').forEach(button => {
-    button.addEventListener('click', () => {
-      const video = fpFmVideos.find(v => String(v.id) === button.dataset.videoPlay);
-      if (!video) return;
-      if (ctxProfile?.role === 'joueur') { window.location.href = `voir-video.html?id=${video.id}`; return; }
-      openLightbox({
-        title: video.titre || 'Séquence',
-        text: video.description || '',
-        items: [{ type: 'video', src: video.signed_url }],
-      });
-    });
-  });
-
-  const validate = document.getElementById('fpValidateVideoSelection');
-  if (validate) {
-    validate.addEventListener('click', fpFmValidateSelection);
-  }
-}
-
-async function fpFmSetSelection(videoId, selected) {
-  const video = fpFmVideos.find(v => Number(v.id) === Number(videoId));
-  if (!video || !player?.id || ctxProfile?.role !== 'joueur') return;
-
-  const previous = fpFmSelections.get(Number(videoId));
-
-  fpFmSelections.set(Number(videoId), {
-    ...(previous || {}),
-    video_id: videoId,
-    selected,
-    validated_at: null
-  });
-
-  fpFmRenderVideoPanel();
-
-  const payload = {
-    club_id: player.club_id,
-    player_id: player.id,
-    video_id: videoId,
-    selected,
-    validated_at: null,
-    updated_at: new Date().toISOString()
-  };
-
-  const { data, error } =
-    await sb.from('player_video_selections')
-      .upsert(payload, { onConflict: 'player_id,video_id' })
-      .select('video_id,selected,validated_at,updated_at')
-      .single();
-
-  if (error) {
-    if (previous) {
-      fpFmSelections.set(Number(videoId), previous);
-    } else {
-      fpFmSelections.delete(Number(videoId));
-    }
-
-    fpFmRenderVideoPanel();
-    notify(error.message, 'error');
-    return;
-  }
-
-  if (data) {
-    fpFmSelections.set(Number(videoId), data);
-    fpFmRenderVideoPanel();
-  }
-}
-
-async function fpFmValidateSelection() {
-  if (ctxProfile?.role !== 'joueur' || !player?.id) return;
-
-  const selectedVideos = fpFmVideos.filter(video => fpFmSelected(video.id));
-
-  if (!selectedVideos.length) {
-    notify('Sélectionne au moins une vidéo.', 'error');
-    return;
-  }
-
-  const validatedAt = new Date().toISOString();
-
-  const payload = fpFmVideos.map(video => ({
-    club_id: player.club_id,
-    player_id: player.id,
-    video_id: video.id,
-    selected: fpFmSelected(video.id),
-    validated_at: fpFmSelected(video.id) ? validatedAt : null,
-    updated_at: validatedAt
-  }));
-
-  const { error } =
-    await sb.from('player_video_selections')
-      .upsert(payload, { onConflict: 'player_id,video_id' });
-
-  if (error) {
-    notify(error.message, 'error');
-    return;
-  }
-
-  payload.forEach(row => {
-    fpFmSelections.set(Number(row.video_id), row);
-  });
-
-  notify(
-    `${selectedVideos.length} séquence${selectedVideos.length > 1 ? 's' : ''} envoyée${selectedVideos.length > 1 ? 's' : ''} au staff.`,
-    'success'
-  );
-
-  fpFmRenderVideoPanel();
-}
-
-function fpFmMountVideoPanel() {
-  if (document.getElementById('fpVideoSelectionPanel')) return;
-
-  const panel = document.createElement('section');
-  panel.id = 'fpVideoSelectionPanel';
-  panel.className = 'card fp-video-panel';
-
-  const slot = document.getElementById('videoPanelSlot')
-    || document.querySelector('.main') || document.body;
-  slot.appendChild(panel);
-
-  panel.innerHTML = `<div class="fp-video-empty">Chargement des vidéos…</div>`;
-}
-
-async function initFmPerformanceUpgrade() {
-  fpFmEnhanceCards();
-  fpFmMountVideoPanel();
-
-  try {
-    await fpFmLoadVideos();
-  } catch (error) {
-    const panel = document.getElementById('fpVideoSelectionPanel');
-
-    if (panel) {
-      panel.innerHTML = `
-        <div class="fp-video-empty">
-          Impossible de charger les vidéos pour le moment.
-          <br><span style="font-size:.72rem;">${esc(error?.message || 'Erreur inconnue')}</span>
-        </div>
-      `;
-    }
-
-    console.error('fpFmLoadVideos:', error);
-  }
-}
+loadPage().catch(e => console.error('player-performance:', e));

@@ -33,7 +33,7 @@ let CAN_EDIT_PLAYERS = false;
   }
 
   // Import du classeur du préparateur : réservé aux rôles qui écrivent la
-  // performance (is_performance_editor() côté base : admin et prépa).
+  // performance (is_performance_editor() côté base : admin et coach).
   if (canEditPerformanceData(myProfile.role)) {
     const btn = document.getElementById('btnImportExcel');
     btn.classList.remove('hidden');

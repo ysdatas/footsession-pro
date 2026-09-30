@@ -31,6 +31,8 @@ let CLUB_ID = null;
 /* Schéma d'un exercice du programme d'un joueur (fiche joueur → Programme). */
 const EXO = Number(new URLSearchParams(location.search).get('exercise')) || null;
 let EXO_ROW = null;   // { id, title, club_id, player_id, schema_path } une fois chargé
+let PROC_ROW = null;     // procédé de séance (nom, objectif, consignes…) pour la fiche
+let PROC_SCHEMA = null;  // ligne tactical_schemas existante (vidéo liée)
 const LS_KEY = 'tb_' + (PROC || (EXO ? 'exo_' + EXO : 'scratch'));
 
 /* ---------- Tailles ----------
@@ -93,10 +95,30 @@ function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = curW() * dpr;
   canvas.height = curH() * dpr;
-  canvas.style.aspectRatio = curW() + ' / ' + curH();
+  fitCanvas();
   render();
 }
-window.addEventListener('resize', () => { render(); });
+/* Le terrain occupe toute la place disponible, sans défilement : on
+   le cale sur la largeur OU la hauteur de la zone, selon ce qui limite. */
+function fitCanvas() {
+  const stage = canvas.parentElement;
+  const presenting = stage.classList.contains('presenting');
+  const below = presenting ? document.getElementById('presentBar') : document.querySelector('.tb-stepsbar');
+  const steps = document.querySelector('.tb-stepsbar');
+  // Deux passes : la barre des étapes prend la largeur du terrain et peut
+  // alors passer sur deux lignes, ce qui change la hauteur disponible.
+  for (let pass = 0; pass < 2; pass++) {
+    const bar = below ? below.offsetHeight + 10 : 0;
+    const W = stage.clientWidth, H = stage.clientHeight - bar;
+    if (!W || !H) return;
+    const k = Math.min(W / curW(), H / curH());
+    const w = Math.floor(curW() * k);
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${Math.floor(curH() * k)}px`;
+    if (steps) steps.style.width = presenting ? '' : `${w}px`;
+  }
+}
+new ResizeObserver(fitCanvas).observe(canvas.parentElement);
 
 function getPos(e) {
   const r = canvas.getBoundingClientRect();
@@ -365,10 +387,12 @@ function drawEquip(it) {
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   const x = it.x, y = it.y;
   if (it.kind === 'cone') {
-    ctx.fillStyle = '#eb7a2e';
+    const base = it.color && it.color !== '#C9A84C' ? it.color : '#eb7a2e';
+    ctx.fillStyle = base;
     ctx.beginPath(); ctx.moveTo(x - s * 0.75, y + s * 0.75); ctx.lineTo(x + s * 0.75, y + s * 0.75); ctx.lineTo(x, y - s); ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.moveTo(x - s * 0.5, y + s * 0.1); ctx.lineTo(x + s * 0.5, y + s * 0.1); ctx.lineTo(x + s * 0.4, y - s * 0.15); ctx.lineTo(x - s * 0.4, y - s * 0.15); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#c85f1c'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.78, s, s * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = base; ctx.beginPath(); ctx.ellipse(x, y + s * 0.78, s, s * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fill();
   } else if (it.kind === 'disc') {          // coupelle plate
     ctx.fillStyle = it.color && it.color !== '#C9A84C' ? it.color : '#f2b21e';
     ctx.beginPath(); ctx.ellipse(x, y + s * 0.35, s, s * 0.32, 0, 0, Math.PI * 2); ctx.fill();
@@ -649,6 +673,7 @@ canvas.addEventListener('pointerdown', (e) => {
   else if (state.tool === 'opponent') { addToken('opponent', p, state.opp); commit(); }
   else if (state.tool.startsWith('equip-')) {
     const it = { id: nid(), type: 'equip', kind: state.tool.slice(6), x: p.x, y: p.y, r: state.equipR };
+    if (state.equipColor) it.color = state.equipColor;
     state.items.push(it); state.selIds = [it.id]; commit();
   }
   else if (state.tool === 'text') {
@@ -777,6 +802,7 @@ const menu = (() => {
       '<button id="tbmBack" type="button" title="Envoyer derrière">Derrière</button></span></div>' +
     '<button class="tbm-del" id="tbmDelete" type="button">Supprimer</button>';
   document.body.appendChild(m);
+  enhanceColorInputs(m);
   m.addEventListener('pointerdown', ev => ev.stopPropagation());   // ne pas fermer en cliquant dedans
   return m;
 })();
@@ -889,9 +915,11 @@ function addToken(type, p, color) {
 /* ============================================================
    BARRE D'OUTILS / UI
    ============================================================ */
-function setTool(t) {
+function setTool(t, color = null) {
   state.tool = t;
-  $$('.tb-tool[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+  state.equipColor = t.startsWith('equip-') ? color : null;
+  $$('.tb-tool[data-tool]').forEach(b => b.classList.toggle('active',
+    b.dataset.tool === t && (b.dataset.color || null) === state.equipColor));
   // Mode cadrage : le même bouton l'annule, Échap aussi.
   $('#screenHint')?.classList.toggle('hidden', t !== 'screen');
   const sb = $('#screenBtn');
@@ -900,7 +928,7 @@ function setTool(t) {
   if (t !== 'select') { state.selIds = []; syncSelBar(); }
   render();
 }
-$$('.tb-tool[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$$('.tb-tool[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool, b.dataset.color || null)));
 $$('#viewGroup .tb-tool').forEach(b => b.addEventListener('click', () => {
   state.view = b.dataset.view;
   $$('#viewGroup .tb-tool').forEach(x => x.classList.toggle('active', x === b));
@@ -965,9 +993,7 @@ document.getElementById('tbValidate')?.addEventListener('click', () => saveToDB(
 /* Panneau « Élément » : couleur, taille, texte / n°, angle, rotation. */
 function syncSelBar() {
   const sels = selectedItems();
-  const props = $('#selProps');
-  $('#selEmpty').classList.toggle('hidden', sels.length > 0);
-  props.classList.toggle('hidden', !sels.length);
+  $('#selBar').classList.toggle('hidden', !sels.length || state.playing);
   if (!sels.length) { $('#selLabel').textContent = '—'; return; }
 
   const it = sels[0];
@@ -1202,7 +1228,7 @@ function renderSteps() {
     `<button type="button" class="tb-step${i === cur ? ' active' : ''}" data-step="${i}" title="Afficher l’étape ${i + 1}">${i + 1}</button>`).join('');
   $('#stepInfo').textContent = !n ? '' : (cur === null ? `${n} étapes` : `${cur + 1} / ${n}`);
   $('#stepHint').textContent = !n
-    ? 'Placez vos éléments, puis « + Nouvelle étape » pour créer la suite du mouvement.'
+    ? 'Placez vos éléments, puis « + Étape » pour créer la suite du mouvement.'
     : 'Cliquez une étape pour l’afficher : ce que vous déplacez y est enregistré.';
   $('#playSteps').disabled = n < 2;
   $('#deleteStep').disabled = cur === null;
@@ -1239,11 +1265,12 @@ function togglePresent() {
   const stage = document.querySelector('.tb-stage');
   if (stage.classList.contains('presenting')) return exitPresent();
   stage.classList.add('presenting');
-  state.selIds = []; syncSelBar(); render();
+  state.selIds = []; syncSelBar(); fitCanvas(); render();
   if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
 }
 function exitPresent() {
   document.querySelector('.tb-stage')?.classList.remove('presenting');
+  fitCanvas();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   render();
 }
@@ -1507,14 +1534,17 @@ async function boot() {
   let loaded = false;
   if (PROC) {
     try {
-      const { data: schema } = await sb.from('tactical_schemas').select('canvas_json, vue_terrain').eq('procedure_id', PROC).single();
-      $('#tbContext').textContent = 'schéma lié au procédé #' + PROC;
+      const { data: schema } = await sb.from('tactical_schemas').select('*').eq('procedure_id', PROC).maybeSingle();
+      PROC_SCHEMA = schema || null;
+      const { data: proc } = await sb.from('procedures').select('*').eq('id', PROC).maybeSingle();
+      PROC_ROW = proc || null;
+      $('#tbContext').textContent = `procédé « ${proc?.nom || '#' + PROC} »`;
       if (schema && schema.canvas_json) { deserialize(schema.canvas_json); loaded = true; }
     } catch (e) { /* ignore, on tentera le LocalStorage */ }
   }
   if (EXO) {
     const { data: row, error } = await sb.from('program_exercises')
-      .select('id, title, club_id, player_id, schema_json').eq('id', EXO).maybeSingle();
+      .select('id, title, instructions, dosage, club_id, player_id, schema_json, video_id').eq('id', EXO).maybeSingle();
     if (error || !row) toast('Exercice introuvable : le schéma ne pourra pas être enregistré.', 'error');
     else {
       EXO_ROW = row;
@@ -1530,4 +1560,4 @@ async function boot() {
   renderSteps(); syncCrop(); syncSelBar();
   resizeCanvas();   // ajuste l'orientation si le schéma chargé était en mode Horizontal
 }
-boot();
+const BOOTED = boot();

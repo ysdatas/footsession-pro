@@ -10,10 +10,10 @@
   <link rel="stylesheet" href="assets/css/videos.css">
 </head>
 <body>
-<div class="pv-wrap">
+<div class="pv-wrap pv-wide">
   <div class="pv-head">
     <div>
-      <h1 id="pvTitle">Mes vidéos</h1>
+      <h1>Mes vidéos</h1>
       <p class="subtitle" id="pvSub">Chargement…</p>
     </div>
     <nav id="playerNav"></nav>
@@ -24,64 +24,48 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
+<script src="assets/js/app.js"></script>
 <script src="assets/js/player-nav.js"></script>
 <script>
-  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
+  /* Vidéos brutes envoyées par le staff. Chaque vidéo s'ouvre dans le
+     poste de travail : séquences, sélection, annotation, envoi. */
   (async () => {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = 'player-join.html'; return; }
-
-    /* Un compte staff n'a pas de fiche joueur liée : sans ce contrôle il
-       était renvoyé sur player-join.html et se voyait réclamer un code
-       joueur, alors que son compte est parfaitement associé à un club. */
-    const { data: profile } = await sb.from('profiles')
-      .select('role, club_id').eq('id', session.user.id).maybeSingle();
-    if (profile && profile.role !== 'joueur') {
-      window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
-      return;
+    const box = document.getElementById('pvContent');
+    try {
+      const player = await requirePlayer();
+      if (!player) return;
+      const [{ data: videos, error }, { data: seqs }] = await Promise.all([
+        sb.from('player_videos').select('id, titre, description, created_at')
+          .eq('player_id', player.id).order('created_at', { ascending: false }),
+        sb.from('video_sequences').select('video_id, selected, submitted_at, staff_feedback').eq('player_id', player.id),
+      ]);
+      if (error) throw error;
+      const stats = (id) => {
+        const list = (seqs || []).filter(s => s.video_id === id);
+        return { n: list.length, sel: list.filter(s => s.selected).length,
+          sent: list.filter(s => s.submitted_at).length, fb: list.filter(s => s.staff_feedback).length };
+      };
+      document.getElementById('pvSub').textContent =
+        `Bonjour ${player.prenom || player.nom} — ${videos.length} vidéo${videos.length > 1 ? 's' : ''}. Ouvre une vidéo pour la découper en séquences et l’annoter.`;
+      if (!videos.length) { box.innerHTML = '<div class="empty">Aucune vidéo pour le moment. Ton staff ne t’a encore rien envoyé.</div>'; return; }
+      box.innerHTML = `<div class="pv-grid">${videos.map(v => {
+        const s = stats(v.id);
+        return `<a class="card pv-card" href="voir-video.html?id=${v.id}">
+          <div class="pv-card-top">
+            <span class="text-muted" style="font-size:.75rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
+            ${s.fb ? '<span class="vw-flag is-ok">Retour du staff</span>' : ''}
+          </div>
+          <h3>${escapeHtml(v.titre)}</h3>
+          ${v.description ? `<p class="text-muted" style="font-size:.85rem;">${escapeHtml(v.description)}</p>` : ''}
+          <div class="pv-card-meta">${s.n
+            ? `${s.n} séquence${s.n > 1 ? 's' : ''} · ${s.sel} à travailler${s.sent ? ` · ${s.sent} envoyée${s.sent > 1 ? 's' : ''}` : ''}`
+            : 'Pas encore de séquence'}</div>
+        </a>`;
+      }).join('')}</div>`;
+    } catch (e) {
+      console.error('mes-videos', e);
+      box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`;
     }
-
-    const { data: player, error: pErr } = await sb.from('players').select('id, nom, prenom')
-      .eq('auth_user_id', session.user.id).maybeSingle();
-    if (pErr) {
-      document.getElementById('pvContent').innerHTML =
-        `<p class="text-danger">Lecture de ta fiche impossible : ${escapeHtml(pErr.message)}</p>`;
-      return;
-    }
-    if (!player) { window.location.href = 'player-join.html'; return; }
-
-    renderPlayerNav();
-
-    const { data: videos, error } = await sb.from('player_videos')
-      .select('id, titre, description, created_at')
-      .eq('player_id', player.id).order('created_at', { ascending: false });
-
-    if (error) {
-      document.getElementById('pvContent').innerHTML = `<p class="text-danger">${escapeHtml(error.message)}</p>`;
-      return;
-    }
-
-    document.getElementById('pvTitle').textContent = 'Mes vidéos';
-    document.getElementById('pvSub').textContent =
-      `Bonjour ${player.prenom || player.nom} — ${videos.length} vidéo${videos.length > 1 ? 's' : ''}`;
-
-    if (!videos.length) {
-      document.getElementById('pvContent').innerHTML = `<div class="empty">Aucune vidéo pour le moment. Ton coach ne t'a encore rien envoyé.</div>`;
-      return;
-    }
-
-    document.getElementById('pvContent').innerHTML = `<div class="pv-grid">` + videos.map(v => {
-      return `<a class="card pv-card" href="voir-video.html?id=${v.id}">
-        <div class="pv-card-top">
-          <span class="badge badge-gold">Disponible</span>
-          <span class="text-muted" style="font-size:.75rem;">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
-        </div>
-        <h3>${escapeHtml(v.titre)}</h3>
-        ${v.description ? `<p class="text-muted" style="font-size:.85rem;">${escapeHtml(v.description)}</p>` : ''}
-      </a>`;
-    }).join('') + `</div>`;
   })();
 </script>
 </body>

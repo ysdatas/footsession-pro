@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FootSession Pro — FAQ calculs</title>
+  <title>FootSession Pro — FAQ</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
@@ -23,23 +23,80 @@
   <main class="main faq">
     <div class="page-head">
       <div>
-        <h1>Comment sont calculées les données ?</h1>
-        <p class="subtitle">D’où vient chaque chiffre de FootSession Pro, ce qui est mesuré et ce qui est calculé.</p>
+        <h1>FAQ</h1>
+        <p class="subtitle">Cliquez sur une question pour afficher la réponse.</p>
       </div>
     </div>
+    <input type="search" id="faqSearch" class="faq-search" placeholder="Rechercher une question…" aria-label="Rechercher dans la FAQ">
 
-    <nav class="faq-toc card" aria-label="Sommaire">
-      <a href="#sources">Sources</a><a href="#reel-calcule">Mesuré ou calculé</a><a href="#axes">Axes du radar</a>
-      <a href="#note10">Note sur 10</a><a href="#radar">Lire le radar</a><a href="#groupe">Moyenne, écart, rang</a>
-      <a href="#asymetrie">Asymétrie 505</a><a href="#masse-grasse">Masse grasse</a><a href="#ratio">Ratio Shirado / Sorensen</a>
-      <a href="#saisons">Saisons et équipes</a><a href="#droits">Qui voit quoi</a>
-    </nav>
+    <h2 class="faq-group">Utiliser la plateforme</h2>
+    <details class="faq-q">
+      <summary>Comment donner un accès à un coach ou à un joueur ?</summary>
+      <div class="faq-a"><ol>
+        <li><em>Mon club</em> → « Donner un accès » : adresse e-mail + fonction (Joueur, Coach ou Administrateur). Pour un joueur, choisissez sa fiche.</li>
+        <li>La personne va sur la page de connexion, « Créer un compte », avec <strong>cette adresse</strong>, et confirme l’e-mail reçu.</li>
+        <li>À sa première connexion, son accès s’active : le joueur arrive dans son espace, le coach dans le tableau de bord.</li>
+      </ol><p class="text-muted">Plus aucun code à transmettre. Un membre peut être changé de fonction ou retiré du club dans la liste des membres.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment créer un joueur ?</summary>
+      <div class="faq-a"><p><em>Joueurs</em> → « + Ajouter ». Seul le nom est obligatoire ; le reste se complète depuis la fiche (bouton « Modifier »). L’import Excel crée aussi les fiches des joueurs qu’il ne reconnaît pas. Glissez une fiche d’une ligne à l’autre (Gardiens, Défenseurs…) pour la ranger.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment changer la photo d’un joueur ?</summary>
+      <div class="faq-a"><p>Cliquez sur ses initiales (ou sa photo) en haut de sa fiche ou de sa page Performance, puis choisissez une image (5 Mo maximum).</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment envoyer une vidéo à un joueur ?</summary>
+      <div class="faq-a"><p><em>Vidéos joueurs</em> → « + Envoyer une vidéo » : joueur, titre, fichier (MP4 conseillé). La vidéo est brute ; elle apparaît aussitôt dans « Mes vidéos » du joueur, même s’il n’a pas encore activé son compte.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment découper une vidéo en séquences ?</summary>
+      <div class="faq-a"><p>Ouvrez la vidéo. Mettez-la au début d’une action, cliquez « ✂ Début de séquence », avancez jusqu’à la fin de l’action, cliquez « ■ Fin de séquence ». La séquence est nommée automatiquement (« Séquence 1 – Jean ») et peut être renommée. Le staff comme le joueur peuvent découper.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment le joueur analyse une séquence et l’envoie au staff ?</summary>
+      <div class="faq-a"><ol>
+        <li>Il coche « Je veux travailler cette séquence ».</li>
+        <li>Il met l’image voulue en pause, clique « ✎ Dessiner sur l’image affichée » : flèche, cercle, zone, trait, en quatre couleurs. « Enregistrer l’image ».</li>
+        <li>Il écrit ce qu’il voit dans « Mon analyse » puis clique « Envoyer au staff ».</li>
+      </ol></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment voir le travail vidéo des joueurs et leur répondre ?</summary>
+      <div class="faq-a"><p><em>Vidéos joueurs</em> est rangée par joueur : séquences sélectionnées, séquences annotées, vidéos disponibles. Le filtre « Travail à voir » ne garde que les analyses en attente. Cliquez une séquence : ses images annotées se rejouent, l’analyse du joueur s’affiche, et « Envoyer mon retour » lui répond.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Où mettre le travail physique, où mettre le travail terrain ?</summary>
+      <div class="faq-a"><ul>
+        <li><strong>Performance → Objectifs</strong> : développement physique. Un objectif ou un exercice, ses consignes et ses images légendées.</li>
+        <li><strong>Fiche joueur → Programme terrain</strong> : développement footballistique. Points forts, axes d’amélioration, exercices avec schéma tactique et vidéo.</li>
+      </ul><p>Le joueur retrouve l’un dans « Ma performance », l’autre dans « Mon programme terrain ». Tout s’ouvre en grand au clic.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment créer un exercice terrain avec un schéma et une vidéo ?</summary>
+      <div class="faq-a"><p>Fiche joueur → Programme terrain → « + Exercice ». Renseignez titre, consignes, dosage ; ajoutez une image si besoin ; choisissez une vidéo déjà envoyée au joueur (pas besoin de la réimporter). « Dessiner le schéma » ouvre le tableau tactique : « Valider ce schéma » l’enregistre sur l’exercice.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment préparer une séance et ses schémas tactiques ?</summary>
+      <div class="faq-a"><p><em>Séances</em> → nouvelle séance, puis ses procédés. Chaque procédé a son schéma (tableau tactique) : étapes animées, images, vidéo de l’animation, fiche PDF, et une vidéo de la plateforme à lui associer.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment importer l’Excel des tests physiques ?</summary>
+      <div class="faq-a"><p><em>Joueurs</em> → « Importer l’Excel », ou depuis la page Performance d’un joueur. Chaque import met à jour les joueurs reconnus (par le nom de famille) sans créer de doublons.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment personnaliser mon menu ?</summary>
+      <div class="faq-a"><p><em>Paramètres</em> → « Mon menu » : glissez les rubriques pour les réordonner, décochez celles que vous n’utilisez pas.</p></div>
+    </details>
 
-    <section class="card" id="sources">
-      <h2>D’où viennent les données ?</h2>
+    <h2 class="faq-group">Données et calculs</h2>
+    <details class="faq-q" id="sources">
+      <summary>D’où viennent les données ?</summary>
+      <div class="faq-a">
       <p>Trois sources, et seulement trois :</p>
       <ol>
-        <li><strong>Le classeur Excel du préparateur physique</strong>, importé depuis la page <em>Joueurs</em> (bouton « Importer l’Excel ») ou depuis une fiche Performance. Réservé à l’administrateur et au préparateur physique. Chaque import met à jour tous les joueurs reconnus dans le fichier.</li>
+        <li><strong>Le classeur Excel du préparateur physique</strong>, importé depuis la page <em>Joueurs</em> (bouton « Importer l’Excel ») ou depuis une fiche Performance. Réservé au staff (administrateur, coach). Chaque import met à jour tous les joueurs reconnus dans le fichier.</li>
         <li><strong>La saisie manuelle</strong> dans la fiche Performance d’un joueur (« + Mesure », « + Tests »), par les mêmes rôles.</li>
         <li><strong>Les présences</strong>, cochées dans chaque séance.</li>
       </ol>
@@ -54,10 +111,12 @@
           <tr><td>Profil sur 10</td><td>Les 5 notes, <em>telles que calculées par le classeur</em>.</td></tr>
         </tbody>
       </table>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="reel-calcule">
-      <h2>Mesures réelles ou valeurs calculées ?</h2>
+    <details class="faq-q" id="reel-calcule">
+      <summary>Qu’est-ce qui est mesuré, qu’est-ce qui est calculé ?</summary>
+      <div class="faq-a">
       <div class="faq-two">
         <div>
           <h3>Mesuré sur le terrain</h3>
@@ -84,10 +143,12 @@
         </div>
       </div>
       <p class="text-muted">La moyenne du 505, l’asymétrie et le ratio sont recalculés par la base à chaque enregistrement, avec les formules ci-dessous : ils sont donc identiques qu’ils viennent de l’Excel ou d’une saisie manuelle.</p>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="axes">
-      <h2>Les 5 axes du radar</h2>
+    <details class="faq-q" id="axes">
+      <summary>Que mesurent les 5 axes du radar ?</summary>
+      <div class="faq-a">
       <table class="faq-table">
         <thead><tr><th>Axe</th><th>Test utilisé</th><th>Meilleure note si…</th></tr></thead>
         <tbody>
@@ -99,10 +160,12 @@
         </tbody>
       </table>
       <p>L’agilité utilise la <strong>moyenne</strong> des deux côtés, pas l’asymétrie : un joueur peut avoir une bonne note d’agilité et une asymétrie à surveiller. Les deux informations se lisent ensemble.</p>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="note10">
-      <h2>Comment la note sur 10 est calculée</h2>
+    <details class="faq-q" id="note10">
+      <summary>Comment est calculée la note sur 10 ?</summary>
+      <div class="faq-a">
       <p class="faq-formula">Note = 5 + 2 × z, bornée entre 0 et 10</p>
       <p><strong>z</strong> est l’écart du joueur à la moyenne du groupe, exprimé en écarts-types. Pour les tests où une valeur basse est meilleure (sprints, 505), l’écart est inversé : plus rapide que le groupe donne une note au-dessus de 5.</p>
       <ul>
@@ -113,20 +176,24 @@
         <li><strong>Import Excel</strong> : quand le classeur fournit des notes, ce sont elles qui sont gardées. L’application ne calcule les notes que pour les tests saisis à la main.</li>
       </ul>
       <p class="faq-note">Une note stable d’une session à l’autre veut dire que le joueur a progressé <em>au même rythme que le groupe</em>. Pour lire la progression réelle, regardez les valeurs brutes.</p>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="radar">
-      <h2>Lire le radar</h2>
+    <details class="faq-q" id="radar">
+      <summary>Comment lire le radar ?</summary>
+      <div class="faq-a">
       <ul>
         <li><strong>Zone dorée</strong> : le joueur, pour la session choisie (pré-saison, mi-saison, fin de saison).</li>
         <li><strong>Trait gris en pointillés</strong> : la moyenne du groupe sur la même session.</li>
         <li><strong>Zone bleue</strong> : le deuxième joueur, quand vous en choisissez un dans « Comparer avec ». Réservé au staff.</li>
         <li>Un axe sans note n’est pas tracé : il n’est jamais ramené à zéro.</li>
       </ul>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="groupe">
-      <h2>Moyenne du groupe, écart et rang</h2>
+    <details class="faq-q" id="groupe">
+      <summary>Que signifient la moyenne du groupe, l’écart et le rang ?</summary>
+      <div class="faq-a">
       <ul>
         <li><strong>Moyenne du groupe</strong> : dernière valeur de chaque joueur sur la session, pour la saison la plus récente. Au moins 3 joueurs, sinon elle n’est pas affichée.</li>
         <li><strong>Valeurs exclues</strong> : une valeur hors des bornes attendues n’entre pas dans la moyenne. C’est presque toujours une saisie dans la mauvaise colonne. Elle reste visible et signalée sur la fiche du joueur.</li>
@@ -145,10 +212,12 @@
           <tr><td>Ratio Shirado / Sorensen</td><td>0,1 à 6</td></tr>
         </tbody>
       </table>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="asymetrie">
-      <h2>Asymétrie au 505</h2>
+    <details class="faq-q" id="asymetrie">
+      <summary>Comment est calculée l’asymétrie au 505 ?</summary>
+      <div class="faq-a">
       <p class="faq-formula">Asymétrie (%) = |gauche − droit| ÷ la plus grande des deux valeurs × 100</p>
       <ul>
         <li>Un passage sur appui gauche, un passage sur appui droit ; la moyenne et l’asymétrie sont calculées automatiquement.</li>
@@ -156,10 +225,12 @@
         <li>Une asymétrie isolée sur une session ne veut rien dire. Ce qui compte, c’est une asymétrie qui se répète d’une session à l’autre.</li>
         <li>Indicateur réservé au staff : il n’est jamais montré au joueur.</li>
       </ul>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="masse-grasse">
-      <h2>Masse grasse — Durnin &amp; Womersley</h2>
+    <details class="faq-q" id="masse-grasse">
+      <summary>Comment est calculée la masse grasse ?</summary>
+      <div class="faq-a">
       <p>Le calcul est fait <strong>dans le classeur</strong> ; FootSession Pro importe le résultat. En saisie manuelle, c’est la valeur tapée qui est enregistrée.</p>
       <ul>
         <li>Plis mesurés : biceps, triceps, sous-scapulaire et supra-iliaque, en mm, côté droit.</li>
@@ -168,10 +239,12 @@
         <li>Équation de Siri : <span class="faq-inline">%MG = (495 ÷ D) − 450</span></li>
       </ul>
       <p class="faq-note">Limites : ces équations ne sont pas validées en dessous de 17 ans et surestiment souvent la masse grasse chez le sportif entraîné. Elles servent à suivre l’évolution d’un joueur dans le temps, pas à donner une valeur absolue ni à comparer deux joueurs entre eux. Toujours le même opérateur et la même pince d’une session à l’autre.</p>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="ratio">
-      <h2>Ratio Shirado / Sorensen</h2>
+    <details class="faq-q" id="ratio">
+      <summary>Que veut dire le ratio Shirado / Sorensen ?</summary>
+      <div class="faq-a">
       <p class="faq-formula">Ratio = durée Shirado ÷ durée Sorensen</p>
       <p>Un déséquilibre marqué entre fléchisseurs et extenseurs du tronc est un point d’attention en prévention lombaire.</p>
       <table class="faq-table">
@@ -183,31 +256,35 @@
         </tbody>
       </table>
       <p class="text-muted">La notice ne donne pas de lecture entre 0,8 et 1 ; FootSession Pro n’en ajoute pas. Indicateur réservé au staff.</p>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="saisons">
-      <h2>Saisons et équipes</h2>
+    <details class="faq-q" id="saisons">
+      <summary>Comment sont gérées les saisons et les équipes ?</summary>
+      <div class="faq-a">
       <ul>
-        <li>La saison (ex. 2026-2027) est déduite de la date, à partir du mois de début de saison du club (<em>Mon club</em>, août par défaut).</li>
+        <li>La saison (ex. 2026-2027) est déduite de la date, une saison allant d’août à juin.</li>
         <li>Une seule ligne par joueur et par mois pour les mesures, et par session pour les tests : un nouvel import met à jour la ligne existante au lieu de la dupliquer.</li>
         <li>Les fiches affichent la saison la plus récente.</li>
         <li>Chaque équipe (N2, U19…) est son propre groupe de référence : un joueur de N2 n’est jamais noté par rapport aux U19.</li>
       </ul>
-    </section>
+      </div>
+    </details>
 
-    <section class="card" id="droits">
-      <h2>Qui voit quoi</h2>
+    <details class="faq-q" id="droits">
+      <summary>Qui voit quoi ?</summary>
+      <div class="faq-a">
       <table class="faq-table">
         <thead><tr><th></th><th>Voit</th><th>Modifie</th></tr></thead>
         <tbody>
-          <tr><td>Admin</td><td>Tout</td><td>Tout, y compris utilisateurs, équipes et données physiques</td></tr>
-          <tr><td>Coach</td><td>Séances, joueurs, vidéos, performance, statistiques de visionnage</td><td>Séances, joueurs, vidéos, objectifs — pas les données physiques</td></tr>
-          <tr><td>Préparateur physique</td><td>Joueurs, performance</td><td>Données physiques, tests, import Excel, objectifs — pas les vidéos</td></tr>
-          <tr><td>Joueur</td><td>Ses propres données : poids, masse grasse, chronos, radar, vidéos, objectifs qui lui sont destinés</td><td>Rien, sauf sa sélection de vidéos</td></tr>
+          <tr><td>Administrateur</td><td>Tout</td><td>Tout, plus la gestion du club : accès, membres, équipes, suppression de fiches</td></tr>
+          <tr><td>Coach</td><td>Séances, joueurs, performance, vidéos, statistiques de visionnage</td><td>Séances, joueurs, données physiques, objectifs, programme terrain, vidéos et séquences, retours aux joueurs</td></tr>
+          <tr><td>Joueur</td><td>Ses propres données : poids, masse grasse, chronos, radar, objectifs, programme terrain, vidéos</td><td>Ses séquences : sélection, dessins, analyse, envoi au staff ; « fait » et ressenti sur ses exercices</td></tr>
         </tbody>
       </table>
       <p class="text-muted">Le joueur ne voit ni l’asymétrie, ni les plis cutanés, ni le ratio, ni les données d’un autre joueur. Ces règles sont appliquées par la base de données elle-même (RLS), pas seulement par l’affichage.</p>
-    </section>
+      </div>
+    </details>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -225,6 +302,16 @@
       document.getElementById('uAvatar').textContent = (p.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
       document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
     })();
+    // Lien direct vers une question (#asymetrie…) : elle s'ouvre.
+    if (location.hash) document.querySelector(location.hash + '.faq-q')?.setAttribute('open', '');
+    document.getElementById('faqSearch').addEventListener('input', (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      document.querySelectorAll('.faq-q').forEach(d => {
+        const hit = !q || d.textContent.toLowerCase().includes(q);
+        d.classList.toggle('hidden', !hit);
+        if (q && hit) d.setAttribute('open', ''); else if (!q) d.removeAttribute('open');
+      });
+    });
   </script>
 </body>
 </html>

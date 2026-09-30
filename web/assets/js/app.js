@@ -76,3 +76,50 @@ document.addEventListener('DOMContentLoaded', () => {
   toggle?.addEventListener('click', () => setOpen(!sidebar.classList.contains('open')));
   backdrop?.addEventListener('click', () => setOpen(false));
 });
+
+/* ---------- Couleurs : pastilles au lieu du sélecteur système ----------
+   Chaque <input type="color"> devient une rangée de pastilles (palette
+   commune à toute l'app) + une pastille « autre couleur » qui ouvre le
+   sélecteur du système. L'input reste la source de vérité : les pages
+   continuent d'écouter ses événements input/change et de lire .value. */
+const COLOR_PALETTE = ['#C9A84C', '#E03131', '#F76707', '#FAB005', '#2F9E44', '#1098AD', '#1F6FEB', '#7048E8', '#F1F3F5', '#212529'];
+const COLOR_NAMES = ['Or', 'Rouge', 'Orange', 'Jaune', 'Vert', 'Turquoise', 'Bleu', 'Violet', 'Blanc', 'Noir'];
+
+function enhanceColorInputs(root = document) {
+  $$('input[type="color"]:not([data-enhanced])', root).forEach(input => {
+    input.dataset.enhanced = '1';
+    const wrap = el('div', { class: 'swatches', role: 'radiogroup', 'aria-label': input.getAttribute('aria-label') || input.title || 'Couleur' });
+    input.replaceWith(wrap);
+    const set = (c) => {
+      input.value = c;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    COLOR_PALETTE.forEach((c, i) => wrap.append(el('button', {
+      type: 'button', class: 'sw', role: 'radio', title: COLOR_NAMES[i], 'aria-label': COLOR_NAMES[i],
+      style: `background:${c}`, dataset: { color: c.toLowerCase() }, onclick: () => set(c),
+    })));
+    const custom = el('button', { type: 'button', class: 'sw sw-custom', title: 'Autre couleur', 'aria-label': 'Autre couleur',
+      onclick: () => (input.showPicker ? input.showPicker() : input.click()) });
+    wrap.append(custom, input);
+
+    const sync = () => {
+      const v = String(input.value || '').toLowerCase();
+      let known = false;
+      wrap.querySelectorAll('.sw[data-color]').forEach(b => {
+        const on = b.dataset.color === v; known ||= on;
+        b.setAttribute('aria-checked', String(on));
+      });
+      custom.setAttribute('aria-checked', String(!known));
+      custom.style.setProperty('--custom', known ? 'transparent' : v);
+      wrap.querySelectorAll('button').forEach(b => { b.disabled = input.disabled; });
+    };
+    // Une valeur posée par le code (input.value = …) met aussi les pastilles à jour.
+    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    Object.defineProperty(input, 'value', { get() { return desc.get.call(this); }, set(v) { desc.set.call(this, v); sync(); } });
+    new MutationObserver(sync).observe(input, { attributes: true, attributeFilter: ['disabled'] });
+    input.addEventListener('input', sync);
+    sync();
+  });
+}
+enhanceColorInputs();

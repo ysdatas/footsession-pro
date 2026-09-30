@@ -1,8 +1,9 @@
 /* ============================================================
    FootSession Pro — player-page.js (fiche joueur)
    Point central d'un joueur côté staff : identité (modifiable),
-   derniers relevés physiques, profil /10 et parcours,
-   avec des accès vers Performance et Vidéos.
+   photo, derniers relevés physiques, parcours et programme terrain
+   (points forts, axes d'amélioration, exercices), avec des accès
+   vers Performance et Vidéos.
    Réservée au staff (nav.js) ; la RLS ne renvoie de toute façon
    que les joueurs du club de l'utilisateur.
    ============================================================ */
@@ -47,7 +48,14 @@ const IDENTITY_FIELDS = [
   fichePlayer = data;
   renderHeader();
   setupInfo();
-  await Promise.all([loadPhysical(), loadCareer(), loadPhoto(), initProgramEditor(fichePlayer, ficheProfile)]);
+  const staffCanPlan = canManagePlans(ficheProfile.role);
+  document.querySelectorAll('.plans-only').forEach(b => b.classList.toggle('hidden', !staffCanPlan));
+  document.getElementById('btnAddStrength').addEventListener('click', () => openNoteModal('strength'));
+  document.getElementById('btnAddImprovement').addEventListener('click', () => openNoteModal('improvement'));
+  setupPhoto();
+  await Promise.all([loadPhysical(), loadCareer(), loadPhoto(), initProgramEditor(fichePlayer, ficheProfile),
+    initNotes({ player: fichePlayer, canEdit: staffCanPlan, userId: ficheProfile.id,
+      lists: { strength: 'strengthList', improvement: 'improvementList' } })]);
 })();
 
 const fullName = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim();
@@ -83,8 +91,38 @@ function renderHeader() {
 async function loadPhoto() {
   if (!fichePlayer.photo_path) return;
   const { data } = await sb.storage.from('player-photos').createSignedUrl(fichePlayer.photo_path, 3600);
-  if (!data?.signedUrl) return;
-  document.getElementById('ficheAvatar').replaceWith(el('img', { class: 'fiche-photo', src: data.signedUrl, alt: '' }));
+  if (data?.signedUrl) showPhoto(data.signedUrl);
+}
+
+function showPhoto(src) {
+  const old = document.getElementById('ficheAvatar');
+  old.replaceWith(el('img', { id: 'ficheAvatar', class: 'fiche-photo', src, alt: '' }));
+}
+
+/* Photo : un clic sur l'avatar pour l'ajouter ou la changer. */
+function setupPhoto() {
+  if (!canEditPerformanceData(ficheProfile.role)) return;
+  const btn = document.getElementById('ficheAvatarBtn');
+  const input = document.getElementById('fichePhotoFile');
+  btn.disabled = false;
+  btn.classList.add('is-editable');
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const file = input.files[0]; input.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast('Photo trop volumineuse (5 Mo maximum).', 'error');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = `${fichePlayer.club_id}/${fichePlayer.id}/${Date.now()}.${ext}`;
+    const up = await sb.storage.from('player-photos').upload(path, file, { contentType: file.type || 'image/jpeg' });
+    if (up.error) return toast(up.error.message, 'error');
+    const { error } = await sb.from('players').update({ photo_path: path }).eq('id', fichePlayer.id);
+    if (error) { await sb.storage.from('player-photos').remove([path]); return toast(error.message, 'error'); }
+    const old = fichePlayer.photo_path;
+    fichePlayer.photo_path = path;
+    showPhoto(URL.createObjectURL(file));
+    if (old) await sb.storage.from('player-photos').remove([old]);
+    toast('Photo mise à jour', 'success');
+  });
 }
 
 /* ---------- Informations : lecture, puis édition sur demande ---------- */
@@ -161,14 +199,10 @@ function setupInfo() {
   });
 }
 
-/* ---------- Suivi physique + profil /10 ---------- */
+/* ---------- Suivi physique (dernières mesures) ---------- */
 async function loadPhysical() {
-  const [{ data: ms, error: e1 }, { data: ts, error: e2 }] = await Promise.all([
-    sb.from('player_physical_measurements').select('*').eq('player_id', playerId),
-    sb.from('player_physical_tests').select('*').eq('player_id', playerId),
-  ]);
+  const { data: ms, error: e1 } = await sb.from('player_physical_measurements').select('*').eq('player_id', playerId);
   renderPhysical(ms || [], e1);
-  renderProfile(ts || [], e2);
 }
 
 function renderPhysical(rows, error) {
@@ -186,26 +220,6 @@ function renderPhysical(rows, error) {
       <small>${r ? escapeHtml(r.month_label) : '&nbsp;'}</small></div>`;
   }).join('')}</div>
   ${season ? `<p class="phys-season">Saison ${escapeHtml(season)}</p>` : ''}`;
-}
-
-function renderProfile(rows, error) {
-  const box = document.getElementById('profileBox');
-  if (error) { box.innerHTML = `<p class="text-danger">${escapeHtml(error.message)}</p>`; return; }
-  const season = latestSeasonOf(rows);
-  const scoped = rows.filter(r => !season || r.season_key === season);
-  // Session la plus avancée de la saison ayant au moins une note.
-  const test = [...STAGES].reverse()
-    .map(s => scoped.filter(r => r.stage === s.key && SCORE_AXES.some(a => num(r[a.key]) !== null)).at(-1))
-    .find(Boolean);
-  if (!test) { box.innerHTML = '<p class="text-muted">Aucune note sur 10 pour l’instant.</p>'; return; }
-  document.getElementById('profileWhen').textContent =
-    `${STAGES.find(s => s.key === test.stage)?.label || ''}${season ? ' · ' + season : ''}`;
-  box.innerHTML = `<div class="score-bars">${SCORE_AXES.map(a => {
-    const v = num(test[a.key]);
-    return `<div class="score-bar"><span>${a.label}</span>
-      <span class="track"><span class="fill" style="width:${v === null ? 0 : Math.max(0, Math.min(10, v)) * 10}%"></span></span>
-      <strong>${v === null ? '—' : fmtNum(v, 1)}</strong></div>`;
-  }).join('')}</div>`;
 }
 
 /* ---------- Parcours (modifiable depuis la fiche Performance) ---------- */

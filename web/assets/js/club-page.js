@@ -1,17 +1,20 @@
 /* ============================================================
    FootSession Pro — club-page.js
-   Logique de la page « Mon club » : identité (nom/couleur/logo),
-   code d'invitation, gestion des rôles des membres.
+   Page « Mon club » : identité (nom, couleur, logo), équipes,
+   accès par adresse e-mail et membres (admin, coach, joueur).
    ============================================================ */
 
 let logoFile = null;
 let myProfile = null;
+let roster = [];        // fiches joueurs du club
+let isAdmin = false;
 
 (async () => {
   try {
     const ctx = await requireAuth();
     if (!ctx) return;
     myProfile = ctx.profile;
+    isAdmin = myProfile.role === 'admin';
 
     document.getElementById('uName').textContent = myProfile.nom || 'Utilisateur';
     document.getElementById('uRole').textContent = (ROLE_LABELS[myProfile.role] || myProfile.role).toUpperCase();
@@ -22,49 +25,31 @@ let myProfile = null;
     document.getElementById('clubSub').textContent = club?.nom || 'Club';
     document.getElementById('clubName').value = club?.nom || '';
     document.getElementById('clubColor').value = club?.color || '#C9A84C';
-    document.getElementById('clubSaison').value = club?.saison_start || '';
 
     if (club?.logo_path) {
       const { data } = await sb.storage.from('logos').createSignedUrl(club.logo_path, 3600);
-      if (data?.signedUrl) {
-        document.getElementById('logoPreview').src = data.signedUrl;
-        document.getElementById('logoPreviewWrap').classList.remove('hidden');
-      }
+      if (data?.signedUrl) showLogo(data.signedUrl);
     }
 
-    const isAdmin = myProfile.role === 'admin';
     renderTeams(isAdmin);
     if (isAdmin) {
-      document.getElementById('clubName').disabled = false;
-      document.getElementById('clubColor').disabled = false;
-      document.getElementById('clubSaison').disabled = false;
-      document.getElementById('clubLogoFile').disabled = false;
+      for (const id of ['clubName', 'clubColor', 'logoTile']) document.getElementById(id).disabled = false;
       document.getElementById('saveClub').classList.remove('hidden');
-      document.getElementById('inviteCard').classList.remove('hidden');
-      document.getElementById('joinCode').textContent = club?.join_code || '------';
+      document.getElementById('accessCard').classList.remove('hidden');
     } else {
       document.getElementById('viewerNote').classList.remove('hidden');
     }
 
+    document.getElementById('logoTile').addEventListener('click', () => document.getElementById('clubLogoFile').click());
     document.getElementById('clubLogoFile').addEventListener('change', (e) => {
       logoFile = e.target.files[0] || null;
-      if (logoFile) {
-        document.getElementById('logoPreview').src = URL.createObjectURL(logoFile);
-        document.getElementById('logoPreviewWrap').classList.remove('hidden');
-      }
-    });
-
-    document.getElementById('copyCode').addEventListener('click', () => {
-      navigator.clipboard?.writeText(document.getElementById('joinCode').textContent);
-      toast('Code copié', 'success');
+      if (logoFile) showLogo(URL.createObjectURL(logoFile));
     });
 
     document.getElementById('saveClub').addEventListener('click', async () => {
       const btn = document.getElementById('saveClub'); btn.disabled = true;
       try {
         const updates = { nom: document.getElementById('clubName').value.trim(), color: document.getElementById('clubColor').value };
-        // Champ date vide → null, sinon Postgres refuse la chaîne vide.
-        updates.saison_start = document.getElementById('clubSaison').value || null;
         if (logoFile) {
           const path = `${myProfile.club_id}/logo-${Date.now()}.${logoFile.name.split('.').pop()}`;
           const { error: upErr } = await sb.storage.from('logos').upload(path, logoFile, { upsert: true });
@@ -79,83 +64,140 @@ let myProfile = null;
       finally { btn.disabled = false; }
     });
 
-    await loadMembers(isAdmin);
+    await loadMembers();
   } catch (e) {
     document.getElementById('clubSub').textContent = 'Erreur de chargement.';
     console.error('club-page.js init error:', e);
   }
 })();
 
-async function loadMembers(isAdmin) {
+function showLogo(src) {
+  const img = document.getElementById('logoPreview');
+  img.src = src;
+  img.classList.remove('hidden');
+  document.getElementById('logoEmpty').classList.add('hidden');
+}
+
+const playerName = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim() || 'Joueur';
+
+/* ---------- Accès (e-mail + fonction + fiche) et membres ---------- */
+async function loadMembers() {
   const list = document.getElementById('memberList');
-  const [{ data: members, error }, { data: roster, error: rosterError }] = await Promise.all([
+  const [{ data: members, error }, { data: players, error: rosterError }, access] = await Promise.all([
     sb.from('profiles').select('id, nom, role').eq('club_id', myProfile.club_id).order('nom'),
-    sb.from('players').select('id, nom, prenom, numero, auth_user_id').eq('club_id', myProfile.club_id).order('nom')
+    sb.from('players').select('id, nom, prenom, auth_user_id').eq('club_id', myProfile.club_id).order('nom'),
+    isAdmin ? sb.from('club_access').select('*').is('claimed_at', null).order('created_at', { ascending: false }) : { data: [] },
   ]);
   if (error || rosterError) {
     list.innerHTML = `<p class="text-danger">${escapeHtml((error || rosterError).message)}</p>`;
     return;
   }
+  roster = players || [];
+  if (access.error) console.warn('Accès indisponibles (migration platform_v2.sql non passée ?) :', access.error.message);
+  const pending = access.data || [];
 
-  const availablePlayers = roster || [];
+  if (isAdmin) renderAccess(pending);
+
   list.innerHTML = (members || []).map(m => {
-    const linked = availablePlayers.find(p => p.auth_user_id === m.id);
-    const roleCell = isAdmin
-      ? `<div class="member-controls">
-          <select data-id="${m.id}" class="role-select" ${m.id === myProfile.id ? 'disabled title="Vous ne pouvez pas changer votre propre rôle"' : ''}>
+    const linked = roster.find(p => p.auth_user_id === m.id);
+    const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée') : (ROLE_LABELS[m.role] || m.role);
+    const self = m.id === myProfile.id;
+    const controls = isAdmin && !self
+      ? `<div class="member-controls" data-id="${m.id}">
+          <select class="role-select" aria-label="Fonction">
             ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
           </select>
-          <select class="player-link-select ${m.role === 'joueur' ? '' : 'hidden'}" data-profile-id="${m.id}" aria-label="Fiche joueur">
-            <option value="">— Associer une fiche joueur —</option>
-            ${availablePlayers.filter(p => !p.auth_user_id || p.auth_user_id === m.id).map(p =>
-              `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtml(`${p.prenom || ''} ${p.nom}`.trim())}${p.numero != null ? ` #${p.numero}` : ''}</option>`
-            ).join('')}
+          <select class="player-link-select ${m.role === 'joueur' ? '' : 'hidden'}" aria-label="Fiche joueur">
+            <option value="">Choisir le joueur…</option>
+            ${roster.filter(p => !p.auth_user_id || p.auth_user_id === m.id).map(p =>
+              `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtml(playerName(p))}</option>`).join('')}
           </select>
-          <button type="button" class="btn btn-sm player-link-save ${m.role === 'joueur' ? '' : 'hidden'}" data-profile-id="${m.id}" ${m.id === myProfile.id ? 'disabled' : ''}>Associer</button>
+          <button type="button" class="btn btn-sm btn-danger" data-remove>Retirer</button>
         </div>`
-      : `<span class="badge badge-gold">${ROLE_LABELS[m.role] || m.role}${linked ? ` · ${escapeHtml(`${linked.prenom || ''} ${linked.nom}`.trim())}` : ''}</span>`;
-    return `<div class="member-row"><span class="member-name">${escapeHtml(m.nom || 'Membre')}</span>${roleCell}</div>`;
+      : `<span class="badge badge-gold">${self ? 'Vous · ' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
+    return `<div class="member-row"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small></span>${controls}</div>`;
   }).join('') || '<p class="text-muted">Aucun membre.</p>';
-
-  if (!isAdmin) return;
-
-  list.querySelectorAll('.role-select').forEach(sel => {
-    sel.addEventListener('change', async () => {
-      const profileId = sel.dataset.id;
-      const role = sel.value;
-      if (role === 'joueur') {
-        // club_set_member_role() refuse 'joueur' : le rôle ne bascule qu'au
-        // moment où une fiche est associée. On le dit, plutôt que de laisser
-        // croire que le changement est déjà enregistré.
-        list.querySelector(`.player-link-select[data-profile-id="${profileId}"]`)?.classList.remove('hidden');
-        list.querySelector(`.player-link-save[data-profile-id="${profileId}"]`)?.classList.remove('hidden');
-        toast('Choisissez une fiche joueur puis cliquez « Associer » pour appliquer le rôle.', 'info');
-        return;
-      }
-      sel.disabled = true;
-      const { error: rpcError } = await sb.rpc('club_set_member_role', { p_profile_id: profileId, p_role: role });
-      sel.disabled = false;
-      if (rpcError) { toast(rpcError.message, 'error'); await loadMembers(isAdmin); }
-      else { toast('Rôle mis à jour', 'success'); await loadMembers(isAdmin); }
-    });
-  });
-
-  list.querySelectorAll('.player-link-save').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const profileId = btn.dataset.profileId;
-      const playerId = list.querySelector(`.player-link-select[data-profile-id="${profileId}"]`)?.value;
-      if (!playerId) { toast('Choisissez une fiche joueur.', 'error'); return; }
-      btn.disabled = true;
-      const { error: rpcError } = await sb.rpc('club_link_player', {
-        p_profile_id: profileId,
-        p_player_id: Number(playerId)
-      });
-      btn.disabled = false;
-      if (rpcError) toast(rpcError.message, 'error');
-      else { toast('Compte associé à la fiche joueur.', 'success'); await loadMembers(isAdmin); }
-    });
-  });
 }
+
+function renderAccess(pending) {
+  const sel = document.getElementById('accPlayer');
+  const taken = new Set(pending.map(a => a.player_id).filter(Boolean));
+  sel.innerHTML = '<option value="">Choisir le joueur…</option>' + roster
+    .filter(p => !p.auth_user_id && !taken.has(p.id))
+    .map(p => `<option value="${p.id}">${escapeHtml(playerName(p))}</option>`).join('');
+  syncAccessForm();
+  document.getElementById('pendingList').innerHTML = pending.length
+    ? `<div class="access-list"><h4>En attente de première connexion</h4>${pending.map(a => {
+        const p = roster.find(x => x.id === a.player_id);
+        return `<div class="member-row"><span class="member-name">${escapeHtml(a.email)}<small>${ROLE_LABELS[a.role] || a.role}${p ? ` · ${escapeHtml(playerName(p))}` : ''}</small></span>
+          <button class="btn btn-sm" type="button" data-access-delete="${a.id}">Annuler</button></div>`;
+      }).join('')}</div>`
+    : '';
+}
+
+function syncAccessForm() {
+  document.getElementById('accPlayer').classList.toggle('hidden', document.getElementById('accRole').value !== 'joueur');
+}
+document.getElementById('accRole').addEventListener('change', syncAccessForm);
+
+document.getElementById('accessForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('accEmail').value.trim().toLowerCase();
+  const role = document.getElementById('accRole').value;
+  const playerId = Number(document.getElementById('accPlayer').value) || null;
+  if (role === 'joueur' && !playerId) return toast('Choisissez la fiche du joueur.', 'error');
+  const btn = e.submitter; if (btn) btn.disabled = true;
+  try {
+    const { error } = await sb.from('club_access').insert({
+      club_id: myProfile.club_id, email, role, player_id: role === 'joueur' ? playerId : null, created_by: myProfile.id,
+    });
+    if (error) throw error;
+    e.target.reset(); syncAccessForm();
+    toast('Accès enregistré : il s’activera à la première connexion avec cette adresse.', 'success');
+    await loadMembers();
+  } catch (err) {
+    console.error('Accès non enregistré', err);
+    toast(err.code === '23505' ? 'Cette adresse ou ce joueur a déjà un accès en attente.'
+      : /club_access/.test(err.message || '') ? 'Base à mettre à jour : exécutez supabase/platform_v2.sql.' : err.message, 'error');
+  } finally { if (btn) btn.disabled = false; }
+});
+
+document.getElementById('pendingList').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-access-delete]'); if (!b) return;
+  const { error } = await sb.from('club_access').delete().eq('id', Number(b.dataset.accessDelete));
+  if (error) return toast(error.message, 'error');
+  await loadMembers();
+});
+
+/* Fonction d'un membre : Admin / Coach directement ; Joueur une fois la fiche choisie. */
+document.getElementById('memberList').addEventListener('change', async (e) => {
+  const box = e.target.closest('.member-controls'); if (!box) return;
+  const profileId = box.dataset.id;
+  const role = box.querySelector('.role-select').value;
+  const linkSel = box.querySelector('.player-link-select');
+  linkSel.classList.toggle('hidden', role !== 'joueur');
+  let rpc;
+  if (role === 'joueur') {
+    if (!linkSel.value) { toast('Choisissez la fiche du joueur pour appliquer la fonction.', 'info'); return; }
+    rpc = sb.rpc('club_link_player', { p_profile_id: profileId, p_player_id: Number(linkSel.value) });
+  } else {
+    rpc = sb.rpc('club_set_member_role', { p_profile_id: profileId, p_role: role });
+  }
+  const { error } = await rpc;
+  if (error) toast(error.message, 'error'); else toast('Membre mis à jour', 'success');
+  await loadMembers();
+});
+
+document.getElementById('memberList').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-remove]'); if (!b) return;
+  const profileId = b.closest('.member-controls').dataset.id;
+  const name = b.closest('.member-row').querySelector('.member-name').firstChild.textContent;
+  if (!confirm(`Retirer ${name} du club ? Son compte n’aura plus accès aux données du club.`)) return;
+  const { error } = await sb.rpc('club_remove_member', { p_profile_id: profileId });
+  if (error) return toast(error.message, 'error');
+  toast('Membre retiré', 'success');
+  await loadMembers();
+});
 
 /* ---------- Équipes ---------- */
 function renderTeams(isAdmin) {

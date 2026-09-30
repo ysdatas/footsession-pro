@@ -1,134 +1,152 @@
 /* ============================================================
    FootSession Pro — tactical-board.css
+   Le terrain au centre, en grand et sans défilement. Autour :
+     - à gauche, les outils de dessin (une colonne d'icônes) ;
+     - à droite, Matériel / Terrain / Couleurs / Exporter / Vidéo :
+       un clic ouvre le panneau correspondant, rien n'est affiché
+       en permanence ;
+     - au-dessus du terrain, les réglages de l'élément sélectionné ;
+     - en dessous, les étapes de l'animation.
    ============================================================ */
 
-.tb-topbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin-bottom: 14px; flex-wrap: wrap;
+.main.tb-page {
+  max-width: none; height: 100vh; min-height: 0; padding: 14px 18px;
+  display: flex; flex-direction: column; gap: 10px; overflow: hidden;
 }
-.tb-title { font-weight: 600; font-size: 1.05rem; }
-.tb-top-actions { display: flex; gap: 10px; }
+.tb-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; flex: 0 0 auto; }
+.tb-title { font-weight: 700; font-size: 1.05rem; }
+.tb-title .text-muted { font-weight: 500; font-size: .88rem; margin-left: 6px; }
+.tb-top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+#tbVideoChip { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Boutons pions (Joueur / Adversaire) : pastille de couleur bien visible */
-.tb-tool.tb-pion { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-.pion-dot {
-  width: 14px; height: 14px; border-radius: 50%;
-  background: #E03131; border: 2px solid rgba(255,255,255,.85);
-  box-shadow: 0 0 0 1px rgba(0,0,0,.4); flex-shrink: 0;
+/* ---------- Plateau : outils | terrain | panneau | barre de droite ---------- */
+.tb-board {
+  flex: 1 1 auto; min-height: 0;
+  display: grid; grid-template-columns: 52px minmax(0, 1fr) auto 76px; gap: 10px;
 }
-#pionDotBlue, #pionDotBlue2 { background: #1f6feb; }
-.tb-colorlbl {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: .78rem; color: var(--text-secondary);
+.tb-rail {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 8px 6px; overflow-y: auto; min-height: 0;
 }
-.tb-colorlbl input[type="color"] { width: 30px; height: 26px; padding: 0; }
+.tb-rail-sep { width: 60%; height: 1px; background: var(--border); margin: 4px 0; flex: 0 0 1px; }
+.tb-rail-left .tb-tool { width: 38px; height: 38px; min-width: 0; padding: 0; font-size: 1rem; flex: 0 0 38px; }
+.tbi { width: 18px; height: 18px; display: block; }
+.tb-railbtn {
+  width: 64px; flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 9px 2px; border-radius: 10px; border: 1px solid transparent; background: none;
+  color: var(--text-secondary); font-size: .68rem; font-weight: 600; cursor: pointer;
+}
+.tb-railbtn .tbi { width: 22px; height: 22px; }
+.tb-railbtn:hover { color: var(--text-primary); background: var(--bg-surface); }
+.tb-railbtn.active { color: var(--gold); border-color: var(--gold-border); background: rgba(201,168,76,.10); }
 
-/* Étiquette de mesure (largeur × hauteur) pendant le tracé d'une zone */
-.tb-sizetag {
-  position: fixed; z-index: 300; display: none;
-  background: var(--gold); color: #0A0A0A;
-  font: 600 12px/1 var(--font-main);
-  padding: 5px 9px; border-radius: 6px; pointer-events: none;
+.tb-stage {
+  position: relative; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden;
+}
+#pitch {
+  display: block; cursor: crosshair; touch-action: none;
+  border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+#pitch.tool-select { cursor: default; }
+
+/* Panneau ouvert à droite du terrain : le terrain se réduit, rien n'est masqué. */
+.tb-drawer {
+  width: 272px; min-height: 0; overflow-y: auto;
+  background: var(--bg-card); border: 1px solid var(--gold-border); border-radius: var(--radius-lg);
+  padding: 14px;
+}
+.tb-drawer.hidden { display: none; }
+.tb-pane { display: grid; gap: 12px; align-content: start; }
+.tb-pane.hidden { display: none; }
+.tb-pane-title {
+  margin: 0; display: flex; align-items: center; justify-content: space-between;
+  font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-secondary);
+}
+.tb-pane-x { background: none; border: 0; color: var(--text-secondary); cursor: pointer; font-size: .9rem; padding: 2px 4px; }
+.tb-pane-x:hover { color: var(--text-primary); }
+.tb-pane-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.tb-pane-grid .tb-tool { width: 100%; height: 34px; font-size: .78rem; }
+.tb-pane-grid #toggleNumbers, .tb-pane-grid label[for="logoInput"] { grid-column: 1 / -1; }
+.tb-field { display: grid; gap: 6px; font-size: .78rem; color: var(--text-secondary); }
+.tb-field > span { display: inline-flex; align-items: center; gap: 7px; }
+.tb-field select { width: 100%; }
+.tb-card-hint { margin: 0; font-size: .78rem; color: var(--text-muted); line-height: 1.45; }
+.tb-card-actions { display: grid; gap: 6px; }
+.tb-card-actions .tb-tool { width: 100%; height: 36px; font-size: .8rem; }
+.tb-tool.tb-strong { border-color: var(--gold-border); color: var(--gold); font-weight: 600; }
+
+/* Matériel : groupes (cônes, coupelles, autre), icône au-dessus du nom. */
+.tb-equip-groups { display: grid; gap: 8px; }
+.tb-equip-title { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
+.tb-equip-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.tb-equip-grid .tb-equip { height: auto; flex-direction: column; gap: 4px; padding: 8px 4px; font-size: .7rem; }
+.tb-equip-grid .tb-equip .eqi { width: 22px; height: 22px; }
+.tb-equip-grid .tb-equip span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eqi { width: 18px; height: 18px; flex-shrink: 0; display: block; }
+
+/* Vidéo liée */
+.tb-video-list { display: grid; gap: 6px; }
+.tb-video {
+  display: grid; gap: 2px; text-align: left; padding: 9px 10px; width: 100%;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface);
+  color: var(--text-primary); cursor: pointer; font: inherit;
+}
+.tb-video:hover { border-color: var(--gold-border); }
+.tb-video.active { border-color: var(--gold); background: rgba(201,168,76,.08); }
+.tb-video strong { font-size: .82rem; }
+.tb-video span { font-size: .72rem; color: var(--text-secondary); }
+
+/* ---------- Élément sélectionné : barre au-dessus du terrain ---------- */
+.tb-selbar {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+  max-width: calc(100% - 20px); padding: 7px 10px;
+  background: rgba(20,20,20,.94); border: 1px solid var(--gold-border); border-radius: 14px;
   box-shadow: var(--shadow);
 }
+.tb-selbar.hidden { display: none; }
+.tb-sel-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--gold); }
+.tb-selprops { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tb-selprops .hidden { display: none !important; }
+.tb-selbar .swatches { gap: 4px; }
+.tb-selbar .swatches .sw { width: 18px; height: 18px; }
+.tb-prop { display: inline-flex; align-items: center; gap: 6px; font-size: .74rem; color: var(--text-secondary); margin: 0; }
+.tb-prop input[type="text"] { width: 110px; padding: 5px 8px; font-size: .82rem; }
+.tb-selprops .tb-tool { height: 30px; min-width: 30px; padding: 0 8px; font-size: .8rem; }
 
-/* ---------- Layout : outils | terrain | panneau ---------- */
-.tb-layout {
-  display: grid; grid-template-columns: 202px minmax(0, 1fr) 262px;
-  gap: 12px; align-items: start;
+/* Tailles S / M / L / XL et −/+ : même échelle que la page Paramètres. */
+.tb-sizes { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.tb-sizes > span { display: inline-flex; }
+.tb-sizes button {
+  min-width: 26px; height: 28px; padding: 0 6px; background: var(--bg-surface); border: 0;
+  border-right: 1px solid var(--border); color: var(--text-primary); font-size: .74rem; font-weight: 600; cursor: pointer;
 }
-.tb-main-col { min-width: 0; }
+.tb-sizes button:last-child { border-right: 0; }
+.tb-sizes button:hover { background: var(--bg-hover); }
+.tb-sizes button.active { background: rgba(201,168,76,.18); color: var(--gold); }
 
-/* Barre d'outils latérale, compacte */
-.tb-toolbar {
-  flex: 0 0 202px; width: 202px;
-  display: flex; flex-direction: column; gap: 9px;
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius-md); padding: 10px 9px;
-  position: sticky; top: 12px;
-  max-height: calc(100vh - 24px); overflow-y: auto;
+/* ---------- Étapes, sous le terrain ---------- */
+.tb-stepsbar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 8px 12px; max-width: 100%; box-sizing: border-box;
 }
-/* Chaque groupe = un intitulé + ses boutons */
-.tb-group { display: flex; flex-direction: column; gap: 5px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-.tb-toolbar .tb-group:last-child { border-bottom: none; padding-bottom: 0; }
-.tb-glabel { font-size: .56rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
-.tb-btns { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
-.tb-mini { font-size: .7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
-.swatch { width: 12px; height: 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,.25); flex-shrink: 0; }
-.tb-colorlbl input[type="color"] { margin-left: 2px; }
-
-/* ---------- Barre latérale : tout aligné sur une grille régulière ----------
-   Une seule hauteur de contrôle (--tb-h) et une seule taille de police,
-   pour que les groupes ne soient plus « bancals ». */
-.tb-toolbar { --tb-h: 30px; }
-.tb-toolbar .tb-tool,
-.tb-toolbar select,
-.tb-toolbar input[type="color"] {
-  height: var(--tb-h); font-size: .74rem; font-weight: 500;
-  border-radius: 7px; box-sizing: border-box;
+.tb-stage.presenting .tb-stepsbar { display: none; }
+.tb-stepsbar .tb-tool { height: 34px; font-size: .8rem; }
+.tb-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.tb-steps:empty { display: none; }
+.tb-step {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--bg-surface); color: var(--text-primary); font-weight: 700; font-size: .85rem; cursor: pointer;
 }
-.tb-toolbar .tb-tool { min-width: 0; padding: 0 8px; }
-.tb-toolbar input[type="color"] { width: var(--tb-h); padding: 2px; }
-.tb-toolbar select { width: 100%; padding: 0 8px; }
+.tb-step:hover { border-color: var(--gold-border); }
+.tb-step.active { background: var(--gold); border-color: var(--gold); color: #0A0A0A; }
+.tb-stepinfo { font-size: .78rem; color: var(--text-secondary); margin-left: 4px; }
+.tb-stepinfo strong { color: var(--gold); }
 
-/* Groupes en grille : chaque bouton occupe une cellule égale. */
-.tb-toolbar .tb-btns { display: grid; gap: 4px; align-items: stretch; }
-#viewGroup .tb-btns { grid-template-columns: repeat(3, 1fr); }          /* Terrain */
-#toolGroup .tb-btns { grid-template-columns: repeat(2, 1fr); }          /* Sélection & pions */
-#toolGroup .tb-tool[data-tool="select"] { grid-column: 1 / -1; }        /* Sélect. sur toute la largeur */
-#drawGroup .tb-btns { grid-template-columns: repeat(3, 1fr); }          /* Tracés : icônes carrées */
-#drawGroup .tb-tool { padding: 0; font-size: .78rem; }
-#equipGroup .tb-btns { grid-template-columns: repeat(2, 1fr); }         /* Matériel : icône + libellé */
-#styleGroup .tb-btns,
-#seanceGroup .tb-btns { grid-template-columns: repeat(2, 1fr); }
-
-/* Le séparateur vertical n'a pas de sens dans une grille */
-.tb-toolbar .tb-sep { display: none; }
-
-/* Boutons matériel : icône + texte alignés, texte tronqué proprement */
-.tb-toolbar .tb-equip { justify-content: flex-start; gap: 5px; padding: 0 6px; overflow: hidden; }
-.tb-toolbar .tb-equip .eqi { width: 13px; height: 13px; }
-
-/* Lignes de couleur : libellé + pastille + sélecteur sur une seule rangée */
-.tb-toolbar .tb-colorlbl {
-  grid-column: 1 / -1;
-  display: grid; grid-template-columns: 13px 1fr var(--tb-h); align-items: center; gap: 6px;
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .03em;
-}
-.tb-toolbar .tb-colorlbl input[type="color"] { margin-left: 0; }
-
-/* Contrôles qui doivent occuper toute la largeur */
-#styleGroup #toggleNumbers { grid-column: 1 / -1; }
-#styleGroup #fontSelect,
-#seanceGroup #formationSelect { grid-column: 1 / -1; }
-
-/* Le terrain occupe toute la largeur disponible */
-#pitch { max-width: 100%; }
-
-/* Indication pendant le cadrage SCREEN */
-.tb-stage { position: relative; }
-.tb-screenhint {
-  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-  background: var(--gold); color: #0A0A0A; font: 600 12px/1 var(--font-main);
-  padding: 7px 12px; border-radius: 7px; pointer-events: none; z-index: 5;
-  box-shadow: var(--shadow);
-}
-
-/* Écran moyen : le panneau passe sous le terrain, ses blocs côte à côte. */
-@media (max-width: 1280px) {
-  .tb-layout { grid-template-columns: 202px minmax(0, 1fr); grid-template-areas: "tools pitch" "tools panel"; }
-  .tb-toolbar { grid-area: tools; }
-  .tb-main-col { grid-area: pitch; }
-  .tb-panel { grid-area: panel; position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: none; }
-}
-@media (max-width: 900px) {
-  .tb-layout { grid-template-columns: 1fr; grid-template-areas: "tools" "pitch" "panel"; }
-  .tb-toolbar { width: 100%; flex: none; position: static; max-height: none; flex-direction: row; flex-wrap: wrap; }
-  .tb-group { border-bottom: none; padding-right: 10px; border-right: 1px solid var(--border); }
-  .tb-panel { grid-template-columns: 1fr; }
-}
-
+/* ---------- Commun ---------- */
 .tb-tool {
   min-width: 34px; height: 34px; padding: 0 9px;
   background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
@@ -138,72 +156,35 @@
 .tb-tool:hover { background: var(--bg-hover); border-color: #3a3a3a; }
 .tb-tool.active { background: rgba(201,168,76,.16); border-color: var(--gold); color: var(--gold); }
 .tb-tool.danger:hover { color: var(--danger); border-color: rgba(244,67,54,.4); }
-
-/* Apparence commune des sélecteurs de couleur (la taille est fixée plus haut
-   par la grille de la barre latérale, à ne pas réimposer ici). */
-.tb-toolbar input[type="color"] {
-  padding: 2px; border: 1px solid var(--border);
-  background: var(--bg-surface); cursor: pointer;
-}
-
-/* ---------- Panneau de droite ---------- */
-.tb-panel {
-  display: grid; gap: 10px; position: sticky; top: 12px;
-  max-height: calc(100vh - 24px); overflow-y: auto;
-}
-.tb-card {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
-  padding: 12px; display: flex; flex-direction: column; gap: 10px;
-}
-.tb-card-title {
-  margin: 0; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
-  color: var(--text-secondary); display: flex; justify-content: space-between; gap: 8px;
-}
-.tb-card-title span { color: var(--gold); letter-spacing: 0; text-transform: none; font-weight: 600; }
-.tb-card-hint { margin: 0; font-size: .78rem; color: var(--text-muted); line-height: 1.45; }
-.tb-card-actions { display: grid; gap: 6px; }
-.tb-card-actions .tb-tool { width: 100%; height: 34px; font-size: .8rem; justify-content: center; }
 .tb-tool:disabled { opacity: .4; cursor: not-allowed; }
-
-.tb-props { display: flex; flex-direction: column; gap: 9px; }
-.tb-props.hidden, .tb-prop.hidden { display: none; }
-.tb-prop { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .8rem; color: var(--text-secondary); }
-.tb-prop input[type="color"] { width: 38px; height: 30px; padding: 2px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-surface); cursor: pointer; }
-.tb-prop input[type="text"] { width: 140px; padding: 7px 9px; font-size: .85rem; }
-.tb-prop-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.tb-prop-actions .tb-tool { flex: 1; height: 32px; font-size: .78rem; }
-
-/* Tailles S / M / L / XL et −/+ : même échelle que la page Paramètres. */
-.tb-sizes { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.tb-sizes button {
-  min-width: 28px; height: 30px; padding: 0 6px; background: var(--bg-surface); border: 0;
-  border-right: 1px solid var(--border); color: var(--text-primary); font-size: .76rem; font-weight: 600; cursor: pointer;
+.pion-dot {
+  width: 16px; height: 16px; border-radius: 50%; display: inline-block;
+  background: #E03131; border: 2px solid rgba(255,255,255,.85);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4); flex-shrink: 0;
 }
-.tb-sizes button:last-child { border-right: 0; }
-.tb-sizes button:hover { background: var(--bg-hover); }
-.tb-sizes button.active { background: rgba(201,168,76,.18); color: var(--gold); }
-
-/* Étapes : une pastille par étape */
-.tb-steps { display: flex; flex-wrap: wrap; gap: 6px; }
-.tb-steps:empty { display: none; }
-.tb-step {
-  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
-  background: var(--bg-surface); color: var(--text-primary); font-weight: 700; font-size: .85rem; cursor: pointer;
-}
-.tb-step:hover { border-color: var(--gold-border); }
-.tb-step.active { background: var(--gold); border-color: var(--gold); color: #0A0A0A; }
+#pionDotBlue, #pionDotBlue2 { background: #1f6feb; }
 
 /* Cadrage de l'export */
 .tb-crop { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .8rem; color: var(--text-secondary); }
 .tb-crop .tb-tool { height: 32px; font-size: .76rem; }
 .tb-crop .tb-tool.active { color: var(--gold); }
 .tb-linkbtn { background: none; border: 0; color: var(--gold); cursor: pointer; font-size: .8rem; text-decoration: underline; padding: 0 0 0 6px; }
+.tb-screenhint {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  background: var(--gold); color: #0A0A0A; font: 600 12px/1 var(--font-main);
+  padding: 7px 12px; border-radius: 7px; pointer-events: none; z-index: 5; box-shadow: var(--shadow);
+}
+.tb-screenhint.hidden, .tb-cropchip.hidden { display: none; }
 .tb-cropchip {
-  position: absolute; top: 10px; right: 10px; z-index: 5; border: 0; cursor: pointer;
+  position: absolute; bottom: 10px; right: 10px; z-index: 5; border: 0; cursor: pointer;
   background: rgba(10,10,10,.75); color: var(--gold); font: 600 12px/1 var(--font-main);
   padding: 7px 10px; border-radius: 999px; box-shadow: var(--shadow);
 }
-.tb-cropchip.hidden { display: none; }
+.tb-sizetag {
+  position: fixed; z-index: 300; display: none;
+  background: var(--gold); color: #0A0A0A; font: 600 12px/1 var(--font-main);
+  padding: 5px 9px; border-radius: 6px; pointer-events: none; box-shadow: var(--shadow);
+}
 
 /* Menu contextuel (clic droit) */
 .tb-menu {
@@ -217,50 +198,26 @@
 .tbm-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .82rem; color: var(--text-secondary); }
 .tbm-row.hidden { display: none; }
 .tbm-row input[type="text"], .tbm-row input[type="number"] { width: 118px; padding: 6px 8px; }
-.tbm-row input[type="color"] { width: 40px; height: 28px; padding: 0; border-radius: 6px; }
+.tbm-row .swatches { justify-content: flex-end; gap: 3px; max-width: 132px; }
+.tbm-row .swatches .sw { width: 16px; height: 16px; }
 .tbm-del {
   background: rgba(244,67,54,.12); color: var(--danger);
-  border: 1px solid rgba(244,67,54,.35); border-radius: 8px;
-  padding: 8px; font-weight: 600; font-size: .85rem;
+  border: 1px solid rgba(244,67,54,.35); border-radius: 8px; padding: 8px; font-weight: 600; font-size: .85rem;
 }
 .tbm-del:hover { background: rgba(244,67,54,.2); }
-.tbm-btn {
-  background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary);
-  border-radius: 7px; padding: 5px 10px; font-size: .8rem;
-}
+.tbm-btn { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); border-radius: 7px; padding: 5px 10px; font-size: .8rem; }
 .tbm-btn:hover { border-color: var(--border-gold); }
 .tbm-seg { display: inline-flex; gap: 3px; }
-.tbm-seg button {
-  background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-secondary);
-  border-radius: 6px; padding: 4px 8px; font-size: .8rem; min-width: 28px;
-}
+.tbm-seg button { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; padding: 4px 8px; font-size: .8rem; min-width: 28px; }
 .tbm-seg button.on { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,.12); }
 
-/* Boutons Matériel */
-.tb-equip { font-size: .78rem; gap: 5px; }
-.eqi { width: 15px; height: 15px; flex-shrink: 0; display: block; }
-
-/* Terrain — uniquement la pelouse, sans cadre noir, coins arrondis */
-.tb-stage {
-  background: transparent; border: none; padding: 0;
-  display: flex; justify-content: center; overflow: visible;
-}
-#pitch {
-  width: 100%; cursor: crosshair; touch-action: none; display: block;
-  border-radius: 16px;                    /* rebords légèrement arrondis */
-  box-shadow: 0 10px 30px rgba(0,0,0,.45);
-}
-#pitch.tool-select { cursor: default; }
-
-/* Mode présentation (vestiaire) : occupe l'écran, avec sa propre barre
-   de commande — on n'est jamais bloqué dedans. */
+/* Mode présentation : plein écran avec sa propre barre, jamais bloquant. */
 .tb-presentbar { display: none; }
 .tb-stage.presenting {
   position: fixed; inset: 0; z-index: 1000; background: #060606;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px;
+  flex-direction: column; gap: 14px; padding: 16px;
 }
-.tb-stage.presenting #pitch { width: auto; height: auto; max-width: 96vw; max-height: calc(100vh - 110px); }
-.tb-stage.presenting .tb-cropchip { display: none; }
+.tb-stage.presenting .tb-cropchip, .tb-stage.presenting .tb-selbar { display: none; }
 .tb-stage.presenting .tb-presentbar {
   display: flex; align-items: center; gap: 8px;
   background: rgba(20,20,20,.9); border: 1px solid var(--border); border-radius: 999px; padding: 6px 8px;
@@ -273,10 +230,30 @@
 .tb-presentbar .tb-presexit { background: rgba(244,67,54,.14); border-color: rgba(244,67,54,.4); color: #ff8a80; }
 .tb-presentbar span { color: var(--text-secondary); font-size: .85rem; padding: 0 6px; min-width: 90px; text-align: center; }
 
-@media (max-width: 760px) {
-  .tb-group { border-right: none; }
-}
+/* Fiche tactique (feuille A4 hors écran, clonée par html2pdf) */
+.tb-sheet-holder { position: fixed; left: -10000px; top: 0; }
+.tb-sheet { width: 190mm; background: #fff; color: #111; font: 10.5pt/1.45 Inter, Arial, sans-serif; padding: 0; }
+.tb-sheet header { border-bottom: 2px solid #C9A84C; padding-bottom: 6px; margin-bottom: 10px; }
+.tb-sheet-eyebrow { font-size: 8pt; text-transform: uppercase; letter-spacing: .08em; color: #8a6d1f; }
+.tb-sheet h1 { font-size: 18pt; margin: 2px 0 0; color: #111; }
+.tb-sheet h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: .06em; color: #8a6d1f; margin: 12px 0 4px; }
+.tb-sheet p { margin: 0; color: #222; }
+.tb-sheet-imgs { display: grid; gap: 6mm; }
+.tb-sheet-imgs.is-steps { grid-template-columns: 1fr 1fr; }
+.tb-sheet figure { margin: 0; }
+.tb-sheet img { width: 100%; display: block; border-radius: 3mm; }
+.tb-sheet figcaption { font-size: 8.5pt; color: #555; margin-top: 2px; }
 
-/* Le tableau tactique prend toute la largeur de l'écran : le terrain est
-   la pièce centrale, il ne doit pas être bridé à 1280 px comme les pages de texte. */
-.main.tb-page { max-width: none; padding-top: 22px; }
+/* ---------- Écrans plus étroits ---------- */
+@media (max-width: 1100px) {
+  .tb-drawer { width: 240px; }
+}
+@media (max-width: 980px) {
+  .main.tb-page { height: auto; min-height: 100vh; overflow: visible; padding: 70px 12px 20px; }
+  .tb-board { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; }
+  .tb-rail { flex-direction: row; flex-wrap: wrap; justify-content: center; overflow: visible; }
+  .tb-rail-sep { width: 1px; height: 24px; }
+  .tb-stage { height: 62vh; }
+  .tb-drawer { width: auto; }
+  .tb-railbtn { width: auto; flex-direction: row; padding: 8px 10px; }
+}

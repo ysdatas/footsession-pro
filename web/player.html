@@ -25,7 +25,11 @@
     <a class="back-link" href="players.html">← Joueurs</a>
 
     <section class="card fiche-hero">
-      <div id="ficheAvatar" class="pc-avatar av0 fiche-avatar">?</div>
+      <button id="ficheAvatarBtn" class="fiche-avatar-btn" type="button" disabled aria-label="Photo du joueur">
+        <div id="ficheAvatar" class="pc-avatar av0 fiche-avatar">?</div>
+        <span class="fiche-avatar-edit">Photo</span>
+      </button>
+      <input id="fichePhotoFile" type="file" accept="image/jpeg,image/png,image/webp" hidden>
       <div class="fiche-hero-text">
         <h1 id="ficheName">Chargement…</h1>
         <p class="fiche-sub" id="ficheSub"></p>
@@ -68,21 +72,29 @@
           <div id="physBox"><p class="text-muted">Chargement…</p></div>
         </section>
 
-        <section class="card">
-          <div class="fiche-card-head"><h3>Profil athlétique</h3><span class="fiche-when" id="profileWhen"></span></div>
-          <div id="profileBox"><p class="text-muted">Chargement…</p></div>
-        </section>
-
         <section class="card fiche-wide">
           <div class="fiche-card-head"><h3>Parcours</h3><a class="fiche-link" id="careerLink" href="#">Modifier →</a></div>
           <div id="careerBox"><p class="text-muted">Chargement…</p></div>
         </section>
         <section class="card fiche-wide">
           <div class="fiche-card-head">
-            <h3>Programme</h3>
-            <button class="btn btn-sm btn-primary hidden" id="btnAddExercise" type="button">+ Exercice</button>
+            <h3>Programme terrain</h3>
+            <span class="fiche-when">Ce que le joueur voit dans « Mon programme terrain »</span>
           </div>
-          <div id="programBox"><p class="text-muted">Chargement…</p></div>
+          <div class="terrain-cols">
+            <div class="terrain-block">
+              <div class="terrain-block-head"><h4>Points forts</h4><button class="btn btn-sm hidden plans-only" id="btnAddStrength" type="button">+ Ajouter</button></div>
+              <div id="strengthList" class="note-grid"></div>
+            </div>
+            <div class="terrain-block">
+              <div class="terrain-block-head"><h4>Axes d’amélioration</h4><button class="btn btn-sm hidden plans-only" id="btnAddImprovement" type="button">+ Ajouter</button></div>
+              <div id="improvementList" class="note-grid"></div>
+            </div>
+          </div>
+          <div class="terrain-block">
+            <div class="terrain-block-head"><h4>Exercices</h4><button class="btn btn-sm btn-primary hidden" id="btnAddExercise" type="button">+ Exercice</button></div>
+            <div id="programBox"><p class="text-muted">Chargement…</p></div>
+          </div>
         </section>
       </div>
     </div>
@@ -97,7 +109,7 @@
         <label>Titre<input name="title" required placeholder="Ex. Gainage latéral" autocomplete="off"></label>
         <label class="span-all">Consignes<textarea name="instructions" rows="4" placeholder="Placement, points techniques, erreurs à éviter…"></textarea></label>
         <label>Dosage<input name="dosage" placeholder="Ex. 3 × 10, récup 1 min" autocomplete="off"></label>
-        <label>Vidéo du joueur<select name="video_id"><option value="">Aucune</option></select></label>
+        <label>Vidéo (déjà sur la plateforme)<select name="video_id"><option value="">Aucune</option></select></label>
         <div class="prog-edit-block">
           <span class="prog-edit-label">Image de l’exercice</span>
           <div class="prog-preview" id="progImagePreview"></div>
@@ -129,6 +141,7 @@
   <script src="assets/js/lightbox.js"></script>
   <script src="assets/js/program.js"></script>
   <script src="assets/js/program-editor.js"></script>
+  <script src="assets/js/notes.js"></script>
   <script src="assets/js/player-page.js"></script>
 </body>
 </html>

@@ -22,106 +22,66 @@
   </aside>
   <main class="main tb-page">
     <div class="tb-topbar">
-      <div class="tb-title">
-        Mode Schéma — <span class="text-muted" id="tbContext">dessinez puis cliquez « Valider »</span>
-      </div>
+      <div class="tb-title">Tableau tactique <span class="text-muted" id="tbContext">schéma libre</span></div>
       <div class="tb-top-actions">
-        <button class="btn" type="button" onclick="window.history.length>1?history.back():location.href='dashboard.html'">Annuler</button>
-        <button class="btn btn-primary hidden" id="tbValidate" type="button">Valider ce schéma</button>
+        <button class="btn btn-sm hidden" id="tbVideoChip" type="button">▶ Vidéo liée</button>
+        <button class="btn btn-sm" id="tbClose" type="button">Fermer</button>
+        <button class="btn btn-sm hidden" id="saveBtn" type="button">Enregistrer</button>
+        <button class="btn btn-sm btn-primary hidden" id="tbValidate" type="button">Valider ce schéma</button>
       </div>
     </div>
 
-    <div class="auth-error hidden" id="tbReadonlyNote" style="max-width:520px;">Votre compte est en lecture seule : vous pouvez consulter mais pas enregistrer.</div>
-
-    <div class="tb-layout">
-    <!-- Barre d'outils (colonne latérale) -->
-    <div class="tb-toolbar">
-      <div class="tb-group" id="viewGroup">
-        <span class="tb-glabel">Terrain</span>
-        <div class="tb-btns">
-          <button class="tb-tool active" data-view="complet">Complet</button>
-          <button class="tb-tool" data-view="demi">Demi</button>
-          <button class="tb-tool" data-view="vierge">Vierge</button>
-          <button class="tb-tool" data-view="futsal">Futsal</button>
-          <button class="tb-tool" data-view="horizontal">Portrait</button>
-        </div>
+    <div class="tb-board">
+      <!-- Outils de dessin, à gauche du terrain -->
+      <div class="tb-rail tb-rail-left" id="toolGroup" role="toolbar" aria-label="Outils">
+        <button class="tb-tool active" data-tool="select" title="Sélectionner / déplacer (V)"><svg viewBox="0 0 20 20" class="tbi"><path d="M5 3l10 6.5-4.4 1.1L13 16l-2 1-2.4-5.3L5 14z" fill="currentColor"/></svg></button>
+        <button class="tb-tool tb-pion" data-tool="player" title="Ajouter un joueur"><span class="pion-dot" id="pionDotRed"></span></button>
+        <button class="tb-tool tb-pion" data-tool="opponent" title="Ajouter un adversaire"><span class="pion-dot" id="pionDotBlue"></span></button>
+        <span class="tb-rail-sep"></span>
+        <button class="tb-tool" data-tool="arrow-solid" title="Flèche (déplacement)">→</button>
+        <button class="tb-tool" data-tool="arrow-dashed" title="Passe (pointillés)">⇢</button>
+        <button class="tb-tool" data-tool="line" title="Trait">╱</button>
+        <button class="tb-tool" data-tool="square" title="Zone rectangle">□</button>
+        <button class="tb-tool" data-tool="circle" title="Zone cercle">◯</button>
+        <button class="tb-tool" data-tool="text" title="Texte">T</button>
+        <span class="tb-rail-sep"></span>
+        <button class="tb-tool" id="undoBtn" title="Annuler (Ctrl+Z)">↶</button>
+        <button class="tb-tool danger" id="clearBtn" title="Tout effacer">🗑</button>
       </div>
 
-      <div class="tb-group" id="toolGroup">
-        <span class="tb-glabel">Sélection &amp; pions</span>
-        <div class="tb-btns">
-          <button class="tb-tool active" data-tool="select" title="Sélection / déplacer">↖ Sélect.</button>
-          <button class="tb-tool tb-pion" data-tool="player" title="Ajouter un joueur"><span class="pion-dot" id="pionDotRed"></span> Joueur</button>
-          <button class="tb-tool tb-pion" data-tool="opponent" title="Ajouter un adversaire"><span class="pion-dot" id="pionDotBlue"></span> Adversaire</button>
-        </div>
-      </div>
-
-      <div class="tb-group" id="drawGroup">
-        <span class="tb-glabel">Tracés</span>
-        <div class="tb-btns">
-          <button class="tb-tool" data-tool="arrow-solid" title="Flèche (déplacement) — sélectionnez-la puis tirez la poignée du milieu pour créer un angle">→</button>
-          <button class="tb-tool" data-tool="arrow-dashed" title="Passe (pointillés)">⇢</button>
-          <button class="tb-tool" data-tool="line" title="Trait">╱</button>
-          <button class="tb-tool" data-tool="square" title="Carré (zone)">□</button>
-          <button class="tb-tool" data-tool="circle" title="Cercle (zone)">◯</button>
-          <button class="tb-tool" data-tool="text" title="Texte">T</button>
-        </div>
-      </div>
-
-      <div class="tb-group" id="equipGroup">
-        <span class="tb-glabel">Matériel</span>
-        <div class="tb-btns">
-          <button class="tb-tool tb-equip" data-tool="equip-cone" title="Cône / plot"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#eb7a2e"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#c85f1c"/></svg>Cône</button>
-          <button class="tb-tool tb-equip" data-tool="equip-disc" title="Coupelle plate"><svg class="eqi" viewBox="0 0 16 16"><path d="M2 10a6 3 0 0 1 12 0z" fill="#f2b21e"/><ellipse cx="8" cy="10" rx="6" ry="2.1" fill="#f2b21e"/></svg>Coupelle</button>
-          <button class="tb-tool tb-equip" data-tool="equip-ladder" title="Échelle de coordination"><svg class="eqi" viewBox="0 0 16 16"><rect x="4.5" y="2" width="7" height="12" fill="none" stroke="#f2c21e" stroke-width="1.4"/><path d="M4.5 6h7M4.5 9h7M4.5 12h7" stroke="#f2c21e" stroke-width="1"/></svg>Échelle</button>
-          <button class="tb-tool tb-equip" data-tool="equip-pole" title="Piquet / slalom"><svg class="eqi" viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="12" stroke="#e03131" stroke-width="2.2"/><line x1="8" y1="3" x2="8" y2="11" stroke="#fff" stroke-width="2.2" stroke-dasharray="2 2"/><ellipse cx="8" cy="13" rx="4" ry="1.3" fill="#2b2b2b"/></svg>Piquet</button>
-          <button class="tb-tool tb-equip" data-tool="equip-hurdle" title="Haie"><svg class="eqi" viewBox="0 0 16 16"><path d="M2 5h12M3 5l2 8M13 5l-2 8M5 9h6" fill="none" stroke="#e8792b" stroke-width="1.5" stroke-linecap="round"/></svg>Haie</button>
-          <button class="tb-tool tb-equip" data-tool="equip-goal" title="Cage / but"><svg class="eqi" viewBox="0 0 16 16"><rect x="2" y="4.5" width="12" height="7" fill="rgba(255,255,255,.1)" stroke="#eee" stroke-width="1.4"/><path d="M6 4.5v7M10 4.5v7M2 7h12M2 9.5h12" stroke="#bbb" stroke-width=".6"/></svg>Cage</button>
-          <button class="tb-tool tb-equip" data-tool="equip-ball" title="Ballon"><svg class="eqi" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#fff" stroke="#333" stroke-width="1"/><polygon points="8,4.6 10.6,6.6 9.6,9.8 6.4,9.8 5.4,6.6" fill="#111"/></svg>Ballon</button>
-        </div>
-      </div>
-
-      <div class="tb-group" id="styleGroup">
-        <span class="tb-glabel">Style</span>
-        <div class="tb-btns">
-          <label class="tb-colorlbl" title="Couleur des tracés et zones"><span class="swatch" style="background:#C9A84C"></span>Tracé<input type="color" id="drawColor" value="#C9A84C"></label>
-          <label class="tb-colorlbl"><span class="pion-dot" id="pionDotRed2"></span>Joueur<input type="color" id="jerseyColor" value="#E03131" title="Couleur des joueurs"></label>
-          <label class="tb-colorlbl"><span class="pion-dot" id="pionDotBlue2"></span>Adv.<input type="color" id="oppColor" value="#1f6feb" title="Couleur des adversaires"></label>
-          <button class="tb-tool" id="toggleNumbers" title="Masquer/afficher les numéros"># n°</button>
-          <select id="fontSelect" title="Police du texte">
-            <option value="Inter, sans-serif">Inter</option>
-            <option value="Arial, sans-serif">Arial</option>
-            <option value="Georgia, serif">Georgia</option>
-            <option value="'Times New Roman', serif">Times</option>
-            <option value="'Courier New', monospace">Courier</option>
-            <option value="Impact, sans-serif">Impact</option>
-            <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
-            <option value="Verdana, sans-serif">Verdana</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="tb-group" id="seanceGroup">
-        <span class="tb-glabel">Séance</span>
-        <div class="tb-btns">
-          <select id="formationSelect" title="Placer une formation">
-            <option value="">Formation…</option>
-            <option value="4-3-3">4-3-3</option><option value="4-4-2">4-4-2</option>
-            <option value="4-2-3-1">4-2-3-1</option><option value="3-5-2">3-5-2</option>
-            <option value="3-4-3">3-4-3</option><option value="5-3-2">5-3-2</option>
-          </select>
-          <label class="tb-tool" for="logoInput" title="Importer un logo">Logo</label>
-          <input type="file" id="logoInput" accept="image/*" hidden>
-          <button class="tb-tool" id="undoBtn" title="Annuler (Ctrl+Z)">↶ Annuler</button>
-          <button class="tb-tool danger" id="clearBtn" title="Tout effacer">Effacer</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Terrain -->
-    <div class="tb-main-col">
+      <!-- Terrain -->
       <div class="tb-stage">
         <canvas id="pitch"></canvas>
+        <!-- Étapes de l'animation, juste sous le terrain -->
+        <div class="tb-stepsbar">
+          <button class="tb-tool" id="playSteps" type="button" title="Lire l’animation depuis l’étape 1">▶ Lire</button>
+          <div class="tb-steps" id="stepList"></div>
+          <button class="tb-tool" id="addStep" type="button" title="Créer l’étape suivante">+ Étape</button>
+          <button class="tb-tool danger" id="deleteStep" type="button" title="Supprimer l’étape affichée">Suppr. l’étape</button>
+          <span class="tb-stepinfo"><strong id="stepInfo"></strong> <span id="stepHint"></span></span>
+        </div>
+        <!-- Élément sélectionné : ses réglages apparaissent au-dessus du terrain -->
+        <div class="tb-selbar hidden" id="selBar">
+          <span class="tb-sel-label" id="selLabel">—</span>
+          <span class="tb-sel-empty hidden" id="selEmpty"></span>
+          <div class="tb-selprops" id="selProps">
+            <input type="color" id="selColor" aria-label="Couleur de l’élément">
+            <div class="tb-sizes" id="propSize" aria-label="Taille">
+              <span id="selSizes">
+                <button type="button" data-step="-2" title="Plus petit">−</button>
+                <button type="button" data-preset="0">S</button>
+                <button type="button" data-preset="1">M</button>
+                <button type="button" data-preset="2">L</button>
+                <button type="button" data-preset="3">XL</button>
+                <button type="button" data-step="2" title="Plus grand">+</button>
+              </span>
+            </div>
+            <label class="tb-prop" id="propText"><span id="selTextLabel">Texte</span><input type="text" id="selText" placeholder="Texte / n°"></label>
+            <button class="tb-tool hidden" id="selBend" type="button" title="Ajouter ou retirer un point d'angle">Angle</button>
+            <button class="tb-tool" id="selRotate" type="button" title="Pivoter de 90° (R)">⟳</button>
+            <button class="tb-tool danger" id="selDelete" type="button" title="Supprimer (Suppr)">✕</button>
+          </div>
+        </div>
         <div class="tb-screenhint hidden" id="screenHint">Tracez la zone à exporter · Échap pour annuler</div>
         <button class="tb-cropchip hidden" id="cropChip" type="button" title="Retirer le cadrage">Zone cadrée ✕</button>
         <div class="tb-presentbar" id="presentBar">
@@ -132,68 +92,119 @@
           <button type="button" id="presExit" class="tb-presexit">✕ Quitter</button>
         </div>
       </div>
+
+      <!-- Panneau ouvert depuis la barre de droite -->
+      <aside class="tb-drawer hidden" id="tbDrawer">
+        <section class="tb-pane" data-pane="equip">
+          <h3 class="tb-pane-title">Matériel <button type="button" class="tb-pane-x" data-close-pane aria-label="Fermer">✕</button></h3>
+          <p class="tb-card-hint">Choisissez, puis cliquez sur le terrain pour poser.</p>
+          <div id="equipGroup" class="tb-equip-groups">
+            <div class="tb-equip-title">Cônes</div><div class="tb-equip-grid"><button class="tb-tool tb-equip" data-tool="equip-cone" data-color="#F76707" title="Cône orange"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#F76707"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#c85f1c"/></svg><span>Orange</span></button><button class="tb-tool tb-equip" data-tool="equip-cone" data-color="#FAB005" title="Cône jaune"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#FAB005"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#c98d00"/></svg><span>Jaune</span></button><button class="tb-tool tb-equip" data-tool="equip-cone" data-color="#1F6FEB" title="Cône bleu"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#1F6FEB"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#1753b3"/></svg><span>Bleu</span></button><button class="tb-tool tb-equip" data-tool="equip-cone" data-color="#E03131" title="Cône rouge"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#E03131"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#a61e1e"/></svg><span>Rouge</span></button></div>
+            <div class="tb-equip-title">Coupelles</div><div class="tb-equip-grid"><button class="tb-tool tb-equip" data-tool="equip-disc" data-color="#FAB005" title="Coupelle jaune"><svg class="eqi" viewBox="0 0 16 16"><path d="M2 10a6 3 0 0 1 12 0z" fill="#FAB005"/><ellipse cx="8" cy="10" rx="6" ry="2.1" fill="#FAB005"/></svg><span>Jaune</span></button><button class="tb-tool tb-equip" data-tool="equip-disc" data-color="#F76707" title="Coupelle orange"><svg class="eqi" viewBox="0 0 16 16"><path d="M2 10a6 3 0 0 1 12 0z" fill="#F76707"/><ellipse cx="8" cy="10" rx="6" ry="2.1" fill="#F76707"/></svg><span>Orange</span></button><button class="tb-tool tb-equip" data-tool="equip-disc" data-color="#1F6FEB" title="Coupelle bleue"><svg class="eqi" viewBox="0 0 16 16"><path d="M2 10a6 3 0 0 1 12 0z" fill="#1F6FEB"/><ellipse cx="8" cy="10" rx="6" ry="2.1" fill="#1F6FEB"/></svg><span>Bleue</span></button><button class="tb-tool tb-equip" data-tool="equip-disc" data-color="#E03131" title="Coupelle rouge"><svg class="eqi" viewBox="0 0 16 16"><path d="M2 10a6 3 0 0 1 12 0z" fill="#E03131"/><ellipse cx="8" cy="10" rx="6" ry="2.1" fill="#E03131"/></svg><span>Rouge</span></button><button class="tb-tool tb-equip" data-tool="equip-disc" data-color="#F1F3F5" title="Coupelle blanche"><svg class="eqi" viewBox="0 0 16 16"><path d="M2 10a6 3 0 0 1 12 0z" fill="#F1F3F5"/><ellipse cx="8" cy="10" rx="6" ry="2.1" fill="#F1F3F5"/></svg><span>Blanche</span></button></div>
+            <div class="tb-equip-title">Autre matériel</div><div class="tb-equip-grid"><button class="tb-tool tb-equip" data-tool="equip-pole" title="Piquet / slalom"><svg class="eqi" viewBox="0 0 16 16"><line x1="8" y1="2" x2="8" y2="12" stroke="#e03131" stroke-width="2.2"/><line x1="8" y1="3" x2="8" y2="11" stroke="#fff" stroke-width="2.2" stroke-dasharray="2 2"/><ellipse cx="8" cy="13" rx="4" ry="1.3" fill="#2b2b2b"/></svg><span>Piquet</span></button><button class="tb-tool tb-equip" data-tool="equip-hurdle" title="Haie"><svg class="eqi" viewBox="0 0 16 16"><path d="M2 5h12M3 5l2 8M13 5l-2 8M5 9h6" fill="none" stroke="#e8792b" stroke-width="1.5" stroke-linecap="round"/></svg><span>Haie</span></button><button class="tb-tool tb-equip" data-tool="equip-ladder" title="Échelle de coordination"><svg class="eqi" viewBox="0 0 16 16"><rect x="4.5" y="2" width="7" height="12" fill="none" stroke="#f2c21e" stroke-width="1.4"/><path d="M4.5 6h7M4.5 9h7M4.5 12h7" stroke="#f2c21e" stroke-width="1"/></svg><span>Échelle</span></button><button class="tb-tool tb-equip" data-tool="equip-goal" title="Cage / but"><svg class="eqi" viewBox="0 0 16 16"><rect x="2" y="4.5" width="12" height="7" fill="rgba(255,255,255,.1)" stroke="#eee" stroke-width="1.4"/><path d="M6 4.5v7M10 4.5v7M2 7h12M2 9.5h12" stroke="#bbb" stroke-width=".6"/></svg><span>Cage</span></button><button class="tb-tool tb-equip" data-tool="equip-ball" title="Ballon"><svg class="eqi" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#fff" stroke="#333" stroke-width="1"/><polygon points="8,4.6 10.6,6.6 9.6,9.8 6.4,9.8 5.4,6.6" fill="#111"/></svg><span>Ballon</span></button></div>
+          </div>
+        </section>
+
+        <section class="tb-pane" data-pane="pitch">
+          <h3 class="tb-pane-title">Terrain <button type="button" class="tb-pane-x" data-close-pane aria-label="Fermer">✕</button></h3>
+          <div class="tb-pane-grid" id="viewGroup">
+            <button class="tb-tool active" data-view="complet">Complet</button>
+            <button class="tb-tool" data-view="demi">Demi-terrain</button>
+            <button class="tb-tool" data-view="vierge">Vierge</button>
+            <button class="tb-tool" data-view="futsal">Futsal</button>
+            <button class="tb-tool" data-view="horizontal">Portrait</button>
+          </div>
+          <label class="tb-field">Formation
+            <select id="formationSelect">
+              <option value="">Placer une formation…</option>
+              <option value="4-3-3">4-3-3</option><option value="4-4-2">4-4-2</option>
+              <option value="4-2-3-1">4-2-3-1</option><option value="3-5-2">3-5-2</option>
+              <option value="3-4-3">3-4-3</option><option value="5-3-2">5-3-2</option>
+            </select>
+          </label>
+          <div class="tb-pane-grid">
+            <button class="tb-tool" id="toggleNumbers" type="button">Numéros : afficher / masquer</button>
+            <label class="tb-tool" for="logoInput">Ajouter un logo</label>
+          </div>
+          <input type="file" id="logoInput" accept="image/*" hidden>
+        </section>
+
+        <section class="tb-pane" data-pane="style">
+          <h3 class="tb-pane-title">Couleurs <button type="button" class="tb-pane-x" data-close-pane aria-label="Fermer">✕</button></h3>
+          <label class="tb-field"><span><span class="pion-dot" id="pionDotRed2"></span> Joueurs</span><input type="color" id="jerseyColor" value="#E03131" aria-label="Couleur des joueurs"></label>
+          <label class="tb-field"><span><span class="pion-dot" id="pionDotBlue2"></span> Adversaires</span><input type="color" id="oppColor" value="#1F6FEB" aria-label="Couleur des adversaires"></label>
+          <label class="tb-field"><span>Tracés et zones</span><input type="color" id="drawColor" value="#C9A84C" aria-label="Couleur des tracés"></label>
+          <label class="tb-field">Police des textes
+            <select id="fontSelect">
+              <option value="Inter, sans-serif">Inter</option>
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Times New Roman', serif">Times</option>
+              <option value="'Courier New', monospace">Courier</option>
+              <option value="Impact, sans-serif">Impact</option>
+              <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+              <option value="Verdana, sans-serif">Verdana</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="tb-pane" data-pane="export">
+          <h3 class="tb-pane-title">Exporter <button type="button" class="tb-pane-x" data-close-pane aria-label="Fermer">✕</button></h3>
+          <div class="tb-crop">
+            <span id="cropStatus">Plein terrain</span>
+            <button class="tb-tool" id="screenBtn" type="button" title="Tracer la zone à exporter">Cadrer une zone</button>
+          </div>
+          <div class="tb-card-actions">
+            <button class="tb-tool tb-strong" id="exportSheet" type="button">Fiche tactique (PDF)</button>
+            <button class="tb-tool" id="exportPng" type="button">Image de l’étape affichée</button>
+            <button class="tb-tool" id="exportAllPng" type="button">Images de toutes les étapes</button>
+            <button class="tb-tool" id="exportVideo" type="button">Vidéo de l’animation</button>
+            <button class="tb-tool" id="presentBtn" type="button">⛶ Présentation plein écran</button>
+          </div>
+        </section>
+
+        <section class="tb-pane" data-pane="video">
+          <h3 class="tb-pane-title">Vidéo liée <button type="button" class="tb-pane-x" data-close-pane aria-label="Fermer">✕</button></h3>
+          <p class="tb-card-hint" id="videoPaneHint">Associez une vidéo déjà présente sur la plateforme : pas besoin de la réimporter.</p>
+          <input type="search" id="videoSearch" placeholder="Rechercher une vidéo ou un joueur" aria-label="Rechercher une vidéo">
+          <div class="tb-video-list" id="videoList"><p class="tb-card-hint">Chargement…</p></div>
+        </section>
+      </aside>
+
+      <!-- Tout ce qui est autour du terrain : un clic ouvre le panneau -->
+      <div class="tb-rail tb-rail-right" role="toolbar" aria-label="Panneaux">
+        <button class="tb-railbtn" data-panel="equip" type="button"><svg class="tbi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#F76707"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#c85f1c"/></svg><span>Matériel</span></button>
+        <button class="tb-railbtn" data-panel="pitch" type="button"><svg class="tbi" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="16" height="12" rx="1"/><path d="M10 4v12"/><circle cx="10" cy="10" r="2.4"/></svg><span>Terrain</span></button>
+        <button class="tb-railbtn" data-panel="style" type="button"><svg class="tbi" viewBox="0 0 20 20"><circle cx="7" cy="7" r="4" fill="#E03131"/><circle cx="13" cy="7" r="4" fill="#1F6FEB" opacity=".9"/><circle cx="10" cy="12.5" r="4" fill="#FAB005" opacity=".9"/></svg><span>Couleurs</span></button>
+        <button class="tb-railbtn" data-panel="export" type="button"><svg class="tbi" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v9M6 8l4 4 4-4M4 15h12"/></svg><span>Exporter</span></button>
+        <button class="tb-railbtn hidden" data-panel="video" id="railVideo" type="button"><svg class="tbi" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4.5" width="15" height="11" rx="2"/><path d="M8.5 7.5v5l4-2.5z" fill="currentColor"/></svg><span>Vidéo</span></button>
+      </div>
     </div>
 
-    <!-- Panneau de droite : élément, étapes, export -->
-    <aside class="tb-panel">
-      <section class="tb-card" id="selBar">
-        <h3 class="tb-card-title">Élément <span id="selLabel">—</span></h3>
-        <p class="tb-card-hint" id="selEmpty">Cliquez sur un élément du terrain pour le modifier. Clic droit : plus d'options.</p>
-        <div class="tb-props" id="selProps">
-          <div class="tb-prop"><span>Couleur</span><input type="color" id="selColor" title="Couleur"></div>
-          <div class="tb-prop" id="propSize"><span>Taille</span>
-            <div class="tb-sizes" id="selSizes">
-              <button type="button" data-step="-2" title="Plus petit">−</button>
-              <button type="button" data-preset="0">S</button>
-              <button type="button" data-preset="1">M</button>
-              <button type="button" data-preset="2">L</button>
-              <button type="button" data-preset="3">XL</button>
-              <button type="button" data-step="2" title="Plus grand">+</button>
-            </div>
-          </div>
-          <div class="tb-prop" id="propText"><span id="selTextLabel">Texte</span><input type="text" id="selText" placeholder="Texte / n°"></div>
-          <div class="tb-prop-actions">
-            <button class="tb-tool hidden" id="selBend" type="button" title="Ajouter ou retirer un point d'angle au milieu du tracé">Angle</button>
-            <button class="tb-tool" id="selRotate" type="button" title="Pivoter de 90° (touche R)">Pivoter</button>
-            <button class="tb-tool danger" id="selDelete" type="button">Supprimer</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="tb-card">
-        <h3 class="tb-card-title">Étapes <span id="stepInfo"></span></h3>
-        <div class="tb-steps" id="stepList"></div>
-        <p class="tb-card-hint" id="stepHint"></p>
-        <div class="tb-card-actions">
-          <button class="tb-tool" id="addStep" type="button">+ Nouvelle étape</button>
-          <button class="tb-tool" id="playSteps" type="button">▶ Lire</button>
-          <button class="tb-tool danger" id="deleteStep" type="button" title="Supprimer l'étape affichée">Suppr. l'étape</button>
-        </div>
-      </section>
-
-      <section class="tb-card">
-        <h3 class="tb-card-title">Exporter</h3>
-        <div class="tb-crop">
-          <span id="cropStatus">Plein terrain</span>
-          <button class="tb-tool" id="screenBtn" type="button" title="Tracer la zone à exporter">Cadrer une zone</button>
-        </div>
-        <div class="tb-card-actions tb-export">
-          <button class="tb-tool" id="exportPng" type="button">Image (étape affichée)</button>
-          <button class="tb-tool" id="exportAllPng" type="button">Images de toutes les étapes</button>
-          <button class="tb-tool" id="exportVideo" type="button">Vidéo de l'animation</button>
-          <button class="tb-tool" id="presentBtn" type="button">⛶ Présentation plein écran</button>
-          <button class="tb-tool hidden" id="saveBtn" type="button">Enregistrer</button>
-        </div>
-      </section>
-    </aside>
-    </div>
   </main>
+
+  <!-- Fiche tactique : titre et consignes avant le PDF -->
+  <div class="modal-backdrop" id="sheetModal">
+    <div class="modal modal-wide">
+      <h3>Fiche tactique</h3>
+      <div class="field"><label for="sheetTitle">Titre</label><input id="sheetTitle" autocomplete="off"></div>
+      <div class="field"><label for="sheetGoal">Objectif</label><textarea id="sheetGoal" rows="2"></textarea></div>
+      <div class="field"><label for="sheetText">Consignes / organisation</label><textarea id="sheetText" rows="5"></textarea></div>
+      <p class="text-muted" style="font-size:.8rem;margin:0;">Le PDF reprend le schéma (une image par étape s’il y en a) et la vidéo liée.</p>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close="sheetModal">Annuler</button>
+        <button class="btn btn-primary" id="sheetRun" type="button">Générer le PDF</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
+  <script src="assets/js/lightbox.js"></script>
   <script src="assets/js/tactical-board.js"></script>
+  <script src="assets/js/tactical-board-ui.js"></script>
 </body>
 </html>

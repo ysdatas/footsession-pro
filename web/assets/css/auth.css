@@ -48,3 +48,5 @@ body.auth {
 }
 .auth-foot { text-align: center; margin-top: 18px; font-size: .82rem; }
 .auth-foot a { color: var(--gold); }
+
+.auth-hint { font-size: .8rem; color: var(--text-muted); line-height: 1.45; margin: -4px 0 14px; }
