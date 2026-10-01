@@ -1,15 +1,13 @@
 /* ============================================================
    FootSession Pro — videos-page.js (staff)
-   En haut, « À voir » : les séquences envoyées par les joueurs et
-   pas encore commentées, les plus récentes d'abord. Un toucher ouvre
-   la séquence, qui passe « Vu » pour le joueur.
-   Puis les vidéos organisées PAR JOUEUR :
-     Joueur
-       → Séquences sélectionnées (à travailler, pas encore annotées)
-       → Séquences annotées (dessins / analyse, envoyées ou non)
-       → Vidéos disponibles (statistiques de visionnage)
-   Une vidéo ou une séquence s'ouvre dans le poste de travail
-   (video-workspace.js) : découpage, annotations du joueur, retour.
+   Organisation progressive, pensée pour le téléphone :
+     1. Vue d'ensemble : « À voir » (séquences envoyées par les joueurs,
+        pas encore commentées) puis la liste des joueurs, chacun résumé
+        en une ligne (« 2 vidéos · 3 séquences » + « 1 à voir »).
+     2. Un joueur : trois rubriques — À voir, Séquences, Vidéos.
+     3. Un contenu s'ouvre dans le poste de travail (video-workspace.js) :
+        vidéo source ou séquence, habillage du joueur, retour du staff.
+   Le retour du téléphone remonte d'un niveau (?player=…&tab=…).
    Sécurité : RLS (player_videos, video_sequences, video_views).
    ============================================================ */
 
@@ -17,14 +15,18 @@ let myProfile = null;
 let playersCache = [];
 let videosCache = [];
 let seqsCache = [];
-let requestedPlayerId = null;
+let urlCache = new Map();   // id vidéo → URL signée (miniatures, lecture)
 let vpQuery = '';
+const view = { player: null, tab: null };
+let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton retour)
 
 (async () => {
   const ctx = await requireAuth();
   if (!ctx) return;
   myProfile = ctx.profile;
-  requestedPlayerId = Number(new URLSearchParams(location.search).get('player') || 0) || null;
+  const qs = new URLSearchParams(location.search);
+  view.player = Number(qs.get('player') || 0) || null;
+  view.tab = qs.get('tab');
 
   document.getElementById('uName').textContent = myProfile.nom || 'Utilisateur';
   document.getElementById('uRole').textContent = (ROLE_LABELS[myProfile.role] || myProfile.role).toUpperCase();
@@ -41,13 +43,13 @@ let vpQuery = '';
   if (playersError) console.error('Joueurs illisibles', playersError);
   playersCache = players || [];
 
-  if (requestedPlayerId) {
-    const target = playersCache.find(p => p.id === requestedPlayerId);
-    document.getElementById('videosTitle').textContent = `Vidéos — ${target ? fullName(target) : 'Joueur'}`;
+  // Arrivée depuis une fiche joueur : un lien pour y revenir.
+  if (view.player) {
     const back = document.getElementById('videoBackLink');
-    back.href = `player.html?id=${requestedPlayerId}`;
+    back.href = `player.html?id=${view.player}`;
     back.classList.remove('hidden');
   }
+  history.replaceState({ vp: 1, ...view }, '', location.href);
   await loadVideos();
 })();
 
@@ -57,12 +59,15 @@ let vpQuery = '';
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const fmtMo = (bytes) => `${Math.round(bytes / (1024 * 1024))} Mo`;
 const fullName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
+const initials = (p) => `${(p?.prenom || '')[0] || ''}${(p?.nom || '')[0] || ''}`.toUpperCase() || '?';
+const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+const shortDate = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
 
 /* ---------- Chargement ---------- */
 async function loadVideos() {
-  const list = document.getElementById('vpList');
+  const box = document.getElementById('vpView');
   try {
-    const ids = requestedPlayerId ? [requestedPlayerId] : playersCache.map(p => p.id);
+    const ids = playersCache.map(p => p.id);
     const [vRes, sRes] = await Promise.all([
       sb.from('player_videos')
         .select('*, video_views(watched_seconds, max_position_seconds, last_heartbeat_at)')
@@ -73,132 +78,183 @@ async function loadVideos() {
     if (sRes.error) console.warn('Séquences indisponibles (platform_v2.sql non passée ?) :', sRes.error.message);
     videosCache = vRes.data || [];
     seqsCache = sRes.data || [];
-    renderVideos();
+    await signUrls(videosCache);
+    render();
   } catch (e) {
     console.error('Vidéos illisibles', e);
-    list.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`;
+    box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`;
   }
 }
+/* URL signées en une seule requête (miniatures et lecture). */
+async function signUrls(videos) {
+  const missing = videos.filter(v => !urlCache.has(v.id));
+  if (!missing.length) return;
+  const { data, error } = await sb.storage.from('player-videos').createSignedUrls(missing.map(v => v.storage_path), 3600);
+  if (error) { console.warn('Miniatures indisponibles', error.message); return; }
+  (data || []).forEach((d, i) => { if (d?.signedUrl) urlCache.set(missing[i].id, d.signedUrl); });
+}
 
-/* ---------- Rendu par joueur ---------- */
+/* ---------- Navigation : ensemble → joueur → rubrique ---------- */
+function goTo(player, tab = null, push = true) {
+  view.player = player; view.tab = tab;
+  const u = new URL(location.href);
+  if (player) u.searchParams.set('player', player); else u.searchParams.delete('player');
+  if (tab) u.searchParams.set('tab', tab); else u.searchParams.delete('tab');
+  if (push) { navDepth++; history.pushState({ vp: 1, ...view }, '', u); } else history.replaceState({ vp: 1, ...view }, '', u);
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.addEventListener('popstate', (e) => {
+  if (!e.state?.vp) return;
+  navDepth = Math.max(0, navDepth - 1);
+  if (document.getElementById('wsModal').classList.contains('open')) closeModal('wsModal');
+  view.player = e.state.player || null; view.tab = e.state.tab || null;
+  render();
+});
+
+/* ---------- Rendu ---------- */
+const seqVideo = (s) => videosCache.find(v => v.id === s.video_id);
+const annCount = (s) => { const n = (s.drawings || []).length; return n ? plural(n, 'annotation', 'annotations') : 'sans habillage'; };
 function videoStats(v) {
   const views = v.video_views || [];
-  if (!views.length) return '<span class="vw-flag">Non vue</span>';
-  const total = views.reduce((s, x) => s + (x.watched_seconds || 0), 0);
+  if (!views.length) return '<span class="vp-stat">Pas encore vue</span>';
   const posMax = views.reduce((m, x) => Math.max(m, x.max_position_seconds || 0), 0);
   const pct = v.duree_sec ? Math.min(100, Math.round(posMax / v.duree_sec * 100)) : null;
-  return `<span class="vw-flag is-ok">Vue ${views.length}×</span> <span class="vp-stat">${Math.round(total / 60)} min${pct !== null ? ` · ${pct} %` : ''}</span>`;
+  return `<span class="vp-stat">Vue ${views.length}×${pct !== null ? ` · ${pct} %` : ''}</span>`;
 }
-
-const annCount = (s) => { const n = (s.drawings || []).length; return n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans annotation'; };
-
-function seqRow(s) {
-  const v = videosCache.find(x => x.id === s.video_id);
-  return `<button type="button" class="vp-row vp-seq" data-open-video="${s.video_id}" data-seq="${s.id}">
-    <span class="vp-row-main"><strong>${escapeHtml(s.label || 'Séquence')}</strong>
-      <span>${escapeHtml(v?.titre || 'Vidéo')} · ${fmtT(s.start_sec)} – ${fmtT(s.end_sec)} · ${annCount(s)}</span></span>
-    ${statusPill(s)}
+/* Carte d'une séquence : miniature, titre, joueur ou vidéo, durée, statut. */
+function seqCard(s, withPlayer) {
+  const v = seqVideo(s), len = s.end_sec - s.start_sec, note = (s.player_note || '').trim();
+  const who = withPlayer ? fullName(playersCache.find(p => p.id === s.player_id)) : (v?.titre || 'Vidéo');
+  return `<button type="button" class="vp-card" data-open-video="${s.video_id}" data-seq="${s.id}">
+    ${thumbHtml(urlCache.get(s.video_id), s.start_sec, fmtDur(len))}
+    <span class="vp-card-body">
+      <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s, 'staff')}</span>
+      <span class="vp-card-meta">${escapeHtml(who)} · ${annCount(s)}${s.submitted_at ? ` · envoyée le ${escapeHtml(shortDate(s.submitted_at))}` : ''}</span>
+      ${note ? `<em>« ${escapeHtml(note.length > 90 ? `${note.slice(0, 87)}…` : note)} »</em>` : ''}
+    </span>
   </button>`;
 }
-
-/* À voir : envoyées et sans retour postérieur, de la plus récente à la plus ancienne. */
-function renderInbox() {
-  const todo = seqsCache.filter(seqToSee).sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-  document.getElementById('vpInbox').classList.toggle('hidden', !todo.length);
-  document.getElementById('vpInboxCount').textContent = todo.length;
-  document.getElementById('vpInboxList').innerHTML = todo.map(s => {
-    const note = (s.player_note || '').trim();
-    return `<button type="button" class="vp-inbox-card" data-open-video="${s.video_id}" data-seq="${s.id}">
-      <span class="vp-inbox-top"><strong>${escapeHtml(fullName(playersCache.find(p => p.id === s.player_id)))}</strong>${statusPill(s)}</span>
-      <span class="vp-inbox-seq">${escapeHtml(s.label || 'Séquence')}</span>
-      <span class="vp-inbox-meta">${fmtDur(s.end_sec - s.start_sec)} · ${annCount(s)} · envoyée le ${escapeHtml(new Date(s.submitted_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }))}</span>
-      ${note ? `<em>« ${escapeHtml(note.length > 110 ? `${note.slice(0, 107)}…` : note)} »</em>` : ''}
-    </button>`;
-  }).join('');
+function videoCard(v) {
+  const n = seqsCache.filter(s => s.video_id === v.id).length;
+  return `<div class="vp-card is-video">
+    <button type="button" class="vp-card-open" data-open-video="${v.id}">
+      ${thumbHtml(urlCache.get(v.id), 1, 'Source')}
+      <span class="vp-card-body">
+        <span class="vp-card-top"><strong>${escapeHtml(v.titre)}</strong></span>
+        <span class="vp-card-meta">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))} · ${n ? plural(n, 'séquence', 'séquences') : 'pas de séquence'}</span>
+        ${videoStats(v)}
+      </span>
+    </button>
+    ${canManageVideos(myProfile.role) ? `<button class="vp-card-del" type="button" data-del-video="${v.id}" aria-label="Supprimer la vidéo « ${escapeHtml(v.titre)} »" title="Supprimer la vidéo">✕</button>` : ''}
+  </div>`;
 }
+const toSeeOf = (list) => list.filter(seqToSee).sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
 
-function renderVideos() {
-  const byPlayer = new Map();
-  const bucket = (id) => byPlayer.get(id) || byPlayer.set(id, { videos: [], seqs: [] }).get(id);
-  videosCache.forEach(v => bucket(v.player_id).videos.push(v));
-  seqsCache.forEach(s => bucket(s.player_id).seqs.push(s));
+function render() {
+  const p = view.player && playersCache.find(x => x.id === view.player);
+  document.getElementById('vpBack').classList.toggle('hidden', !p);
+  if (p) return renderPlayer(p);
+  view.player = null;
+  document.getElementById('videosTitle').textContent = 'Vidéos joueurs';
+  const todo = toSeeOf(seqsCache);
+  document.getElementById('videosSub').textContent = todo.length
+    ? `${plural(todo.length, 'séquence envoyée', 'séquences envoyées')} par vos joueurs à regarder.`
+    : 'Rien à voir pour l’instant : les séquences envoyées par vos joueurs apparaîtront ici.';
 
-  let groups = [...byPlayer.entries()].map(([id, g]) => ({
-    player: playersCache.find(p => p.id === id) || { id, nom: 'Joueur' }, ...g,
-    selected: g.seqs.filter(s => s.selected && !hasWork(s)),
-    annotated: g.seqs.filter(hasWork),
-    todo: g.seqs.filter(seqToSee).length,
-  }));
-  const totalTodo = groups.reduce((n, g) => n + g.todo, 0);
-  document.getElementById('videosSub').textContent =
-    `${videosCache.length} vidéo${videosCache.length > 1 ? 's' : ''} · ${seqsCache.length} séquence${seqsCache.length > 1 ? 's' : ''}`
-    + (totalTodo ? ` · ${totalTodo} analyse${totalTodo > 1 ? 's' : ''} de joueurs à voir` : '');
-
-  renderInbox();
-  if (vpQuery) groups = groups.filter(g => fullName(g.player).toLowerCase().includes(vpQuery));
-  groups.sort((a, b) => (b.todo - a.todo) || fullName(a.player).localeCompare(fullName(b.player), 'fr'));
-
-  const list = document.getElementById('vpList');
-  if (!groups.length) {
-    list.innerHTML = `<div class="empty">${videosCache.length ? 'Aucun joueur ne correspond.' : 'Aucune vidéo envoyée pour le moment.'}</div>`;
-    return;
-  }
-  const openAll = groups.length === 1;
-  list.innerHTML = groups.map(g => `
-    <details class="vp card" ${openAll || g.todo ? 'open' : ''}>
-      <summary>
-        <span class="vp-name">${escapeHtml(fullName(g.player))}</span>
-        <span class="vp-meta">${g.videos.length} vidéo${g.videos.length > 1 ? 's' : ''} · ${g.selected.length} sélectionnée${g.selected.length > 1 ? 's' : ''} · ${g.annotated.length} annotée${g.annotated.length > 1 ? 's' : ''}</span>
-        ${g.todo ? `<span class="vw-status is-sent">${g.todo} à voir</span>` : ''}
-      </summary>
-      <div class="vp-body">
-        <section>
-          <h4>Séquences sélectionnées</h4>
-          ${g.selected.length ? g.selected.map(seqRow).join('') : '<p class="vp-empty">Aucune séquence choisie sans analyse.</p>'}
-        </section>
-        <section>
-          <h4>Séquences annotées</h4>
-          ${g.annotated.length ? g.annotated.map(seqRow).join('') : '<p class="vp-empty">Aucune séquence annotée.</p>'}
-        </section>
-        <section>
-          <h4>Vidéos disponibles</h4>
-          ${g.videos.length ? g.videos.map(v => `
-            <div class="vp-row vp-video">
-              <span class="vp-row-main"><strong>${escapeHtml(v.titre)}</strong>
-                <span>${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))} · ${seqsCache.filter(s => s.video_id === v.id).length} séquence(s)</span></span>
-              <span class="vp-video-stats">${videoStats(v)}</span>
-              <span class="vp-actions">
-                <button class="btn btn-sm btn-primary" type="button" data-open-video="${v.id}">Ouvrir</button>
-                ${canManageVideos(myProfile.role) ? `<button class="btn btn-sm btn-danger" type="button" data-del-video="${v.id}" aria-label="Supprimer la vidéo">✕</button>` : ''}
-              </span>
-            </div>`).join('') : '<p class="vp-empty">Aucune vidéo.</p>'}
-        </section>
+  const stats = playersCache.map(pl => {
+    const vids = videosCache.filter(v => v.player_id === pl.id), seqs = seqsCache.filter(s => s.player_id === pl.id);
+    const last = [...vids.map(v => v.created_at), ...seqs.map(s => s.submitted_at || s.created_at)].filter(Boolean).sort().pop();
+    return { pl, vids: vids.length, seqs: seqs.length, todo: seqs.filter(seqToSee).length, last };
+  });
+  const shown = stats
+    .filter(x => !vpQuery || fullName(x.pl).toLowerCase().includes(vpQuery))
+    .sort((a, b) => (b.todo - a.todo) || String(b.last || '').localeCompare(String(a.last || '')) || fullName(a.pl).localeCompare(fullName(b.pl), 'fr'));
+  const box = document.getElementById('vpView');
+  box.innerHTML = `
+    ${todo.length ? `<section class="vp-section" aria-labelledby="vpTodoTitle">
+      <h2 id="vpTodoTitle">À voir <span class="vw-status is-sent">${todo.length}</span></h2>
+      <div class="vp-cards">${todo.map(s => seqCard(s, true)).join('')}</div>
+    </section>` : ''}
+    <section class="vp-section" aria-labelledby="vpPlayersTitle">
+      <div class="vp-section-head">
+        <h2 id="vpPlayersTitle">Joueurs</h2>
+        <input type="search" id="vpSearch" value="${escapeHtml(vpQuery)}" placeholder="Rechercher un joueur" aria-label="Rechercher un joueur">
       </div>
-    </details>`).join('');
+      <div class="vp-players">${shown.length ? shown.map(x => `
+        <button type="button" class="vp-player" data-player="${x.pl.id}">
+          <span class="vp-avatar" aria-hidden="true">${escapeHtml(initials(x.pl))}</span>
+          <span class="vp-player-main">
+            <strong>${escapeHtml(fullName(x.pl))}</strong>
+            <span>${x.vids || x.seqs ? `${plural(x.vids, 'vidéo', 'vidéos')} · ${plural(x.seqs, 'séquence', 'séquences')}` : 'Aucune vidéo'}</span>
+          </span>
+          ${x.todo ? `<span class="vw-status is-sent">${x.todo} à voir</span>` : x.last ? `<span class="vp-last">${escapeHtml(shortDate(x.last))}</span>` : ''}
+          <span class="vp-chevron" aria-hidden="true">›</span>
+        </button>`).join('') : '<p class="vp-empty">Aucun joueur ne correspond.</p>'}</div>
+    </section>`;
+  loadThumbs(box);
 }
 
-['vpList', 'vpInboxList'].forEach(id => document.getElementById(id).addEventListener('click', (e) => {
+function renderPlayer(p) {
+  const vids = videosCache.filter(v => v.player_id === p.id);
+  const seqs = seqsCache.filter(s => s.player_id === p.id);
+  const todo = toSeeOf(seqs);
+  const tab = view.tab || (todo.length ? 'todo' : seqs.length ? 'seqs' : 'videos');
+  document.getElementById('videosTitle').textContent = fullName(p);
+  document.getElementById('videosSub').textContent =
+    `${plural(vids.length, 'vidéo', 'vidéos')} · ${plural(seqs.length, 'séquence', 'séquences')}${todo.length ? ` · ${todo.length} à voir` : ''}`;
+  const tabs = [['todo', 'À voir', todo.length], ['seqs', 'Séquences', seqs.length], ['videos', 'Vidéos', vids.length]];
+  // Séquences : à voir d'abord, puis les plus récentes.
+  const ordered = [...seqs].sort((a, b) => (seqToSee(b) - seqToSee(a)) || String(b.submitted_at || b.created_at || '').localeCompare(String(a.submitted_at || a.created_at || '')));
+  const body = tab === 'todo'
+    ? (todo.length ? `<div class="vp-cards">${todo.map(s => seqCard(s, false)).join('')}</div>` : '<p class="vp-empty">Rien à voir : aucune séquence envoyée en attente de votre retour.</p>')
+    : tab === 'seqs'
+      ? (seqs.length ? `<div class="vp-cards">${ordered.map(s => seqCard(s, false)).join('')}</div>` : '<p class="vp-empty">Aucune séquence. Ouvrez une vidéo, puis « Sélectionner une portion ».</p>')
+      : (vids.length ? `<div class="vp-cards">${vids.map(videoCard).join('')}</div>` : '<p class="vp-empty">Aucune vidéo envoyée à ce joueur.</p>');
+  const box = document.getElementById('vpView');
+  box.innerHTML = `
+    <div class="vp-tabs" role="tablist" aria-label="Rubriques">${tabs.map(([k, label, n]) => `
+      <button type="button" role="tab" data-tab="${k}" aria-selected="${k === tab}">${label}${n ? ` <span>${n}</span>` : ''}</button>`).join('')}
+    </div>
+    <div class="vp-tabpanel" role="tabpanel">${body}</div>`;
+  loadThumbs(box);
+}
+
+document.getElementById('vpView').addEventListener('click', (e) => {
   const open = e.target.closest('[data-open-video]');
   if (open) return openWorkspace(Number(open.dataset.openVideo), Number(open.dataset.seq) || null);
   const del = e.target.closest('[data-del-video]');
   if (del) return deleteVideo(Number(del.dataset.delVideo));
-}));
-document.getElementById('vpSearch').addEventListener('input', (e) => {
+  const pl = e.target.closest('[data-player]');
+  if (pl) return goTo(Number(pl.dataset.player));
+  const tab = e.target.closest('[data-tab]');
+  if (tab) return goTo(view.player, tab.dataset.tab, false);
+});
+document.getElementById('vpView').addEventListener('input', (e) => {
+  if (!e.target.matches('#vpSearch')) return;
   vpQuery = e.target.value.trim().toLowerCase();
-  renderVideos();
+  const pos = e.target.selectionStart;
+  render();
+  const input = document.getElementById('vpSearch');
+  input.focus(); input.setSelectionRange(pos, pos);
+});
+document.getElementById('vpBack').addEventListener('click', () => {
+  if (navDepth > 0) history.back();
+  else goTo(null, null, false);
 });
 
-/* ---------- Poste de travail (modale) ---------- */
+/* ---------- Poste de travail (modale plein écran sur téléphone) ---------- */
 async function openWorkspace(videoId, seqId) {
   const v = videosCache.find(x => x.id === videoId);
   if (!v) return;
-  const { data, error } = await sb.storage.from('player-videos').createSignedUrl(v.storage_path, 3600);
-  if (error || !data?.signedUrl) return toast('Vidéo introuvable dans le stockage.', 'error');
+  if (!urlCache.has(v.id)) await signUrls([v]);
+  const url = urlCache.get(v.id);
+  if (!url) return toast('Vidéo introuvable dans le stockage.', 'error');
   const player = playersCache.find(p => p.id === v.player_id);
-  document.getElementById('wsTitle').textContent = `${v.titre} — ${fullName(player)}`;
+  document.getElementById('wsTitle').textContent = fullName(player);
   openModal('wsModal');
   await mountVideoWorkspace(document.getElementById('wsRoot'), {
-    video: v, src: data.signedUrl, player, mode: 'staff', userId: myProfile.id, focusSeq: seqId,
+    video: v, src: url, player, mode: 'staff', userId: myProfile.id, focusSeq: seqId,
     onChange: () => { wsDirty = true; },
   });
 }
@@ -214,10 +270,9 @@ new MutationObserver(() => {
 /* ---------- Envoi vidéo ---------- */
 function openVideoModal() {
   const sel = document.getElementById('v-player');
-  const recipients = requestedPlayerId ? playersCache.filter(p => p.id === requestedPlayerId) : playersCache;
   sel.innerHTML = '<option value="">— Choisir un joueur —</option>'
-    + recipients.map(p => `<option value="${p.id}">${escapeHtml(fullName(p))}</option>`).join('');
-  if (requestedPlayerId) sel.value = String(requestedPlayerId);
+    + playersCache.map(p => `<option value="${p.id}">${escapeHtml(fullName(p))}</option>`).join('');
+  if (view.player) sel.value = String(view.player);
   document.getElementById('v-titre').value = '';
   document.getElementById('v-desc').value = '';
   document.getElementById('v-file').value = '';

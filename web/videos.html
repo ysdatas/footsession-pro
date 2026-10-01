@@ -23,6 +23,7 @@
   <main class="main">
     <div class="page-head">
       <div>
+        <button class="back-inline hidden" id="vpBack" type="button">← Tous les joueurs</button>
         <h1 id="videosTitle">Vidéos joueurs</h1>
         <p class="subtitle" id="videosSub">Chargement…</p>
       </div>
@@ -32,17 +33,8 @@
       </div>
     </div>
 
-    <!-- À voir : les analyses envoyées par les joueurs, les plus récentes d'abord -->
-    <section class="vp-inbox hidden" id="vpInbox" aria-labelledby="vpInboxTitle">
-      <h2 id="vpInboxTitle">À voir <span class="vw-status is-sent" id="vpInboxCount"></span></h2>
-      <div class="vp-inbox-list" id="vpInboxList"></div>
-    </section>
-
-    <div class="vp-toolbar">
-      <input type="search" id="vpSearch" placeholder="Rechercher un joueur" aria-label="Rechercher un joueur">
-    </div>
-
-    <div id="vpList"><div class="empty">Chargement…</div></div>
+    <!-- Rempli par videos-page.js : « À voir » et joueurs, ou un joueur et ses rubriques -->
+    <div id="vpView"><div class="empty">Chargement…</div></div>
   </main>
 
   <!-- Modale : envoi vidéo -->
@@ -72,7 +64,7 @@
   <!-- Poste de travail d'une vidéo (séquences, annotations, retour) -->
   <div class="modal-backdrop" id="wsModal">
     <div class="modal modal-xl">
-      <div class="ws-head"><h3 id="wsTitle">Vidéo</h3><button class="btn btn-sm" type="button" data-close="wsModal">Fermer</button></div>
+      <div class="ws-head"><span class="ws-who" id="wsTitle">Joueur</span><button class="btn btn-sm" type="button" data-close="wsModal">Fermer</button></div>
       <div id="wsRoot"></div>
     </div>
   </div>

@@ -17,7 +17,15 @@
       <p class="subtitle" id="pvSub">Chargement…</p>
     </div>
   </div>
-
+  <div class="vp-tabs" id="pvTabs" role="tablist" aria-label="Mes vidéos">
+    <button type="button" role="tab" data-tab="videos" aria-selected="true">Vidéos <span data-count="videos"></span></button>
+    <button type="button" role="tab" data-tab="seqs" aria-selected="false">Mes séquences <span data-count="seqs"></span></button>
+  </div>
+  <div class="pv-chips hidden" id="pvChips" role="group" aria-label="Filtrer mes séquences">
+    <button type="button" data-filter="all" aria-pressed="true">Toutes</button>
+    <button type="button" data-filter="draft" aria-pressed="false">Brouillons</button>
+    <button type="button" data-filter="sent" aria-pressed="false">Envoyées</button>
+  </div>
   <div id="pvContent"><div class="empty">Chargement…</div></div>
 </div>
 
@@ -27,51 +35,87 @@
 <script src="assets/js/player-nav.js"></script>
 <script src="assets/js/video-status.js"></script>
 <script>
-  /* Vidéos envoyées par le staff. Chaque vidéo s'ouvre dans le poste de
-     travail : séquences, annotations, analyse, envoi au staff. La carte
-     dit où en est le travail (statuts de video-status.js). */
+  /* Les vidéos envoyées par le staff (sources) et les séquences créées
+     par le joueur : deux rubriques, une carte par contenu, jamais de
+     doublon. Une séquence s'ouvre directement (voir-video.html?seq=…). */
+  const pv = { videos: [], seqs: [], urls: new Map(), tab: new URLSearchParams(location.search).get('tab') === 'seqs' ? 'seqs' : 'videos', filter: 'all' };
+  const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+
   (async () => {
     const box = document.getElementById('pvContent');
     try {
       const player = await requirePlayer();
       if (!player) return;
       const [{ data: videos, error }, { data: seqs }] = await Promise.all([
-        sb.from('player_videos').select('id, titre, description, created_at')
+        sb.from('player_videos').select('id, titre, description, created_at, storage_path')
           .eq('player_id', player.id).order('created_at', { ascending: false }),
         sb.from('video_sequences').select('*').eq('player_id', player.id),
       ]);
       if (error) throw error;
-      const count = (list, keys) => list.filter(s => keys.includes(seqStatus(s))).length;
-      const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
-      document.getElementById('pvSub').textContent = videos.length
-        ? `Bonjour ${player.prenom || player.nom} — ouvre une vidéo pour la découper, l’annoter et l’envoyer à ton staff.`
-        : `Bonjour ${player.prenom || player.nom}.`;
-      if (!videos.length) { box.innerHTML = '<div class="empty">Aucune vidéo pour le moment. Ton staff ne t’a encore rien envoyé.</div>'; return; }
-      box.innerHTML = `<div class="pv-grid">${videos.map(v => {
-        const list = (seqs || []).filter(s => s.video_id === v.id);
-        const toSend = count(list, ['ready', 'modified']), answered = count(list, ['answered']);
-        const sent = count(list, ['sent', 'seen']);
-        return `<a class="card pv-card" href="voir-video.html?id=${v.id}">
-          <div class="pv-card-top">
-            <span class="pv-date">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}</span>
-            ${answered ? `<span class="vw-status is-answered">${plural(answered, 'retour', 'retours')} du staff</span>` : ''}
-          </div>
-          <h3>${escapeHtml(v.titre)}</h3>
-          ${v.description ? `<p class="pv-desc">${escapeHtml(v.description)}</p>` : ''}
-          <div class="pv-card-meta">
-            <span>${list.length ? plural(list.length, 'séquence', 'séquences') : 'Pas encore de séquence'}</span>
-            <span class="pv-card-status">
-              ${toSend ? `<span class="vw-status is-ready">${toSend} à envoyer</span>` : ''}
-              ${sent ? `<span class="vw-status is-sent">${plural(sent, 'envoyée', 'envoyées')}</span>` : ''}
-            </span>
-          </div>
-        </a>`;
-      }).join('')}</div>`;
+      pv.videos = videos || [];
+      pv.seqs = (seqs || []).sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')));
+      if (pv.videos.length) {
+        const { data: signed } = await sb.storage.from('player-videos').createSignedUrls(pv.videos.map(v => v.storage_path), 3600);
+        (signed || []).forEach((d, i) => d?.signedUrl && pv.urls.set(pv.videos[i].id, d.signedUrl));
+      }
+      const answered = pv.seqs.filter(s => seqStatus(s) === 'answered').length;
+      document.getElementById('pvSub').textContent = `Bonjour ${player.prenom || player.nom}`
+        + (answered ? ` — ${plural(answered, 'retour', 'retours')} de ton staff t’attend${answered > 1 ? 'ent' : ''}.` : ' — ouvre une vidéo, sélectionne une portion : elle devient ta séquence.');
+      render();
     } catch (e) {
       console.error('mes-videos', e);
       box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`;
     }
   })();
+
+  function render() {
+    document.querySelector('[data-count="videos"]').textContent = pv.videos.length || '';
+    document.querySelector('[data-count="seqs"]').textContent = pv.seqs.length || '';
+    document.querySelectorAll('#pvTabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === pv.tab)));
+    document.getElementById('pvChips').classList.toggle('hidden', pv.tab !== 'seqs' || !pv.seqs.length);
+    document.querySelectorAll('#pvChips [data-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === pv.filter)));
+    const box = document.getElementById('pvContent');
+    if (pv.tab === 'videos') {
+      box.innerHTML = pv.videos.length ? `<div class="vp-cards">${pv.videos.map(v => {
+        const list = pv.seqs.filter(s => s.video_id === v.id);
+        const back = list.filter(s => seqStatus(s) === 'answered').length;
+        return `<a class="vp-card" href="voir-video.html?id=${v.id}">
+          ${thumbHtml(pv.urls.get(v.id), 1, 'Source')}
+          <span class="vp-card-body">
+            <span class="vp-card-top"><strong>${escapeHtml(v.titre)}</strong>${back ? `<span class="vw-status is-answered">${plural(back, 'retour', 'retours')}</span>` : ''}</span>
+            <span class="vp-card-meta">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))} · ${list.length ? plural(list.length, 'séquence', 'séquences') : 'pas encore de séquence'}</span>
+            ${v.description ? `<em>${escapeHtml(v.description)}</em>` : ''}
+          </span>
+        </a>`;
+      }).join('')}</div>` : '<div class="empty">Aucune vidéo pour le moment. Ton staff ne t’a encore rien envoyé.</div>';
+    } else {
+      const list = pv.seqs.filter(s => pv.filter === 'all' || (pv.filter === 'draft' ? !s.submitted_at : !!s.submitted_at));
+      box.innerHTML = list.length ? `<div class="vp-cards">${list.map(s => {
+        const v = pv.videos.find(x => x.id === s.video_id), len = s.end_sec - s.start_sec, n = (s.drawings || []).length;
+        return `<a class="vp-card" href="voir-video.html?id=${s.video_id}&seq=${s.id}">
+          ${thumbHtml(pv.urls.get(s.video_id), s.start_sec, fmtDur(len))}
+          <span class="vp-card-body">
+            <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s)}</span>
+            <span class="vp-card-meta">${escapeHtml(v?.titre || 'Vidéo')} · ${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}</span>
+          </span>
+        </a>`;
+      }).join('')}</div>` : `<div class="empty">${pv.seqs.length ? 'Aucune séquence dans ce filtre.' : 'Pas encore de séquence. Ouvre une vidéo, puis « Sélectionner une portion ».'}</div>`;
+    }
+    loadThumbs(box);
+  }
+
+  document.getElementById('pvTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tab]'); if (!b) return;
+    pv.tab = b.dataset.tab;
+    const u = new URL(location.href);
+    if (pv.tab === 'seqs') u.searchParams.set('tab', 'seqs'); else u.searchParams.delete('tab');
+    history.replaceState(null, '', u);
+    render();
+  });
+  document.getElementById('pvChips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-filter]'); if (!b) return;
+    pv.filter = b.dataset.filter; render();
+  });
 </script>
 </body>
 </html>

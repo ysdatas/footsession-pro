@@ -597,8 +597,25 @@ button.perf-photo-wrap.is-editable:hover .perf-photo-edit,
 button.perf-photo-wrap.is-editable:focus-visible .perf-photo-edit{opacity:1;}
 button.perf-photo-wrap.is-editable:hover{border-color:var(--gold,#c9a84c);}
 
-/* Rangée basse : suivi physique | objectifs, même largeur. */
-.perf-grid-bottom{grid-template-columns:repeat(2,minmax(0,1fr));}
+/* Rangée basse : suivi physique | objectifs, même largeur — seulement quand
+   la place le permet ; sur téléphone, une colonne (sinon le texte se
+   casse lettre par lettre). */
+@media (min-width:900px){ .perf-grid-bottom{grid-template-columns:repeat(2,minmax(0,1fr));} }
 .perf-grid-bottom .note-grid{flex:1 1 auto;min-height:0;overflow-y:auto;max-height:440px;align-content:start;padding-right:4px;grid-template-columns:1fr;}
 .note-card-head h3{flex:1;min-width:0;}
 .section-head .btn{white-space:nowrap;flex-shrink:0;}
+
+/* Tableau des tests sur téléphone : l'unité suit la valeur, la colonne
+   « Unité » disparaît ; l'explication des moyennes se déplie au besoin. */
+.t-u-inline{display:none;margin-left:3px;font-weight:500;color:var(--text-muted,#9da4ae);font-size:var(--fs-xs);}
+@media (max-width:560px){
+  .test-table .t-unit,.test-table th:nth-child(3){display:none;}
+  .t-u-inline{display:inline;}
+  .test-table td,.test-table th{padding:8px 6px;}
+}
+details.table-note{margin-top:10px;font-size:var(--fs-sm);color:var(--text-secondary);}
+details.table-note summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;min-height:36px;}
+details.table-note summary::-webkit-details-marker{display:none;}
+details.table-note summary .tn-more{color:var(--gold);text-decoration:underline;text-underline-offset:3px;}
+details.table-note[open] summary .tn-more{display:none;}
+details.table-note p{margin:6px 0 0;line-height:1.55;}

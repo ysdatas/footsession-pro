@@ -1,378 +1,341 @@
-# FootSession Pro — Audit mobile-first, Voice of Customer, UX/UI
+# FootSession Pro — Audit mobile-first (v2) : vidéo source, séquences, staff
 
-Octobre 2026. Ce document part des retours du propriétaire du produit (captures d'écran
-et « prompt maître »). Il couvre l'espace joueur, la vidéo, le terrain tactique et
-l'espace staff.
-
-Il suit l'ordre utilisateur → objectif → geste → résultat, puis UX → UI → code. Le
-téléphone est le support principal du joueur ; l'ordinateur en est une adaptation.
+Octobre 2026. Ce document part des 5 captures iPhone envoyées le 1er octobre et du
+« prompt final ». Il remplace la v1 (voir l'historique Git).
 
 Règle de priorité appliquée partout :
 - compréhension > esthétique ;
-- terrain > panneaux ;
+- mobile > ordinateur ;
 - action directe > navigation ;
-- lisibilité > Liquid Glass ;
-- rapidité > animation.
+- lisibilité > quantité d'information ;
+- robustesse > effet visuel.
 
 ---
 
-## A. Voice of Customer
+## 1. Voice of Customer
 
-**1. « Le terrain ne doit pas rétrécir »**
-- **Besoin réel :** garder le schéma sous les yeux pendant qu'on règle.
-- **Friction :** chaque panneau ouvert fait douter du cadrage.
-- **Opportunité :** superposer au lieu de pousser.
-- **Solution :** déjà en place : terrain plein cadre, tout flotte par-dessus. Maintenu. Sur téléphone, les panneaux deviennent une feuille basse au-dessus du terrain.
+**1. « Créer une séquence ne doit pas donner l'impression de modifier la vidéo »**
+- **Besoin réel :** savoir ce qu'on manipule.
+- **Problème UX (v1) :** la séquence était une zone dorée posée sur la timeline de la source. On restait dans le même lecteur.
+- **Impact :** « Est-ce que je modifie l'original ? »
+- **Solution :** deux écrans distincts. La **vidéo source** (chip « Vidéo source · jamais modifiée ») et la **séquence**, qui s'ouvre comme une nouvelle vidéo : titre, durée, timeline de 0 à sa fin, bannière « Séquence créée ».
 
-**2. « Les contrôles ne doivent pas rester autour du pion »**
-- **Besoin réel :** déplacer vite, sans rien toucher par erreur.
-- **Friction :** la barre couleurs + tailles + numéro reste affichée pendant le glisser.
-- **Opportunité :** montrer au bon moment, cacher pendant l'action.
-- **Solution :** la barre apparaît à la sélection, s'efface dès que l'élément bouge de plus de 4 px, les autres barres s'estompent (30 %), et tout revient au relâchement.
+**2. « Une séquence = une nouvelle vidéo indépendante »**
+- **Besoin réel :** retrouver, nommer et envoyer chaque extrait.
+- **Problème UX (v1) :** des noms génériques et pas de miniature.
+- **Impact :** les cartes se ressemblent (« XX », « DDDD »).
+- **Solution :** chaque séquence a son identifiant, son titre (« Séquence N », renommable d'un toucher), sa durée, sa miniature (l'image de son début), son habillage, son statut, sa date et son envoi.
 
-**3. « Choisir la couleur avant, et qu'elle reste »**
-- **Besoin réel :** poser 11 rouges d'affilée.
-- **Friction :** la couleur se réglait dans un panneau « Couleurs » séparé et se perdait d'une session à l'autre.
-- **Opportunité :** la couleur est une propriété de création.
-- **Solution :** toucher l'équipe active ouvre sa couleur. Une pastille au bout des outils règle celle des tracés. Tout pion suivant la reprend, et elle est mémorisée dans le compte. Le panneau « Couleurs » est supprimé.
-
-**4. « Plus de S / M / L »**
-- **Besoin réel :** voir la taille changer en glissant.
-- **Friction :** il faut deviner ce que « M » représente.
-- **Opportunité :** manipulation directe.
-- **Solution :** un curseur ●━━● dans la barre de l'élément, avec aperçu immédiat. Un seul « annuler » par geste. La taille est conservée pour les pions suivants. Paramètres utilise le même curseur.
-
-**5. « Découper doit être intuitif sur téléphone »**
-- **Besoin réel :** isoler une action de 5 à 10 s.
-- **Friction :** il fallait deux boutons (« Début », « Fin ») et viser précisément avec la barre native.
-- **Opportunité :** une timeline tactile.
+**3. « La timeline jaune prend trop de place »**
+- **Besoin réel :** voir la vidéo, pas un outil.
+- **Problème UX (v1) :** la plage dorée et les poignées étaient affichées en permanence.
+- **Impact :** c'était ambigu et lourd.
 - **Solution :**
-  - « Nouvelle séquence » crée la séquence autour de l'image affichée ;
-  - deux poignées dorées de 44 px s'ajustent au doigt, avec aperçu de l'image et timecode ;
-  - la durée reste visible.
+  - le doré n'existe qu'en **mode sélection** ;
+  - partout ailleurs, la barre est fine ;
+  - dans une séquence, elle va de 0:00 à la durée de la séquence.
 
-**6. « Un mode précis pour les avancés »**
-- **Besoin réel :** caler au dixième.
-- **Friction :** la timeline d'un match (90 min) rend une séquence de 6 s invisible.
-- **Opportunité :** d'abord simple, ensuite précis.
+**4. « Un bouton Sélectionner »**
+- **Besoin réel :** une entrée claire dans le découpage.
+- **Problème UX (v1) :** couper dépendait de gestes sur la timeline.
+- **Impact :** il y avait des conflits de gestes.
 - **Solution :**
-  - une loupe active l'image par image et le timecode au dixième ;
-  - la timeline zoome d'elle-même quand la séquence fait moins de 8 % de la vidéo ;
-  - ralenti 0,5× et 0,25×.
+  - « Sélectionner une portion » ouvre le mode sélection (cadre doré, « Sélection en cours 0:08 → 0:17 · 9 s ») ;
+  - on y trouve « Annuler » et « Créer la séquence » ;
+  - ▶ relit la sélection, la loupe ouvre l'image par image.
 
-**7. « Un habillage beaucoup plus poussé »**
-- **Besoin réel :** montrer un joueur, une course, une zone, un message.
-- **Friction :** il n'y avait que 4 formes sur une image fixe (« Image à 0:03 »).
-- **Opportunité :** un habillage temporel.
+**5. « Pas de gestes ambigus »**
+- **Besoin réel :** chaque geste fait une seule chose.
+- **Problème UX (v1) :** toucher la timeline pouvait déplacer la tête de lecture ou la séquence.
+- **Impact :** les erreurs donnaient l'impression de bugs.
 - **Solution :**
-  - 7 outils : flèche, trajectoire, repère joueur + n°, cercle, zone, projecteur, titre et texte ;
-  - chaque annotation a un instant, une durée (2 / 3 / 5 s) et, au choix, un arrêt sur image ;
-  - elles se rejouent pendant la lecture.
+  - les poignées n'existent qu'en sélection ;
+  - tirer une poignée règle la sélection ;
+  - partout ailleurs, la barre déplace la lecture, dans tous les modes ;
+  - le milieu de la sélection ne déplace rien.
 
-**8. « Pause → action → reprise »**
-- **Besoin réel :** annoter sans quitter la vidéo.
-- **Friction :** le mot « Dessiner sur l'image affichée » était ambigu et l'outil caché dans le détail.
-- **Opportunité :** un mode rapide.
+**6. « Habillage simple par défaut »**
+- **Besoin réel :** ne voir que l'utile.
+- **Problème UX (v1) :** toutes les options restaient visibles et aucun élément n'était éditable.
+- **Impact :** c'était chargé, et une erreur obligeait à tout refaire.
 - **Solution :**
-  - le bouton « Annoter » est sous la vidéo ; il met en pause et dessine directement dessus ;
-  - « Enregistrer » ramène à la lecture ;
-  - sans séquence choisie, une séquence est créée automatiquement.
+  - les couleurs n'apparaissent que pour l'outil choisi ;
+  - l'outil « Choisir » sélectionne un élément posé et ne montre que **ses** réglages (couleur, texte, supprimer) ;
+  - on peut le déplacer au doigt.
 
-**9. « Envoyer au staff, sans détour »**
-- **Besoin réel :** savoir ce qui part, à qui, avec quoi.
-- **Friction :** l'envoi partait sans aperçu, une séquence à la fois.
-- **Opportunité :** une confirmation claire.
+**7. « Envoyer, puis savoir que c'est parti »**
+- **Besoin réel :** être rassuré.
+- **Problème UX (v1) :** la feuille se fermait après l'envoi.
+- **Impact :** le joueur ne savait pas si l'envoi avait marché.
 - **Solution :**
-  - une feuille « Envoyer au staff » montre les séquences cochées, leur durée, leurs annotations, l'analyse et le destinataire ;
-  - on peut en envoyer plusieurs d'un coup ;
-  - le bouton final est libellé « Envoyer au staff ».
+  - la feuille montre le contenu (miniature, titre, durée), le destinataire et un message facultatif ;
+  - après l'envoi, une confirmation indique destinataire, date et statut « Envoyé ».
 
-**10. « Des statuts simples »**
-- **Besoin réel :** savoir où en est chaque séquence.
-- **Friction :** quatre étiquettes cumulables (À travailler, Annotée, Envoyée, Retour).
-- **Opportunité :** un statut unique.
-- **Solution :** Brouillon → Prêt → Envoyé → Vu → Retour, plus Modifié (changée depuis l'envoi). Le même pour le joueur et le staff, avec une pastille de couleur partout.
+**8. « Pas de doublons »**
+- **Besoin réel :** une carte = un contenu.
+- **Problème UX (v1) :**
+  - « Couper ici » créait des « (suite) » ;
+  - un double toucher pouvait créer deux séquences ;
+  - les noms se répétaient.
+- **Impact :** confusion.
+- **Solution :**
+  - « Couper ici » est retiré : on crée une autre séquence depuis la source ;
+  - une seule opération à la fois (verrou) ;
+  - numérotation qui ne réutilise jamais un numéro (`nextSeqLabel`).
 
-**11. « Logo absent côté joueur »**
-- **Besoin réel :** sentir que c'est le même produit.
-- **Friction :** trois en-têtes différents, et aucun logo sur Mes vidéos et Mon programme.
-- **Opportunité :** une coque commune.
-- **Solution :** un même en-tête (logo, rubriques, déconnexion) sur toutes les pages joueur, et des onglets en bas sur téléphone. Le logo est identique partout.
+**9. « Coach : trop d'informations d'un coup »**
+- **Besoin réel :** voir ce qui demande une action.
+- **Problème UX (v1) :** un accordéon par joueur avec 3 sections, des compteurs et toutes les vidéos.
+- **Impact :** un écran dense, des dashboards compressés.
+- **Solution :** navigation progressive : **À voir** + **Joueurs** (une ligne chacun) → un joueur → rubriques **À voir · Séquences · Vidéos** → un contenu.
 
-**12. « Composant Liquid Glass React »**
-- **Besoin réel :** une profondeur premium sur ce qui flotte.
-- **Friction :** le projet n'a ni React, ni build, ni Tailwind.
-- **Opportunité :** réutiliser l'existant.
-- **Solution :** `.glass` et `.glass-btn` existent en CSS natif (voir K). On ne recrée pas un équivalent React.
+**10. « Badges simples »**
+- **Besoin réel :** comprendre en une seconde.
+- **Problème UX (v1) :** six statuts, dont « Prêt ».
+- **Impact :** trop de nuances.
+- **Solution :** un badge, jamais cumulé :
+  - Brouillon ;
+  - Envoyé (« À voir » côté staff) ;
+  - Vu ;
+  - Retour ;
+  - Modifié (rare : changée depuis l'envoi).
+
+**11. « Cartes trop étroites »**
+- **Besoin réel :** lire sur téléphone.
+- **Problème UX (v1) :** sur la page Performance, deux colonnes forcées : le texte se cassait lettre par lettre (« A x e p r i o… »).
+- **Impact :** illisible.
+- **Solution :** une colonne sous 900 px. Le tableau des tests est compact (l'unité est collée à la valeur). L'explication des moyennes est repliée derrière « Voir le détail ».
+
+**12. « Header et navigation cohérents »**
+- **Besoin réel :** le même produit partout.
+- **Problème UX :** les onglets du bas étaient parfois là, parfois non, sans règle.
+- **Impact :** la page semblait instable.
+- **Solution :**
+  - règle unique : onglets du bas sur toutes les pages joueur au téléphone, masqués **seulement** pendant une sélection ou une annotation (modes de concentration) ;
+  - le logo est identique partout.
 
 ---
 
-## B. Audit UX mobile — frictions
+## 2. Audit UX mobile, écran par écran (captures du 1ᵉʳ octobre)
 
-Priorité : C = critique, I = important, A = amélioration.
+**Annotation (capture « XX »)**
+- **Objectif :** habiller une image.
+- **Frictions :**
+  - un « faisceau » clair partait du coin de l'image ;
+  - les éléments n'étaient pas modifiables.
+- **Correction :**
+  - le bug de tracé du projecteur est corrigé (chaque ellipse démarre son propre tracé) ;
+  - outil « Choisir », réglages contextuels.
 
-**Critique**
-- **La page vidéo débordait en largeur sur téléphone.** La ligne de commandes imposait sa largeur à la grille. Corrigé : colonnes `minmax(0, 1fr)`, et la durée totale est masquée sous 420 px (elle reste au bout de la timeline).
-- **La page Performance débordait de 90 px sur téléphone (radar).** Corrigé : grilles `minmax(0, 1fr)`.
-- **La timeline native était trop fine au doigt et il n'y avait aucune poignée.** Timeline de 56 px, poignées de 44 px.
-- **La barre de sélection du terrain faisait 2 lignes sur téléphone et couvrait les barres latérales.** Sur téléphone, elle est posée en bas, au pouce, sur une seule ligne. Elle passe en haut si l'élément est tout en bas.
-- **Il était impossible de saisir un pion au doigt** : cible de 9 px, poignées qui volaient le geste. La prise est élargie (≈ 14 px d'écran). Au doigt, saisir le corps déplace, et la taille passe par le curseur.
-- **Aucun aperçu avant envoi.** Ajout de la feuille « Envoyer au staff ».
+**Vidéo (capture « DDDD »)**
+- **Objectif :** découper, annoter, envoyer.
+- **Frictions :**
+  - la plage dorée de 17 s était affichée en permanence ;
+  - trois actions côte à côte ;
+  - « Envoyer (1) » était ambigu ;
+  - les séquences étaient coupées par les onglets.
+- **Correction :**
+  - écran source : une seule action, « Sélectionner une portion » ;
+  - écran séquence : « Annoter » + « Envoyer au staff » ;
+  - les séquences sont listées en cartes avec miniature.
 
-**Important**
-- **Les séquences s'empilaient en liste longue sous la vidéo.** Elles forment maintenant un bandeau horizontal au pouce ; « Vidéo entière » est en premier.
-- **La barre d'annotation était trop haute et « Enregistrer » passait sous les onglets.** Nouvelle organisation en 5 rangées ; les onglets du bas sont masqués pendant l'annotation.
-- **Pas de ralenti ni d'image par image.** Ajout de 1× / 0,5× / 0,25× et d'un mode précision.
-- **« Annuler » voulait dire à la fois défaire et quitter.** ↶ défait. « Fermer » quitte l'annotation sans enregistrer.
+**Performance, Suivi physique / Objectifs**
+- **Objectif :** lire ses mesures et objectifs.
+- **Frictions :** deux colonnes de 170 px, textes cassés, tableau tronqué (« POI »).
+- **Correction :** une colonne sur téléphone ; règle CSS corrigée (elle annulait la version mobile).
 
-**Amélioration**
-- **Texte saisi par une boîte de dialogue système.** Il est maintenant saisi dans un champ posé à l'endroit touché.
+**Performance, tests**
+- **Objectif :** se situer.
+- **Frictions :** colonnes serrées, long paragraphe d'explication.
+- **Correction :** colonne « Unité » retirée sur téléphone (l'unité suit la valeur) ; explication repliée.
+
+**Vidéos joueurs (staff)**
+- **Objectif :** traiter le travail reçu.
+- **Frictions :** un accordéon dense, « 2 vidéos · 1 sélectionnée · 2 annotées », mélange des types.
+- **Correction :** « À voir » en tête, une ligne par joueur, rubriques séparées.
 
 ---
 
-## C. Audit UI — cohérence
+## 3. Audit UI
 
-- **Typographie :** une seule échelle (`--fs-xs` .72 → `--fs-2xl` 1.7rem), déjà appliquée aux 321 tailles de l'app. Tous les nouveaux composants s'y tiennent. Les timecodes sont en chiffres tabulaires.
+- **Un seul système de cartes** (`.vp-card`), le même pour le joueur et le staff :
+  - miniature 16:9 à gauche, avec sa durée en badge ;
+  - titre en premier, puis une ligne de méta ;
+  - le badge de statut à droite.
+- **Onglets** (`.vp-tabs`) et **filtres** (`.pv-chips`) : un seul style, 40 px de haut.
+- **Typographie :**
+  - titres d'écran en `--fs-2xl` ;
+  - titres de carte en `--fs-md` 600 ;
+  - méta en `--fs-sm` secondaire ;
+  - labels de section en `--fs-xs` capitales ;
+  - aucun nouveau corps de texte hors échelle.
 - **Boutons :**
-  - primaire doré : action principale d'un écran (une seule par zone) ;
-  - secondaire : fond carte ;
-  - icône : 44 px sur téléphone ;
-  - flottant : `.glass-btn`, sur terrain et vidéo uniquement.
-- **Pastilles de statut :** un seul composant (`.vw-status`) pour le joueur, le staff et Mes vidéos.
-- **Couleurs :**
-  - palette commune (`COLOR_PALETTE`) ;
-  - sur le terrain, une pastille ouvre la palette et elle n'est jamais affichée en permanence.
-- **Rayons et profondeur :** `--radius-control` 10 px, `--radius-float` 16 px, `--elev-float`. Les feuilles basses ont des coins de 20 px.
+  - une action primaire dorée par écran (Sélectionner une portion / Créer la séquence / Envoyer au staff / Enregistrer) ;
+  - secondaires en fond carte ;
+  - hauteur 48 à 50 px sur téléphone.
+- **Feuilles basses :** un seul composant pour les options (⋯), l'envoi et la confirmation.
+- **Liquid Glass :** réservé au terrain tactique et à ce qui flotte au-dessus d'un contenu. Les cartes restent opaques.
 
 ---
 
-## D. Navigation
+## 4. Audit vidéo : lecture, sélection, découpage, séquences
 
-- **Joueur :** trois destinations, donc une barre d'onglets en bas sur téléphone (Performance · Programme · Vidéos) et des rubriques dans l'en-tête sur ordinateur. Les sous-pages (une vidéo) gardent un lien « ← Mes vidéos » au-dessus du titre. Pas de menu caché.
-- **Staff :** menu latéral (8 à 10 rubriques), replié sur téléphone derrière ☰. Une barre du haut garde le logo visible. Le tableau tactique reste en plein écran (← pour sortir).
-- **Profondeur maximale :**
-  - rubrique → objet (vidéo, schéma) → mode (annoter, envoyer) ;
-  - aucun mode ne change de page ;
-  - les feuilles et panneaux se referment sans perdre le contexte.
+**Modèle**
+- **Vidéo source :** `player_videos` (fichier).
+- **Séquence :** `video_sequences` (début, fin, titre, habillage, statut, dates).
+- **Contenu envoyé :** la même séquence, `submitted_at`. Il n'y a jamais de copie, donc jamais de doublon après envoi.
 
----
+Une séquence se lit comme une vidéo à part :
+- lecture limitée à sa portion ;
+- temps affichés de 0:00 à sa durée ;
+- l'arrêt à la fin relance au début ;
+- sa timeline ne montre que sa portion.
 
-## E. Terrain tactique
+Pourquoi pas un nouveau fichier ? Ré-encoder une vidéo dans le navigateur d'un téléphone serait lent, consommerait la batterie et doublerait le stockage. Le résultat visible est le même : un contenu indépendant, ouvert dans son propre écran. Un export MP4 téléchargeable pourra s'ajouter si le besoin apparaît.
 
-- **Manipulation :** toucher → barre de l'élément, glisser → barre effacée, relâcher → barre revenue. Double sécurité : seuil de 4 px avant de considérer un déplacement.
-- **Barre de l'élément :**
-  - couleur (pastille → palette) ;
-  - taille (curseur) ;
-  - n° / texte ;
-  - police (pour un texte) ;
-  - angle (pour un tracé) ;
-  - pivoter (seulement ce qui a une orientation) ;
-  - dupliquer ;
-  - supprimer.
-  Le libellé « Joueur » a disparu ; seul « 3 éléments » s'affiche en sélection multiple.
-- **Couleurs de création :** équipe active et tracés, mémorisées dans `profiles.prefs` (les mêmes valeurs que Paramètres).
-- **Téléphone :**
-  - nouveau schéma en terrain vertical ;
-  - barres d'outils et d'animation défilantes ;
-  - vitesse de lecture masquée (secondaire) ;
-  - panneaux en feuille basse.
-- **Reste possible plus tard :** pincer pour zoomer sur le terrain, appui long = menu contextuel au doigt (le clic droit n'existe pas sur téléphone ; tout ce qu'il offre est désormais dans la barre).
+**Mode sélection**
+- La portion part de l'image affichée et dure 6 s.
+- Les poignées de 44 px s'ajustent au doigt.
+- La timeline zoome seule sur une portion courte dans une longue vidéo.
+- La précision (loupe) ajoute l'image par image, « Début ici » et « Fin ici ».
+- On en sort par « Annuler », par le retour du téléphone, par Échap, ou par « Créer la séquence ».
+
+**Séquence**
+- Menu ⋯ : renommer, ajuster le début et la fin (même mode sélection, bouton « Enregistrer le découpage »), image par image, dupliquer, supprimer.
+- ↶ / ↷ couvrent la création, le découpage, la duplication, la suppression et l'habillage.
 
 ---
 
-## F. Vidéo
+## 5. Audit habillage
 
-- **Commandes propres**, sans barre native :
-  - lecture/pause (et toucher la vidéo) ;
-  - temps ;
-  - ↶ / ↷ ;
-  - ralenti ;
-  - précision ;
-  - plein écran.
-- **Timeline :**
-  - vidéo entière, séquences en filigrane ;
-  - séquence choisie en doré avec sa durée ;
-  - annotations en traits dorés ;
-  - tête de lecture avec bulle de timecode pendant le geste.
-- **Pendant une coupe**, le reste s'estompe (`is-trimming`).
-- **Lecture d'une séquence :** elle s'arrête à sa fin ; « Vidéo entière » lit librement.
-- **Clavier (staff sur ordinateur) :** Espace = lecture, « , » / « . » = image par image, ← / → sur une poignée = 0,1 s (Maj : 1 s).
+- **Outils :** Choisir, Flèche, Trajectoire, Repère joueur, Cercle, Zone, Projecteur, Texte (titre ou texte).
+- **Contexte :** les couleurs de l'outil actif s'affichent, plus une consigne courte (« Touche les pieds du joueur »). Un élément sélectionné montre ses propres réglages.
+- **Temps :** chaque annotation a un début (l'image affichée), une durée (2, 3 ou 5 s) et, au choix, un arrêt sur image. La liste « Habillage » affiche les plages relatives à la séquence (« 0:02 → 0:05 · Flèche, Projecteur · arrêt sur image »).
+- **Sécurité :**
+  - « Fermer » demande confirmation s'il reste des changements ;
+  - le retour du téléphone pendant l'annotation aussi ;
+  - fermer l'onglet affiche l'alerte du navigateur.
 
 ---
 
-## G. Habillage
+## 6. Audit terrain
 
-Modèle stocké dans `video_sequences.drawings` (jsonb, sans migration) :
-`[{ t, d, freeze, shapes: [...] }]`
+Ce qui est déjà en place depuis la v1, et inchangé :
+- couleurs de création mémorisées ;
+- réglages qui s'effacent pendant le déplacement ;
+- curseur de taille à la place de S/M/L ;
+- barre en bas sur téléphone.
 
-Les anciennes annotations `{ t, shapes }` sont lues comme `d = 3 s`, avec arrêt sur image.
-
-**Formes**, en coordonnées 0–1 de l'image, donc identiques sur tout écran :
-- flèche, trait ;
-- cercle, zone ;
-- trajectoire (pointillés + flèche) ;
-- projecteur (assombrit tout sauf l'ellipse) ;
-- repère joueur (anneau au sol + étiquette) ;
-- titre / texte (sur fond sombre lisible).
-
-**Lecture :**
-- les annotations « visibles N s » s'affichent de `t` à `t + d` ;
-- les arrêts sur image mettent la lecture en pause à `t` pendant `d`, puis la reprennent ;
-- l'apparition et la disparition se font en fondu (200 ms).
+Nouveauté : au doigt, le curseur passe à 44 px de haut et sa poignée à 28 px.
 
 ---
 
-## H. Séquences (clips)
+## 7. Audit coach / admin
 
-- **Une vidéo produit N séquences :** « Nouvelle séquence », « Couper ici » (chaque partie garde ses annotations), « Dupliquer » (version modifiable, l'original reste), « Supprimer ». Tout passe par ↶ / ↷.
-- **La source reste intacte :** une séquence n'est qu'un début et une fin.
-- **Écraser volontairement :** c'est l'édition normale. Faire une version : « Dupliquer ».
+| Niveau | Contenu | Action |
+|---|---|---|
+| 1. Ensemble | **À voir** (séquences envoyées, sans retour) puis **Joueurs** : nom, « N vidéos · N séquences », « N à voir » ou date de dernière activité | toucher un joueur ou une séquence |
+| 2. Joueur | En-tête « ← Tous les joueurs », nom, résumé | — |
+| 3. Rubriques | **À voir** · **Séquences** · **Vidéos** (onglets) | toucher un contenu |
+| 4. Contenu | Poste de travail en plein écran : séquence (habillage du joueur, analyse, retour) ou vidéo source | Envoyer mon retour |
 
----
-
-## I. Staff
-
-- **« À voir »** en tête de Vidéos joueurs : les séquences envoyées et pas encore commentées, les plus récentes d'abord. Chacune affiche le joueur, le statut, la durée, les annotations, la date d'envoi et l'analyse du joueur.
-- **Ouvrir une séquence la marque « Vu »** (`seen_at`, daté par le serveur). La séquence s'ouvre sur la première annotation ; « Lire » la rejoue avec ses arrêts sur image.
-- **Réponse :** « Retour du staff » passe le statut à « Retour ». Si le joueur modifie ensuite, le statut devient « Modifié », puis il renvoie.
+La recherche filtre les joueurs, mais la navigation principale reste joueur → rubrique → contenu. Une séquence ouverte passe « Vu » pour le joueur. Le retour du téléphone remonte d'un niveau.
 
 ---
 
-## J. Branding
+## 8. Audit navigation
 
-**Règle :** le même logo partout, c'est-à-dire « Foot » + « Session » en blanc et la pastille dorée « PRO » (`.brand-accent`, `.brand-pro`). Seule la taille change.
+```
+Joueur : Mes vidéos ─┬─ Vidéos ──► Vidéo source ──Sélectionner──► Sélection ──Créer──► Séquence
+                     └─ Mes séquences ───────────────────────────────────────────────► Séquence
+         Séquence ──Annoter──► Habillage ──Enregistrer──► Séquence ──Envoyer──► Confirmation
+Staff  : Vidéos joueurs ──► Joueur (À voir · Séquences · Vidéos) ──► Séquence / Vidéo source
+```
 
-| Espace | Où est le logo |
-|---|---|
-| Staff, ordinateur | Menu latéral |
-| Staff, téléphone | Barre du haut (56 px, collante, floutée) |
-| Joueur | En-tête de 56 px, identique sur chaque page |
-| Connexion | Grand format |
-
-La page Performance, vue par un joueur, remplace sa barre staff par la coque joueur. Les zones sûres de l'iPhone sont gérées : `viewport-fit=cover`, `env(safe-area-inset-*)`.
+- Chaque flèche correspond à une entrée d'historique : le retour du téléphone fait le chemin inverse.
+- Une séquence a son adresse (`voir-video.html?id=…&seq=…`) et peut être partagée.
 
 ---
 
-## K. Architecture cible
+## 9. Audit bugs : trouvés, corrigés, protégés
 
-Le projet est volontairement **sans build** : HTML/CSS/JS statiques dans `web/`, Supabase appelé depuis le navigateur. Intégrer `/components/ui/liquid-glass-button.tsx` (React, Radix Slot, class-variance-authority, `cn`, Tailwind, TypeScript) imposerait bundler, JSX et Tailwind pour un seul bouton. L'équivalent existe en CSS :
-- `.glass` : surface flottante ;
-- `.glass-btn` avec `.active`, `.is-primary`, `.is-danger`, `:focus-visible`, états tactiles et mouvement réduit.
+**Corrigés**
+- **Projecteur :** un triangle clair partait du coin. Chaque ellipse était reliée au tracé précédent ; elle démarre maintenant son propre tracé.
+- **Suivi de visionnage arrêté depuis la v1 :** le lecteur avait perdu l'identifiant que `video-tracking.js` attend. Il est rétabli (`id="playerVideo"`).
+- **Performance en deux colonnes sur téléphone :** une règle CSS placée en fin de fichier annulait la règle mobile. Elle est maintenant limitée aux écrans de 900 px et plus.
 
-À reconsidérer seulement si l'app passe un jour à React.
+**Protections ajoutées**
+- **Doublons :** une seule opération à la fois, donc un double toucher sur « Créer la séquence » n'en crée qu'une.
+- **Gestes :** sans poignée hors sélection, il n'y a pas de conflit possible.
+- **Changement d'écran :** la lecture s'arrête, l'arrêt sur image en cours est annulé, la feuille ouverte se ferme.
+- **Données :**
+  - l'analyse s'enregistre pendant la frappe (0,9 s), en quittant le champ et en quittant la page ;
+  - l'indicateur montre « Enregistrement… », « Enregistré » ou « Non enregistré » ;
+  - en cas d'erreur d'envoi, la feuille reste ouverte avec un message.
+- **Suppression :** pas de confirmation (↶ annule), et l'option n'est proposée qu'à qui a le droit de supprimer.
 
-**Modules ajoutés** (scripts classiques, portée partagée) :
+**États explicites**
+- **Inactif :** écran source ou séquence.
+- **Sélectionné :** mode sélection ; élément choisi dans l'habillage.
+- **Édition :** habillage ou découpage.
+- **Enregistrement en cours / enregistré :** indicateur dans l'en-tête de la séquence.
+- **Envoi en cours :** bouton « Envoi… » désactivé.
+- **Envoyé :** écran de confirmation.
+- **Erreur :** message sur place, rien n'est perdu.
+
+---
+
+## 10. Architecture cible
 
 | Fichier | Rôle |
 |---|---|
-| `video-status.js` | Statuts, formats de temps (testé : `tests/video-status.test.mjs`) |
-| `video-timeline.js` | Timeline tactile, poignées, zoom |
-| `video-ink.js` | Calque d'habillage |
-| `video-workspace.js` | Orchestration : lecture, montage, annotation, envoi |
-| `player-nav.js` | Coque de l'espace joueur |
+| `video-workspace.js` | Écrans source / séquence, lecture, sélection, montage, historique (↶ ↷ et retour du téléphone) |
+| `video-timeline.js` | Timeline en trois modes : `view`, `select`, `clip` |
+| `video-annotate.js` | Barre d'habillage, réglages contextuels, timing, protection |
+| `video-ink.js` | Calque de dessin : formes, sélection, déplacement, historique propre |
+| `video-send.js` | Feuille d'envoi et confirmation |
+| `video-status.js` | Statuts, noms par défaut, miniatures (`#t=` + chargement à l'affichage) — testé |
+| `videos-page.js` | Staff : ensemble → joueur → rubrique |
+| `mes-videos.html` | Joueur : Vidéos / Mes séquences |
 
-**Base de données :** `supabase/video_status.sql` (migration 21) ajoute `seen_at` et `edited_at`. Le trigger `guard_video_sequence` les pose avec `now()`, ainsi que `submitted_at`. Un joueur ne peut ni se déclarer « vu » ni antidater un envoi.
-
----
-
-## L. Plan d'implémentation (réalisé)
-
-| # | Priorité | Changement | Fichiers |
-|---|---|---|---|
-| 1 | C | Coque joueur : logo, onglets en bas, zones sûres | `player-nav.js`, `main.css`, pages joueur |
-| 2 | C | Timeline tactile, poignées, précision, ralenti | `video-timeline.js`, `video-workspace.js`, `videos.css` |
-| 3 | C | Habillage temporel (7 outils, durée, arrêt sur image) | `video-ink.js`, `video-workspace.js` |
-| 4 | C | Envoi avec aperçu, multi-séquences, statuts | `video-workspace.js`, `video-status.js`, `video_status.sql` |
-| 5 | C | Terrain : barre effacée pendant le geste, curseur de taille, couleurs mémorisées, prise au doigt | `tactical-board.js/.html/.css`, `settings*` |
-| 6 | I | Staff : « À voir », marquage « Vu » | `videos-page.js`, `videos.html` |
-| 7 | I | Logo unifié, barre du haut staff sur téléphone | `nav.js`, `layout.css`, `auth.css`, pages |
-| 8 | I | Débordements horizontaux sur téléphone (vidéo, Performance) | `videos.css`, `player-performance*.css` |
-| 9 | A | FAQ et README à jour | `faq.html`, `README.md` |
+Pas de nouvelle migration : le modèle tient dans `video_sequences` (migrations 20 et 21).
 
 ---
 
-## Écran par écran (téléphone)
+## 11. Plan d'implémentation (réalisé)
 
-**Mes vidéos**
-- **Action principale :** ouvrir une vidéo.
-- **Frictions levées :** pas de logo ; l'état du travail était peu clair.
-- **Cible :** cartes avec « N à envoyer », « N envoyées », « N retours du staff ».
-- **Priorité :** I.
-
-**Vidéo**
-- **Action principale :** couper, annoter, envoyer.
-- **Frictions levées :** débordement ; barre native fine ; découpe en deux temps ; pas d'aperçu.
-- **Cible :** vidéo bord à bord, commandes de 44 px, timeline à poignées, 3 grosses actions, séquences en bandeau, feuille d'envoi.
-- **Priorité :** C.
-
-**Ma performance**
-- **Action principale :** lire ses données.
-- **Frictions levées :** débordement du radar ; barre différente des autres pages.
-- **Cible :** coque commune ; grilles souples.
-- **Priorité :** C.
-
-**Mon programme**
-- **Action principale :** ouvrir un exercice.
-- **Friction levée :** pas de logo.
-- **Cible :** coque commune.
-- **Priorité :** I.
-
-**Tableau tactique**
-- **Action principale :** placer, déplacer, régler.
-- **Frictions levées :** barre sur 2 lignes ; S/M/L ; couleurs dans un panneau ; cibles minuscules.
-- **Cible :** barre en bas au pouce, curseur, pastilles, prise élargie, terrain vertical.
-- **Priorité :** C.
-
-**Vidéos joueurs (staff)**
-- **Action principale :** voir le travail reçu.
-- **Friction levée :** il fallait filtrer puis déplier.
-- **Cible :** « À voir » en tête, ouverture directe, « Vu » automatique.
-- **Priorité :** I.
-
-**Pages staff**
-- **Action principale :** naviguer.
-- **Friction levée :** logo invisible sur téléphone.
-- **Cible :** barre du haut avec logo.
-- **Priorité :** I.
-
----
+| # | Priorité | Changement |
+|---|---|---|
+| 1 | C | Écrans source / séquence, « Sélectionner une portion », « Créer la séquence », séquence ouverte comme une nouvelle vidéo |
+| 2 | C | Timeline à modes explicites, sans conflit de gestes |
+| 3 | C | Habillage : outil Choisir, réglages contextuels, déplacement, protection des changements |
+| 4 | C | Envoi : contenu, destinataire, message, confirmation |
+| 5 | C | Bugs : projecteur, suivi de visionnage, deux colonnes sur la page Performance |
+| 6 | I | Staff progressif (À voir · Joueurs → À voir · Séquences · Vidéos) |
+| 7 | I | Mes vidéos : Vidéos / Mes séquences + filtres, miniatures |
+| 8 | I | Statuts simplifiés, numérotation sans doublon |
+| 9 | A | Tests : tableau compact, explication repliée ; curseur du terrain au doigt |
 
 ## Parcours testés
 
-Tests faits dans le navigateur de développement, au format 375 × 812, sur des données simulées.
+Tests faits à 375 × 812 sur des données simulées.
 
 **Joueur**
-- **Parcours :** Vidéos → vidéo → séquence → Lire → pause → Annoter → flèche + repère « 7 » + projecteur + texte → Enregistrer → lecture avec arrêt sur image de 3 s → analyse → Envoyer → aperçu → Envoyer au staff.
-- **Nombre de touchers :** 9 à 10, tous dans la même page.
-- **Ce qui a changé :** plus de sélection précise à la barre native ; ce qui part est visible avant l'envoi ; le statut passe à « Envoyé ». Modifier l'analyse ensuite fait passer à « Modifié », et le bouton devient « Renvoyer au staff ».
-
-**Terrain**
 - **Parcours :**
-  - toucher l'équipe → couleur ;
-  - n°1 → poser 1, 2, 3 ;
-  - toucher un pion → curseur de taille ;
-  - pastille → jaune ;
-  - glisser le pion (barre effacée, barres latérales à 30 %) ;
-  - n°4 → nouveau pion bleu, grande taille conservée.
-- **Nombre de touchers :** 2 pour la couleur, qui reste ensuite, au lieu de 3 plus un panneau.
-- **Ce qui a changé :** la couleur et la taille survivent au rechargement (préférences du compte).
+  - vidéo source → Sélectionner → poignée de fin tirée (0:08 → 0:19) → Créer la séquence ;
+  - « Séquence 5 » s'ouvre (0:00 / 0:11) ;
+  - le retour mène à la source, qui liste alors 5 séquences.
+- **Habillage :**
+  - Annoter → flèche + projecteur → Choisir → flèche recolorée en rouge et déplacée → Enregistrer ;
+  - la liste indique « 0:02 → 0:05 · Flèche, Projecteur · arrêt sur image ».
+- **Envoi :** aperçu (miniature, Staff — club, message) → Envoyer → confirmation (« Envoyée le 01/10 02:35 · Envoyé »).
+- **Découpage :** ⋯ → Ajuster → image par image → « Début ici » 0:11 → Enregistrer. Statut « Modifié », bouton « Renvoyer au staff ».
 
 **Staff**
-- **Parcours :** Vidéos joueurs → carte « À voir » → la séquence s'ouvre sur l'annotation, statut « Vu » → Lire → Retour.
-- **Nombre de touchers :** 3 à 4, au lieu de 5 à 6 (filtre, dépliage, choix de l'image).
-- **Ce qui a changé :** le joueur voit « Vu » puis « Retour ».
-
-## Premier usage : les questions traitées
-
-- **« Qu'est-ce que je dois faire ? »** Un guide en 3 étapes s'affiche au-dessus des séquences (Choisis ou crée · Annote · Envoie).
-- **« Comment je coupe ? »** Le bouton « Nouvelle séquence » est bien visible et un message indique de tirer les poignées dorées.
-- **« Comment je reviens ? »** Onglets en bas, « ← Mes vidéos », « Vidéo entière ».
-- **« Comment j'envoie ça au staff ? »** Le bouton « Envoyer (n) » apparaît dès qu'une séquence est prête, et l'aperçu nomme le destinataire.
-- **« Pourquoi le terrain a bougé ? »** Il ne bouge plus : tout se superpose.
-- **« Où sont mes séquences ? »** Dans le bandeau sous la vidéo, avec leur statut, et le résumé sur chaque carte de Mes vidéos.
+- **Parcours :** Vidéos joueurs → carte « À voir » ou joueur → onglets → séquence en plein écran (statut « Vu ») → fermer. Le badge « Vu » reste ; le retour du téléphone ramène à la liste des joueurs.
 
 ## Limites connues
 
-- Sur iPhone, le plein écran de la vidéo est celui du système (vidéo seule, sans les annotations). Sur Android et sur ordinateur, les annotations restent visibles.
-- « Vu » et « Modifié » demandent la migration 21. Sans elle, ces deux statuts ne s'affichent jamais ; rien ne casse.
-- Le staff ne dessine pas encore sur les séquences : son retour est écrit. C'est à ajouter si le besoin est confirmé, avec une colonne dédiée pour ne pas toucher au travail du joueur.
+- Sur iPhone, le plein écran est celui du système : vidéo seule, sans habillage.
+- Les miniatures viennent de la vidéo elle-même (`#t=`). Sur une connexion très lente, elles apparaissent après le texte de la carte.
+- Le staff répond par écrit et ne dessine pas sur les séquences (à ajouter si le besoin est confirmé).

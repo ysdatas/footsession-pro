@@ -342,3 +342,10 @@
   .tb-prop input[type="text"] { width: 52px; }
   .tb-timeline > * { flex-shrink: 0; }
 }
+
+/* Au doigt : curseur de taille plus haut, poignée plus grosse. */
+@media (pointer: coarse) {
+  .tb-size input[type="range"] { height: 44px; }
+  .tb-size input[type="range"]::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -12px; }
+  .tb-size input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; }
+}

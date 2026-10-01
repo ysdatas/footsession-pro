@@ -354,7 +354,7 @@ function renderTestSummary(test) {
         ${staff ? `data-metric="${r.key}" tabindex="0" aria-expanded="${open}"` : ''}>
       <td class="t-name">${staff ? '<span class="t-caret" aria-hidden="true">›</span>' : ''}${esc(r.label)}</td>
       <td class="t-value ${value === null ? 'is-empty' : ''}${flagged ? ' v-flagged' : ''}"
-        ${flagged ? 'title="Hors des bornes attendues : à vérifier"' : ''}>${fmt(value, r.digits)}${flagged ? ' ⚠' : ''}</td>
+        ${flagged ? 'title="Hors des bornes attendues : à vérifier"' : ''}>${fmt(value, r.digits)}${value !== null && r.unit ? `<small class="t-u-inline">${esc(r.unit)}</small>` : ''}${flagged ? ' ⚠' : ''}</td>
       <td class="t-unit">${esc(r.unit || '—')}</td>
       ${hasRef ? `<td class="t-ref">${fmt(ref, r.digits)}</td><td class="t-gap">${gap}</td>` : ''}
       ${rankCell}
@@ -380,13 +380,14 @@ function renderTestSummary(test) {
     <tbody>${body}</tbody>
   </table></div>
   ${hasRef
-    ? `<p class="text-muted table-note">
-         <strong>${refLabel()}</strong> : pour chaque test, moyenne des joueurs de ${staff ? 'votre' : 'ton'} ${player?.team_id ? 'équipe' : 'club'}
+    ? `<details class="table-note">
+         <summary><span><strong>Écart</strong> : <span class="gap-up">vert = mieux que la moyenne</span>, <span class="gap-down">rouge = moins bien</span>.</span>
+           <span class="tn-more">Voir le détail</span></summary>
+         <p><strong>${refLabel()}</strong> : pour chaque test, moyenne des joueurs de ${staff ? 'votre' : 'ton'} ${player?.team_id ? 'équipe' : 'club'}
          qui l’ont passé en <strong>${esc(stageLabel)}</strong> — le nombre varie donc d’un test à l’autre,
          et une moyenne n’est affichée qu’à partir de 3 joueurs. Les valeurs manifestement erronées en sont exclues.
-         <strong>Écart</strong> : <span class="gap-up">vert = meilleur que la moyenne</span>,
-         <span class="gap-down">rouge = moins bon</span> ; un sprint plus court et un VIFT plus élevé comptent tous deux comme un gain.
-       </p>`
+         Un sprint plus court et un VIFT plus élevé comptent tous deux comme un gain.</p>
+       </details>`
     : `<p class="text-muted table-note">Pas de moyenne pour cette session : il faut au moins 3 joueurs testés.</p>`}`;
 
   if (!staff) return;

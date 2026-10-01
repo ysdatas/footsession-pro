@@ -11,13 +11,6 @@
 </head>
 <body data-shell="player">
 <div class="pv-wrap pv-wide">
-  <div class="pv-head">
-    <div>
-      <a class="back-inline" href="mes-videos.html">← Mes vidéos</a>
-      <h1 id="vvTitle">Vidéo</h1>
-      <p class="subtitle" id="vvSub"></p>
-    </div>
-  </div>
   <div id="vvContent"><div class="empty">Chargement…</div></div>
 </div>
 
@@ -29,8 +22,13 @@
 <script src="assets/js/video-status.js"></script>
 <script src="assets/js/video-timeline.js"></script>
 <script src="assets/js/video-ink.js"></script>
+<script src="assets/js/video-annotate.js"></script>
+<script src="assets/js/video-send.js"></script>
 <script src="assets/js/video-workspace.js"></script>
 <script>
+  /* Une vidéo source et ses séquences : le poste de travail affiche
+     l'une ou l'autre (?seq=…), le retour du téléphone passe de l'une
+     à l'autre. */
   (async () => {
     const box = document.getElementById('vvContent');
     try {
@@ -43,12 +41,10 @@
       const { data: signed, error: sErr } = await sb.storage.from('player-videos').createSignedUrl(video.storage_path, 3600);
       if (sErr || !signed?.signedUrl) throw sErr || new Error('Vidéo indisponible');
       document.title = `${video.titre} — FootSession Pro`;
-      document.getElementById('vvTitle').textContent = video.titre;
-      document.getElementById('vvSub').textContent = video.description || '';
       const { data: { session } } = await sb.auth.getSession();
       await mountVideoWorkspace(box, {
         video, src: signed.signedUrl, player, mode: 'player', userId: session.user.id,
-        focusSeq: Number(params.get('seq')) || null,
+        focusSeq: Number(params.get('seq')) || null, backHref: 'mes-videos.html', history: true,
       });
       initVideoTracking({ videoId: video.id, videoElId: 'playerVideo' });
     } catch (e) {

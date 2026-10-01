@@ -166,28 +166,36 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   **Objectifs** (objectifs et exercices physiques avec images), parcours, **Générer le PDF**.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques.
 - **FAQ** (`faq.html`) — questions cliquables : prise en main, puis données et calculs.
-- **Vidéos** (`videos.html`) — en haut, **À voir** : les séquences envoyées par les joueurs
-  et pas encore commentées, les plus récentes d'abord (un toucher l'ouvre, elle passe « Vu »).
-  Puis tout est rangé **par joueur** : séquences sélectionnées, annotées, vidéos disponibles.
-- **Séquences vidéo** — poste de travail commun au joueur et au staff, pensé pour le téléphone :
-  - `video-timeline.js` : timeline tactile, séquences en filigrane, **deux poignées** (début,
-    fin) à tirer, tête de lecture, durée ; elle zoome seule sur une séquence courte d'une
-    longue vidéo. **Mode précision** (loupe) : image par image, timecode au dixième ;
-  - « Nouvelle séquence » la crée autour de l'image affichée (« Séquence 1 – Jean »),
-    « Couper ici », « Dupliquer », « Supprimer » ; ↶ / ↷ défont et rétablissent tout ; la
-    vidéo source n'est jamais modifiée (« Vidéo entière ») ; ralenti 1× · 0,5× · 0,25× ;
-  - `video-ink.js` : **habillage** directement sur la vidéo — flèche, trajectoire, repère
-    joueur (anneau au sol + n°), cercle, zone, projecteur, titre / texte. Chaque annotation a
-    un instant, une durée d'affichage et, au choix, un **arrêt sur image** : elle se rejoue
-    pendant la lecture. Stockée dans `drawings` : `{ t, d, freeze, shapes }` ;
-  - **Envoi au staff** avec aperçu (séquences, durée, annotations, analyse, destinataire),
-    une ou plusieurs séquences à la fois ;
-  - **Statuts** (`video-status.js`), les mêmes pour tous : Brouillon, Prêt, Envoyé, Vu,
-    Modifié (changée depuis l'envoi), Retour.
-  Table `video_sequences` ; le trigger `guard_video_sequence` limite chacun à sa part et
-  date lui-même l'envoi, la lecture et les modifications (jamais l'horloge du téléphone).
+- **Vidéos** (`videos.html`, staff) — organisation progressive : d'abord **À voir** (séquences
+  envoyées par les joueurs, pas encore commentées) puis les **joueurs**, une ligne chacun
+  (« 2 vidéos · 3 séquences » + « 1 à voir »). Un joueur ouvre ses rubriques **À voir ·
+  Séquences · Vidéos** (`?player=…&tab=…`, le retour du téléphone remonte d'un niveau).
+- **Vidéo source et séquences** — deux écrans qui ne se mélangent pas (`video-workspace.js`) :
+  - **Vidéo source** : la vidéo envoyée, jamais modifiée. « Sélectionner une portion » ouvre
+    le mode sélection (`video-timeline.js` : poignées début / fin de 44 px, durée, ▶ relire,
+    précision image par image avec « Début ici » / « Fin ici ») ; « Créer la séquence » ;
+  - **Séquence** : une nouvelle vidéo à part entière — titre (« Séquence N », renommable),
+    durée et timeline de 0 à sa fin, miniature, habillage, statut, envoi. Menu ⋯ : renommer,
+    ajuster début et fin, image par image, dupliquer, supprimer ; ↶ / ↷ sur tout le montage ;
+  - techniquement, une séquence est une ligne de `video_sequences` (début, fin, habillage,
+    statut) qui ne lit que sa portion de la source : création instantanée, aucun fichier recopié ;
+  - **Habillage** (`video-annotate.js`, `video-ink.js`) : flèche, trajectoire, repère joueur
+    (anneau + n°), cercle, zone, projecteur, titre / texte. L'outil « Choisir » sélectionne un
+    élément posé : ses seuls réglages apparaissent (couleur, texte, supprimer), on le déplace
+    au doigt. Chaque annotation a un instant, une durée et, au choix, un arrêt sur image ;
+    stockée dans `drawings` : `{ t, d, freeze, shapes }` ;
+  - **Envoi** (`video-send.js`) : contenu (miniature, titre, durée), destinataire, message
+    facultatif (l'analyse du joueur), puis une confirmation (destinataire, date, statut) ;
+  - **Statuts** (`video-status.js`), un seul badge : Brouillon, Envoyé (« À voir » côté staff),
+    Vu, Retour, Modifié (changée depuis l'envoi). Le trigger `guard_video_sequence` date
+    lui-même l'envoi, la lecture et les modifications (jamais l'horloge du téléphone) ;
+  - le retour du téléphone passe d'un écran à l'autre (history) ; une annotation non
+    enregistrée est protégée ; l'analyse s'enregistre au fil de la frappe.
+- **Mes vidéos** (joueur) — deux rubriques : **Vidéos** (sources) et **Mes séquences**
+  (filtres Toutes · Brouillons · Envoyées), une carte avec miniature par contenu.
 - **Espace joueur** — même coque sur chaque page (`player-nav.js`) : en-tête avec le logo et,
-  sur téléphone, onglets en bas (Performance · Programme · Vidéos) ; garde `requirePlayer()`.
+  sur téléphone, onglets en bas (Performance · Programme · Vidéos), masqués seulement pendant
+  une sélection ou une annotation ; garde `requirePlayer()`.
 - **Points** (objectifs, points forts, axes) — `notes.js` : un clic ouvre le point en grand
   (images, légendes, consignes) ; « Modifier » ajoute, légende ou retire des images.
 - **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
