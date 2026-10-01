@@ -55,8 +55,10 @@
       pv.videos = videos || [];
       pv.seqs = (seqs || []).sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')));
       if (pv.videos.length) {
-        const { data: signed } = await sb.storage.from('player-videos').createSignedUrls(pv.videos.map(v => v.storage_path), 3600);
-        (signed || []).forEach((d, i) => d?.signedUrl && pv.urls.set(pv.videos[i].id, d.signedUrl));
+        try {
+          const urls = await videoUrls(pv.videos.map(v => v.storage_path));
+          pv.videos.forEach(v => urls.has(v.storage_path) && pv.urls.set(v.id, urls.get(v.storage_path)));
+        } catch (e) { console.warn('Miniatures indisponibles', e); }   // la liste reste utilisable
       }
       const answered = pv.seqs.filter(s => seqStatus(s) === 'answered').length;
       document.getElementById('pvSub').textContent = `Bonjour ${player.prenom || player.nom}`

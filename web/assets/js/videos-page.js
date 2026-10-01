@@ -53,10 +53,8 @@ let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton r
   await loadVideos();
 })();
 
-/* Limite réelle d'un upload : c'est le bucket Supabase qui tranche.
-   Cette valeur DOIT correspondre au "File size limit" du bucket
-   player-videos (Supabase > Storage > player-videos > Configuration). */
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+/* Limite d'un envoi : celle du Worker vidéo (VIDEO_MAX_BYTES, supabase-client.js). */
+const MAX_VIDEO_BYTES = VIDEO_MAX_BYTES;
 const fmtMo = (bytes) => `${Math.round(bytes / (1024 * 1024))} Mo`;
 const fullName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
 const initials = (p) => `${(p?.prenom || '')[0] || ''}${(p?.nom || '')[0] || ''}`.toUpperCase() || '?';
@@ -89,9 +87,10 @@ async function loadVideos() {
 async function signUrls(videos) {
   const missing = videos.filter(v => !urlCache.has(v.id));
   if (!missing.length) return;
-  const { data, error } = await sb.storage.from('player-videos').createSignedUrls(missing.map(v => v.storage_path), 3600);
-  if (error) { console.warn('Miniatures indisponibles', error.message); return; }
-  (data || []).forEach((d, i) => { if (d?.signedUrl) urlCache.set(missing[i].id, d.signedUrl); });
+  try {
+    const urls = await videoUrls(missing.map(v => v.storage_path));
+    missing.forEach(v => urls.has(v.storage_path) && urlCache.set(v.id, urls.get(v.storage_path)));
+  } catch (e) { console.warn('Miniatures indisponibles', e); }
 }
 
 /* ---------- Navigation : ensemble → joueur → rubrique ---------- */
@@ -297,19 +296,17 @@ async function uploadVideo() {
   document.getElementById('v-progress').classList.remove('hidden');
   try {
     const ext = (file.name.split('.').pop() || 'mp4').replace(/[^a-zA-Z0-9]/g, '');
-    const path = `${myProfile.club_id}/${playerId}/${Date.now()}.${ext}`;
-    const { error: upErr } = await sb.storage.from('player-videos').upload(path, file);
-    if (upErr) {
-      throw new Error(/exceeded|too large|payload/i.test(upErr.message || '')
-        ? `Supabase a refusé le fichier (${fmtMo(file.size)}) : la limite du bucket player-videos est plus basse que ${fmtMo(MAX_VIDEO_BYTES)}.`
-        : upErr.message);
-    }
+    const path = `r2/${myProfile.club_id}/${playerId}/${Date.now()}.${ext}`;
+    await uploadVideoFile(path, file);
     const { error: insErr } = await sb.from('player_videos').insert({
       club_id: myProfile.club_id, player_id: playerId, titre,
       description: document.getElementById('v-desc').value.trim() || null,
       storage_path: path,
     });
-    if (insErr) throw insErr;
+    if (insErr) {
+      await removeVideoFile(path).catch(e => console.warn('Fichier orphelin', path, e));
+      throw insErr;
+    }
     closeModal('videoModal');
     toast('Vidéo envoyée. Elle apparaît dans l’espace du joueur.', 'success');
     await loadVideos();
@@ -327,8 +324,7 @@ async function deleteVideo(id) {
   try {
     const { error } = await sb.from('player_videos').delete().eq('id', id);
     if (error) throw error;
-    const { error: sErr } = await sb.storage.from('player-videos').remove([v.storage_path]);
-    if (sErr) console.warn('Suppression fichier storage :', sErr.message);
+    await removeVideoFile(v.storage_path).catch(e => console.warn('Suppression du fichier vidéo :', v.storage_path, e));
     toast('Vidéo supprimée.', 'success');
     await loadVideos();
   } catch (e) { toast(e.message, 'error'); }

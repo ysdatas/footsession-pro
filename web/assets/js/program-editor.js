@@ -38,16 +38,16 @@ async function reloadProgram() {
 async function openExercise(id) {
   const e = (prog.exercises || []).find(x => x.id === id);
   if (!e) return;
-  let videoUrl = null;
+  let src = null;
   const video = prog.videos.find(v => v.id === e.video_id);
   if (video) {
-    const { data } = await sb.storage.from('player-videos').createSignedUrl(video.storage_path, 3600);
-    videoUrl = data?.signedUrl || null;
+    try { src = await videoUrl(video.storage_path); }
+    catch (err) { console.warn('Vidéo de l’exercice indisponible', err); }
   }
   const box = openLightbox({
     title: e.title,
     text: programText(e),
-    items: programItems(e, videoUrl),
+    items: programItems(e, src),
     footer: [
       e.done_at ? `<span class="badge badge-success">✓ Fait le ${progEsc(new Date(e.done_at).toLocaleDateString('fr-FR'))}</span>` : '<span class="badge">Pas encore fait</span>',
       prog.canEdit ? '<button class="btn btn-sm" type="button" data-lb-edit>Modifier l’exercice</button>' : '',

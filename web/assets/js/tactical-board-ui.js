@@ -96,9 +96,9 @@ document.getElementById('videoList').addEventListener('click', (e) => {
 
 document.getElementById('tbVideoChip').addEventListener('click', async () => {
   if (!tbLinkedVideo) return;
-  const { data } = await sb.storage.from('player-videos').createSignedUrl(tbLinkedVideo.storage_path, 3600);
-  if (!data?.signedUrl) return toast('Vidéo introuvable dans le stockage.', 'error');
-  openLightbox({ title: tbLinkedVideo.titre, text: videoOwner(tbLinkedVideo), items: [{ type: 'video', src: data.signedUrl }] });
+  const src = await videoUrl(tbLinkedVideo.storage_path).catch(e => { console.warn('Vidéo liée', e); return null; });
+  if (!src) return toast('Vidéo introuvable dans le stockage.', 'error');
+  openLightbox({ title: tbLinkedVideo.titre, text: videoOwner(tbLinkedVideo), items: [{ type: 'video', src }] });
 });
 
 /* ---------- Fiche tactique PDF ---------- */

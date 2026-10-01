@@ -11,11 +11,13 @@ vidéo / coaching d'un club. Design sobre noir / gris / doré, police Inter.
 |---|---|
 | Front-end | HTML + CSS + JS statiques dans `web/` — **aucun build, aucun npm** |
 | Données / Auth / Storage | **Supabase**, appelé directement depuis le navigateur |
+| Vidéos joueurs | **Cloudflare R2** via un petit Worker (`worker/index.js`) : bande passante gratuite |
 | Sécurité | **RLS Postgres** + buckets Storage privés + URLs signées |
-| Déploiement | **Cloudflare** (`wrangler.jsonc` → `"assets": { "directory": "web" }`) |
+| Déploiement | **Cloudflare** (`wrangler.jsonc` → `web/` en statique + Worker `/api/videos/…`) |
 | Dépôt | `git@github.com:ysdatas/footsession-pro.git`, branche `main` |
 
-Il n'y a **pas de back-end applicatif**. L'ancienne version PHP + MySQL a été retirée
+Il n'y a **pas de back-end applicatif**, à une exception près : le Worker vidéo, qui ne
+fait que ranger et servir les fichiers vidéo (les droits restent ceux de la RLS). L'ancienne version PHP + MySQL a été retirée
 du dépôt ; elle reste consultable dans l'historique Git. `DEPLOY.md` est une note de
 livraison historique, conservée pour référence.
 
@@ -286,6 +288,7 @@ node tests/perf-logic.test.mjs    # détection du joueur dans l'Excel + radar pa
 node tests/excel-import.test.mjs  # import validé sur le vrai Tests_Physiques_N2-5.xlsx
 node tests/nav.test.mjs           # menu : rôles, ordre, rubriques masquées, pages interdites
 node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classement de chaque test
+node tests/video-worker.test.mjs  # Worker vidéo : droits, liens signés, lecture partielle (Range)
 ```
 
 Le second tourne sur une extraction du classeur réel
@@ -300,8 +303,24 @@ joueurs, l'absence de fuite de données entre eux, et que les cellules vides le 
 npx wrangler deploy
 ```
 
-Seul `web/` est publié. Vérifier au préalable que les migrations Supabase
-correspondantes sont passées : **du code déployé sans sa migration échoue en silence.**
+`web/` est publié tel quel, avec le Worker `worker/index.js` pour `/api/videos/…`.
+Vérifier au préalable que les migrations Supabase correspondantes sont passées : **du
+code déployé sans sa migration échoue en silence.**
+
+### Vidéos sur Cloudflare R2 (une seule fois)
+
+1. **R2 Object Storage** → activer (moyen de paiement demandé ; gratuit jusqu'à 10 Go).
+2. **Create bucket** `lmfc-performance`, juridiction **Union européenne** (sinon,
+   retirer `"jurisdiction"` dans `wrangler.jsonc`). Sans ce bucket, le déploiement échoue.
+3. **Workers → footsession-pro → Settings → Variables and Secrets** → secret
+   `VIDEO_URL_SECRET` = une longue chaîne aléatoire (signe les liens de lecture ; la
+   changer invalide seulement les liens en cours). Jamais dans le code.
+
+Les nouvelles vidéos (chemin `r2/{club_id}/{player_id}/…`, 95 Mo au plus) vont sur R2 ;
+les anciennes restent lisibles dans le bucket Supabase `player-videos`. Tout passe par
+`videoUrls` / `uploadVideoFile` / `removeVideoFile` (`web/assets/js/supabase-client.js`).
+Droits : lire = pouvoir lire la ligne `player_videos` (RLS) ; envoyer ou supprimer =
+`can_manage_videos()` et le club du chemin est le sien.
 
 ---
 
@@ -310,6 +329,8 @@ correspondantes sont passées : **du code déployé sans sa migration échoue en
 - **RLS Postgres** sur toutes les tables ; les helpers `my_club_id()`, `can_edit()`,
   `is_staff()`, `is_performance_editor()`, `is_video_stats_staff()` sont en
   `SECURITY DEFINER` pour éviter la récursion de policies.
+- Vidéos R2 : liens de lecture signés HMAC (6 h) délivrés par le Worker après contrôle
+  RLS ; servies en `video/*` avec `nosniff`, jamais comme une page.
 - Buckets Storage **privés** (`player-videos`, `player-photos`,
   `player-performance-media`, `logos`, `schemas`), accès par **URL signée** à durée
   limitée. Convention de chemin `{club_id}/{player_id}/…`, contrôlée par policy.

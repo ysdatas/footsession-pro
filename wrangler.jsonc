@@ -1,11 +1,24 @@
 {
-  // Configuration Cloudflare (déploiement du dossier web/ en site statique).
+  // Configuration Cloudflare : le dossier web/ est servi tel quel ; le Worker
+  // (worker/index.js) ne répond qu'à /api/videos/… et range les vidéos dans R2.
   // Générée par Wrangler lors du premier déploiement, versionnée pour garder
   // un déploiement reproductible.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "footsession-pro",
+  "main": "worker/index.js",
   "compatibility_date": "2026-07-29",
   "observability": { "enabled": true },
   "assets": { "directory": "web" },
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  // Bucket créé à la main (R2 > Create bucket), juridiction Union européenne.
+  // Bucket hors juridiction UE : retirer la ligne "jurisdiction".
+  "r2_buckets": [
+    { "binding": "VIDEOS", "bucket_name": "lmfc-performance", "jurisdiction": "eu" }
+  ],
+  // Valeurs publiques (déjà dans web/assets/js/supabase-client.js). Le secret
+  // VIDEO_URL_SECRET, lui, se règle dans Workers > Settings > Variables and Secrets.
+  "vars": {
+    "SUPABASE_URL": "https://ygnvijxspkrqhasvjfqg.supabase.co",
+    "SUPABASE_KEY": "sb_publishable_ebJBeOm5WM5j8mOPHUknoA_zzdcWVG4"
+  }
 }

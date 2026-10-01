@@ -486,9 +486,9 @@ window.moveProc = (uid, dir) => {
 /* Vidéo associée au schéma depuis le tableau tactique (platform_v2.sql). */
 window.openLinkedVideo = async (videoId) => {
   const { data: v } = await sb.from('player_videos').select('titre, storage_path').eq('id', videoId).maybeSingle();
-  const { data } = v ? await sb.storage.from('player-videos').createSignedUrl(v.storage_path, 3600) : { data: null };
-  if (!data?.signedUrl) return toast('Vidéo introuvable.', 'error');
-  openLightbox({ title: v.titre, items: [{ type: 'video', src: data.signedUrl }] });
+  const src = v ? await videoUrl(v.storage_path).catch(e => { console.warn('Vidéo liée', e); return null; }) : null;
+  if (!src) return toast('Vidéo introuvable.', 'error');
+  openLightbox({ title: v.titre, items: [{ type: 'video', src }] });
 };
 window.openBoard = (procId) => { window.open('tactical-board.html?procedure_id=' + procId, '_blank'); };
 
