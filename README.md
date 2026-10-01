@@ -1,4 +1,9 @@
-# FootSession Pro ⚽
+# LMFC Performance ⚽
+
+> Anciennement « FootSession Pro ». Les identifiants techniques gardent l'ancien nom
+> exprès : dépôt `footsession-pro`, Worker Cloudflare `footsession-pro` (le renommer
+> créerait un autre Worker, sans le domaine ni le secret), clés du navigateur
+> `footsession-*` (les changer déconnecterait tout le monde).
 
 Gestion des séances d'entraînement et suivi individuel des joueurs, pour la cellule
 vidéo / coaching d'un club. Design sobre noir / gris / doré, police Inter.
@@ -206,7 +211,7 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   toutes les tailles de l'app en font partie), espacements, rayons, profondeur, durées
   d'animation ; icônes Lucide en sprite SVG. Le projet reste sans build : pas de React ni
   de Tailwind, le « Liquid Glass » est en CSS natif, réservé à ce qui flotte au-dessus d'un
-  terrain ou d'une vidéo. **Logo** : le même partout (`.brand-accent` + `.brand-pro`) —
+  terrain ou d'une vidéo. **Logo** : le même partout (« LMFC » + badge `.brand-pro` « Performance ») —
   menu du staff, barre du haut sur téléphone (`nav.js`), espace joueur, connexion. Cibles
   tactiles de 44 px sur téléphone. Règles détaillées : `docs/audit-mobile-ux.md`.
 - **Couleurs** — partout (club, paramètres, tableau tactique) des pastilles d'une palette

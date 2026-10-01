@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — session-edit-page.js (Chemin B / Supabase)
+   LMFC Performance — session-edit-page.js (Chemin B / Supabase)
    Création / édition d'une séance : procédés dynamiques, présences.
    ============================================================ */
 

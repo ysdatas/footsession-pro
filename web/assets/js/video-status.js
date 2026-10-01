@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — video-status.js
+   LMFC Performance — video-status.js
    Vocabulaire commun des vidéos, côté joueur comme côté staff :
      vidéo source → séquence (une nouvelle vidéo, portion de la source)
                   → habillage → envoi au staff.

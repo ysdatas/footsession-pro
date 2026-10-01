@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — procedure-time.js
+   LMFC Performance — procedure-time.js
    Source unique de vérité pour les temps d'un procédé, et formats
    d'affichage communs (durées, dates au format français).
    Utilisé par l'éditeur de séance, les deux exports PDF, la page de

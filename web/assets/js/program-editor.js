@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — program-editor.js (fiche joueur, staff)
+   LMFC Performance — program-editor.js (fiche joueur, staff)
    Carte « Programme » : liste des exercices, ouverture en grand,
    création / modification (image légendée, vidéo du joueur, schéma
    dessiné dans le tableau tactique). Écriture : admin, coach

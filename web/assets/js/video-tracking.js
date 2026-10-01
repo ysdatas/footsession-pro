@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — video-tracking.js
+   LMFC Performance — video-tracking.js
    Enregistre les sessions de visionnage via la RPC
    public.track_video_view() : le compte joueur n'a AUCUN droit
    de lecture ni d'écriture direct sur video_views (les

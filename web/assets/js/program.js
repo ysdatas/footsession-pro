@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — program.js
+   LMFC Performance — program.js
    Programme individuel du joueur (table program_exercises) :
    exercices regroupés par séance, avec image, schéma du tableau
    tactique et vidéo du joueur.

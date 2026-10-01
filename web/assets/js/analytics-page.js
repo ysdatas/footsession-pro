@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — analytics-page.js (Chemin B / Supabase)
+   LMFC Performance — analytics-page.js (Chemin B / Supabase)
    Agrégations calculées côté client. Le RLS filtre en amont : on ne
    reçoit que les séances du club de l'utilisateur connecté.
    ============================================================ */
@@ -206,9 +206,9 @@ async function exportAnalyticsPdf() {
     const pdf = new jsPDF('p', 'mm', 'a4');
     const w = 210, h = canvas.height * w / canvas.width;
     pdf.setTextColor(GOLD); pdf.setFontSize(18);
-    pdf.text('FootSession Pro — Bilan', 14, 16);
+    pdf.text('LMFC Performance — Bilan', 14, 16);
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 22, w, h);
-    pdf.save('bilan-footsession.pdf');
+    pdf.save('bilan-lmfc-performance.pdf');
     toast('PDF généré', 'success');
   } catch (e) { toast('Échec de l\'export PDF.', 'error'); }
 }

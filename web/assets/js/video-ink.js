@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — video-ink.js
+   LMFC Performance — video-ink.js
    Calque d'habillage posé sur une vidéo. Les formes sont stockées en
    coordonnées relatives (0 à 1) à l'image de la vidéo : elles se
    redessinent à l'identique sur téléphone comme sur grand écran.

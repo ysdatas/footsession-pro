@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — video-annotate.js
+   LMFC Performance — video-annotate.js
    Habillage d'une séquence, directement sur la vidéo :
    pause → outil → dessin → « Enregistrer » → reprise.
    Interface minimale : les couleurs n'apparaissent que pour l'outil

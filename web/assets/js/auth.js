@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — auth.js (Chemin B / Supabase)
+   LMFC Performance — auth.js (Chemin B / Supabase)
    Garde d'accès commune à toutes les pages authentifiées :
    vérifie la session, charge le profil (rôle + club), et
    redirige vers l'onboarding si l'utilisateur n'a pas encore

@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — perf-metrics.js
+   LMFC Performance — perf-metrics.js
    Définition unique des tests physiques : libellé, unité, précision,
    sens de progression et bornes de vraisemblance.
    Partagé par la fiche Performance et la page Comparaison pour que

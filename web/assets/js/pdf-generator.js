@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — pdf-generator.js
+   LMFC Performance — pdf-generator.js
    Export PDF PAYSAGE inspiré d'une fiche de séance pro.
 
    Page 1 : récapitulatif complet (infos, déroulé, présences).
@@ -200,7 +200,7 @@ window.generateSessionPDF = async function (sessionId) {
      ce garde-fou ouvre une page de suite au lieu de déborder hors cadre. */
   const BOTTOM = H - 12;
   const newPage = (subtitle) => {
-    footer(`FootSession Pro · ${s.titre || ''}`, 'Récapitulatif');
+    footer(`LMFC Performance · ${s.titre || ''}`, 'Récapitulatif');
     doc.addPage();
     fill(0, 0, W, H, [255, 255, 255]);
     return pageHeader(s.titre || 'Séance', subtitle);
@@ -355,7 +355,7 @@ window.generateSessionPDF = async function (sessionId) {
       });
     }
   }
-  footer(`FootSession Pro · ${s.titre || ''}`, 'Récapitulatif');
+  footer(`LMFC Performance · ${s.titre || ''}`, 'Récapitulatif');
 
   /* ============================================================
      UNE PAGE PAR PROCÉDÉ — uniquement ceux qui ont un schéma.
@@ -419,9 +419,9 @@ window.generateSessionPDF = async function (sessionId) {
       ry += bandH + sec.h;
     });
 
-    footer(`FootSession Pro · ${s.titre || ''}`, `Procédé ${idx + 1} / ${withSchema.length}`);
+    footer(`LMFC Performance · ${s.titre || ''}`, `Procédé ${idx + 1} / ${withSchema.length}`);
   }
 
-  doc.save(`seance-${(s.titre || 'footsession').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
+  doc.save(`seance-${(s.titre || 'lmfc-performance').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
   toast('PDF généré', 'success');
 };

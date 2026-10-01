@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — client Supabase (Chemin B)
+   LMFC Performance — client Supabase (Chemin B)
    Charge le SDK Supabase via CDN (aucun build, aucun npm requis).
    ============================================================ */
 

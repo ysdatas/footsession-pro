@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — lightbox.js
+   LMFC Performance — lightbox.js
    Visionneuse plein écran commune : images en grand (titre,
    annotation par image, texte du point) ou vidéo avec le son et
    les contrôles. Flèches ou ← → pour passer d'un média à l'autre,

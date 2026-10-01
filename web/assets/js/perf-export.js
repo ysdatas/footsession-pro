@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — perf-export.js
+   LMFC Performance — perf-export.js
    Export de la fiche joueur en fichier PDF, généré directement dans le
    navigateur (html2pdf.js : html2canvas + jsPDF), sans passer par la
    fenêtre d'impression. Réservé au staff.
@@ -197,7 +197,7 @@ function buildExportDocument() {
 
   return `<header class="ps-header">
       <div>
-        <div class="ps-eyebrow">${esc(club || 'FootSession Pro')} · Dossier joueur</div>
+        <div class="ps-eyebrow">${esc(club || 'LMFC Performance')} · Dossier joueur</div>
         <h1>${esc(fullName || 'Joueur')}</h1>
         <div class="ps-sub">${esc([player.poste,
           typeof teamName === 'function' ? teamName(player.team_id) : null].filter(Boolean).join(' · '))}</div>
@@ -208,7 +208,7 @@ function buildExportDocument() {
       </div>
     </header>
     ${parts.join('') || '<p class="ps-empty">Aucune rubrique sélectionnée.</p>'}
-    <footer class="ps-footer">Données issues de FootSession Pro. Une valeur absente de la source est notée « — » ; rien n’est estimé.</footer>`;
+    <footer class="ps-footer">Données issues de LMFC Performance. Une valeur absente de la source est notée « — » ; rien n’est estimé.</footer>`;
 }
 
 /* html2canvas dessine mal les <svg> (taille et styles perdus : radar

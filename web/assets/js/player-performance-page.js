@@ -1,4 +1,4 @@
-/* FootSession Pro — player-performance-page.js
+/* LMFC Performance — player-performance-page.js
    Dossier individuel performance + radar + import Excel + médias. */
 
 let ctxProfile = null;

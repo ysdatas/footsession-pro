@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — nav.js
+   LMFC Performance — nav.js
    Menu latéral commun à toutes les pages du staff :
      - rubriques filtrées selon le rôle (et pages interdites
        redirigées vers le tableau de bord) ;
@@ -94,7 +94,7 @@ function renderNav(profile) {
   // haut (sauf sur le tableau tactique, plein écran).
   if (!document.querySelector('.m-appbar, .tb-page')) {
     document.body.insertAdjacentHTML('afterbegin',
-      '<header class="m-appbar">Foot<span class="brand-accent">Session</span>&nbsp;<span class="brand-pro">Pro</span></header>');
+      '<header class="m-appbar">LMFC&nbsp;<span class="brand-pro">Performance</span></header>');
   }
   const page = currentPageName();
   const activeKey = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;

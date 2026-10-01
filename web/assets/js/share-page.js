@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — share-page.js
+   LMFC Performance — share-page.js
    Page publique en LECTURE SEULE d'une séance (aucune connexion
    requise). Utilise la fonction RPC get_shared_session(token),
    qui contourne le RLS de façon contrôlée (SECURITY DEFINER).
@@ -18,7 +18,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
     if (!data || !data.session) { wrap.innerHTML = '<div class="empty">Lien de partage invalide ou expiré.</div>'; return; }
 
     const s = data.session, club = data.club || {}, procedures = data.procedures || [], attendance = data.attendance || [];
-    document.title = 'FootSession Pro — ' + (s.titre || 'Séance');
+    document.title = 'LMFC Performance — ' + (s.titre || 'Séance');
 
     let logoUrl = null;
     if (club.logo_path) logoUrl = sb.storage.from('logos').getPublicUrl(club.logo_path).data.publicUrl;
@@ -79,7 +79,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
         ${logoUrl ? `<img src="${logoUrl}" alt="">` : ''}
         <div style="flex:1;">
           <h1 style="margin:0;">${escapeHtml(s.titre)}</h1>
-          <div class="text-muted">${escapeHtml(club.nom || 'FootSession Pro')}</div>
+          <div class="text-muted">${escapeHtml(club.nom || 'LMFC Performance')}</div>
         </div>
         <span class="ro-badge">LECTURE SEULE</span>
       </div>
@@ -87,7 +87,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       ${procsHtml}
       ${attHtml}
       ${teamsHtml}
-      <p class="text-muted" style="text-align:center;margin-top:24px;font-size:var(--fs-sm);">Généré par FootSession Pro</p>`;
+      <p class="text-muted" style="text-align:center;margin-top:24px;font-size:var(--fs-sm);">Généré par LMFC Performance</p>`;
   } catch (e) {
     wrap.innerHTML = `<div class="empty">Erreur de chargement : ${escapeHtml(e.message)}</div>`;
   }

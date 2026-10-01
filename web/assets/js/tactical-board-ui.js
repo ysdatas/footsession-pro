@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — tactical-board-ui.js
+   LMFC Performance — tactical-board-ui.js
    Ce qui entoure le terrain :
      - barre de droite : un clic ouvre le panneau (Matériel,
        Terrain, Couleurs, Exporter, Vidéo), un second le ferme ;
@@ -147,7 +147,7 @@ async function runSheet() {
     const goal = document.getElementById('sheetGoal').value.trim();
     const text = document.getElementById('sheetText').value.trim();
     const imgs = sheetImages();
-    const club = window.CURRENT_PROFILE?.clubs?.nom || 'FootSession Pro';
+    const club = window.CURRENT_PROFILE?.clubs?.nom || 'LMFC Performance';
     const para = (t) => escapeHtml(t).replace(/\n/g, '<br>');
     const sheet = document.createElement('div');
     sheet.className = 'tb-sheet';
@@ -160,7 +160,7 @@ async function runSheet() {
         <div class="tb-sheet-imgs${imgs.length > 1 ? ' is-steps' : ''}">${imgs.map((src, i) => `
           <figure><img src="${src}" alt="">${imgs.length > 1 ? `<figcaption>Étape ${i + 1}</figcaption>` : ''}</figure>`).join('')}</div>
       </section>
-      ${tbLinkedVideo ? `<section><h2>Vidéo</h2><p>${escapeHtml(tbLinkedVideo.titre)}${videoOwner(tbLinkedVideo) ? ` — ${escapeHtml(videoOwner(tbLinkedVideo))}` : ''} (à voir sur FootSession Pro)</p></section>` : ''}`;
+      ${tbLinkedVideo ? `<section><h2>Vidéo</h2><p>${escapeHtml(tbLinkedVideo.titre)}${videoOwner(tbLinkedVideo) ? ` — ${escapeHtml(videoOwner(tbLinkedVideo))}` : ''} (à voir sur LMFC Performance)</p></section>` : ''}`;
     // Feuille hors écran dans un conteneur : html2pdf la clone telle quelle.
     const holder = el('div', { class: 'tb-sheet-holder', 'aria-hidden': 'true' }, sheet);
     document.body.append(holder);

@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — settings-page.js
+   LMFC Performance — settings-page.js
    Compte, mot de passe, préférences de travail (tableau tactique)
    et bloc d'administration pour les admins de club.
    ============================================================ */

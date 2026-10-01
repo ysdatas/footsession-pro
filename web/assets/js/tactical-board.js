@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — tactical-board.js
+   LMFC Performance — tactical-board.js
    Tableau tactique : Canvas HTML5 natif, drag & drop, formes
    redimensionnables, flèches, texte, formations, étapes animées,
    sauvegarde BDD + autosave LocalStorage.

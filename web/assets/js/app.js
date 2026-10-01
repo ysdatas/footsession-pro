@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — app.js
+   LMFC Performance — app.js
    Initialisation globale : helpers DOM, toasts, modales,
    bascule de la barre latérale.
    ============================================================ */

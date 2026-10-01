@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — notes.js
+   LMFC Performance — notes.js
    Les « points » d'un joueur (table player_performance_notes) :
      - objectifs physiques      → page Performance ;
      - points forts, axes       → Programme terrain (fiche joueur

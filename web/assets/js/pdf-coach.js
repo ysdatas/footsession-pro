@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — pdf-coach.js
+   LMFC Performance — pdf-coach.js
    « Fiche coach » : à distribuer au staff juste avant la séance.
 
    Un procédé par QUART de page A4 paysage, soit 4 procédés par
@@ -57,7 +57,7 @@ window.generateCoachPDF = async function (sessionId) {
     doc.line(M, M + h + 0.9, W - M, M + h + 0.9);
 
     doc.setFontSize(7); doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal');
-    doc.text(`FootSession Pro · fiche coach`, M, H - 3);
+    doc.text(`LMFC Performance · fiche coach`, M, H - 3);
     doc.text(`Page ${pageNo} / ${nbPages}`, W - M, H - 3, { align: 'right' });
     return M + h + 3;
   };
@@ -172,5 +172,5 @@ window.generateCoachPDF = async function (sessionId) {
 };
 
 function fileName(s) {
-  return `seance-${(s.titre || 'footsession').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-fiche-coach.pdf`;
+  return `seance-${(s.titre || 'lmfc-performance').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-fiche-coach.pdf`;
 }

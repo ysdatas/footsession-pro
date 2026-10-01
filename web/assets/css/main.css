@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — main.css
+   LMFC Performance — main.css
    Variables, reset, typographie, composants de base.
    ============================================================ */
 
@@ -423,10 +423,9 @@ body.lb-open { overflow: hidden; }
 .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
 
 /* ============================================================
-   Logo FootSession Pro : le même partout (menu du staff, barre du
+   Logo LMFC Performance : le même partout (menu du staff, barre du
    haut sur téléphone, espace joueur, connexion).
    ============================================================ */
-.brand-accent { color: var(--text-primary); }
 .brand-pro {
   display: inline-block; vertical-align: middle;
   font-size: var(--fs-xs); font-weight: 700; line-height: 1;

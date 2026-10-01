@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — sessions-list-page.js (Chemin B / Supabase)
+   LMFC Performance — sessions-list-page.js (Chemin B / Supabase)
    Liste des séances : recherche, tri, et regroupement en dossiers
    hebdomadaires numérotés depuis le début de saison du club.
    ============================================================ */

@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — video-workspace.js
+   LMFC Performance — video-workspace.js
    Poste de travail vidéo, commun au joueur et au staff. Deux écrans
    qui ne se mélangent jamais :
 

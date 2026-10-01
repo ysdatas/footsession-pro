@@ -1,7 +1,7 @@
 /* ============================================================
-   FootSession Pro — player-nav.js
+   LMFC Performance — player-nav.js
    Espace joueur : la même coque sur toutes ses pages.
-   - En-tête : logo FootSession Pro, rubriques (ordinateur),
+   - En-tête : logo LMFC Performance, rubriques (ordinateur),
      déconnexion. Même hauteur, même place, sur chaque page.
    - Téléphone : barre d'onglets en bas, à portée de pouce
      (Performance · Programme · Vidéos).
@@ -35,7 +35,7 @@ function renderPlayerShell() {
   document.body.classList.add('pa-body');
   document.body.insertAdjacentHTML('afterbegin', `
     <header class="pa-bar">
-      <a class="pa-brand" href="player-performance.html" aria-label="FootSession Pro, accueil de l’espace joueur">Foot<span class="brand-accent">Session</span> <span class="brand-pro">Pro</span></a>
+      <a class="pa-brand" href="player-performance.html" aria-label="LMFC Performance, accueil de l’espace joueur">LMFC <span class="brand-pro">Performance</span></a>
       <nav class="pa-links" aria-label="Espace joueur">${PLAYER_NAV.map(n => link(n, 'pa-link')).join('')}</nav>
       <button class="pa-logout" type="button" title="Se déconnecter">${paIc('logout')}<span>Déconnexion</span></button>
     </header>`);

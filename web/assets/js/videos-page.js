@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — videos-page.js (staff)
+   LMFC Performance — videos-page.js (staff)
    Organisation progressive, pensée pour le téléphone :
      1. Vue d'ensemble : « À voir » (séquences envoyées par les joueurs,
         pas encore commentées) puis la liste des joueurs, chacun résumé

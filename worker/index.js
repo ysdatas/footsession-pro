@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — Worker Cloudflare : vidéos sur R2.
+   LMFC Performance — Worker Cloudflare : vidéos sur R2.
    Le site reste statique (web/, servi tel quel) ; ce Worker ne
    répond qu'aux adresses /api/videos/… :
      POST   /api/videos/sign          { paths } → liens de lecture (6 h)

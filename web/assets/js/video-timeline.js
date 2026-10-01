@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — video-timeline.js
+   LMFC Performance — video-timeline.js
    Timeline tactile, en trois modes qui ne se mélangent pas :
      view    vidéo source en lecture : barre fine, on touche pour se
              déplacer ; les séquences déjà créées apparaissent en filigrane.

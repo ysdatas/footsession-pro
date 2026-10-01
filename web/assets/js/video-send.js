@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — video-send.js
+   LMFC Performance — video-send.js
    « Envoyer au staff » en une feuille, puis une confirmation :
      contenu (miniature, titre, durée, habillage) → destinataire
      → message facultatif (c'est l'analyse du joueur) → Envoyer.

@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — excel-import.js
+   LMFC Performance — excel-import.js
    Import du classeur du préparateur physique pour TOUT le club.
 
    Utilisé depuis la page Joueurs et depuis la fiche Performance :

@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — comparaison-page.js
+   LMFC Performance — comparaison-page.js
    Comparaison de l'effectif : tests bruts, évolution sur la saison,
    données physiques. Réservé au staff qui a accès à la performance
    (admin, coach) — la RLS refuse déjà les autres,

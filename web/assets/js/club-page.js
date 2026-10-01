@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — club-page.js
+   LMFC Performance — club-page.js
    Page « Mon club » : identité (nom, couleur, logo), équipes,
    accès par adresse e-mail et membres (admin, coach, joueur).
    ============================================================ */

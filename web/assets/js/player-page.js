@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — player-page.js (fiche joueur)
+   LMFC Performance — player-page.js (fiche joueur)
    Point central d'un joueur côté staff : identité (modifiable),
    photo, derniers relevés physiques, parcours et programme terrain
    (points forts, axes d'amélioration, exercices), avec des accès
@@ -72,7 +72,7 @@ function ageFrom(iso) {
 
 function renderHeader() {
   const p = fichePlayer;
-  document.title = `FootSession Pro — ${fullName(p)}`;
+  document.title = `LMFC Performance — ${fullName(p)}`;
   document.getElementById('ficheName').textContent = fullName(p);
   document.getElementById('ficheAvatar').textContent =
     (((p.prenom || p.nom || '')[0] || '') + ((p.nom || '')[0] || '')).toUpperCase() || '?';

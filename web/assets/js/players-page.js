@@ -1,5 +1,5 @@
 /* ============================================================
-   FootSession Pro — players-page.js (Chemin B / Supabase)
+   LMFC Performance — players-page.js (Chemin B / Supabase)
    Effectif : recherche par nom, filtre par poste, ajout d'un joueur.
    Un clic ouvre la fiche joueur (player.html), point d'entrée vers
    Performance, Vidéos et Préventions. Les présences se consultent
