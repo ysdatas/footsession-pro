@@ -73,7 +73,7 @@ async function loadList() {
     // demande que si le club a des équipes (donc la migration est passée).
     const withTeams = (window.CLUB_TEAMS || []).length > 0;
     let query = sb.from('sessions')
-      .select(`id, titre, date_seance, equipe, duree_min,${withTeams ? ' team_id,' : ''} procedures(id, duree_min, nb_sequences, duree_sequence_min, temps_recup_min)`)
+      .select(`id, titre, date_seance, equipe, duree_min, principes_jeu,${withTeams ? ' team_id,' : ''} procedures(id, duree_min, nb_sequences, duree_sequence_min, temps_recup_min, principes_jeu)`)
       .order('date_seance', { ascending: false }).order('id', { ascending: false });
     query = byTeam(query);
     const [{ data: sessions, error }, { data: club }] = await Promise.all([
@@ -110,7 +110,7 @@ function sortSessions(list) {
 function render() {
   const wrap = document.getElementById('listWrap');
   const q = (document.getElementById('searchSession').value || '').toLowerCase().trim();
-  const match = (s) => !q || `${s.titre || ''} ${s.equipe || ''} ${fmtDateFr(s.date_seance)}`.toLowerCase().includes(q);
+  const match = (s) => !q || `${s.titre || ''} ${s.equipe || ''} ${sessionPrinciple(s, s.procedures)} ${fmtDateFr(s.date_seance)}`.toLowerCase().includes(q);
 
   const visible = sortSessions(sessionsCache.filter(match));
   const total = sessionsCache.length;

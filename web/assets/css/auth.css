@@ -4,26 +4,63 @@
 
 body.auth {
   display: flex; align-items: center; justify-content: center;
-  min-height: 100vh; padding: 24px;
+  min-height: 100vh; min-height: 100dvh; padding: 24px;
   background:
-    radial-gradient(900px 500px at 50% -10%, rgba(201,168,76,.10), transparent 60%),
+    radial-gradient(760px 520px at 12% 110%, rgba(var(--red-rgb), .22), transparent 62%),
+    radial-gradient(900px 500px at 88% -10%, rgba(var(--gold-rgb), .12), transparent 60%),
     var(--bg-primary);
 }
 
+/* ---------- Page d'accueil : identité du club + connexion ---------- */
+.landing {
+  width: 100%; max-width: 1040px;
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 56px; align-items: center;
+}
+.landing-crest { width: 132px; height: 132px; object-fit: contain; filter: drop-shadow(0 14px 34px rgba(var(--red-rgb), .38)); }
+.landing-kicker {
+  margin: 20px 0 6px; color: var(--gold); font-size: var(--fs-xs); font-weight: 700;
+  letter-spacing: .2em; text-transform: uppercase;
+}
+.landing-title { margin: 0 0 14px; font-size: clamp(2.1rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -.035em; line-height: 1.04; }
+.landing-title span { color: var(--gold); }
+.landing-lead { max-width: 30em; margin: 0; color: var(--text-secondary); font-size: 1.05rem; line-height: 1.55; }
+.landing-points { display: grid; gap: 12px; margin-top: 28px; }
+.landing-points li { display: flex; gap: 14px; align-items: baseline; padding-left: 14px; border-left: 3px solid var(--red); }
+.landing-points strong { min-width: 7.2em; font-size: var(--fs-md); }
+.landing-points span { color: var(--text-secondary); font-size: var(--fs-md); }
+@media (max-width: 860px) {
+  body.auth { align-items: flex-start; }
+  .landing { grid-template-columns: 1fr; gap: 22px; max-width: 420px; }
+  .landing-hero { text-align: center; padding-top: 8px; }
+  .landing-crest { width: 84px; height: 84px; margin: 0 auto; }
+  .landing-kicker { margin-top: 12px; }
+  .landing-title { font-size: 2rem; margin-bottom: 8px; }
+  .landing-lead { margin: 0 auto; font-size: var(--fs-md); }
+  .landing-points { display: none; }
+}
+
 .auth-card {
-  width: 100%; max-width: 400px;
+  position: relative; overflow: hidden;
+  width: 100%; max-width: 400px; justify-self: center;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-top: 3px solid var(--gold);
   border-radius: var(--radius-lg);
   padding: 36px 32px;
   box-shadow: var(--shadow), var(--shadow-gold);
 }
+/* Liseré rouge et or du club (comme le menu). */
+.auth-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--red) 0%, var(--red) 62%, var(--gold) 62%, var(--gold) 100%);
+}
+.auth-title { margin: 0 0 4px; text-align: center; font-size: var(--fs-xl); }
+@media (max-width: 480px) { .auth-card { padding: 28px 20px; } }
 
 .auth-logo {
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
   font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px;
 }
+.auth-logo .brand-crest { width: 56px; height: 56px; }
 /* Même logo que partout (main.css : .brand-pro), en plus grand. */
 .auth-logo .brand-pro { margin-left: 8px; padding: 4px 7px; top: 0; }
 .auth-sub { text-align: center; color: var(--text-secondary); font-size: var(--fs-md); margin-bottom: 28px; }

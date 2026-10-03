@@ -8,6 +8,8 @@
    Chaque point : titre, consignes, images légendées ; un clic
    l'ouvre en grand (lightbox.js). Le staff ajoute, modifie,
    supprime ; le joueur consulte (la RLS refuse le reste).
+   Un objectif a en plus un statut (En cours, Atteint, Non atteint),
+   modifiable d'un geste sur sa carte (lmfc_v3.sql).
    ============================================================ */
 
 const NOTE_KINDS = {
@@ -16,6 +18,19 @@ const NOTE_KINDS = {
   objective:   { badge: 'Objectif',    cls: 'badge-gold',    empty: 'Aucun objectif.',            add: 'Ajouter un objectif ou un exercice' },
 };
 const NOTES_BUCKET = 'player-performance-media';
+const OBJ_STATUS = {
+  active:   { label: 'En cours',    cls: 'is-active' },
+  achieved: { label: 'Atteint',     cls: 'is-done' },
+  missed:   { label: 'Non atteint', cls: 'is-missed' },
+};
+const objStatusOf = (n) => OBJ_STATUS[n.status] ? n.status : 'active';
+/* Statut d'un objectif : pastille pour le joueur, liste déroulante pour le staff. */
+function objStatusControl(n, canEdit) {
+  const k = objStatusOf(n);
+  if (!canEdit) return `<span class="obj-status ${OBJ_STATUS[k].cls}">${OBJ_STATUS[k].label}</span>`;
+  return `<select class="obj-status ${OBJ_STATUS[k].cls}" data-note-status="${n.id}" aria-label="Statut de l’objectif « ${escapeHtml(n.title)} »">
+    ${Object.entries(OBJ_STATUS).map(([v, s]) => `<option value="${v}"${v === k ? ' selected' : ''}>${s.label}</option>`).join('')}</select>`;
+}
 
 const noteStore = {
   player: null, canEdit: false, userId: null,
@@ -62,9 +77,10 @@ function renderNoteLists() {
     const list = noteStore.notes.filter(n => n.kind === kind);
     box.innerHTML = list.length ? list.map(n => {
       const imgs = noteImages(n.id);
-      return `<article class="note-card is-openable" data-note-open="${n.id}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHtml(n.title)}">
+      return `<article class="note-card is-openable${kind === 'objective' ? ` obj-${objStatusOf(n)}` : ''}" data-note-open="${n.id}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHtml(n.title)}">
         <div class="note-card-head">
           <h3>${escapeHtml(n.title)}</h3>
+          ${kind === 'objective' ? objStatusControl(n, noteStore.canEdit) : ''}
           ${noteStore.canEdit ? `<div class="note-card-actions">
             <button class="btn btn-sm" type="button" data-note-edit="${n.id}">Modifier</button>
             <button class="btn btn-sm btn-danger" type="button" data-note-delete="${n.id}" aria-label="Supprimer">✕</button></div>` : ''}
@@ -95,6 +111,7 @@ function bindNoteList(kind, listId) {
   if (!list || list.dataset.notesBound) return;
   list.dataset.notesBound = '1';
   list.addEventListener('click', e => {
+    if (e.target.closest('[data-note-status]')) return;   // la liste du statut ne doit pas ouvrir la carte
     const edit = e.target.closest('[data-note-edit]');
     if (edit) return openNoteModal(null, Number(edit.dataset.noteEdit));
     const del = e.target.closest('[data-note-delete]');
@@ -103,6 +120,10 @@ function bindNoteList(kind, listId) {
     if (!card) return;
     const fig = e.target.closest('[data-img-index]');
     openNote(Number(card.dataset.noteOpen), fig ? Number(fig.dataset.imgIndex) : 0);
+  });
+  list.addEventListener('change', e => {
+    const sel = e.target.closest('[data-note-status]');
+    if (sel) setNoteStatus(Number(sel.dataset.noteStatus), sel.value);
   });
   list.addEventListener('keydown', e => {
     const card = e.target.closest('[data-note-open]');
@@ -120,6 +141,8 @@ function mountNoteModal() {
       <input id="noteKind" type="hidden"><input id="noteId" type="hidden">
       <div class="field"><label for="noteTitle">Titre</label><input id="noteTitle" autocomplete="off"></div>
       <div class="field"><label for="noteBody">Description / consignes</label><textarea id="noteBody" rows="5"></textarea></div>
+      <div class="field" id="noteStatusField"><label for="noteStatus">Statut</label>
+        <select id="noteStatus">${Object.entries(OBJ_STATUS).map(([v, s]) => `<option value="${v}">${s.label}</option>`).join('')}</select></div>
       <div class="field">
         <label>Images / exercices</label>
         <div id="noteImages" class="note-images-edit"></div>
@@ -165,6 +188,8 @@ function openNoteModal(kind, id = null) {
   document.getElementById('noteModalTitle').textContent = n ? 'Modifier' : NOTE_KINDS[kind].add;
   document.getElementById('noteTitle').value = n?.title || '';
   document.getElementById('noteBody').value = n?.body || '';
+  document.getElementById('noteStatusField').classList.toggle('hidden', kind !== 'objective');
+  document.getElementById('noteStatus').value = n ? objStatusOf(n) : 'active';
   noteStore.draft.pending.forEach(p => URL.revokeObjectURL(p.url));
   noteStore.draft = {
     existing: n ? noteImages(n.id).map(m => ({ id: m.id, path: m.storage_path, url: m.signed_url, caption: m.caption || '', removed: false })) : [],
@@ -192,16 +217,17 @@ async function saveNote() {
   const id = Number(document.getElementById('noteId').value) || null;
   const title = document.getElementById('noteTitle').value.trim();
   const body = document.getElementById('noteBody').value.trim() || null;
+  const extra = kind === 'objective' ? { status: document.getElementById('noteStatus').value } : {};
   if (!title) return noteStore.onError('Le titre est obligatoire.');
   const btn = document.getElementById('btnSaveNote'); btn.disabled = true;
   try {
     let noteId = id;
     if (id) {
-      const { error } = await sb.from('player_performance_notes').update({ title, body }).eq('id', id);
+      const { error } = await sb.from('player_performance_notes').update({ title, body, ...extra }).eq('id', id);
       if (error) throw error;
     } else {
       const { data: note, error } = await sb.from('player_performance_notes').insert({
-        club_id: p.club_id, player_id: p.id, kind, title, body, created_by: noteStore.userId,
+        club_id: p.club_id, player_id: p.id, kind, title, body, ...extra, created_by: noteStore.userId,
       }).select().single();
       if (error) throw error;
       noteId = note.id;
@@ -241,8 +267,20 @@ async function saveNote() {
   } finally { btn.disabled = false; }
 }
 
+/* Statut d'un objectif, changé directement sur sa carte. */
+async function setNoteStatus(id, status) {
+  const n = noteStore.notes.find(x => x.id === id);
+  if (!n || !noteStore.canEdit || !OBJ_STATUS[status]) return;
+  const { error } = await sb.from('player_performance_notes').update({ status }).eq('id', id);
+  if (error) { console.error('Statut non enregistré', error); noteStore.onError(error.message); return renderNoteLists(); }
+  n.status = status;
+  renderNoteLists();
+  toast(`Objectif : ${OBJ_STATUS[status].label.toLowerCase()}.`, 'success');
+}
+
 async function deleteNote(id) {
-  if (!noteStore.canEdit || !confirm('Supprimer ce point et ses images ?')) return;
+  const n = noteStore.notes.find(x => x.id === id);
+  if (!noteStore.canEdit || !n || !confirm(`Supprimer « ${n.title} »${noteImages(id).length ? ' et ses images' : ''} ? C’est définitif.`)) return;
   const files = noteStore.media.filter(m => m.note_id === id).map(m => m.storage_path);
   const { error } = await sb.from('player_performance_notes').delete().eq('id', id);
   if (error) return noteStore.onError(error.message);

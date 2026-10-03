@@ -35,6 +35,7 @@
 .fiche-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 .fiche-card-head h3 { margin: 0; font-size: var(--fs-lg); }
 .fiche-link { font-size: var(--fs-sm); color: var(--text-secondary); }
+.fiche-head-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .fiche-link:hover { color: var(--gold); }
 .fiche-when { font-size: var(--fs-sm); color: var(--text-secondary); }
 

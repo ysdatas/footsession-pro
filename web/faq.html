@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
   <title>LMFC Performance — FAQ</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
@@ -12,7 +15,7 @@
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
-    <div class="brand">LMFC <span class="brand-pro">Performance</span></div>
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
     <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
@@ -76,9 +79,14 @@
       <div class="faq-a"><p><em>Vidéos joueurs</em> montre d’abord « À voir » (les séquences envoyées et pas encore commentées) puis la liste des joueurs, chacun résumé en une ligne. Touchez un joueur : ses rubriques À voir, Séquences et Vidéos. Une séquence s’ouvre sur sa première annotation et passe « Vu » pour le joueur ; répondez dans « Retour du staff ».</p></div>
     </details>
     <details class="faq-q">
+      <summary>Comment réunir plusieurs séquences en une seule vidéo ?</summary>
+      <div class="faq-a"><p><em>Vidéos joueurs</em> → un joueur → Séquences → « Compiler des séquences ». Touchez les séquences dans l’ordre voulu, puis « Compiler » : réordonnez-les en les glissant, puis « Générer la compilation ». Les annotations et les arrêts sur image du joueur sont incrustés dans la vidéo (option), avec un carton de titre avant chaque séquence (option).</p>
+      <p>La vidéo se fabrique en direct dans le navigateur : elle dure le temps des séquences, gardez l’onglet ouvert et au premier plan. Elle est ensuite <strong>téléchargée</strong> (rien n’est stocké). « Ajouter aux vidéos du joueur » la range dans son espace : lui seul et le staff la voient. « Télécharger » sur une ligne donne une séquence seule.</p></div>
+    </details>
+    <details class="faq-q">
       <summary>Où mettre le travail physique, où mettre le travail terrain ?</summary>
       <div class="faq-a"><ul>
-        <li><strong>Performance → Objectifs</strong> : développement physique. Un objectif ou un exercice, ses consignes et ses images légendées.</li>
+        <li><strong>Objectifs</strong> : développement physique. Un objectif, ses consignes, ses images légendées et son statut (En cours, Atteint, Non atteint). Visibles sur la fiche du joueur et dans <em>Performance → Objectifs</em>.</li>
         <li><strong>Fiche joueur → Programme terrain</strong> : développement footballistique. Points forts, axes d’amélioration, exercices avec schéma tactique et vidéo.</li>
       </ul><p>Le joueur retrouve l’un dans « Ma performance », l’autre dans « Mon programme terrain ». Tout s’ouvre en grand au clic.</p></div>
     </details>
@@ -87,12 +95,22 @@
       <div class="faq-a"><p>Fiche joueur → Programme terrain → « + Exercice ». Renseignez titre, consignes, dosage ; ajoutez une image si besoin ; choisissez une vidéo déjà envoyée au joueur (pas besoin de la réimporter). « Dessiner le schéma » ouvre le tableau tactique : « Valider ce schéma » l’enregistre sur l’exercice.</p></div>
     </details>
     <details class="faq-q">
+      <summary>Comment fixer des objectifs à plusieurs joueurs d’un coup ?</summary>
+      <div class="faq-a"><p><em>Performance → Objectifs</em> → « + Ajouter un objectif » : cochez un ou plusieurs joueurs (« Tout cocher » prend toute l’équipe affichée), donnez un titre, une description et un statut. Un objectif est créé sur la fiche de chaque joueur coché, et seulement sur la sienne. « Enregistrer et en ajouter un autre » enchaîne les saisies.</p>
+      <p>Le statut se change directement sur la ligne ; « Modifier » et « Supprimer » agissent sur cet objectif seul. Un objectif reste attaché à son joueur : pour un autre joueur, on en crée un nouveau. Les images d’un objectif s’ajoutent depuis la fiche du joueur, où les objectifs sont aussi visibles et supprimables.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment mettre un maillot ou la photo d’un joueur sur un pion ?</summary>
+      <div class="faq-a"><p>Tableau tactique : touchez un pion, puis l’icône image de sa barre. « Importer une image » prend un PNG (un maillot détouré garde sa forme) ou un JPG ; « Photo d’un joueur du club » reprend la photo de sa fiche et son nom. Forme <em>libre</em> pour un maillot, <em>ronde</em> pour une photo. « Même image pour toute l’équipe » habille tous les pions de la même couleur d’un coup. Le pion se déplace, se copie, s’anime et s’exporte comme avant ; le curseur règle sa taille.</p></div>
+    </details>
+    <details class="faq-q">
       <summary>Comment choisir la couleur et la taille des pions ?</summary>
       <div class="faq-a"><p>Couleur : touchez à nouveau l’équipe active (pastille en haut à gauche) et choisissez ; les pions suivants la prennent et elle reste mémorisée. La pastille au bout de la barre d’outils fait de même pour les flèches, zones et textes. Taille : touchez un pion, puis glissez le curseur de sa barre ; les pions suivants gardent cette taille. Pendant qu’on déplace un élément, ses réglages s’effacent et reviennent au relâchement.</p></div>
     </details>
     <details class="faq-q">
       <summary>Comment préparer une séance et ses schémas tactiques ?</summary>
-      <div class="faq-a"><p><em>Séances</em> → nouvelle séance, puis ses procédés. Chaque procédé a son schéma (tableau tactique) : étapes animées, images, vidéo de l’animation, fiche PDF, et une vidéo de la plateforme à lui associer.</p></div>
+      <div class="faq-a"><p><em>Séances</em> → nouvelle séance : titre, <strong>principe de jeu</strong> (une seule fois pour toute la séance, repris dans les procédés et les PDF), date, puis les procédés. Chaque procédé a son schéma (tableau tactique) : étapes animées, images, vidéo de l’animation, fiche PDF, et une vidéo de la plateforme à lui associer.</p>
+      <p>Pas besoin d’enregistrer la séance avant de dessiner : « Dessiner le schéma » ouvre le tableau tout de suite ; son « Enregistrer » garde le schéma, et la sauvegarde de la séance le rattache au procédé. Avant de quitter une séance non enregistrée, le navigateur vous prévient. Les équipes (chasubles) apparaissent en colonnes dans le PDF complet et la fiche coach.</p></div>
     </details>
     <details class="faq-q">
       <summary>Comment importer l’Excel des tests physiques ?</summary>
@@ -100,7 +118,7 @@
     </details>
     <details class="faq-q">
       <summary>Comment personnaliser mon menu ?</summary>
-      <div class="faq-a"><p><em>Paramètres</em> → « Mon menu » : glissez les rubriques pour les réordonner, décochez celles que vous n’utilisez pas.</p></div>
+      <div class="faq-a"><p><em>Paramètres</em> → « Mon menu » : attrapez une rubrique par sa poignée (⋮⋮) et glissez-la, décochez celles que vous n’utilisez pas. C’est enregistré tout de suite. L’ordre des équipes se règle de la même façon dans <em>Mon club</em>.</p></div>
     </details>
 
     <h2 class="faq-group">Données et calculs</h2>

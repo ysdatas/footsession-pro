@@ -61,6 +61,8 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 19. supabase/player_program.sql             programme individuel : exercices, images, schémas, vidéos
 20. supabase/platform_v2.sql                trois rôles, accès par e-mail, séquences vidéo annotées, vidéo liée au schéma
 21. supabase/video_status.sql               statuts des séquences : « Vu » (seen_at) et « Modifié » (edited_at)
+22. supabase/lmfc_v3.sql                   statut des objectifs, objectif figé sur son joueur, principe de jeu de la
+                                           séance, stockage schemas/logos réservé au staff du club
 ```
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter
@@ -155,9 +157,24 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 
 ## 🧭 Pages
 
-- **Tableau de bord** — KPIs, séances récentes, récap par catégorie.
-- **Séances** — liste, recherche, export PDF, suppression.
-- **Créer / Modifier une séance** — procédés dynamiques, présence, schéma tactique.
+- **Accueil** (`dashboard.html`, `dashboard-page.js`) — où je suis (blason, date, club ·
+  fonction · équipe), **À traiter** (séquences vidéo à regarder, prochaine séance, objectifs en
+  cours, accès en attente pour l'admin) et **Accès rapides** (rubriques du rôle, dans l'ordre de
+  son menu). Le blason du menu y ramène.
+- **Page de connexion** (`index.html`) — identité LMFC Performance (blason, rouge et or) à côté
+  du formulaire ; une colonne sur téléphone.
+- **Séances** — liste, recherche (titre, équipe, principe de jeu, date), export PDF, suppression.
+- **Créer / Modifier une séance** — titre + **principe de jeu** (une fois pour la séance,
+  `sessions.principes_jeu` ; les procédés en héritent, un ancien procédé garde le sien :
+  `sessionPrinciple` / `procPrinciple` de `procedure-time.js`), procédés, présence, chasubles.
+  Le schéma d'un procédé se dessine **avant** d'enregistrer : `tactical-board.html?draft=…`
+  le garde dans le navigateur (`tb_draft_*`) et son image dans `schemas/{club}/drafts/` ; la
+  sauvegarde de la séance le rattache au procédé (`commitDraftSchemas`). Le tableau prévient la
+  séance par `localStorage` (événement `storage`) au lieu de la recharger : rien de ce qui est
+  saisi n'est perdu ; quitter une séance non enregistrée demande confirmation. Un nouvel essai
+  après une erreur met à jour la séance déjà créée au lieu d'en créer une seconde.
+- **PDF** (`pdf-generator.js`, `pdf-coach.js`) — principe de jeu de la séance en tête, objectif
+  de chaque procédé, équipes (chasubles) en colonnes compactes, blason LMFC par défaut.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — effectif rangé en Gardiens / Défenseurs / Milieux / Attaquants (ligne déduite du
   poste, ou choisie en glissant la carte dans une autre rubrique), recherche, filtre par poste.
@@ -171,7 +188,15 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Performance** (`player-performance.html`) — développement physique : photo (clic sur
   l'avatar), mesures, tests, radar /10 (comparaison à un 2e joueur pour le staff),
   **Objectifs** (objectifs et exercices physiques avec images), parcours, **Générer le PDF**.
-- **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques.
+- **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques,
+  **Objectifs** (`objectives-board.js`, `?tab=objectifs&player=…&new=1`) : tous les objectifs de
+  l'effectif par joueur, filtre par statut, ajout pour un ou plusieurs joueurs cochés (une ligne
+  par joueur), statut modifiable sur place, modifier, supprimer (images comprises). Les objectifs
+  sont aussi sur la **fiche joueur**. Statut : `player_performance_notes.status` (active, achieved,
+  missed) ; le trigger `guard_performance_note` interdit de changer le joueur d'un point.
+- **Ordre au glisser-déposer** (`makeSortable`, `app.js`) — doigt et souris, poignée ⋮⋮, flèches
+  au clavier : menu (Paramètres → Mon menu, enregistré au lâcher), équipes (Mon club,
+  `teams.sort_order`), séquences d'une compilation.
 - **FAQ** (`faq.html`) — questions cliquables : prise en main, puis données et calculs.
 - **Vidéos** (`videos.html`, staff) — organisation progressive : d'abord **À voir** (séquences
   envoyées par les joueurs, pas encore commentées) puis les **joueurs**, une ligne chacun
@@ -198,6 +223,14 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     lui-même l'envoi, la lecture et les modifications (jamais l'horloge du téléphone) ;
   - le retour du téléphone passe d'un écran à l'autre (history) ; une annotation non
     enregistrée est protégée ; l'analyse s'enregistre au fil de la frappe.
+  - **Compilation** (`video-compile.js`, staff) : un joueur → Séquences → « Compiler des
+    séquences », touchées dans l'ordre, réordonnées au glisser-déposer, puis une seule vidéo.
+    L'habillage n'est pas dans le fichier source (il est dans `drawings`) : la page rejoue
+    chaque séquence dans un `<canvas>` — image, annotations dessinées par `paintInk`
+    (`video-ink.js`, le même code qu'à l'écran), arrêts sur image, carton de titre — et
+    l'enregistre avec le son (`MediaRecorder` : MP4 sur Chrome / Safari, WebM sinon). Durée de
+    génération = durée de la vidéo, onglet au premier plan. Le fichier est téléchargé, rien
+    n'est stocké ; « Ajouter aux vidéos du joueur » l'envoie sur R2 dans le dossier de CE joueur.
 - **Mes vidéos** (joueur) — deux rubriques : **Vidéos** (sources) et **Mes séquences**
   (filtres Toutes · Brouillons · Envoyées), une carte avec miniature par contenu.
 - **Espace joueur** — même coque sur chaque page (`player-nav.js`) : en-tête avec le logo et,
@@ -227,6 +260,11 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Zones** : choisir une forme puis **glisser** sur le terrain ; la sélectionner
   (outil ↖) puis **tirer un coin** pour la redimensionner.
 - **Formations** : menu déroulant (4-3-3, 4-4-2…) place 11 joueurs.
+- **Pion en image** : sélectionner un pion → icône image : PNG/JPG importé (maillot détouré,
+  forme libre) ou photo d'un joueur du club (forme ronde, nom repris), « Même image pour toute
+  l'équipe », retirer. L'image, réduite à 192 px, est gardée DANS le schéma (`images` : id →
+  dataURL ; le pion porte `img` et `imgFit`) : un seul exemplaire pour onze pions, et elle
+  suit déplacement, copier-coller, taille, étapes animées, enregistrement et export.
 - **Disposition** : le terrain est fixe et plein cadre (herbe texturée jusqu'aux bords) ;
   rien ne le réduit ni ne le déplace. Tout flotte par-dessus, en « verre » (`.glass`,
   `.glass-btn` dans `main.css`) : outils en haut à gauche, joueurs 1 à 11 à gauche,
@@ -294,6 +332,7 @@ node tests/excel-import.test.mjs  # import validé sur le vrai Tests_Physiques_N
 node tests/nav.test.mjs           # menu : rôles, ordre, rubriques masquées, pages interdites
 node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classement de chaque test
 node tests/video-worker.test.mjs  # Worker vidéo : droits, liens signés, lecture partielle (Range)
+node tests/session-principle.test.mjs  # principe de jeu : séance, anciennes séances, héritage
 ```
 
 Le second tourne sur une extraction du classeur réel

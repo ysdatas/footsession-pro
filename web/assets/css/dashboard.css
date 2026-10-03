@@ -57,3 +57,71 @@
   .dash-grid { grid-template-columns: 1fr; }
   .recap-row { grid-template-columns: 100px 1fr auto; }
 }
+
+/* ============================================================
+   Accueil (dashboard-page.js) : où je suis, ce qui m'attend,
+   où aller. Une colonne sur téléphone.
+   ============================================================ */
+.home { max-width: 1120px; }
+.home-hero {
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 22px 24px; margin-bottom: 26px; border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(520px 220px at 0% 120%, rgba(var(--red-rgb), .28), transparent 70%),
+    radial-gradient(420px 200px at 100% -40%, rgba(var(--gold-rgb), .14), transparent 70%),
+    var(--bg-card);
+}
+.home-hero::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--red) 0%, var(--red) 62%, var(--gold) 62%, var(--gold) 100%);
+}
+.home-crest { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 8px 20px rgba(0,0,0,.5)); }
+.home-hero-text { flex: 1; min-width: 200px; }
+.home-hero-text h1 { margin: 0 0 2px; }
+.home-hero-text .subtitle { margin: 0; }
+.home-kicker { margin: 0 0 2px; color: var(--gold); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.home-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.home-actions .btn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; }
+.home-section { margin-bottom: 28px; }
+.home-section h2 { font-size: var(--fs-lg); margin-bottom: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .08em; font-size: var(--fs-xs); }
+
+.home-attn { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.home-attn-card {
+  display: flex; gap: 14px; align-items: flex-start; min-height: 112px; padding: 16px;
+  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-card);
+  transition: border-color var(--dur-micro) ease, transform var(--dur-micro) ease;
+}
+.home-attn-card:hover { border-color: var(--gold-border); transform: translateY(-1px); }
+.home-attn-card.is-urgent { border-color: rgba(var(--red-rgb), .55); background: linear-gradient(180deg, rgba(var(--red-rgb), .12), var(--bg-card) 70%); }
+.home-attn-card.is-calm .home-attn-value { color: var(--text-secondary); }
+.home-attn-ic {
+  display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px;
+  background: rgba(var(--gold-rgb), .1); color: var(--gold);
+}
+.home-attn-card.is-urgent .home-attn-ic { background: rgba(var(--red-rgb), .18); color: #FF6B7D; }
+.home-attn-body { display: grid; gap: 2px; min-width: 0; }
+.home-attn-value { font-size: var(--fs-2xl); font-weight: 800; line-height: 1.05; color: var(--gold); }
+.home-attn-card.is-urgent .home-attn-value { color: var(--text-primary); }
+.home-attn-body strong { font-size: var(--fs-md); overflow-wrap: anywhere; }
+.home-attn-body small { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.4; }
+
+.home-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.home-tile {
+  display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 14px;
+  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-surface);
+  transition: border-color var(--dur-micro) ease, background var(--dur-micro) ease;
+}
+.home-tile:hover { border-color: var(--gold-border); background: var(--bg-card); }
+.home-tile-ic { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px; background: var(--bg-hover); color: var(--gold); }
+.home-tile-text { display: grid; min-width: 0; }
+.home-tile-text strong { font-size: var(--fs-md); }
+.home-tile-text small { color: var(--text-secondary); font-size: var(--fs-sm); }
+@media (max-width: 640px) {
+  .home-hero { padding: 18px 16px; gap: 12px; }
+  .home-crest { width: 52px; height: 52px; }
+  .home-actions { width: 100%; }
+  .home-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .home-attn-card { min-height: 0; }
+}

@@ -64,6 +64,64 @@ const fmtDate = (d) => {
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/* ---------- Glisser-déposer pour réordonner une liste ----------
+   Les enfants directs de `list` se réordonnent au doigt comme à la
+   souris (Pointer Events) : on attrape la poignée [data-drag] (ou,
+   à la souris, la ligne entière hors boutons et champs), on glisse,
+   on lâche. Au clavier : flèches haut / bas sur la poignée.
+   onChange() est appelé une fois le déplacement terminé ; le clic
+   qui suit un glissement est ignoré (pas de case cochée par erreur). */
+function makeSortable(list, { onChange } = {}) {
+  let row = null, pid = null, startY = 0, active = false, justDragged = false;
+  const rowOf = (t) => [...list.children].find(c => c.contains(t));
+  list.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    const handle = e.target.closest('[data-drag]');
+    const mouseRow = e.pointerType === 'mouse' && !e.target.closest('input, button, select, textarea, a, [contenteditable]');
+    if (!handle && !mouseRow) return;
+    row = rowOf(e.target); pid = e.pointerId; startY = e.clientY; active = false;
+    if (handle) e.preventDefault();
+  });
+  list.addEventListener('pointermove', (e) => {
+    if (!row || e.pointerId !== pid) return;
+    if (!active) {
+      if (Math.abs(e.clientY - startY) < 5) return;
+      active = true;
+      row.classList.add('is-dragging'); list.classList.add('is-sorting');
+      try { list.setPointerCapture(pid); } catch (err) { console.warn('Capture du pointeur impossible', err); }
+    }
+    e.preventDefault();
+    const y = e.clientY;
+    const before = [...list.children].find(c => c !== row && y < c.getBoundingClientRect().top + c.offsetHeight / 2);
+    if (before) { if (row.nextElementSibling !== before) list.insertBefore(row, before); }
+    else if (list.lastElementChild !== row) list.append(row);
+    if (y < 70) window.scrollBy(0, -12); else if (y > window.innerHeight - 70) window.scrollBy(0, 12);
+  });
+  const end = (e) => {
+    if (!row || e.pointerId !== pid) return;
+    const moved = active;
+    row.classList.remove('is-dragging'); list.classList.remove('is-sorting');
+    row = null; active = false;
+    if (!moved) return;
+    justDragged = true; setTimeout(() => { justDragged = false; }, 0);
+    onChange?.();
+  };
+  list.addEventListener('pointerup', end);
+  list.addEventListener('pointercancel', end);
+  list.addEventListener('click', (e) => { if (justDragged) { e.preventDefault(); e.stopPropagation(); } }, true);
+  list.addEventListener('keydown', (e) => {
+    const handle = e.target.closest('[data-drag]');
+    if (!handle || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    const r = rowOf(handle), sib = e.key === 'ArrowUp' ? r.previousElementSibling : r.nextElementSibling;
+    if (!sib) return;
+    if (e.key === 'ArrowUp') sib.before(r); else sib.after(r);
+    handle.focus();
+    onChange?.();
+  });
+}
+const dragHandle = (label) => `<span class="drag-handle" data-drag tabindex="0" role="button" aria-label="Déplacer ${escapeHtml(label)} (flèches haut et bas)" title="Glisser pour déplacer"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.4"/><circle cx="10.5" cy="3.5" r="1.4"/><circle cx="5.5" cy="8" r="1.4"/><circle cx="10.5" cy="8" r="1.4"/><circle cx="5.5" cy="12.5" r="1.4"/><circle cx="10.5" cy="12.5" r="1.4"/></svg></span>`;
+
 /* ---------- Barre latérale mobile ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   const toggle   = document.getElementById('sidebarToggle');

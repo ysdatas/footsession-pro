@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LMFC Performance — Tableau de bord</title>
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <title>LMFC Performance — Accueil</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
@@ -12,7 +15,7 @@
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
-    <div class="brand">LMFC <span class="brand-pro">Performance</span></div>
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
     <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
@@ -20,24 +23,26 @@
       <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
     </div>
   </aside>
-  <main class="main">
-    <div class="page-head">
-      <div>
+  <main class="main home">
+    <section class="home-hero">
+      <img class="home-crest" src="assets/img/lmfc-logo.png" alt="" width="72" height="72">
+      <div class="home-hero-text">
+        <p class="home-kicker" id="homeDate"></p>
         <h1 id="greeting">Bonjour</h1>
         <p class="subtitle" id="clubLine">Chargement du club…</p>
       </div>
-    </div>
+      <div class="home-actions" id="homeActions"></div>
+    </section>
 
-    <div class="kpi-grid">
-      <div class="card kpi"><div class="kpi-num" id="kSessions">—</div><div class="kpi-label">Séances du club</div></div>
-      <div class="card kpi"><div class="kpi-num" id="kPlayers">—</div><div class="kpi-label">Joueurs du club</div></div>
-      <div class="card kpi gold"><div class="kpi-num" id="kMembers">—</div><div class="kpi-label">Membres de la cellule</div></div>
-    </div>
+    <section class="home-section" aria-labelledby="homeAttnTitle">
+      <h2 id="homeAttnTitle">À traiter</h2>
+      <div class="home-attn" id="homeAttn"><p class="text-muted">Chargement…</p></div>
+    </section>
 
-    <div class="card" style="margin-top:18px;">
-      <h3>Membres de la cellule</h3>
-      <div id="memberList"><p class="text-muted">Chargement…</p></div>
-    </div>
+    <section class="home-section" aria-labelledby="homeTilesTitle">
+      <h2 id="homeTilesTitle">Accès rapides</h2>
+      <div class="home-tiles" id="homeTiles"></div>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -45,42 +50,7 @@
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
-  <script>
-    (async () => {
-      const ctx = await requireAuth();
-      if (!ctx) return;
-      const { profile } = ctx;
-
-      document.getElementById('greeting').textContent = 'Bonjour, ' + (profile.nom || 'Utilisateur');
-      document.getElementById('clubLine').textContent = (profile.clubs?.nom || 'Club') + ' · ' + (ROLE_LABELS[profile.role] || profile.role);
-      document.getElementById('uName').textContent = profile.nom || 'Utilisateur';
-      document.getElementById('uRole').textContent = (ROLE_LABELS[profile.role] || profile.role).toUpperCase();
-      document.getElementById('uAvatar').textContent = (profile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-      document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
-
-      // Équipe choisie dans le menu : les compteurs ne portent que sur elle.
-      const team = currentTeam();
-      const scoped = (q) => byTeam(q);
-      if (team) {
-        document.querySelector('#kSessions + .kpi-label').textContent = `Séances — ${team.nom}`;
-        document.querySelector('#kPlayers + .kpi-label').textContent = `Joueurs — ${team.nom}`;
-      }
-      const [{ count: nbSessions }, { count: nbPlayers }, { data: members }] = await Promise.all([
-        scoped(sb.from('sessions').select('id', { count: 'exact', head: true })),
-        scoped(sb.from('players').select('id', { count: 'exact', head: true })),
-        sb.from('profiles').select('nom, role').eq('club_id', profile.club_id),
-      ]);
-
-      document.getElementById('kSessions').textContent = nbSessions ?? 0;
-      document.getElementById('kPlayers').textContent = nbPlayers ?? 0;
-      document.getElementById('kMembers').textContent = members?.length ?? 0;
-
-      document.getElementById('memberList').innerHTML = (members || []).map(m =>
-        `<div class="recent-item"><div class="recent-main"><div class="recent-title">${escapeHtmlSafe(m.nom || 'Membre')}</div></div><span class="badge badge-gold">${escapeHtmlSafe(ROLE_LABELS[m.role] || m.role)}</span></div>`
-      ).join('') || '<p class="text-muted">Aucun membre.</p>';
-    })();
-
-    function escapeHtmlSafe(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  </script>
+  <script src="assets/js/video-status.js"></script>
+  <script src="assets/js/dashboard-page.js"></script>
 </body>
 </html>

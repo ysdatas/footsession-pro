@@ -38,9 +38,9 @@ const DEFAULT_PREFS = {
   document.getElementById('saveAccount').addEventListener('click', saveAccount);
   document.getElementById('savePassword').addEventListener('click', savePassword);
   document.getElementById('savePrefs').addEventListener('click', savePrefs);
-  document.getElementById('saveMenu').addEventListener('click', saveMenu);
-  document.getElementById('resetMenu').addEventListener('click', () => renderMenuEditor({}));
+  document.getElementById('resetMenu').addEventListener('click', () => { renderMenuEditor({}); saveMenu(); });
   renderMenuEditor(myProfile.prefs || {});
+  makeSortable(document.getElementById('menuEditor'), { onChange: saveMenu });
 
 
   fillPrefs(await loadPrefs());
@@ -106,41 +106,40 @@ function renderMenuEditor(prefs) {
   const list = document.getElementById('menuEditor');
   list.innerHTML = orderedNavItems(myProfile.role, prefs).map(item => `
     <li data-key="${item.key}" class="${item.hidden ? 'is-hidden' : ''}">
+      ${dragHandle(item.label)}
       <label><input type="checkbox" ${item.hidden ? '' : 'checked'} ${item.fixed ? 'disabled' : ''}>
         ${escapeHtml(item.label)}${item.fixed ? ' <span class="text-muted">(toujours affiché)</span>' : ''}</label>
-      <span class="menu-move">
-        <button class="btn btn-sm" type="button" data-move="-1" aria-label="Monter ${escapeHtml(item.label)}">↑</button>
-        <button class="btn btn-sm" type="button" data-move="1" aria-label="Descendre ${escapeHtml(item.label)}">↓</button>
-      </span>
     </li>`).join('');
 }
 
-document.getElementById('menuEditor').addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-move]');
-  if (!btn) return;
-  const li = btn.closest('li');
-  const sibling = Number(btn.dataset.move) < 0 ? li.previousElementSibling : li.nextElementSibling;
-  if (!sibling) return;
-  if (Number(btn.dataset.move) < 0) sibling.before(li); else sibling.after(li);
-  btn.focus();
-});
 document.getElementById('menuEditor').addEventListener('change', (e) => {
   e.target.closest('li')?.classList.toggle('is-hidden', !e.target.checked);
+  saveMenu();
 });
 
-async function saveMenu() {
+/* Enregistré dès qu'on lâche une rubrique ou qu'on coche : rien à valider.
+   Les enregistrements se suivent dans l'ordre (le dernier état gagne). */
+let menuSaving = Promise.resolve();
+function saveMenu() {
   const rows = [...document.querySelectorAll('#menuEditor li')];
   const nav = {
     order: rows.map(li => li.dataset.key),
     hidden: rows.filter(li => !li.querySelector('input').checked).map(li => li.dataset.key),
   };
-  const btn = document.getElementById('saveMenu'); btn.disabled = true;
-  try {
-    const prefs = await savePrefsPatch({ nav });
-    renderNav({ ...myProfile, prefs });
-    toast('Menu enregistré', 'success');
-  } catch (e) { toast(e.message, 'error'); }
-  finally { btn.disabled = false; }
+  const status = document.getElementById('menuStatus');
+  status.textContent = 'Enregistrement…';
+  menuSaving = menuSaving.then(async () => {
+    try {
+      const prefs = await savePrefsPatch({ nav });
+      renderNav({ ...myProfile, prefs });
+      status.textContent = 'Menu enregistré ✓';
+    } catch (e) {
+      console.error('Menu non enregistré', e);
+      status.textContent = 'Non enregistré : vérifiez la connexion.';
+      toast(e.message, 'error');
+    }
+  });
+  return menuSaving;
 }
 
 /* ---------- Compte ---------- */

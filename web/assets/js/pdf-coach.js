@@ -5,7 +5,9 @@
    Un procédé par QUART de page A4 paysage, soit 4 procédés par
    feuille — au-delà, on passe en recto verso (8 procédés = 2 pages).
    Le schéma occupe l'essentiel du quart ; le texte se limite au
-   nom, à la structure des séquences et au principe de jeu.
+   nom, à la structure des séquences et à l'objectif. En page 1,
+   sous le bandeau : le principe de jeu de la séance et les équipes
+   (chasubles) en colonnes compactes.
 
    Exposé : window.generateCoachPDF(sessionId)
    ============================================================ */
@@ -20,13 +22,15 @@ window.generateCoachPDF = async function (sessionId) {
 
   const loaded = await window.loadSessionForPdf(sessionId);
   if (!loaded) return;
-  const { s, procedures } = loaded;
+  const { s, procedures, attendance } = loaded;
+  const principe = sessionPrinciple(s, procedures);
+  const teams = sessionTeams(s, attendance);
 
-  const { NAVY, LIGHT, LINE, DARK, MUT, imgSize, hexRgb, GOLD } = window.PDF_THEME;
+  const { INK, LIGHT, LINE, DARK, MUT, imgSize, hexRgb, ACCENT } = window.PDF_THEME;
   const { jsPDF } = lib;
   const doc = new jsPDF('l', 'mm', 'a4');
   const W = 297, H = 210, M = 7;
-  const gold = hexRgb(s.club_color) || GOLD;
+  const gold = hexRgb(s.club_color) || ACCENT;
 
   const fill = (x, y, w, h, rgb) => { doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(x, y, w, h, 'F'); };
   const box = (x, y, w, h) => { doc.setDrawColor(LINE[0], LINE[1], LINE[2]); doc.setLineWidth(0.3); doc.rect(x, y, w, h); };
@@ -36,7 +40,7 @@ window.generateCoachPDF = async function (sessionId) {
   const banner = (pageNo, nbPages) => {
     const h = 11;
     fill(0, 0, W, H, [255, 255, 255]);
-    fill(M, M, W - 2 * M, h, NAVY);
+    fill(M, M, W - 2 * M, h, INK);
     if (s.club_logo) {
       try { doc.addImage(s.club_logo, M + 1.2, M + 1, h - 2, h - 2); } catch (e) {}
     }
@@ -62,8 +66,29 @@ window.generateCoachPDF = async function (sessionId) {
     return M + h + 3;
   };
 
+  /* Page 1, sous le bandeau : principe de jeu puis équipes. Renvoie la
+     hauteur prise (0 si rien à afficher) ; `dry` mesure sans dessiner. */
+  const sessionStrip = (top, dry) => {
+    const w = W - 2 * M;
+    let hUsed = 0;
+    if (principe) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      const lines = doc.splitTextToSize('Principe de jeu : ' + principe, w - 4).slice(0, 2);
+      const ph = lines.length * 3.5 + 2.4;
+      if (!dry) {
+        fill(M, top, w, ph, LIGHT); fill(M, top, 1.6, ph, gold);
+        doc.setTextColor(...DARK); doc.setFont('helvetica', 'bold');
+        doc.text(lines, M + 3.4, top + 1.4, { baseline: 'top' });
+      }
+      hUsed += ph + 1.8;
+    }
+    if (teams.length) hUsed += drawTeamColumns(doc, { x: M, y: top + hUsed, w, teams, fs: 6.8, dry, maxCols: 8 }) + 2;
+    return hUsed;
+  };
+
   if (!procedures.length) {
-    const top = banner(1, 1);
+    const below = banner(1, 1);
+    const top = below + sessionStrip(below, false);
     fill(M, top, W - 2 * M, 14, LIGHT); box(M, top, W - 2 * M, 14);
     doc.setTextColor(...MUT); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
     doc.text('Aucun procédé enregistré.', W / 2, top + 7, { align: 'center', baseline: 'middle' });
@@ -83,7 +108,8 @@ window.generateCoachPDF = async function (sessionId) {
 
   for (let page = 0; page < nbPages; page++) {
     if (page > 0) doc.addPage();
-    const top = banner(page + 1, nbPages);
+    let top = banner(page + 1, nbPages);
+    if (page === 0) top += sessionStrip(top, false);
 
     // Géométrie des quatre quarts.
     const gap = 3;
@@ -107,7 +133,7 @@ window.generateCoachPDF = async function (sessionId) {
 
     // Bandeau de titre du procédé.
     const tH = 6.4;
-    fill(x, y, w, tH, NAVY);
+    fill(x, y, w, tH, INK);
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.4);
     doc.text(`${index + 1}. ${(p.nom || 'Procédé').toUpperCase()}`, x + 2, y + tH / 2, { baseline: 'middle' });
     // Séquences alignées à droite du bandeau : l'information la plus utile sur le terrain.
@@ -142,20 +168,23 @@ window.generateCoachPDF = async function (sessionId) {
       const meta = [p.type_procede, [p.taille_terrain, p.effectif].filter(Boolean).join(' · ')]
         .filter(Boolean).join('   ·   ');
       if (meta) {
-        doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8);
+        doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8);
         const ml = doc.splitTextToSize(meta.toUpperCase(), tw);
         doc.text(ml, tx, cy, { baseline: 'top' });
         cy += ml.length * 2.9 + 1.6;
       }
-      if (!p.principes_jeu) return;
+      // Ancien procédé avec son propre principe : il le garde. Sinon l'objectif.
+      const own = (p.principes_jeu || '').trim();
+      const body = own && own !== principe ? 'Principe : ' + own : (p.objectif ? 'Objectif : ' + p.objectif : (p.consignes || ''));
+      if (!body) return;
 
       doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal');
-      // On essaie plusieurs corps jusqu'à ce que le principe tienne entièrement.
+      // On essaie plusieurs corps jusqu'à ce que le texte tienne entièrement.
       const budget = th - (cy - ty);
       for (const fs of [8, 7.4, 6.8, 6.2, 5.6]) {
         doc.setFontSize(fs);
         const lineH = fs * 0.42;
-        const lines = doc.splitTextToSize(p.principes_jeu, tw);
+        const lines = doc.splitTextToSize(body, tw);
         if (lines.length * lineH <= budget || fs === 5.6) {
           const maxLines = Math.max(1, Math.floor(budget / lineH));
           const shown = lines.slice(0, maxLines);
@@ -172,5 +201,5 @@ window.generateCoachPDF = async function (sessionId) {
 };
 
 function fileName(s) {
-  return `seance-${(s.titre || 'lmfc-performance').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-fiche-coach.pdf`;
+  return `seance-${(s.titre || 'lmfc-performance').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-')}-fiche-coach.pdf`;
 }

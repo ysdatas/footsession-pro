@@ -5,6 +5,12 @@
 
 const SESSION_ID = new URLSearchParams(location.search).get('id') ? Number(new URLSearchParams(location.search).get('id')) : null;
 const EDITOR_MODE = SESSION_ID ? 'edit' : 'create';
+// Séance déjà créée par un premier enregistrement : un nouvel essai (après
+// une erreur réseau, par exemple) la met à jour au lieu d'en créer une autre.
+let savedSessionId = SESSION_ID;
+// Modifications pas encore enregistrées : on prévient avant de quitter.
+let dirty = false;
+const markDirty = () => { dirty = true; };
 
 let myProfile = null;
 let CAN_WRITE = false;
@@ -91,7 +97,25 @@ const TEAM_PRESETS = [
   renderTeams();
   updateMeta();
   if (EDITOR_MODE === 'edit' && document.getElementById('commentList')) initCellule();
+  loadPrincipleSuggestions();
+  if (CAN_WRITE) {
+    const main = document.querySelector('main');
+    main.addEventListener('input', markDirty);
+    main.addEventListener('change', markDirty);
+    ['attendanceList', 'teamsList', 'btnAddTeam'].forEach(id => document.getElementById(id)?.addEventListener('click', markDirty));
+    window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+  }
+  dirty = false;
 })();
+
+/* Principes déjà utilisés par le club : proposés à la saisie, pour que le
+   même principe s'écrive toujours pareil (et se compte bien dans Analytics). */
+async function loadPrincipleSuggestions() {
+  const { data, error } = await sb.from('sessions').select('principes_jeu').not('principes_jeu', 'is', null).limit(300);
+  if (error) return console.warn('Principes de jeu déjà utilisés indisponibles', error);
+  const list = [...new Set((data || []).map(r => (r.principes_jeu || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+  document.getElementById('principesList').innerHTML = list.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
+}
 
 /* Quand le club a des équipes, le champ texte « Équipe » devient une
    liste : la séance est rattachée à une vraie équipe, et la liste de
@@ -235,6 +259,7 @@ async function loadSession() {
       duree_sequence_min: p.duree_sequence_min ?? '',
       image_path: p.tactical_schemas?.image_path || null, video_id: p.tactical_schemas?.video_id || null, expanded: false,
     }));
+    document.getElementById('f-principe').value = sessionPrinciple(s, procedures);
 
     const { data: att } = await sb.from('attendance').select('player_id, present').eq('session_id', SESSION_ID);
     const attMap = {};
@@ -264,12 +289,16 @@ function addProcedure(data = {}) {
     _uid: nextUid(), nom: data.nom || '', duree_min: data.duree_min || 20,
     objectif: data.objectif || '', effectif: data.effectif || '',
     taille_terrain: data.taille_terrain || '', consignes: data.consignes || '',
-    principes_jeu: data.principes_jeu || '', comportements_individuels: data.comportements_individuels || '',
+    principes_jeu: '', comportements_individuels: data.comportements_individuels || '',
     temps_recup_min: data.temps_recup_min ?? '',
     type_procede: data.type_procede || '', nb_sequences: data.nb_sequences ?? '',
     duree_sequence_min: data.duree_sequence_min ?? '',
     image_path: null, expanded: true,
   });
+  // Modèle qui avait un principe de jeu : il devient celui de la séance s'il manque.
+  const principe = document.getElementById('f-principe');
+  if (data.principes_jeu && principe && !principe.value.trim()) principe.value = data.principes_jeu;
+  markDirty();
   renderProcedures();
   updateMeta();
 }
@@ -284,6 +313,7 @@ window.saveAsTemplate = async (uid) => {
   const p = procedures.find(x => x._uid === uid); if (!p) return;
   const nom = prompt('Nom du modèle :', p.nom || 'Exercice'); if (!nom) return;
   const data = {}; TPL_FIELDS.forEach(k => data[k] = p[k]);
+  data.principes_jeu = procPrinciple(p, { principes_jeu: document.getElementById('f-principe').value });
   try {
     let image_path = null;
     if (p.image_path) {
@@ -351,11 +381,7 @@ window.deleteTemplate = async (id, btn) => {
 function procTemplate(p, index) {
   const f = (val) => escapeHtml(val ?? '');
   const dis = CAN_WRITE ? '' : 'disabled';
-  const tac = p.id
-    ? `<p class="schema-empty">${p.image_path ? 'Schéma enregistré.' : 'Aucun schéma pour ce procédé.'}</p>
-       <button class="btn btn-sm" type="button" onclick="openBoard(${p.id})">Ouvrir le tableau tactique →</button>
-       ${p.video_id ? `<button class="btn btn-sm" type="button" onclick="openLinkedVideo(${p.video_id})">▶ Vidéo liée</button>` : ''}`
-    : `<p class="schema-empty">Enregistrez la séance pour lier un schéma tactique à ce procédé.</p>`;
+  const tac = schemaBoxHtml(p);
 
   return `
   <div class="proc ${p.expanded ? 'expanded' : ''}" data-uid="${p._uid}">
@@ -400,16 +426,95 @@ function procTemplate(p, index) {
                    title="Travail ${fmtMin(workMin(p))}' · récup ${fmtMin(recupMin(p))}' · total ${fmtMin(totalMin(p))}'"></div>
         </div>
         <div class="field"><label>Consignes</label><textarea data-field="consignes" placeholder="Instructions détaillées…" ${dis}>${f(p.consignes)}</textarea></div>
-        <div class="field"><label>Principes de jeu</label><textarea data-field="principes_jeu" placeholder="Ex: Conservation, transitions…" ${dis}>${f(p.principes_jeu)}</textarea></div>
         <div class="field"><label>Comportements individuels</label><textarea data-field="comportements_individuels" placeholder="Ex: Présenter le pied…" ${dis}>${f(p.comportements_individuels)}</textarea></div>
       </div>
       <div>
         <label>Schéma tactique</label>
-        <div class="schema-box">${tac}</div>
+        <div class="schema-box" data-schema-box>${tac}</div>
         <div class="schema-recap">Procédé ${index + 1} / ${procedures.length} · ${escapeHtml(sequenceLabel(p))}</div>
       </div>
     </div>
   </div>`;
+}
+
+/* ---------- Schéma tactique d'un procédé ----------
+   Procédé enregistré : son schéma (tactical_schemas). Procédé pas encore
+   enregistré : un brouillon dessiné tout de suite (tactical-board.html
+   ?draft=…), gardé dans le navigateur et rattaché au procédé à la
+   sauvegarde de la séance (commitDraftSchemas). */
+const lsJson = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { console.warn('Brouillon illisible', key, e); return null; } };
+const schemaUrl = (path, v) => `${sb.storage.from('schemas').getPublicUrl(path).data.publicUrl}${v ? `?v=${v}` : ''}`;
+function schemaBoxHtml(p) {
+  if (p.id) {
+    return `${p.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(p.image_path, p.image_v))}" alt="Schéma du procédé" loading="lazy">` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
+       <button class="btn btn-sm" type="button" onclick="openBoard(${p.id})">${p.image_path ? 'Modifier le schéma →' : 'Dessiner le schéma →'}</button>
+       ${p.video_id ? `<button class="btn btn-sm" type="button" onclick="openLinkedVideo(${p.video_id})">▶ Vidéo liée</button>` : ''}`;
+  }
+  if (!CAN_WRITE) return '<p class="schema-empty">Aucun schéma pour ce procédé.</p>';
+  const meta = p.draft_key && lsJson('tb_draftmeta_' + p.draft_key);
+  const started = p.draft_key && localStorage.getItem('tb_draft_' + p.draft_key);
+  if (meta || started) {
+    return `${meta?.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(meta.image_path, meta.at))}" alt="Aperçu du schéma">` : ''}
+      <p class="schema-empty">${meta ? 'Schéma prêt : il sera enregistré avec la séance.' : 'Schéma commencé : cliquez « Enregistrer » dans le tableau, puis sauvegardez la séance.'}</p>
+      <button class="btn btn-sm" type="button" onclick="openDraftBoard('${p._uid}')">Modifier le schéma →</button>`;
+  }
+  return `<button class="btn btn-sm btn-primary" type="button" onclick="openDraftBoard('${p._uid}')">Dessiner le schéma →</button>
+    <p class="schema-empty">Inutile d’enregistrer la séance d’abord : le schéma sera rattaché au procédé à la sauvegarde.</p>`;
+}
+function refreshSchemaBox(p) {
+  const box = document.querySelector(`.proc[data-uid="${p._uid}"] [data-schema-box]`);
+  if (box) box.innerHTML = schemaBoxHtml(p);
+}
+window.openDraftBoard = (uid) => {
+  syncFromDom();
+  const p = procedures.find(x => x._uid === uid);
+  if (!p) return;
+  if (!p.draft_key) { p.draft_key = randomToken().slice(0, 16); markDirty(); }
+  const name = p.nom.trim() || `Procédé ${procedures.indexOf(p) + 1}`;
+  window.open(`tactical-board.html?draft=${p.draft_key}&name=${encodeURIComponent(name)}`, '_blank');
+  refreshSchemaBox(p);
+};
+/* Le tableau, ouvert dans un autre onglet, prévient quand il enregistre :
+   seul l'encadré du procédé change, ce qui est en cours de saisie reste. */
+window.addEventListener('storage', (e) => {
+  if (!e.key || !e.newValue) return;
+  if (e.key.startsWith('tb_draftmeta_')) {
+    const p = procedures.find(x => x.draft_key && e.key === 'tb_draftmeta_' + x.draft_key);
+    if (p) refreshSchemaBox(p);
+  } else if (e.key === 'tb_proc_saved') {
+    const m = lsJson('tb_proc_saved');
+    const p = m && procedures.find(x => x.id === m.procedure_id);
+    if (p) { p.image_path = m.image_path; p.image_v = m.at; refreshSchemaBox(p); }
+  }
+});
+/* À la sauvegarde : chaque brouillon devient le schéma de son procédé,
+   désormais enregistré (image copiée à sa place définitive). */
+async function commitDraftSchemas() {
+  for (const p of procedures.filter(x => x.draft_key && x.id)) {
+    const json = lsJson('tb_draft_' + p.draft_key);
+    if (!json) continue;
+    const meta = lsJson('tb_draftmeta_' + p.draft_key);
+    let image_path = null;
+    if (meta?.image_path) {
+      const dest = `${myProfile.club_id}/procedure-${p.id}.png`;
+      const { error: rmErr } = await sb.storage.from('schemas').remove([dest]);   // copy() n'écrase pas
+      if (rmErr) console.warn('Ancienne image du procédé non retirée', rmErr);
+      const { error: cpErr } = await sb.storage.from('schemas').copy(meta.image_path, dest);
+      if (cpErr) console.warn('Image du brouillon non copiée : elle sera refaite à la prochaine ouverture du tableau', cpErr);
+      else image_path = dest;
+    }
+    const { error } = await sb.from('tactical_schemas').upsert({
+      procedure_id: p.id, canvas_json: json, image_path, vue_terrain: json.view || 'complet',
+    }, { onConflict: 'procedure_id' });
+    if (error) throw error;
+    if (meta?.image_path && image_path) {
+      const { error: delErr } = await sb.storage.from('schemas').remove([meta.image_path]);
+      if (delErr) console.warn('Image de brouillon restée dans le stockage', delErr);
+    }
+    localStorage.removeItem('tb_draft_' + p.draft_key);
+    localStorage.removeItem('tb_draftmeta_' + p.draft_key);
+    p.draft_key = null; p.image_path = image_path;
+  }
 }
 
 /* Recalcule la durée et le récapitulatif d'un procédé après saisie des
@@ -475,13 +580,13 @@ function syncFromDom() {
 }
 
 window.toggleProc = (uid) => { syncFromDom(); const p = procedures.find(x => x._uid === uid); if (p) { p.expanded = !p.expanded; renderProcedures(); } };
-window.removeProc = (uid) => { syncFromDom(); procedures = procedures.filter(x => x._uid !== uid); renderProcedures(); updateMeta(); };
+window.removeProc = (uid) => { syncFromDom(); procedures = procedures.filter(x => x._uid !== uid); markDirty(); renderProcedures(); updateMeta(); };
 window.moveProc = (uid, dir) => {
   syncFromDom();
   const i = procedures.findIndex(x => x._uid === uid), j = i + dir;
   if (i < 0 || j < 0 || j >= procedures.length) return;
   [procedures[i], procedures[j]] = [procedures[j], procedures[i]];
-  renderProcedures(); updateMeta();
+  markDirty(); renderProcedures(); updateMeta();
 };
 /* Vidéo associée au schéma depuis le tableau tactique (platform_v2.sql). */
 window.openLinkedVideo = async (videoId) => {
@@ -640,6 +745,7 @@ async function save() {
 
   const sessionRow = {
     titre, date_seance,
+    principes_jeu: document.getElementById('f-principe').value.trim() || null,
     equipe: document.getElementById('f-equipe').value.trim() || null,
     equipes: teams.map(t => ({ nom: (t.nom || '').trim() || 'Équipe', couleur: t.couleur, player_ids: t.player_ids })),
     duree_min: Number(document.getElementById('f-duree').value) || 0,
@@ -651,7 +757,7 @@ async function save() {
 
   const btn = document.getElementById('btnSave'); btn.disabled = true;
   try {
-    let sid = SESSION_ID;
+    let sid = savedSessionId;
     if (sid) {
       const { error } = await sb.from('sessions').update(sessionRow).eq('id', sid);
       if (error) throw error;
@@ -659,10 +765,13 @@ async function save() {
       const { data, error } = await sb.from('sessions').insert({ ...sessionRow, club_id: myProfile.club_id }).select('id').single();
       if (error) throw error;
       sid = data.id;
+      savedSessionId = sid;
     }
 
     await saveProcedures(sid);
+    await commitDraftSchemas();
     await saveAttendance(sid);
+    dirty = false;
 
     if (SESSION_ID) {
       toast('Séance mise à jour', 'success');

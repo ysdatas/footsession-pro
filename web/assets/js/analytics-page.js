@@ -4,8 +4,8 @@
    reçoit que les séances du club de l'utilisateur connecté.
    ============================================================ */
 
-const GOLD = '#C9A84C', GOLD_L = '#E2C97E', GRID = 'rgba(255,255,255,.06)', TXT = '#8A8A8A';
-const PIE_COLORS = ['#C9A84C', '#7e6cff', '#3aa0ff', '#4CAF50', '#ff8a5b', '#ff6b9d', '#E2C97E', '#26c6da'];
+const GOLD = '#E8B20E', GOLD_L = '#F6D35B', GRID = 'rgba(255,255,255,.06)', TXT = '#8A8A8A';
+const PIE_COLORS = ['#E8B20E', '#C8102E', '#7e6cff', '#3aa0ff', '#4CAF50', '#ff8a5b', '#ff6b9d', '#E2C97E', '#26c6da'];
 
 let charts = {};
 let currentPeriod = 'month';
@@ -63,7 +63,7 @@ async function load() {
   try {
     // Séances de la période avec leurs procédés (le RLS restreint au périmètre autorisé).
     const { data: sessions, error } = await sb.from('sessions')
-      .select('id, titre, date_seance, duree_min, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min)')
+      .select('id, titre, date_seance, duree_min, principes_jeu, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min)')
       .gte('date_seance', range.from).lte('date_seance', range.to)
       .order('date_seance');
     if (error) throw error;
@@ -95,7 +95,8 @@ async function load() {
     line('chartMonths', await sessionsPerMonth());
     hbar('chartEspaces', countBy(allProcs, p => p.taille_terrain), GOLD_L);
     hbar('chartVolume', volumePerSession(sessions), '#3aa0ff');
-    bar('chartPrincipes', countBy(allProcs, p => p.principes_jeu), '#7e6cff');
+    // Un principe par séance (les anciennes séances le reprennent de leurs procédés).
+    bar('chartPrincipes', countBy(sessions, s => sessionPrinciple(s, s.procedures)), '#7e6cff');
     pie('chartEffectifs', countBy(allProcs, p => p.effectif));
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -182,7 +183,7 @@ function line(id, rows) {
   make(id, {
     type: 'line',
     data: { labels: labelsOf(rows), datasets: [{
-      data: valuesOf(rows), borderColor: GOLD, backgroundColor: 'rgba(201,168,76,.12)',
+      data: valuesOf(rows), borderColor: GOLD, backgroundColor: 'rgba(232,178,14,.12)',
       fill: true, tension: .35, pointBackgroundColor: GOLD, pointRadius: 4 }] },
     options: { ...noLegend, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
   });

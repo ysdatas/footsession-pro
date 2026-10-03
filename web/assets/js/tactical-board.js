@@ -26,6 +26,9 @@ const state = {
   playing: false,    // animation ou enregistrement en cours : terrain non modifiable
   // Cadrage d'export (mode « Screen ») : {x, y, w, h} en coordonnées paysage, ou null = plein terrain.
   screen: null,
+  // Images des pions (maillot, photo) : { id: dataURL }. Un pion porte
+  // seulement l'id (it.img) : onze pions au même maillot = une image.
+  images: {},
 };
 
 /* Les étapes affichées sont celles du clip actif : tout le code existant
@@ -43,7 +46,13 @@ const EXO = Number(new URLSearchParams(location.search).get('exercise')) || null
 let EXO_ROW = null;   // { id, title, club_id, player_id, schema_path } une fois chargé
 let PROC_ROW = null;     // procédé de séance (nom, objectif, consignes…) pour la fiche
 let PROC_SCHEMA = null;  // ligne tactical_schemas existante (vidéo liée)
-const LS_KEY = 'tb_' + (PROC || (EXO ? 'exo_' + EXO : 'scratch'));
+/* Brouillon : schéma d'un procédé pas encore enregistré (séance en cours
+   de création). Il vit dans le navigateur (LocalStorage) et son image
+   dans schemas/{club}/drafts/ ; la séance le rattache au procédé à son
+   enregistrement (session-edit-page.js). */
+const DRAFT = /^[a-f0-9]{8,32}$/.test(new URLSearchParams(location.search).get('draft') || '')
+  ? new URLSearchParams(location.search).get('draft') : null;
+const LS_KEY = 'tb_' + (PROC || (EXO ? 'exo_' + EXO : DRAFT ? 'draft_' + DRAFT : 'scratch'));
 
 /* ---------- Tailles ----------
    Réglées au curseur, ici comme dans Paramètres, entre ces bornes. */
@@ -287,7 +296,7 @@ function drawScreenFrame() {
   ctx.fillRect(0, f.y + f.h, LW, LH - (f.y + f.h));
   ctx.fillRect(0, f.y, f.x, f.h);
   ctx.fillRect(f.x + f.w, f.y, LW - (f.x + f.w), f.h);
-  ctx.strokeStyle = '#C9A84C'; ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
+  ctx.strokeStyle = '#E8B20E'; ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
   ctx.strokeRect(f.x, f.y, f.w, f.h);
   ctx.setLineDash([]);
   ctx.restore();
@@ -316,7 +325,65 @@ function txt(text, x, y) {
   ctx.restore();
 }
 
+/* ---------- Pions en image : maillot (forme libre) ou photo (ronde) ---------- */
+const imgCache = new Map();   // id → HTMLImageElement
+function tokenImage(it) {
+  const src = it.img && state.images[it.img];
+  if (!src) return null;
+  let im = imgCache.get(it.img);
+  if (!im || im.src !== src) {
+    im = new Image(); im.onload = () => render(); im.src = src;
+    imgCache.set(it.img, im);
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
+/* Demi-taille d'un pion : un maillot (forme libre) déborde un peu du rond. */
+const tokenHalf = (it) => (it.img && it.imgFit !== 'round' ? it.r * 1.25 : it.r);
+function drawImageToken(it, im) {
+  const r = it.r, round = it.imgFit === 'round';
+  let half = r;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+  if (round) {
+    ctx.beginPath(); ctx.arc(it.x, it.y, r, 0, Math.PI * 2); ctx.fillStyle = it.color; ctx.fill();
+    ctx.restore(); ctx.save();
+    ctx.beginPath(); ctx.arc(it.x, it.y, r - 1.5, 0, Math.PI * 2); ctx.clip();
+    const k = Math.max((2 * r) / im.naturalWidth, (2 * r) / im.naturalHeight);   // photo : remplit le rond
+    const w = im.naturalWidth * k, h = im.naturalHeight * k;
+    ctx.drawImage(im, it.x - w / 2, it.y - h / 2, w, h);
+    ctx.restore();
+    ctx.lineWidth = 3; ctx.strokeStyle = it.color;
+    ctx.beginPath(); ctx.arc(it.x, it.y, r - 1.5, 0, Math.PI * 2); ctx.stroke();
+  } else {
+    const k = Math.min((2.5 * r) / im.naturalWidth, (2.5 * r) / im.naturalHeight);   // maillot : entier
+    const w = im.naturalWidth * k, h = im.naturalHeight * k;
+    half = h / 2;
+    ctx.drawImage(im, it.x - w / 2, it.y - h / 2, w, h);
+    ctx.restore();
+  }
+  if (state.showNumbers && it.number != null) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (round) {   // pastille de numéro : le visage reste visible
+      const bx = it.x + r * .72, by = it.y + r * .72, br = Math.max(7, r * .42);
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fillStyle = it.color; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.round(br * 1.1)}px Inter, sans-serif`;
+      txt(String(it.number), bx, by + 1);
+    } else {
+      ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.round(r * .95)}px Inter, sans-serif`;
+      txt(String(it.number), it.x, it.y + r * .1);
+    }
+  }
+  if (it.label) {
+    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = '600 13px Inter';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    txt(it.label, it.x, it.y + half + 13);
+  }
+}
+
 function drawToken(it) {
+  const im = tokenImage(it);
+  if (im) return drawImageToken(it, im);
   // Ombre douce sous le pion pour le détacher du terrain.
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
@@ -546,12 +613,12 @@ function drawSelection() {
   if (drag && drag.mode === 'marquee') {
     const x = Math.min(drag.x0, drag.x1), y = Math.min(drag.y0, drag.y1);
     const w = Math.abs(drag.x1 - drag.x0), h = Math.abs(drag.y1 - drag.y0);
-    ctx.setLineDash([6, 4]); ctx.strokeStyle = '#C9A84C'; ctx.lineWidth = 1.2;
-    ctx.fillStyle = 'rgba(201,168,76,0.10)';
+    ctx.setLineDash([6, 4]); ctx.strokeStyle = '#E8B20E'; ctx.lineWidth = 1.2;
+    ctx.fillStyle = 'rgba(232,178,14,0.10)';
     ctx.fillRect(x, y, w, h); ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
   }
   const sels = selectedItems(); if (!sels.length) return;
-  ctx.strokeStyle = '#C9A84C'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = '#E8B20E'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
   for (const it of sels) {
     if (it.type === 'arrow' || it.type === 'line') {
       const bend = bendOf(it);
@@ -575,8 +642,8 @@ function drawSelection() {
 }
 function handle(x, y, hollow) {
   ctx.beginPath(); ctx.arc(x, y, HANDLE - 2, 0, Math.PI * 2);
-  ctx.fillStyle = hollow ? 'rgba(201,168,76,.25)' : '#C9A84C'; ctx.fill();
-  ctx.strokeStyle = hollow ? '#C9A84C' : '#000'; ctx.lineWidth = hollow ? 1.6 : 1; ctx.stroke();
+  ctx.fillStyle = hollow ? 'rgba(232,178,14,.25)' : '#E8B20E'; ctx.fill();
+  ctx.strokeStyle = hollow ? '#E8B20E' : '#000'; ctx.lineWidth = hollow ? 1.6 : 1; ctx.stroke();
 }
 
 /* ============================================================
@@ -588,7 +655,7 @@ function bounds(it) {
     const x = it.x + Math.min(...xs), y = it.y + Math.min(...ys);
     return { x, y, w: Math.max(4, Math.max(...xs) - Math.min(...xs)), h: Math.max(4, Math.max(...ys) - Math.min(...ys)) };
   }
-  if (it.type === 'player' || it.type === 'opponent') return { x: it.x - it.r, y: it.y - it.r, w: it.r * 2, h: it.r * 2 };
+  if (it.type === 'player' || it.type === 'opponent') { const h = tokenHalf(it); return { x: it.x - h, y: it.y - h, w: h * 2, h: h * 2 }; }
   if (it.type === 'equip') return { x: it.x - it.r * 1.15, y: it.y - it.r * 1.7, w: it.r * 2.3, h: it.r * 3.4 };
   if (it.type === 'text') { const w = (it.text || '…').length * it.size * 0.6, h = it.size; return { x: it.x - w / 2, y: it.y - h / 2, w, h }; }
   // shape / logo : normaliser largeur/hauteur négatives
@@ -615,7 +682,7 @@ function hitItem(p, pad = 0) {
       continue;
     }
     const lp = localPoint(p, it);      // repère non-tourné
-    if (it.type === 'player' || it.type === 'opponent') { if (Math.hypot(lp.x - it.x, lp.y - it.y) <= it.r + 2 + pad) return it; continue; }
+    if (it.type === 'player' || it.type === 'opponent') { if (Math.hypot(lp.x - it.x, lp.y - it.y) <= tokenHalf(it) + 2 + pad) return it; continue; }
     const b = bounds(it);
     if (lp.x >= b.x - pad && lp.x <= b.x + b.w + pad && lp.y >= b.y - pad && lp.y <= b.y + b.h + pad) return it;
   }
@@ -1130,7 +1197,11 @@ function openPalette(anchor, target, current, title) {
   $$('#tbPaletteGrid .sw').forEach(b => b.setAttribute('aria-checked', String(b.dataset.c === cur)));
   $('.tb-palette-custom').value = toHex(current);
   pal.classList.remove('hidden');
-  // À droite d'une barre latérale, sinon sous la pastille ; toujours dans la scène.
+  closeImgMenu();
+  placeFloat(pal, anchor);
+}
+/* À droite d'une barre latérale, sinon sous le bouton ; toujours dans la scène. */
+function placeFloat(pal, anchor) {
   const st = canvas.parentElement.getBoundingClientRect(), a = anchor.getBoundingClientRect();
   const pw = pal.offsetWidth, ph = pal.offsetHeight, m = 8;
   const side = !!anchor.closest('.tb-players');
@@ -1156,6 +1227,7 @@ function pickColor(c, keepOpen = false) {
 }
 document.addEventListener('pointerdown', (e) => {
   if (!e.target.closest('#tbPalette, .tb-colorbtn, [data-team]')) closePalette();
+  if (!e.target.closest('#tbImgMenu, #selImage')) closeImgMenu();
 });
 $('#drawColorBtn').addEventListener('click', (e) =>
   openPalette(e.currentTarget, 'draw', state.drawColor, 'Couleur des flèches, zones et textes'));
@@ -1258,7 +1330,7 @@ function syncSelBar() {
   const bar = $('#selBar');
   const wasHidden = bar.classList.contains('hidden');
   bar.classList.toggle('hidden', !sels.length || state.playing);
-  if (!sels.length) { closePalette(); return; }
+  if (!sels.length) { closePalette(); closeImgMenu(); return; }
   if (wasHidden) { bar.classList.remove('is-in'); void bar.offsetWidth; bar.classList.add('is-in'); }
   requestAnimationFrame(positionSelBar);
 
@@ -1288,6 +1360,9 @@ function syncSelBar() {
 
   $('#fontSelect').classList.toggle('hidden', !(one && one.type === 'text'));
   if (one && one.type === 'text') $('#fontSelect').value = one.font || state.textFont;
+  // Image : pour les pions (joueurs et adversaires).
+  $('#selImage').classList.toggle('hidden', !sels.some(x => x.type === 'player' || x.type === 'opponent'));
+  if ($('#selImage').classList.contains('hidden')) closeImgMenu();
   // Pivoter n'a de sens que pour ce qui a une orientation (pas un pion rond).
   $('#selRotate').classList.toggle('hidden', !sels.some(x => ['shape', 'equip', 'text', 'logo', 'path'].includes(x.type)));
 
@@ -1351,6 +1426,111 @@ $('#selText').addEventListener('input', e => {
   else if (it.type === 'shape') it.label = e.target.value;
   render(); scheduleSave();
 });
+/* ---------- Image d'un pion ----------
+   Importée (PNG d'un maillot, JPG) ou prise sur la fiche d'un joueur,
+   réduite à 192 px puis gardée DANS le schéma (dataURL) : elle
+   s'enregistre, s'exporte et s'anime avec lui, sans fichier à part. */
+const tokenSels = () => selectedItems().filter(x => x.type === 'player' || x.type === 'opponent');
+async function imageToDataUrl(blob, max = 192) {
+  const bmp = await createImageBitmap(blob);
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  // PNG garde la transparence d'un maillot détouré ; une photo pèse moins en JPEG.
+  return /png|webp/.test(blob.type) ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', .86);
+}
+function registerImage(url) {
+  const known = Object.entries(state.images).find(([, v]) => v === url);
+  if (known) return known[0];
+  const id = 'im' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  state.images[id] = url;
+  return id;
+}
+function applyTokenImage(url, fit, label = null) {
+  const sels = tokenSels(); if (!sels.length) return;
+  pushHistory();
+  const id = registerImage(url);
+  sels.forEach(it => { it.img = id; it.imgFit = fit; if (label && !it.label) it.label = label; });
+  commit(); syncSelBar(); syncImgMenu();
+}
+function syncImgMenu() {
+  const sels = tokenSels(), withImg = sels.filter(x => x.img);
+  const fit = withImg[0]?.imgFit === 'round' ? 'round' : 'free';
+  $$('#tbImgMenu [data-fit]').forEach(b => { const on = b.dataset.fit === fit; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.disabled = !withImg.length; });
+  $('#tbImgMenu [data-img="team"]').disabled = !withImg.length;
+  $('#tbImgMenu [data-img="remove"]').disabled = !withImg.length;
+}
+function openImgMenu() {
+  const menu = $('#tbImgMenu');
+  if (!menu.classList.contains('hidden')) return closeImgMenu();
+  closePalette();
+  $('#tbImgPlayers').classList.add('hidden');
+  menu.classList.remove('hidden');
+  syncImgMenu();
+  placeFloat(menu, $('#selImage'));
+}
+function closeImgMenu() { $('#tbImgMenu').classList.add('hidden'); }
+$('#selImage').addEventListener('click', openImgMenu);
+$('#tbImgFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; e.target.value = '';
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) return toast('Image trop lourde (8 Mo au plus).', 'error');
+  try { applyTokenImage(await imageToDataUrl(file), file.type === 'image/png' || file.type === 'image/webp' ? 'free' : 'round'); }
+  catch (err) { console.error('Image de pion illisible', err); toast('Image illisible : essayez un PNG ou un JPG.', 'error'); }
+});
+let clubPhotos = null;   // joueurs du club qui ont une photo
+async function showPlayerPhotos() {
+  const box = $('#tbImgPlayers');
+  box.classList.remove('hidden');
+  box.innerHTML = '<p class="tb-imgmenu-note">Chargement…</p>';
+  try {
+    if (!clubPhotos) {
+      const { data, error } = await sb.from('players').select('id, nom, prenom, numero, photo_path').not('photo_path', 'is', null).order('nom');
+      if (error) throw error;
+      clubPhotos = data || [];
+    }
+    box.innerHTML = clubPhotos.length
+      ? clubPhotos.map(p => `<button type="button" data-photo="${p.id}">${escapeHtml(`${p.prenom || ''} ${p.nom || ''}`.trim())}${p.numero != null ? ` <span>#${p.numero}</span>` : ''}</button>`).join('')
+      : '<p class="tb-imgmenu-note">Aucun joueur n’a encore de photo (fiche joueur → Photo).</p>';
+  } catch (err) { console.error('Photos des joueurs indisponibles', err); box.innerHTML = `<p class="tb-imgmenu-note">${escapeHtml(err.message)}</p>`; }
+  placeFloat($('#tbImgMenu'), $('#selImage'));
+}
+async function usePlayerPhoto(id) {
+  const p = (clubPhotos || []).find(x => x.id === id); if (!p) return;
+  try {
+    const { data, error } = await sb.storage.from('player-photos').download(p.photo_path);
+    if (error) throw error;
+    applyTokenImage(await imageToDataUrl(data), 'round', p.nom || null);
+    $('#tbImgPlayers').classList.add('hidden');
+  } catch (err) { console.error('Photo du joueur illisible', err); toast('Photo indisponible : ' + err.message, 'error'); }
+}
+$('#tbImgMenu').addEventListener('click', (e) => {
+  const photo = e.target.closest('[data-photo]');
+  if (photo) return usePlayerPhoto(Number(photo.dataset.photo));
+  const fitBtn = e.target.closest('[data-fit]');
+  if (fitBtn) {
+    const sels = tokenSels().filter(x => x.img); if (!sels.length) return;
+    pushHistory(); sels.forEach(it => { it.imgFit = fitBtn.dataset.fit; }); commit(); syncSelBar(); return syncImgMenu();
+  }
+  const act = e.target.closest('[data-img]')?.dataset.img;
+  if (act === 'file') return $('#tbImgFile').click();
+  if (act === 'photo') return showPlayerPhotos();
+  if (act === 'remove') {
+    const sels = tokenSels().filter(x => x.img); if (!sels.length) return;
+    pushHistory(); sels.forEach(it => { delete it.img; delete it.imgFit; }); commit(); syncSelBar(); return syncImgMenu();
+  }
+  if (act === 'team') {
+    const src = tokenSels().find(x => x.img); if (!src) return;
+    pushHistory();
+    const mates = state.items.filter(x => x.type === src.type);
+    mates.forEach(it => { it.img = src.img; it.imgFit = src.imgFit; });
+    commit();
+    toast(`Image appliquée aux ${mates.length} pions ${src.type === 'player' ? 'de l’équipe' : 'adverses'}.`, 'success');
+  }
+});
+
 $('#selDelete').addEventListener('click', () => {
   const sels = selectedItems(); if (!sels.length) return;
   pushHistory(); const ids = sels.map(s => s.id);
@@ -1719,6 +1899,7 @@ function serialize() {
     clips: state.clips, clip: state.clip,
     nextNum: state.nextNum, nextOpp: state.nextOpp, screen: state.screen,
     items: state.items.map(it => { const c = { ...it }; delete c._img; return c; }),
+    images: Object.fromEntries(Object.entries(state.images).filter(([id]) => state.items.some(it => it.img === id))),
   };
 }
 function deserialize(data) {
@@ -1733,6 +1914,7 @@ function deserialize(data) {
   state.curStep = Number.isInteger(data.curStep) && state.steps[data.curStep] ? data.curStep : null;
   state.nextNum = data.nextNum || (data.items?.filter(i => i.type === 'player').length + 1) || 1;
   state.nextOpp = data.nextOpp || 1;
+  state.images = data.images && typeof data.images === 'object' ? { ...data.images } : {};
   state.items = (data.items || []).map(it => {
     if (it.type === 'logo' && it.src) { const img = new Image(); img.src = it.src; it._img = img; }
     return it;
@@ -1779,7 +1961,10 @@ function commit() { render(); recordStep(); scheduleSave(); }
 /* Autosave LocalStorage (debounce + intervalle 30 s) */
 let saveTimer = null;
 function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(persistLocal, 1000); }
-function persistLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(serialize())); } catch (e) {} }
+function persistLocal() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(serialize())); }
+  catch (e) { console.warn('Sauvegarde locale du schéma impossible', e); }
+}
 setInterval(persistLocal, 30000);
 
 /* ============================================================
@@ -1837,6 +2022,7 @@ async function exportAllSteps() {
 
 async function saveToDB(validate) {
   if (EXO) return saveExerciseSchema(validate);
+  if (DRAFT) return saveDraftSchema(validate);
   if (!PROC) return toast('Ce schéma n\'est lié à aucun procédé. Ouvrez-le depuis une séance.', 'error');
   const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
   if (btn) btn.disabled = true;
@@ -1854,14 +2040,37 @@ async function saveToDB(validate) {
     if (error) throw error;
 
     persistLocal();
+    // La séance ouverte dans l'autre onglet met son procédé à jour sans
+    // se recharger : ce qui y est en cours de saisie n'est pas perdu.
+    try { localStorage.setItem('tb_proc_saved', JSON.stringify({ procedure_id: PROC, image_path: path, at: Date.now() })); }
+    catch (e) { console.warn('Signal à la séance impossible', e); }
     if (validate) {
       toast('Schéma validé — il apparaîtra dans le procédé.', 'success');
-      if (window.opener && !window.opener.closed) { try { window.opener.location.reload(); } catch (e) {} }
       setTimeout(() => window.close(), 1100);
     } else {
       toast('Schéma enregistré en base', 'success');
     }
   } catch (e) { toast(e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+/* Brouillon : schéma gardé dans le navigateur, image déposée à part. La
+   séance le rattachera au procédé quand elle sera enregistrée. */
+async function saveDraftSchema(validate) {
+  const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
+  if (btn) btn.disabled = true;
+  try {
+    persistLocal();
+    const blob = await (await fetch(exportClean())).blob();
+    const path = `${CLUB_ID}/drafts/${DRAFT}.png`;
+    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { upsert: true, contentType: 'image/png' });
+    if (upErr) throw upErr;
+    localStorage.setItem('tb_draftmeta_' + DRAFT, JSON.stringify({ image_path: path, at: Date.now() }));
+    if (validate) {
+      toast('Schéma prêt : il sera enregistré avec la séance.', 'success');
+      setTimeout(() => window.close(), 1300);
+    } else toast('Schéma gardé : il sera enregistré avec la séance.', 'success');
+  } catch (e) { console.error('Brouillon de schéma non enregistré', e); toast(e.message, 'error'); }
   finally { if (btn) btn.disabled = false; }
 }
 
@@ -1920,7 +2129,7 @@ async function boot() {
   document.getElementById('uRole') && (document.getElementById('uRole').textContent = (ROLE_LABELS[ctx.profile.role] || ctx.profile.role).toUpperCase());
   document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });
   if (!CAN_EDIT) document.getElementById('tbReadonlyNote')?.classList.remove('hidden');
-  if ((PROC || EXO) && CAN_EDIT) {
+  if ((PROC || EXO || DRAFT) && CAN_EDIT) {
     document.getElementById('tbValidate')?.classList.remove('hidden');
     document.getElementById('saveBtn')?.classList.remove('hidden');
   }
@@ -1946,6 +2155,10 @@ async function boot() {
       $('#tbContext').textContent = `schéma de l’exercice « ${row.title} »`;
       if (row.schema_json) { deserialize(row.schema_json); loaded = true; }
     }
+  }
+  if (DRAFT) {
+    const name = new URLSearchParams(location.search).get('name');
+    $('#tbContext').textContent = `brouillon${name ? ` du procédé « ${name} »` : ''} — séance pas encore enregistrée`;
   }
   if (!loaded) {
     const ls = localStorage.getItem(LS_KEY);

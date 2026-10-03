@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
   <title>LMFC Performance — Paramètres</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
@@ -12,7 +15,7 @@
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
-    <div class="brand">LMFC <span class="brand-pro">Performance</span></div>
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
     <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
@@ -51,11 +54,11 @@
     <!-- Menu latéral personnalisé -->
     <div class="card" style="margin-top:18px;">
       <h3>Mon menu</h3>
-      <p class="text-muted" style="font-size:var(--fs-md);">Cochez les rubriques à afficher et réglez leur ordre avec les flèches. Ce réglage ne concerne que votre compte.</p>
+      <p class="text-muted" style="font-size:var(--fs-md);">Cochez les rubriques à afficher et faites-les glisser pour changer leur ordre. C’est enregistré tout de suite, pour votre compte seulement.</p>
       <ul class="menu-editor" id="menuEditor"></ul>
-      <div class="flex gap-sm" style="flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" id="saveMenu" type="button">Enregistrer le menu</button>
+      <div class="flex gap-sm" style="flex-wrap:wrap;align-items:center;">
         <button class="btn btn-sm" id="resetMenu" type="button">Ordre par défaut</button>
+        <span class="text-muted" id="menuStatus" role="status" style="font-size:var(--fs-sm);"></span>
       </div>
     </div>
 

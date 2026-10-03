@@ -219,7 +219,7 @@ const PDF_RADAR_STYLE = `
   .radar-axis{stroke:#999;stroke-opacity:.5}
   .radar-label{fill:#222;font:650 12px Inter,Arial,sans-serif}
   .radar-scale{fill:#999;font:9px Inter,Arial,sans-serif}
-  .radar-area{fill:rgba(201,168,76,.28);stroke:#b08a2a;stroke-width:2}
+  .radar-area{fill:rgba(200,16,46,.22);stroke:#C8102E;stroke-width:2}
   .radar-area-dot,.radar-center{fill:#b08a2a}
   .radar-ref{fill:rgba(120,130,140,.1);stroke:#8a939c;stroke-width:1.4;stroke-dasharray:5 4}
   .radar-ref-dot{fill:#8a939c}

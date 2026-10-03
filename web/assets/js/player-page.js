@@ -52,10 +52,12 @@ const IDENTITY_FIELDS = [
   document.querySelectorAll('.plans-only').forEach(b => b.classList.toggle('hidden', !staffCanPlan));
   document.getElementById('btnAddStrength').addEventListener('click', () => openNoteModal('strength'));
   document.getElementById('btnAddImprovement').addEventListener('click', () => openNoteModal('improvement'));
+  document.getElementById('btnAddObjective').addEventListener('click', () => openNoteModal('objective'));
+  document.getElementById('objAllLink').href = `comparaison.html?tab=objectifs&player=${fichePlayer.id}`;
   setupPhoto();
   await Promise.all([loadPhysical(), loadCareer(), loadPhoto(), initProgramEditor(fichePlayer, ficheProfile),
     initNotes({ player: fichePlayer, canEdit: staffCanPlan, userId: ficheProfile.id,
-      lists: { strength: 'strengthList', improvement: 'improvementList' } })]);
+      lists: { objective: 'objectiveList', strength: 'strengthList', improvement: 'improvementList' } })]);
 })();
 
 const fullName = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim();

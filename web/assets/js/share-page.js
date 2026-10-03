@@ -23,8 +23,10 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
     let logoUrl = null;
     if (club.logo_path) logoUrl = sb.storage.from('logos').getPublicUrl(club.logo_path).data.publicUrl;
 
+    const principe = sessionPrinciple(s, procedures);
     const metaParts = [
       `<span>Date : ${escapeHtml(fmtDateFrLong(s.date_seance))}</span>`,
+      principe ? `<span>Principe de jeu : ${escapeHtml(principe)}</span>` : '',
       s.equipe ? `<span>Équipe : ${escapeHtml(s.equipe)}</span>` : '',
       `<span>Durée séance : ${s.duree_min} min</span>`,
       `<span>Travail : ${fmtMin(sessionWorkMin(procedures))} min</span>`,
@@ -34,10 +36,14 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
 
     const procsHtml = procedures.map((p, i) => {
       const imgUrl = p.image_path ? sb.storage.from('schemas').getPublicUrl(p.image_path).data.publicUrl : null;
+      // Le principe de jeu est celui de la séance (en tête) ; un ancien
+      // procédé qui avait le sien, différent, le garde ici.
+      const own = (p.principes_jeu || '').trim();
       const fields = [
         ['objectif', 'Objectif'], ['consignes', 'Consignes'], ['postes_cibles', 'Postes ciblés'],
-        ['principes_jeu', 'Principes'], ['comportements_individuels', 'Comportements'],
-      ].filter(([k]) => p[k]).map(([k, lbl]) => `<div class="sp-field"><b>${lbl} :</b> ${escapeHtml(p[k])}</div>`).join('');
+        ['principes_jeu', 'Principe de jeu'], ['comportements_individuels', 'Comportements'],
+      ].filter(([k]) => p[k] && (k !== 'principes_jeu' || own !== principe))
+        .map(([k, lbl]) => `<div class="sp-field"><b>${lbl} :</b> ${escapeHtml(p[k])}</div>`).join('');
       const meta = [p.type_procede, sequenceLabel(p)].filter(Boolean).join(' · ');
       return `<div class="card sp-proc">
         <h3><span>${i + 1}. ${escapeHtml(p.nom)}</span><span class="text-muted">${escapeHtml(meta)}</span></h3>

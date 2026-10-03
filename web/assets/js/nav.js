@@ -14,7 +14,7 @@ const STAFF_ROLES = ['admin', 'coach'];
 /* `fixed` : toujours affichée, pour qu'on ne puisse pas se retirer
    l'accès aux Paramètres (et donc à la personnalisation du menu). */
 const NAV_ITEMS = [
-  { key: 'dashboard',   href: 'dashboard.html',      label: 'Tableau de bord',   roles: STAFF_ROLES },
+  { key: 'dashboard',   href: 'dashboard.html',      label: 'Accueil',           roles: STAFF_ROLES },
   { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: STAFF_ROLES },
   { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: STAFF_ROLES },
   { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: STAFF_ROLES },
@@ -94,7 +94,7 @@ function renderNav(profile) {
   // haut (sauf sur le tableau tactique, plein écran).
   if (!document.querySelector('.m-appbar, .tb-page')) {
     document.body.insertAdjacentHTML('afterbegin',
-      '<header class="m-appbar">LMFC&nbsp;<span class="brand-pro">Performance</span></header>');
+      '<header class="m-appbar"><a class="m-brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC&nbsp;<span class="brand-pro">Performance</span></a></header>');
   }
   const page = currentPageName();
   const activeKey = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;

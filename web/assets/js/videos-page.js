@@ -18,6 +18,8 @@ let seqsCache = [];
 let urlCache = new Map();   // id vidéo → URL signée (miniatures, lecture)
 let vpQuery = '';
 const view = { player: null, tab: null };
+/* Compilation : choix des séquences d'un joueur (dans l'ordre des touches). */
+const pick = { on: false, ids: [] };
 let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton retour)
 
 (async () => {
@@ -125,6 +127,15 @@ function videoStats(v) {
 function seqCard(s, withPlayer) {
   const v = seqVideo(s), len = s.end_sec - s.start_sec, note = (s.player_note || '').trim();
   const who = withPlayer ? fullName(playersCache.find(p => p.id === s.player_id)) : (v?.titre || 'Vidéo');
+  const rank = pick.on ? pick.ids.indexOf(s.id) + 1 : 0;
+  if (pick.on) return `<button type="button" class="vp-card is-pickable${rank ? ' is-picked' : ''}" data-pick="${s.id}" aria-pressed="${!!rank}">
+    <span class="vp-pick" aria-hidden="true">${rank || ''}</span>
+    ${thumbHtml(urlCache.get(s.video_id), s.start_sec, fmtDur(len))}
+    <span class="vp-card-body">
+      <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s, 'staff')}</span>
+      <span class="vp-card-meta">${escapeHtml(who)} · ${annCount(s)}</span>
+    </span>
+  </button>`;
   return `<button type="button" class="vp-card" data-open-video="${s.video_id}" data-seq="${s.id}">
     ${thumbHtml(urlCache.get(s.video_id), s.start_sec, fmtDur(len))}
     <span class="vp-card-body">
@@ -211,21 +222,52 @@ function renderPlayer(p) {
       ? (seqs.length ? `<div class="vp-cards">${ordered.map(s => seqCard(s, false)).join('')}</div>` : '<p class="vp-empty">Aucune séquence. Ouvrez une vidéo, puis « Sélectionner une portion ».</p>')
       : (vids.length ? `<div class="vp-cards">${vids.map(videoCard).join('')}</div>` : '<p class="vp-empty">Aucune vidéo envoyée à ce joueur.</p>');
   const box = document.getElementById('vpView');
+  const canCompile = tab !== 'videos' && seqs.length > 0;
+  if (!canCompile) pick.on = false;
   box.innerHTML = `
     <div class="vp-tabs" role="tablist" aria-label="Rubriques">${tabs.map(([k, label, n]) => `
       <button type="button" role="tab" data-tab="${k}" aria-selected="${k === tab}">${label}${n ? ` <span>${n}</span>` : ''}</button>`).join('')}
     </div>
+    ${canCompile ? `<div class="vp-compile-bar${pick.on ? ' is-on' : ''}">
+      ${pick.on
+        ? `<span><strong>${pick.ids.length}</strong> séquence${pick.ids.length > 1 ? 's' : ''} choisie${pick.ids.length > 1 ? 's' : ''} — touchez-les dans l’ordre voulu</span>
+           <button class="btn btn-sm" type="button" data-pick-cancel>Annuler</button>
+           <button class="btn btn-sm btn-primary" type="button" data-pick-go ${pick.ids.length ? '' : 'disabled'}>Compiler</button>`
+        : `<span class="text-muted">Réunir plusieurs séquences en une seule vidéo, habillage compris.</span>
+           <button class="btn btn-sm" type="button" data-pick-start>Compiler des séquences</button>`}
+    </div>` : ''}
     <div class="vp-tabpanel" role="tabpanel">${body}</div>`;
   loadThumbs(box);
 }
 
+function openCompile() {
+  const p = playersCache.find(x => x.id === view.player);
+  const seqs = pick.ids.map(id => seqsCache.find(s => s.id === id)).filter(Boolean);
+  if (!p || !seqs.length) return;
+  openCompileSheet({
+    player: p, seqs,
+    videoOf: seqVideo,
+    urlOf: (s) => urlCache.get(s.video_id),
+    onSaved: () => loadVideos(),
+  });
+}
+
 document.getElementById('vpView').addEventListener('click', (e) => {
+  const picked = e.target.closest('[data-pick]');
+  if (picked) {
+    const id = Number(picked.dataset.pick);
+    pick.ids = pick.ids.includes(id) ? pick.ids.filter(x => x !== id) : [...pick.ids, id];
+    return render();
+  }
+  if (e.target.closest('[data-pick-start]')) { pick.on = true; pick.ids = []; return render(); }
+  if (e.target.closest('[data-pick-cancel]')) { pick.on = false; pick.ids = []; return render(); }
+  if (e.target.closest('[data-pick-go]')) return openCompile();
   const open = e.target.closest('[data-open-video]');
   if (open) return openWorkspace(Number(open.dataset.openVideo), Number(open.dataset.seq) || null);
   const del = e.target.closest('[data-del-video]');
   if (del) return deleteVideo(Number(del.dataset.delVideo));
   const pl = e.target.closest('[data-player]');
-  if (pl) return goTo(Number(pl.dataset.player));
+  if (pl) { pick.on = false; pick.ids = []; return goTo(Number(pl.dataset.player)); }
   const tab = e.target.closest('[data-tab]');
   if (tab) return goTo(view.player, tab.dataset.tab, false);
 });

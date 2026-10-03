@@ -19,6 +19,101 @@ const INK_TOOLS = [
 ];
 const INK_NAMES = { arrow: 'Flèche', line: 'Trait', path: 'Trajectoire', marker: 'Repère joueur', circle: 'Cercle', zone: 'Zone', spot: 'Projecteur', text: 'Texte' };
 
+/* ---------- Dessin des formes ----------
+   Fonctions pures (contexte 2D + taille de l'image) : le calque à l'écran
+   et la compilation vidéo (video-compile.js) dessinent exactement pareil. */
+const inkLw = (box) => Math.max(3, box.w / 220);
+const inkTextPx = (s, box) => Math.max(12, s.size === 'title' ? box.w / 20 : box.w / 34);
+function inkArrowHead(ctx, x, y, a, lw) {
+  const head = lw * 4.2;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - head * Math.cos(a - .45), y - head * Math.sin(a - .45));
+  ctx.lineTo(x - head * Math.cos(a + .45), y - head * Math.sin(a + .45));
+  ctx.closePath(); ctx.fill();
+}
+function inkLabel(ctx, text, x, y, color, px, weight = 700) {
+  ctx.font = `${weight} ${px}px Inter, Arial, sans-serif`;
+  const tw = ctx.measureText(text).width, pad = px * .45, bh = px * 1.5;
+  ctx.save();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(10,10,10,.72)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x - tw / 2 - pad, y - bh / 2, tw + pad * 2, bh, bh / 3);
+  else ctx.rect(x - tw / 2 - pad, y - bh / 2, tw + pad * 2, bh);
+  ctx.fill();
+  ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + px * .04);
+  ctx.restore();
+}
+/* Ellipse dans un tracé, sans relier au point précédent (sinon un
+   « faisceau » part du coin de l'image). */
+function inkEllipse(ctx, cx, cy, rx, ry) {
+  ctx.moveTo(cx + rx, cy);
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+}
+function inkShape(ctx, s, box) {
+  const { w, h } = box, lw = inkLw(box);
+  const x1 = s.x1 * w, y1 = s.y1 * h, x2 = s.x2 * w, y2 = s.y2 * h;
+  ctx.save();
+  ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = lw;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
+  if (s.type === 'circle') {
+    ctx.beginPath(); inkEllipse(ctx, (x1 + x2) / 2, (y1 + y2) / 2, Math.abs(x2 - x1) / 2, Math.abs(y2 - y1) / 2); ctx.stroke();
+  } else if (s.type === 'zone') {
+    ctx.globalAlpha = .22; ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+    ctx.globalAlpha = 1; ctx.strokeRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+  } else if (s.type === 'path') {
+    const pts = (s.pts || []).map(([x, y]) => [x * w, y * h]);
+    if (pts.length < 2) { ctx.restore(); return; }
+    ctx.setLineDash([lw * 2.6, lw * 2]);
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length - 1; i++) {
+      ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+    }
+    const [lx, ly] = pts[pts.length - 1];
+    ctx.lineTo(lx, ly); ctx.stroke(); ctx.setLineDash([]);
+    const [px, py] = pts[Math.max(0, pts.length - 4)];
+    inkArrowHead(ctx, lx, ly, Math.atan2(ly - py, lx - px), lw);
+  } else if (s.type === 'marker') {
+    const cx = s.x * w, cy = s.y * h, rx = Math.max(8, s.r * w), ry = rx * .38;
+    ctx.globalAlpha = .28; ctx.beginPath(); inkEllipse(ctx, cx, cy, rx, ry); ctx.fill();
+    ctx.globalAlpha = 1; ctx.lineWidth = lw * 1.1; ctx.beginPath(); inkEllipse(ctx, cx, cy, rx, ry); ctx.stroke();
+    if (s.label) {
+      const px = Math.max(12, w / 36), top = cy - ry - px * 2.6;
+      ctx.lineWidth = Math.max(2, lw * .6);
+      ctx.beginPath(); ctx.moveTo(cx, cy - ry); ctx.lineTo(cx, top + px * .75); ctx.stroke();
+      inkLabel(ctx, s.label, cx, top, s.color, px);
+    }
+  } else if (s.type === 'text') {
+    inkLabel(ctx, s.text || '', s.x * w, s.y * h, s.color, inkTextPx(s, box), s.size === 'title' ? 800 : 600);
+  } else {
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    if (s.type === 'arrow') inkArrowHead(ctx, x2, y2, Math.atan2(y2 - y1, x2 - x1), lw);
+  }
+  ctx.restore();
+}
+/* Projecteur : on assombrit l'image, sauf dans les ellipses. */
+function inkSpots(ctx, spots, box) {
+  if (!spots.length) return;
+  const { w, h } = box;
+  const geo = (s) => [(s.x1 + s.x2) / 2 * w, (s.y1 + s.y2) / 2 * h, Math.max(1, Math.abs(s.x2 - s.x1) / 2 * w), Math.max(1, Math.abs(s.y2 - s.y1) / 2 * h)];
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  ctx.beginPath(); ctx.rect(0, 0, w, h);
+  spots.forEach(s => inkEllipse(ctx, ...geo(s)));
+  ctx.fill('evenodd');
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5;
+  spots.forEach(s => { ctx.beginPath(); inkEllipse(ctx, ...geo(s)); ctx.stroke(); });
+  ctx.restore();
+}
+/* Toutes les formes d'un instant, projecteurs d'abord (ils assombrissent le fond). */
+function paintInk(ctx, shapes, box) {
+  inkSpots(ctx, shapes.filter(s => s.type === 'spot'), box);
+  shapes.filter(s => s.type !== 'spot').forEach(s => inkShape(ctx, s, box));
+}
+
 function createInk(video, canvas, { onText = null, onChange = null, onSelect = null } = {}) {
   const ctx = canvas.getContext('2d');
   const ink = { shapes: [], tool: 'arrow', color: INK_COLORS[0], textSize: 'body', editable: false, box: { x: 0, y: 0, w: 1, h: 1 } };
@@ -39,94 +134,8 @@ function createInk(video, canvas, { onText = null, onChange = null, onSelect = n
     draw();
   }
 
-  const lwOf = () => Math.max(3, ink.box.w / 220);
-  const textPx = (s) => Math.max(12, s.size === 'title' ? ink.box.w / 20 : ink.box.w / 34);
-  function arrowHead(x, y, a, lw) {
-    const head = lw * 4.2;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x - head * Math.cos(a - .45), y - head * Math.sin(a - .45));
-    ctx.lineTo(x - head * Math.cos(a + .45), y - head * Math.sin(a + .45));
-    ctx.closePath(); ctx.fill();
-  }
-  function label(text, x, y, color, px, weight = 700) {
-    ctx.font = `${weight} ${px}px Inter, Arial, sans-serif`;
-    const tw = ctx.measureText(text).width, pad = px * .45, bh = px * 1.5;
-    ctx.save();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(10,10,10,.72)';
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x - tw / 2 - pad, y - bh / 2, tw + pad * 2, bh, bh / 3);
-    else ctx.rect(x - tw / 2 - pad, y - bh / 2, tw + pad * 2, bh);
-    ctx.fill();
-    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, x, y + px * .04);
-    ctx.restore();
-  }
-  /* Ellipse dans un tracé, sans relier au point précédent (sinon un
-     « faisceau » part du coin de l'image). */
-  function ellipsePath(cx, cy, rx, ry) {
-    ctx.moveTo(cx + rx, cy);
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-  }
-
-  function drawShape(s) {
-    const { w, h } = ink.box, lw = lwOf();
-    const x1 = s.x1 * w, y1 = s.y1 * h, x2 = s.x2 * w, y2 = s.y2 * h;
-    ctx.save();
-    ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = lw;
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
-    if (s.type === 'circle') {
-      ctx.beginPath(); ellipsePath((x1 + x2) / 2, (y1 + y2) / 2, Math.abs(x2 - x1) / 2, Math.abs(y2 - y1) / 2); ctx.stroke();
-    } else if (s.type === 'zone') {
-      ctx.globalAlpha = .22; ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
-      ctx.globalAlpha = 1; ctx.strokeRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
-    } else if (s.type === 'path') {
-      const pts = (s.pts || []).map(([x, y]) => [x * w, y * h]);
-      if (pts.length < 2) { ctx.restore(); return; }
-      ctx.setLineDash([lw * 2.6, lw * 2]);
-      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length - 1; i++) {
-        ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
-      }
-      const [lx, ly] = pts[pts.length - 1];
-      ctx.lineTo(lx, ly); ctx.stroke(); ctx.setLineDash([]);
-      const [px, py] = pts[Math.max(0, pts.length - 4)];
-      arrowHead(lx, ly, Math.atan2(ly - py, lx - px), lw);
-    } else if (s.type === 'marker') {
-      const cx = s.x * w, cy = s.y * h, rx = Math.max(8, s.r * w), ry = rx * .38;
-      ctx.globalAlpha = .28; ctx.beginPath(); ellipsePath(cx, cy, rx, ry); ctx.fill();
-      ctx.globalAlpha = 1; ctx.lineWidth = lw * 1.1; ctx.beginPath(); ellipsePath(cx, cy, rx, ry); ctx.stroke();
-      if (s.label) {
-        const px = Math.max(12, w / 36), top = cy - ry - px * 2.6;
-        ctx.lineWidth = Math.max(2, lw * .6);
-        ctx.beginPath(); ctx.moveTo(cx, cy - ry); ctx.lineTo(cx, top + px * .75); ctx.stroke();
-        label(s.label, cx, top, s.color, px);
-      }
-    } else if (s.type === 'text') {
-      label(s.text || '', s.x * w, s.y * h, s.color, textPx(s), s.size === 'title' ? 800 : 600);
-    } else {
-      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-      if (s.type === 'arrow') arrowHead(x2, y2, Math.atan2(y2 - y1, x2 - x1), lw);
-    }
-    ctx.restore();
-  }
-
-  /* Projecteur : on assombrit l'image, sauf dans les ellipses. */
-  function drawSpots(spots) {
-    if (!spots.length) return;
-    const { w, h } = ink.box;
-    const geo = (s) => [(s.x1 + s.x2) / 2 * w, (s.y1 + s.y2) / 2 * h, Math.max(1, Math.abs(s.x2 - s.x1) / 2 * w), Math.max(1, Math.abs(s.y2 - s.y1) / 2 * h)];
-    ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,.55)';
-    ctx.beginPath(); ctx.rect(0, 0, w, h);
-    spots.forEach(s => ellipsePath(...geo(s)));
-    ctx.fill('evenodd');
-    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5;
-    spots.forEach(s => { ctx.beginPath(); ellipsePath(...geo(s)); ctx.stroke(); });
-    ctx.restore();
-  }
+  const lwOf = () => inkLw(ink.box);
+  const textPx = (s) => inkTextPx(s, ink.box);
 
   /* Boîte englobante d'une forme, en pixels du calque. */
   function bboxOf(s) {
@@ -151,9 +160,7 @@ function createInk(video, canvas, { onText = null, onChange = null, onSelect = n
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, ink.box.w, ink.box.h);
-    const all = draft ? [...ink.shapes, draft] : ink.shapes;
-    drawSpots(all.filter(s => s.type === 'spot'));
-    all.filter(s => s.type !== 'spot').forEach(drawShape);
+    paintInk(ctx, draft ? [...ink.shapes, draft] : ink.shapes, ink.box);
     if (sel !== null && ink.shapes[sel]) {
       const b = bboxOf(ink.shapes[sel]), pad = 6;
       ctx.save();

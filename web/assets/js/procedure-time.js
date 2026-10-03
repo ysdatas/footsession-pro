@@ -119,6 +119,19 @@ function weekRangeLabel(mondayIso) {
 function sessionWorkMin(procs) { return (procs || []).reduce((sum, p) => sum + workMin(p), 0); }
 function sessionTotalMin(procs) { return (procs || []).reduce((sum, p) => sum + totalMin(p), 0); }
 
+/* Principe de jeu : saisi une fois, au niveau de la séance
+   (sessions.principes_jeu, lmfc_v3.sql). Une ancienne séance qui ne
+   l'a pas encore le retrouve dans ses procédés ; un ancien procédé qui
+   avait le sien le garde, les autres héritent de la séance. */
+const cleanText = (t) => String(t ?? '').trim();
+function sessionPrinciple(s, procs = []) {
+  return cleanText(s?.principes_jeu)
+    || [...new Set((procs || []).map(p => cleanText(p.principes_jeu)).filter(Boolean))].join(' · ');
+}
+function procPrinciple(p, s, procs = []) {
+  return cleanText(p?.principes_jeu) || sessionPrinciple(s, procs);
+}
+
 /* Exposé sur window : les pages chargent ce fichier en <script> classique,
    sans module, comme le reste de l'application. */
 Object.assign(window, {
@@ -126,4 +139,5 @@ Object.assign(window, {
   fmtMin, sequenceLabel, sessionWorkMin, sessionTotalMin,
   fmtDateFr, fmtDateFrLong,
   mondayOf, weekNumber, weekRangeLabel,
+  sessionPrinciple, procPrinciple,
 });

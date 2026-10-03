@@ -89,7 +89,7 @@
 .tb-step:hover { background: rgba(255, 255, 255, .14); }
 .tb-step:active { transform: scale(.92); }
 .tb-step.is-new { animation: tbPop var(--dur-panel) var(--ease-out); }
-.tb-step.active { background: var(--gold); border-color: var(--gold); color: #0A0A0A; box-shadow: 0 0 12px rgba(201, 168, 76, .45); }
+.tb-step.active { background: var(--gold); border-color: var(--gold); color: #0A0A0A; box-shadow: 0 0 12px rgba(232, 178, 14, .45); }
 #clipBtn { max-width: 170px; }
 #clipLabel { overflow: hidden; text-overflow: ellipsis; }
 .tb-stepinfo { font-size: var(--fs-xs); color: var(--text-secondary); padding: 0 6px; white-space: nowrap; }
@@ -137,10 +137,10 @@
 .tb-drawer .tb-tool:hover { background: rgba(255, 255, 255, .13); }
 .tb-drawer .tb-tool:active { transform: scale(.97); }
 .tb-drawer .tb-tool:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.tb-drawer .tb-tool.active { background: rgba(201, 168, 76, .2); border-color: rgba(201, 168, 76, .55); color: var(--gold-light); }
+.tb-drawer .tb-tool.active { background: rgba(232, 178, 14, .2); border-color: rgba(232, 178, 14, .55); color: var(--gold-light); }
 .tb-drawer .tb-tool:disabled { opacity: .38; cursor: not-allowed; transform: none; }
 .tb-drawer .tb-tool .ic { width: 16px; height: 16px; }
-.tb-tool.tb-strong { border-color: rgba(201, 168, 76, .5); color: var(--gold-light); font-weight: 600; }
+.tb-tool.tb-strong { border-color: rgba(232, 178, 14, .5); color: var(--gold-light); font-weight: 600; }
 
 /* Matériel : groupes, icône au-dessus du nom */
 .tb-equip-groups { display: grid; gap: 8px; }
@@ -158,7 +158,7 @@
   background: rgba(255, 255, 255, .05); color: var(--text-primary); font: 500 var(--fs-sm)/1.3 var(--font-main); cursor: pointer;
 }
 .tb-clip span { font-size: var(--fs-xs); color: var(--text-secondary); }
-.tb-clip.active { border-color: rgba(201, 168, 76, .6); background: rgba(201, 168, 76, .14); }
+.tb-clip.active { border-color: rgba(232, 178, 14, .6); background: rgba(232, 178, 14, .14); }
 
 /* Vidéo liée */
 .tb-video-list { display: grid; gap: 6px; }
@@ -169,7 +169,7 @@
   color: var(--text-primary); cursor: pointer; font: inherit;
 }
 .tb-video:hover { border-color: var(--gold-border); }
-.tb-video.active { border-color: var(--gold); background: rgba(201, 168, 76, .12); }
+.tb-video.active { border-color: var(--gold); background: rgba(232, 178, 14, .12); }
 .tb-video strong { font-size: var(--fs-sm); }
 .tb-video span { font-size: var(--fs-xs); color: var(--text-secondary); }
 
@@ -275,7 +275,7 @@
 .tbm-btn:hover { border-color: var(--border-gold); }
 .tbm-seg { display: inline-flex; gap: 3px; }
 .tbm-seg button { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; padding: 4px 8px; font-size: var(--fs-sm); min-width: 28px; }
-.tbm-seg button.on { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,.12); }
+.tbm-seg button.on { border-color: var(--gold); color: var(--gold); background: rgba(232,178,14,.12); }
 
 .tb-menu { background: rgba(18, 20, 18, .9); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-radius: var(--radius-float); }
 
@@ -298,7 +298,7 @@
 /* Fiche tactique (feuille A4 hors écran, clonée par html2pdf) */
 .tb-sheet-holder { position: fixed; left: -10000px; top: 0; }
 .tb-sheet { width: 190mm; background: #fff; color: #111; font: 10.5pt/1.45 Inter, Arial, sans-serif; padding: 0; }
-.tb-sheet header { border-bottom: 2px solid #C9A84C; padding-bottom: 6px; margin-bottom: 10px; }
+.tb-sheet header { border-bottom: 2px solid #E8B20E; padding-bottom: 6px; margin-bottom: 10px; }
 .tb-sheet-eyebrow { font-size: 8pt; text-transform: uppercase; letter-spacing: .08em; color: #8a6d1f; }
 .tb-sheet h1 { font-size: 18pt; margin: 2px 0 0; color: #111; }
 .tb-sheet h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: .06em; color: #8a6d1f; margin: 12px 0 4px; }
@@ -349,3 +349,29 @@
   .tb-size input[type="range"]::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -12px; }
   .tb-size input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; }
 }
+
+/* Image d'un pion (maillot, photo) : menu à côté du bouton de la sélection. */
+.tb-imgmenu { width: 252px; display: grid; gap: 4px; max-height: min(70vh, 440px); overflow: auto; }
+.tb-imgmenu-btn {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 10px; border-radius: 10px;
+  border: 0; background: transparent; color: var(--text-primary); font-size: var(--fs-md); text-align: left;
+}
+.tb-imgmenu-btn:hover:not(:disabled) { background: rgba(255,255,255,.07); }
+.tb-imgmenu-btn:disabled { opacity: .4; cursor: default; }
+.tb-imgmenu-btn .ic { width: 18px; height: 18px; flex: 0 0 auto; color: var(--gold); }
+.tb-imgmenu-btn.is-danger .ic, .tb-imgmenu-btn.is-danger { color: #ff8a80; }
+.tb-imgmenu-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 2px 0; border-radius: 10px; background: rgba(255,255,255,.05); }
+.tb-imgmenu-seg button {
+  min-height: 38px; border: 0; border-radius: 8px; background: transparent; color: var(--text-secondary);
+  font-size: var(--fs-sm); font-weight: 600;
+}
+.tb-imgmenu-seg button.on { background: rgba(var(--gold-rgb), .18); color: var(--gold); }
+.tb-imgmenu-seg button:disabled { opacity: .4; cursor: default; }
+.tb-imgmenu-players { display: grid; gap: 2px; max-height: 180px; overflow: auto; padding: 4px; border-radius: 10px; background: rgba(0,0,0,.25); }
+.tb-imgmenu-players button {
+  display: flex; justify-content: space-between; align-items: center; min-height: 40px; padding: 6px 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text-primary); font-size: var(--fs-md); text-align: left;
+}
+.tb-imgmenu-players button:hover { background: rgba(255,255,255,.07); }
+.tb-imgmenu-players span { color: var(--text-secondary); font-size: var(--fs-xs); }
+.tb-imgmenu-note { margin: 6px; font-size: var(--fs-sm); color: var(--text-secondary); }

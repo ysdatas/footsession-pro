@@ -205,6 +205,7 @@ function renderTeams(isAdmin) {
   const teams = window.CLUB_TEAMS || [];
   list.innerHTML = teams.length ? teams.map(t => `
     <div class="team-row" data-id="${t.id}">
+      ${isAdmin && teams.length > 1 ? dragHandle(t.nom) : ''}
       <strong>${escapeHtml(t.nom)}</strong>
       ${isAdmin ? `<span class="flex gap-sm">
         <button class="btn btn-sm" type="button" data-action="rename">Renommer</button>
@@ -213,6 +214,23 @@ function renderTeams(isAdmin) {
     : '<p class="text-muted">Aucune équipe pour l\'instant : tout le club est affiché ensemble.</p>';
   if (!isAdmin) return;
   document.getElementById('teamForm').classList.remove('hidden');
+  if (!list.dataset.sortable) { list.dataset.sortable = '1'; makeSortable(list, { onChange: saveTeamOrder }); }
+}
+
+/* Ordre des équipes (sélecteur du menu, listes) : enregistré au lâcher. */
+async function saveTeamOrder() {
+  const ids = [...document.querySelectorAll('#teamList .team-row')].map(r => Number(r.dataset.id));
+  try {
+    const results = await Promise.all(ids.map((id, i) => sb.from('teams').update({ sort_order: i }).eq('id', id)));
+    const failed = results.find(r => r.error);
+    if (failed) throw failed.error;
+    await reloadTeams();
+    toast('Ordre des équipes enregistré', 'success');
+  } catch (err) {
+    console.error('Ordre des équipes non enregistré', err);
+    toast(err.message, 'error');
+    await reloadTeams().catch(e => console.error('Rechargement des équipes impossible', e));
+  }
 }
 
 async function reloadTeams() {

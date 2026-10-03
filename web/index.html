@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
   <title>LMFC Performance — Connexion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -10,8 +13,20 @@
   <link rel="stylesheet" href="assets/css/auth.css">
 </head>
 <body class="auth">
+  <main class="landing">
+  <section class="landing-hero" aria-labelledby="landingTitle">
+    <img class="landing-crest" src="assets/img/lmfc-logo.png" alt="Blason du Le Mans FC" width="132" height="132">
+    <p class="landing-kicker">Le Mans FC</p>
+    <h1 class="landing-title" id="landingTitle">LMFC <span>Performance</span></h1>
+    <p class="landing-lead">L’espace de travail du staff et des joueurs du club : séances, performance et vidéo, au même endroit.</p>
+    <ul class="landing-points">
+      <li><strong>Séances</strong><span>procédés, schémas tactiques, fiches PDF</span></li>
+      <li><strong>Performance</strong><span>tests physiques, objectifs de chaque joueur</span></li>
+      <li><strong>Vidéo</strong><span>séquences annotées entre joueurs et staff</span></li>
+    </ul>
+  </section>
   <div class="auth-card">
-    <div class="auth-logo">LMFC <span class="brand-pro">Performance</span></div>
+    <h2 class="auth-title">Bienvenue</h2>
     <div class="auth-sub" id="authSub">Connexion staff et joueurs</div>
 
     <div id="authError" class="auth-error hidden"></div>
@@ -52,6 +67,7 @@
       <a href="#" id="toggleMode">Pas encore de compte ? Créer un compte</a>
     </div>
   </div>
+  </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>

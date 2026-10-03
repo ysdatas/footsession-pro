@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
   <title>LMFC Performance — Tableau tactique</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
@@ -12,7 +15,7 @@
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
-    <div class="brand">LMFC <span class="brand-pro">Performance</span></div>
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
     <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
@@ -49,6 +52,7 @@
     <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
     <symbol id="i-film" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M17 3v18M3 7.5h4M3 12h18M3 16.5h4M17 7.5h4M17 16.5h4"/></symbol>
     <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
     <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></symbol>
     <symbol id="i-spline" viewBox="0 0 24 24"><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M5 17A12 12 0 0 1 17 5"/></symbol>
@@ -207,6 +211,7 @@
               <option value="Verdana, sans-serif">Verdana</option>
             </select>
         <button class="glass-btn tb-tool hidden" id="selBend" type="button" title="Ajouter ou retirer un point d’angle"><svg class="ic"><use href="#i-spline"/></svg>Angle</button>
+        <button class="glass-btn tb-tool hidden" id="selImage" type="button" title="Image du pion : maillot ou photo" aria-label="Image du pion" aria-haspopup="dialog"><svg class="ic"><use href="#i-image"/></svg></button>
         <button class="glass-btn tb-tool" id="selRotate" type="button" title="Pivoter de 90° (R)" aria-label="Pivoter"><svg class="ic"><use href="#i-rotate"/></svg></button>
         <button class="glass-btn tb-tool" id="selDup" type="button" title="Dupliquer (Ctrl+D)" aria-label="Dupliquer"><svg class="ic"><use href="#i-copy"/></svg></button>
         <button class="glass-btn tb-tool is-danger" id="selDelete" type="button" title="Supprimer (Suppr)" aria-label="Supprimer"><svg class="ic"><use href="#i-trash"/></svg></button>
@@ -216,6 +221,21 @@
       <div class="glass tb-palette hidden" id="tbPalette" role="dialog" aria-labelledby="tbPaletteTitle">
         <div class="tb-palette-title" id="tbPaletteTitle">Couleur</div>
         <div class="tb-palette-grid" id="tbPaletteGrid" role="radiogroup" aria-labelledby="tbPaletteTitle"></div>
+      </div>
+
+      <!-- Image d'un pion : maillot du club, photo d'un joueur -->
+      <div class="glass tb-palette tb-imgmenu hidden" id="tbImgMenu" role="dialog" aria-labelledby="tbImgTitle">
+        <div class="tb-palette-title" id="tbImgTitle">Image du pion</div>
+        <button type="button" class="tb-imgmenu-btn" data-img="file"><svg class="ic"><use href="#i-download"/></svg>Importer une image (PNG, JPG)</button>
+        <button type="button" class="tb-imgmenu-btn" data-img="photo"><svg class="ic"><use href="#i-image"/></svg>Photo d’un joueur du club</button>
+        <div class="tb-imgmenu-players hidden" id="tbImgPlayers"></div>
+        <div class="tb-imgmenu-seg" role="radiogroup" aria-label="Forme du pion">
+          <button type="button" role="radio" data-fit="free">Libre (maillot)</button>
+          <button type="button" role="radio" data-fit="round">Ronde (photo)</button>
+        </div>
+        <button type="button" class="tb-imgmenu-btn" data-img="team"><svg class="ic"><use href="#i-copy"/></svg>Même image pour toute l’équipe</button>
+        <button type="button" class="tb-imgmenu-btn is-danger" data-img="remove"><svg class="ic"><use href="#i-x"/></svg>Retirer l’image</button>
+        <input type="file" id="tbImgFile" accept="image/png,image/jpeg,image/webp" hidden>
       </div>
 
       <!-- Bas : animation (étapes) et clips -->

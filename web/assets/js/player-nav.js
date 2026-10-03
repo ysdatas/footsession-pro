@@ -35,7 +35,7 @@ function renderPlayerShell() {
   document.body.classList.add('pa-body');
   document.body.insertAdjacentHTML('afterbegin', `
     <header class="pa-bar">
-      <a class="pa-brand" href="player-performance.html" aria-label="LMFC Performance, accueil de l’espace joueur">LMFC <span class="brand-pro">Performance</span></a>
+      <a class="pa-brand" href="player-performance.html" aria-label="LMFC Performance, accueil de l’espace joueur"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC <span class="brand-pro">Performance</span></a>
       <nav class="pa-links" aria-label="Espace joueur">${PLAYER_NAV.map(n => link(n, 'pa-link')).join('')}</nav>
       <button class="pa-logout" type="button" title="Se déconnecter">${paIc('logout')}<span>Déconnexion</span></button>
     </header>`);

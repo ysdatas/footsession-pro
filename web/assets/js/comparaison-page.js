@@ -16,7 +16,8 @@ let myProfile = null;
 let roster = [];        // players du club
 let allTests = [];      // player_physical_tests, toutes sessions
 let allMeasures = [];   // player_physical_measurements
-let cmpTab = 'tests';
+const CMP_PARAMS = new URLSearchParams(location.search);
+let cmpTab = ['tests', 'evolution', 'morpho', 'objectifs'].includes(CMP_PARAMS.get('tab')) ? CMP_PARAMS.get('tab') : 'tests';
 let cmpStage = 'pre';
 let cmpMetric = 'vift_kmh';
 let cmpSearch = '';
@@ -73,8 +74,11 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
   document.getElementById('cmpSearch').addEventListener('input', e => { cmpSearch = e.target.value; render(); });
   document.getElementById('cmpOnlyFlagged').addEventListener('change', e => { cmpOnlyFlagged = e.target.checked; render(); });
 
+  bindObjectivesTab();
+  objBoard.player = Number(CMP_PARAMS.get('player')) || null;
   await loadData();
-  render();
+  switchTab(cmpTab);
+  if (cmpTab === 'objectifs' && CMP_PARAMS.get('new')) openObjectiveModal(null, objBoard.player);
 })();
 
 async function loadData() {
@@ -116,7 +120,13 @@ function switchTab(tab) {
   cmpTab = tab;
   document.querySelectorAll('#cmpTabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelector('.cmp-metric-field').classList.toggle('hidden', tab !== 'evolution');
-  document.querySelector('#cmpStage').closest('.cmp-field').classList.toggle('hidden', tab === 'evolution');
+  document.querySelector('#cmpStage').closest('.cmp-field').classList.toggle('hidden', tab === 'evolution' || tab === 'objectifs');
+  document.querySelector('.cmp-check').classList.toggle('hidden', tab === 'objectifs');
+  document.querySelector('.cmp-foot').classList.toggle('hidden', tab === 'objectifs');
+  // L'onglet se retrouve au rechargement et se partage par lien.
+  const u = new URL(location.href);
+  if (tab === 'tests') u.searchParams.delete('tab'); else u.searchParams.set('tab', tab);
+  history.replaceState(null, '', u);
   sortKey = 'name'; sortAsc = true;
   render();
 }
@@ -360,6 +370,7 @@ function render() {
   const content = document.getElementById('cmpContent');
   content.innerHTML =
     cmpTab === 'tests' ? renderTests() :
-    cmpTab === 'evolution' ? renderEvolution() : renderMorpho();
+    cmpTab === 'evolution' ? renderEvolution() :
+    cmpTab === 'objectifs' ? renderObjectivesTab() : renderMorpho();
   bindSorting();
 }
