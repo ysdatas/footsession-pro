@@ -3,7 +3,7 @@
    ============================================================ */
 
 .charts-grid {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 18px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px;
 }
 .chart-card h3 { margin-bottom: 14px; }
 .chart-box { position: relative; height: 260px; }
@@ -16,5 +16,8 @@
 .analytics-empty .big { font-size: var(--fs-2xl); opacity: .5; margin-bottom: 10px; }
 
 @media (max-width: 880px) {
-  .charts-grid { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+.chart-card { min-width: 0; }
+.chart-box canvas { max-width: 100%; }

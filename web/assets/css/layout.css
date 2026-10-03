@@ -23,7 +23,7 @@
 .brand-logo { max-height: 34px; max-width: 150px; display: block; margin-bottom: 4px; }
 .brand-clubname { font-size: var(--fs-lg); font-weight: 700; display: block; }
 
-.nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.nav { display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0; overflow-y: auto; }
 .nav-item {
   display: flex; align-items: center; gap: 11px;
   padding: 10px 12px; border-radius: var(--radius-md);
@@ -33,7 +33,7 @@
 }
 .nav-item:hover { background: var(--bg-surface); color: var(--text-primary); }
 .nav-item.active {
-  background: var(--bg-surface);
+  background: linear-gradient(90deg, rgba(var(--gold-rgb), .12), rgba(var(--red-rgb), .05) 70%, transparent);
   color: var(--gold);
   border-left-color: var(--gold);
 }
@@ -43,24 +43,62 @@
 }
 .nav-item.active .nav-dot { opacity: 1; box-shadow: 0 0 8px var(--gold); }
 
-/* ----- Sidebar user ----- */
+/* ----- Sidebar user : un clic ouvre mon compte et mes réglages ----- */
 .sidebar-user {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px; margin-top: 12px;
+  position: relative; display: flex; align-items: center; gap: 4px;
+  padding: 10px 2px 0; margin-top: 12px;
   border-top: 1px solid var(--border);
 }
+.su-trigger {
+  display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+  padding: 8px; border: 1px solid transparent; border-radius: var(--radius-md);
+  background: transparent; color: inherit; text-align: left;
+  transition: background var(--dur-micro) ease, border-color var(--dur-micro) ease;
+}
+.su-trigger:hover, .su-trigger[aria-expanded="true"] { background: var(--bg-surface); border-color: var(--border); }
+.su-trigger:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.su-caret { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: var(--text-secondary); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur-micro) ease; }
+.su-trigger[aria-expanded="true"] .su-caret { transform: rotate(180deg); }
 .avatar {
   width: 38px; height: 38px; border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--gold), #9c7f30);
-  color: #0A0A0A; font-weight: 700; font-size: var(--fs-md);
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold) 45%, var(--red) 140%);
+  color: #0A0A0A; font-weight: 800; font-size: var(--fs-md);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .su-meta { flex: 1; min-width: 0; }
 .su-name { font-size: var(--fs-md); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.su-role { font-size: var(--fs-xs); color: var(--gold); letter-spacing: .05em; }
-.logout { display: inline-flex; align-items: center; color: var(--text-secondary); padding: 6px; border-radius: 6px; }
+.su-role { font-size: var(--fs-xs); color: var(--gold); letter-spacing: .04em; line-height: 1.25; overflow-wrap: anywhere; }
+.logout { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: 0 0 auto; color: var(--text-secondary); border-radius: var(--radius-md); }
 .logout:hover { color: var(--danger); background: var(--bg-surface); }
 .sidebar-toggle svg, .logout svg { display: block; }
+.user-menu {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 70;
+  display: grid; gap: 2px; padding: 6px;
+  background: #18181a; border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--elev-float); overflow: hidden;
+  animation: um-in var(--dur-panel) var(--ease-out);
+}
+.user-menu[hidden] { display: none; }
+.user-menu::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--stripe); }
+.um-head { display: grid; gap: 1px; padding: 10px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+.um-head strong { font-size: var(--fs-md); }
+.um-head span { font-size: var(--fs-sm); color: var(--gold); }
+.um-head small { font-size: var(--fs-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+.user-menu [role="menuitem"] {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text-primary);
+  font: 500 var(--fs-md)/1.2 var(--font-main); text-align: left; cursor: pointer;
+}
+.user-menu [role="menuitem"] .ic { width: 17px; height: 17px; color: var(--text-secondary); }
+.user-menu [role="menuitem"]:hover, .user-menu [role="menuitem"]:focus-visible { background: var(--bg-hover); outline: none; }
+.user-menu [role="menuitem"]:hover .ic, .user-menu [role="menuitem"]:focus-visible .ic { color: var(--gold); }
+.user-menu .um-logout { margin-top: 4px; border-top: 1px solid var(--border); border-radius: 0 0 8px 8px; color: #FF8A80; }
+.user-menu .um-logout .ic { color: #FF8A80; }
+@keyframes um-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Carte visée depuis le menu du profil (Paramètres#compte…). */
+.anchor-card { scroll-margin-top: 80px; }
+.anchor-card.is-target { border-color: var(--gold-border); box-shadow: var(--shadow-gold); }
 
 /* ----- Main ----- */
 .main {
@@ -145,3 +183,14 @@
 .team-row strong { flex: 1; }
 .team-form { display: flex; gap: 8px; max-width: 520px; }
 .team-form input { flex: 1; }
+/* La déconnexion passe dans le menu du profil : le bloc garde la place
+   pour le nom et la fonction en entier. */
+.sidebar-user[data-menu] .logout { display: none; }
+.team-row { flex-wrap: wrap; min-width: 0; }
+.team-row strong { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 420px) { .team-row > span:last-child, .team-row .team-actions { margin-left: auto; } }
+/* Téléphone : le menu ouvert passe sous le bouton ☰ (qui le referme), sans le masquer. */
+@media (max-width: 980px) {
+  .sidebar { padding-top: 66px; width: min(var(--sidebar-w), 86vw); }
+  .sidebar.open { box-shadow: 20px 0 50px rgba(0,0,0,.5); }
+}

@@ -180,7 +180,7 @@
 /* ---------- Élément sélectionné : barre posée juste au-dessus de lui ---------- */
 .tb-selbar {
   position: absolute; top: 0; left: 0; z-index: 7;
-  display: flex; align-items: center; gap: 6px; padding: 5px 6px; max-width: min(560px, calc(100% - 16px)); flex-wrap: wrap;
+  display: flex; align-items: center; gap: 6px; padding: 5px 6px; max-width: min(720px, calc(100% - 16px)); flex-wrap: wrap;
 }
 .tb-selbar.hidden { display: none; }
 .tb-selbar.is-in { animation: tbPop var(--dur-panel) var(--ease-out); }
@@ -337,9 +337,13 @@
   .tb-top-right { bottom: 70px; }
   .tb-drawer { bottom: 64px; left: 6px; right: 6px; max-height: 60%; }
   .tb-size input[type="range"] { width: 84px; }
-  .tb-selbar { flex-wrap: nowrap; max-width: calc(100% - 12px); }
+  /* Téléphone : une seule ligne qui défile au doigt, jamais hors de l'écran. */
+  .tb-selbar { flex-wrap: nowrap; max-width: calc(100% - 12px); overflow-x: auto; scrollbar-width: none; overscroll-behavior: contain; touch-action: pan-x; }
+  .tb-selbar::-webkit-scrollbar { display: none; }
+  .tb-selbar > * { flex-shrink: 0; }
   .tb-prop > span { display: none; }   /* le champ suffit : « — » ou le texte */
   .tb-prop input[type="text"] { width: 52px; }
+  .tb-prop-label input[type="text"] { width: 96px; text-align: left; }
   .tb-timeline > * { flex-shrink: 0; }
 }
 
@@ -375,3 +379,17 @@
 .tb-imgmenu-players button:hover { background: rgba(255,255,255,.07); }
 .tb-imgmenu-players span { color: var(--text-secondary); font-size: var(--fs-xs); }
 .tb-imgmenu-note { margin: 6px; font-size: var(--fs-sm); color: var(--text-secondary); }
+
+/* Texte d'un pion : champ un peu plus large ; place choisie dans une grille 3 × 3. */
+.tb-prop-label input { width: 116px; }
+.tb-labelpos { width: 172px; }
+.tb-lp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tb-lp-grid button {
+  height: 42px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06); color: var(--text-primary); font-size: 1.05rem; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-lp-grid button:hover { background: rgba(255,255,255,.12); }
+.tb-lp-grid button.on { background: rgba(var(--gold-rgb), .22); border-color: rgba(var(--gold-rgb), .6); color: var(--gold-light); }
+/* Le terrain capte tous les gestes : jamais de zoom ni de défilement de la page. */
+.tb-stage { touch-action: none; overscroll-behavior: none; }

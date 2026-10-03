@@ -41,7 +41,16 @@ const DEFAULT_PREFS = {
   document.getElementById('resetMenu').addEventListener('click', () => { renderMenuEditor({}); saveMenu(); });
   renderMenuEditor(myProfile.prefs || {});
   makeSortable(document.getElementById('menuEditor'), { onChange: saveMenu });
-
+  // Le tableau tactique est un outil du staff terrain (admin, coach).
+  document.getElementById('tableau').classList.toggle('hidden', !canEdit(myProfile.role));
+  // Arrivée par le menu du profil (#compte, #menu…) : la carte visée s'éclaire.
+  const showTarget = () => {
+    const target = /^#[a-z-]+$/.test(location.hash) && document.querySelector(`.anchor-card${location.hash}`);
+    document.querySelectorAll('.anchor-card.is-target').forEach(c => c.classList.remove('is-target'));
+    if (target) { target.scrollIntoView({ block: 'start' }); target.classList.add('is-target'); }
+  };
+  showTarget();
+  window.addEventListener('hashchange', showTarget);
 
   fillPrefs(await loadPrefs());
 

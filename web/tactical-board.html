@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0A0A0A">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
@@ -200,6 +200,8 @@
           <span class="tb-size-max" aria-hidden="true"></span>
         </label>
         <label class="tb-prop" id="propText"><span id="selTextLabel">N°</span><input type="text" id="selText" autocomplete="off"></label>
+        <label class="tb-prop tb-prop-label hidden" id="propLabel"><span>Texte</span><input type="text" id="selLabelText" autocomplete="off" maxlength="24" placeholder="Nom, rôle…"></label>
+        <button class="glass-btn tb-tool hidden" id="selLabelPos" type="button" title="Place du texte autour du pion" aria-label="Place du texte autour du pion" aria-haspopup="dialog"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M4 4h3M17 4h3M4 20h3M17 20h3M4 12h1M19 12h1M12 3v1M12 20v1"/></svg></button>
         <select id="fontSelect" class="tb-font hidden" aria-label="Police du texte">
               <option value="Inter, sans-serif">Inter</option>
               <option value="Arial, sans-serif">Arial</option>
@@ -221,6 +223,23 @@
       <div class="glass tb-palette hidden" id="tbPalette" role="dialog" aria-labelledby="tbPaletteTitle">
         <div class="tb-palette-title" id="tbPaletteTitle">Couleur</div>
         <div class="tb-palette-grid" id="tbPaletteGrid" role="radiogroup" aria-labelledby="tbPaletteTitle"></div>
+      </div>
+
+      <!-- Place du texte d'un pion : 9 positions autour de lui -->
+      <div class="glass tb-palette tb-labelpos hidden" id="tbLabelPos" role="dialog" aria-labelledby="tbLabelPosTitle">
+        <div class="tb-palette-title" id="tbLabelPosTitle">Place du texte</div>
+        <div class="tb-lp-grid" role="radiogroup" aria-labelledby="tbLabelPosTitle">
+          <button type="button" role="radio" data-lp="tl" aria-label="En haut à gauche">↖</button>
+          <button type="button" role="radio" data-lp="t" aria-label="En haut">↑</button>
+          <button type="button" role="radio" data-lp="tr" aria-label="En haut à droite">↗</button>
+          <button type="button" role="radio" data-lp="l" aria-label="À gauche">←</button>
+          <button type="button" role="radio" data-lp="c" aria-label="Au centre">●</button>
+          <button type="button" role="radio" data-lp="r" aria-label="À droite">→</button>
+          <button type="button" role="radio" data-lp="bl" aria-label="En bas à gauche">↙</button>
+          <button type="button" role="radio" data-lp="b" aria-label="En dessous">↓</button>
+          <button type="button" role="radio" data-lp="br" aria-label="En bas à droite">↘</button>
+        </div>
+        <p class="tb-imgmenu-note" id="tbLabelPosNote">S’applique aux pions sélectionnés.</p>
       </div>
 
       <!-- Image d'un pion : maillot du club, photo d'un joueur -->

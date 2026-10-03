@@ -22,6 +22,13 @@ assert.ok(keys('coach', {}).includes('videos'), 'coach : Vidéos');
 assert.ok(!keys('coach', {}).includes('club'), 'coach : pas de Mon club');
 assert.ok(keys('admin', {}).includes('club'), 'admin : Mon club');
 
+// Préparateur physique : performance et joueurs, ni séances, ni vidéos, ni tableau.
+const prepa = keys('prepa', {});
+for (const k of ['dashboard', 'players', 'performance', 'faq', 'settings']) assert.ok(prepa.includes(k), `prépa : ${k}`);
+for (const k of ['sessions', 'videos', 'tactical', 'analytics', 'club']) assert.ok(!prepa.includes(k), `prépa : pas de ${k}`);
+// Un joueur n'a aucune rubrique du staff.
+assert.equal(keys('joueur', {}).length, 0, 'joueur : pas de menu staff');
+
 // Ordre et masquage choisis par l'utilisateur.
 const prefs = { nav: { order: ['players', 'dashboard', 'sessions'], hidden: ['analytics', 'settings'] } };
 const mine = keys('admin', prefs);
@@ -37,6 +44,12 @@ assert.equal(redirected, 'dashboard.html');
 redirected = null;
 assert.equal(run(`navGuard({ role: 'admin' })`), true);
 assert.equal(redirected, null);
+// La fiche Performance d'un joueur dépend de la rubrique Performance : le prépa y a accès.
+window.location.pathname = '/player-performance';
+assert.equal(run(`navGuard({ role: 'prepa' })`), true);
+window.location.pathname = '/videos';
+assert.equal(run(`navGuard({ role: 'prepa' })`), false, 'prépa : pas de Vidéos');
+redirected = null;
 
 // Équipe courante : seulement si elle existe encore dans le club.
 window.CURRENT_PROFILE.prefs.team_id = 5;

@@ -53,8 +53,8 @@
 .recap-val { font-size: var(--fs-sm); color: var(--text-secondary); white-space: nowrap; }
 
 @media (max-width: 900px) {
-  .kpi-grid { grid-template-columns: 1fr; }
-  .dash-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: minmax(0, 1fr); }
+  .dash-grid { grid-template-columns: minmax(0, 1fr); }
   .recap-row { grid-template-columns: 100px 1fr auto; }
 }
 
@@ -68,14 +68,11 @@
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
   padding: 22px 24px; margin-bottom: 26px; border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  background:
-    radial-gradient(520px 220px at 0% 120%, rgba(var(--red-rgb), .28), transparent 70%),
-    radial-gradient(420px 200px at 100% -40%, rgba(var(--gold-rgb), .14), transparent 70%),
-    var(--bg-card);
+  background: var(--hero-bg);
 }
 .home-hero::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, var(--red) 0%, var(--red) 62%, var(--gold) 62%, var(--gold) 100%);
+  background: var(--stripe);
 }
 .home-crest { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 8px 20px rgba(0,0,0,.5)); }
 .home-hero-text { flex: 1; min-width: 200px; }
@@ -85,7 +82,7 @@
 .home-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .home-actions .btn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; }
 .home-section { margin-bottom: 28px; }
-.home-section h2 { font-size: var(--fs-lg); margin-bottom: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .08em; font-size: var(--fs-xs); }
+.home-section h2 { margin-bottom: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .1em; font-size: var(--fs-xs); font-weight: 700; }
 
 .home-attn { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .home-attn-card {
@@ -125,3 +122,18 @@
   .home-actions .btn { flex: 1 1 auto; justify-content: center; }
   .home-attn-card { min-height: 0; }
 }
+
+/* Accueil du joueur (mon-espace.html) : même signature, ses chiffres. */
+.pv-wrap.home { max-width: 1120px; margin: 0 auto; padding: 28px 24px 60px; }
+@media (max-width: 640px) { .pv-wrap.home { padding: 14px 14px 32px; } }
+.home-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.home-stat {
+  display: grid; gap: 2px; padding: 14px 16px; border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--bg-card);
+  transition: border-color var(--dur-micro) ease;
+}
+.home-stat:hover { border-color: var(--gold-border); }
+.home-stat span { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.home-stat strong { font-size: var(--fs-xl); font-weight: 800; color: var(--text-primary); }
+.home-stat small { font-size: var(--fs-sm); color: var(--text-secondary); }
+@media (max-width: 420px) { .home-stats { grid-template-columns: 1fr 1fr; } }

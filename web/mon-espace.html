@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <title>Mon espace — LMFC Performance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body data-shell="player">
+  <main class="pv-wrap home">
+    <section class="home-hero">
+      <img class="home-crest" src="assets/img/lmfc-logo.png" alt="" width="72" height="72">
+      <div class="home-hero-text">
+        <p class="home-kicker" id="homeDate"></p>
+        <h1 id="greeting">Bonjour</h1>
+        <p class="subtitle" id="clubLine">Chargement…</p>
+      </div>
+      <div class="home-actions">
+        <a class="btn btn-primary" href="mes-videos.html">Mes vidéos</a>
+        <a class="btn" href="player-performance.html">Ma performance</a>
+      </div>
+    </section>
+
+    <section class="home-section" aria-labelledby="homeAttnTitle">
+      <h2 id="homeAttnTitle">Pour toi en ce moment</h2>
+      <div class="home-attn" id="homeAttn"><p class="text-muted">Chargement…</p></div>
+    </section>
+
+    <section class="home-section" aria-labelledby="homeStatsTitle">
+      <h2 id="homeStatsTitle">Mes derniers chiffres</h2>
+      <div class="home-stats" id="homeStats"><p class="text-muted">Chargement…</p></div>
+    </section>
+
+    <section class="home-section" aria-labelledby="homeTilesTitle">
+      <h2 id="homeTilesTitle">Mon espace</h2>
+      <div class="home-tiles" id="homeTiles"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/player-nav.js"></script>
+  <script src="assets/js/perf-metrics.js"></script>
+  <script src="assets/js/player-home.js"></script>
+</body>
+</html>

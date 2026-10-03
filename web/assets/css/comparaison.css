@@ -153,5 +153,23 @@
 @media (max-width: 720px) {
   .obj-row { flex-direction: column; align-items: stretch; gap: 10px; }
   .obj-actions { justify-content: flex-start; }
-  .obj-head .btn-primary { width: 100%; }
+  .obj-new { width: 100%; }
+  .obj-new .btn { flex: 1 1 0; justify-content: center; }
+}
+
+/* Types (objectif / prévention), ajout rapide par joueur. */
+.obj-filters { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.obj-kinds { flex-wrap: wrap; align-self: flex-start; }
+.obj-kinds button span, .obj-kind-pick button span { font-size: var(--fs-xs); opacity: .75; margin-left: 2px; }
+.obj-new { display: flex; gap: 8px; flex-wrap: wrap; }
+.obj-group-add { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.obj-main .badge { justify-self: start; }
+.obj-kind-pick { display: inline-flex; }
+.obj-kind-pick button { min-height: 36px; padding: 6px 16px; }
+/* Téléphone : les onglets tiennent sur une ligne qui défile au doigt. */
+@media (max-width: 560px) {
+  #cmpTabs { flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  #cmpTabs::-webkit-scrollbar { display: none; }
+  #cmpTabs button { flex: 0 0 auto; white-space: nowrap; }
+  .page-actions:has(#cmpTabs) { width: 100%; }
 }

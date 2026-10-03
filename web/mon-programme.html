@@ -6,21 +6,35 @@
   <meta name="theme-color" content="#0A0A0A">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
-  <title>Mon programme terrain — LMFC Performance</title>
+  <title>Objectifs & préventions — LMFC Performance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/videos.css">
 </head>
 <body data-shell="player">
 <div class="pv-wrap pv-wide">
   <div class="pv-head">
     <div>
-      <h1>Mon programme terrain</h1>
-      <p class="subtitle">Ton développement sur le terrain : ce que tu fais bien, ce que tu travailles, et tes exercices.</p>
+      <p class="page-kicker">Mon espace · lecture seule</p>
+      <h1>Objectifs &amp; préventions</h1>
+      <p class="subtitle">Ce que ton staff te fixe : tes objectifs, tes préventions, puis ton programme terrain. Touche une carte pour l’ouvrir en grand.</p>
     </div>
   </div>
 
+  <div class="pv-two">
+    <section class="card">
+      <h2 class="pv-section">Objectifs</h2>
+      <div id="objectiveList" class="note-grid"><div class="empty">Chargement…</div></div>
+    </section>
+    <section class="card">
+      <h2 class="pv-section">Préventions</h2>
+      <div id="preventionList" class="note-grid"><div class="empty">Chargement…</div></div>
+    </section>
+  </div>
+
+  <h2 class="section-kicker pv-group">Programme terrain</h2>
   <div class="pv-two">
     <section class="card">
       <h2 class="pv-section">Points forts</h2>
@@ -32,7 +46,7 @@
     </section>
   </div>
 
-  <section class="card" style="margin-top:16px;">
+  <section class="card pv-block" id="exercices">
     <h2 class="pv-section">Exercices <span class="text-muted" id="progSub"></span></h2>
     <div id="programBox"><div class="empty">Chargement…</div></div>
   </section>
@@ -41,12 +55,14 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-client.js"></script>
 <script src="assets/js/app.js"></script>
+<script src="assets/js/nav.js"></script>
 <script src="assets/js/player-nav.js"></script>
 <script src="assets/js/lightbox.js"></script>
 <script src="assets/js/program.js"></script>
 <script src="assets/js/notes.js"></script>
 <script>
-  /* Espace joueur, en lecture : points forts, axes d'amélioration et
+  /* Espace joueur, en lecture : objectifs et préventions (avec leur
+     statut et leurs images), points forts, axes d'amélioration et
      exercices terrain préparés par le staff. Le joueur peut seulement
      marquer un exercice « fait » et laisser un ressenti
      (RPC mark_program_exercise). */
@@ -59,7 +75,7 @@
     bindProgramCards(box, openExercise);
     [exercises] = await Promise.all([
       loadProgram(player.id),
-      initNotes({ player, canEdit: false, lists: { strength: 'strengthList', improvement: 'improvementList' } }),
+      initNotes({ player, canEdit: false, lists: { objective: 'objectiveList', prevention: 'preventionList', strength: 'strengthList', improvement: 'improvementList' } }),
     ]);
     render();
   })();

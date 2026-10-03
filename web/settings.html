@@ -33,7 +33,7 @@
 
     <div class="dash-grid">
       <!-- Mon compte -->
-      <div class="card">
+      <div class="card anchor-card" id="compte">
         <h3>Mon compte</h3>
         <div class="field"><label>Nom affiché</label><input id="p-nom" placeholder="Votre nom"></div>
         <div class="field"><label>Email</label><input id="p-email" disabled></div>
@@ -42,7 +42,7 @@
       </div>
 
       <!-- Sécurité -->
-      <div class="card">
+      <div class="card anchor-card" id="mot-de-passe">
         <h3>Mot de passe</h3>
         <p class="text-muted" style="font-size:var(--fs-md);">Votre navigateur vous garde connecté : vous n'avez pas à ressaisir votre mot de passe à chaque visite.</p>
         <div class="field"><label>Nouveau mot de passe (6+ caractères)</label><input id="p-pass" type="password" placeholder="••••••••" autocomplete="new-password"></div>
@@ -52,7 +52,7 @@
     </div>
 
     <!-- Menu latéral personnalisé -->
-    <div class="card" style="margin-top:18px;">
+    <div class="card anchor-card" id="menu" style="margin-top:18px;">
       <h3>Mon menu</h3>
       <p class="text-muted" style="font-size:var(--fs-md);">Cochez les rubriques à afficher et faites-les glisser pour changer leur ordre. C’est enregistré tout de suite, pour votre compte seulement.</p>
       <ul class="menu-editor" id="menuEditor"></ul>
@@ -63,7 +63,7 @@
     </div>
 
     <!-- Préférences du tableau tactique -->
-    <div class="card" style="margin-top:18px;">
+    <div class="card anchor-card" id="tableau" style="margin-top:18px;">
       <h3>Préférences du tableau tactique</h3>
       <p class="text-muted" style="font-size:var(--fs-md);">Ces réglages sont appliqués automatiquement à chaque nouveau schéma.</p>
       <div class="field"><label>Couleur des joueurs</label><input id="pf-jersey" type="color" value="#E03131" aria-label="Couleur des joueurs"></div>

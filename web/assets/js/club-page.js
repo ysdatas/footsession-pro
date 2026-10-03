@@ -1,7 +1,7 @@
 /* ============================================================
    LMFC Performance — club-page.js
    Page « Mon club » : identité (nom, couleur, logo), équipes,
-   accès par adresse e-mail et membres (admin, coach, joueur).
+   accès par adresse e-mail et membres (admin, coach, préparateur physique, joueur).
    ============================================================ */
 
 let logoFile = null;
@@ -169,7 +169,7 @@ document.getElementById('pendingList').addEventListener('click', async (e) => {
   await loadMembers();
 });
 
-/* Fonction d'un membre : Admin / Coach directement ; Joueur une fois la fiche choisie. */
+/* Fonction d’un membre : Admin / Coach / Préparateur directement ; Joueur une fois la fiche choisie. */
 document.getElementById('memberList').addEventListener('change', async (e) => {
   const box = e.target.closest('.member-controls'); if (!box) return;
   const profileId = box.dataset.id;

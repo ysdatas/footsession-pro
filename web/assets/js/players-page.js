@@ -1,9 +1,10 @@
 /* ============================================================
    LMFC Performance — players-page.js (Chemin B / Supabase)
-   Effectif : recherche par nom, filtre par poste, ajout d'un joueur.
-   Un clic ouvre la fiche joueur (player.html), point d'entrée vers
-   Performance, Vidéos et Préventions. Les présences se consultent
-   sur la fiche ; la suppression d'un joueur n'est plus proposée ici.
+   Effectif en lignes compactes : le nom à gauche, taille — poids —
+   poste à droite (dernière mesure connue, rien d'inventé). Recherche
+   par nom, filtre par poste, ajout d'un joueur. Un clic ouvre la
+   fiche joueur (player.html), point d'entrée vers Performance et
+   Vidéos. Les présences se consultent sur la fiche.
    Les données sont scopées au club via RLS, et à l'équipe choisie
    dans le menu (nav.js).
    ============================================================ */
@@ -33,7 +34,7 @@ let CAN_EDIT_PLAYERS = false;
   }
 
   // Import du classeur du préparateur : réservé aux rôles qui écrivent la
-  // performance (is_performance_editor() côté base : admin et coach).
+  // performance (is_performance_editor() côté base : admin et préparateur).
   if (canEditPerformanceData(myProfile.role)) {
     const btn = document.getElementById('btnImportExcel');
     btn.classList.remove('hidden');
@@ -67,12 +68,18 @@ async function loadGrid() {
     const { data: players, error } = await byTeam(sb.from('players').select('*').order('nom'));
     if (error) throw error;
 
-    const photoResults = await Promise.all(players.map(p =>
-      p.photo_path
+    const ids = players.map(p => p.id);
+    const [photoResults, mRes] = await Promise.all([
+      Promise.all(players.map(p => p.photo_path
         ? sb.storage.from('player-photos').createSignedUrl(p.photo_path, 3600)
-        : Promise.resolve({ data: null })
-    ));
-    playersCache = players.map((p, i) => ({ ...p, photo_url: photoResults[i]?.data?.signedUrl || null }));
+        : Promise.resolve({ data: null }))),
+      ids.length
+        ? sb.from('player_physical_measurements').select('player_id, season_key, month_label, measured_at, height_cm, weight_kg').in('player_id', ids)
+        : Promise.resolve({ data: [] }),
+    ]);
+    if (mRes.error) console.warn('Mesures indisponibles pour la liste des joueurs', mRes.error.message);
+    const last = latestMeasures(mRes.data || []);
+    playersCache = players.map((p, i) => ({ ...p, photo_url: photoResults[i]?.data?.signedUrl || null, ...last.get(p.id) }));
 
     fillPosteFilter();
     renderUnassigned();
@@ -87,7 +94,7 @@ function fillPosteFilter() {
   const current = select.value;
   const postes = [...new Set(playersCache.map(p => (p.poste || '').trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'fr'));
-  select.innerHTML = '<option value="">Tous les postes</option>'
+  select.innerHTML = '<option value="">Tous postes</option>'
     + postes.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
   select.value = postes.includes(current) ? current : '';
 }
@@ -95,24 +102,44 @@ function fillPosteFilter() {
 /* Glisser une carte vers une autre rubrique enregistre la ligne du
    joueur (colonne players.ligne). Sans cette colonne (migration
    player_lines.sql non passée), les cartes ne se déplacent pas. */
-const canDragLines = () => CAN_EDIT_PLAYERS && playersCache.some(p => 'ligne' in p);
+const canDragLines = () => CAN_EDIT_PLAYERS && playersCache.some(p => 'ligne' in p)
+  && matchMedia('(pointer: fine)').matches;   // glisser-déposer à la souris ; au doigt, la ligne se change sur la fiche
 
-function playerCard(p) {
+/* Dernière taille et dernier poids de chaque joueur, sur sa saison la
+   plus récente (le mois fait foi, comme sur la fiche Performance). */
+function latestMeasures(rows) {
+  const out = new Map();
+  const byPlayer = new Map();
+  rows.forEach(r => byPlayer.set(r.player_id, [...(byPlayer.get(r.player_id) || []), r]));
+  for (const [pid, list] of byPlayer) {
+    const season = latestSeasonOf(list);
+    const ordered = list.filter(r => !season || r.season_key === season)
+      .sort((a, b) => (MONTHS.indexOf(a.month_label) - MONTHS.indexOf(b.month_label))
+        || String(a.measured_at || '').localeCompare(String(b.measured_at || '')));
+    const lastOf = (k) => ordered.filter(r => num(r[k]) !== null).at(-1)?.[k] ?? null;
+    out.set(pid, { height_cm: lastOf('height_cm'), weight_kg: lastOf('weight_kg') });
+  }
+  return out;
+}
+const frNum = (v, d) => Number(v).toFixed(d).replace('.', ',');
+
+function playerRow(p) {
   const i = playersCache.indexOf(p);
   const photo = p.photo_url
-    ? `<img class="pc-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy" draggable="false">`
-    : `<div class="pc-avatar ${avatarClass(i)}">${escapeHtml(playerInitials(p))}</div>`;
+    ? `<img class="pr-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy" draggable="false">`
+    : `<span class="pr-avatar ${avatarClass(i)}">${escapeHtml(playerInitials(p))}</span>`;
   // L'équipe n'est rappelée que lorsque toutes les équipes sont affichées.
-  const team = !currentTeamId() && 'team_id' in p ? (teamName(p.team_id) || 'Sans équipe') : '';
-  return `<a class="player-card" href="player.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
-    <div class="pc-top">
-      ${photo}
-      <div>
-        <div class="pc-name">${escapeHtml(fullName(p))}</div>
-        ${p.poste ? `<div class="pc-poste">${escapeHtml(p.poste)}</div>` : ''}
-        ${team ? `<div class="pc-team">${escapeHtml(team)}</div>` : ''}
-      </div>
-    </div>
+  const team = !currentTeamId() && 'team_id' in p ? teamName(p.team_id) : '';
+  const data = [
+    num(p.height_cm) !== null ? `<span title="Taille">${frNum(p.height_cm / 100, 2)} m</span>` : '',
+    num(p.weight_kg) !== null ? `<span title="Poids">${frNum(p.weight_kg, 1)} kg</span>` : '',
+    p.poste ? `<span class="pr-poste" title="Poste">${escapeHtml(p.poste)}</span>` : '',
+  ].filter(Boolean).join('');
+  return `<a class="player-row" href="player.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
+    ${photo}
+    <span class="pr-name"><strong>${escapeHtml(fullName(p))}</strong>${team ? `<small>${escapeHtml(team)}</small>` : ''}</span>
+    <span class="pr-data">${data}</span>
+    <svg class="pr-go" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
   </a>`;
 }
 
@@ -133,14 +160,14 @@ function renderGrid() {
   }
   const drag = canDragLines();
   const groups = [...PLAYER_LINES, { key: null, label: 'À classer' }];
-  wrap.innerHTML = (drag ? '<p class="lines-hint">Glissez une carte d’une rubrique à l’autre pour changer la ligne du joueur.</p>' : '')
+  wrap.innerHTML = (drag ? '<p class="lines-hint">Glissez un joueur d’une rubrique à l’autre pour changer sa ligne.</p>' : '')
     + groups.map(g => {
       const members = shown.filter(p => lineOf(p) === g.key);
       // Rubriques vides : gardées comme zones de dépôt, sauf pendant une recherche.
       if (!members.length && (g.key === null || filtering || !drag)) return '';
       return `<section class="line-group line-${g.key || 'none'}" ${g.key && drag ? `data-line="${g.key}"` : ''}>
         <h2 class="line-title">${g.label}<span>${members.length}</span></h2>
-        <div class="players-grid">${members.map(playerCard).join('')
+        <div class="players-list">${members.map(playerRow).join('')
           || '<div class="line-empty">Glissez un joueur ici</div>'}</div>
       </section>`;
     }).join('');
@@ -149,7 +176,7 @@ function renderGrid() {
 /* ---------- Glisser-déposer entre rubriques ---------- */
 let draggedId = null;
 document.getElementById('gridView').addEventListener('dragstart', (e) => {
-  const card = e.target.closest('.player-card[draggable="true"]');
+  const card = e.target.closest('.player-row[draggable="true"]');
   if (!card) return;
   draggedId = Number(card.dataset.id);
   e.dataTransfer.effectAllowed = 'move';
@@ -157,7 +184,7 @@ document.getElementById('gridView').addEventListener('dragstart', (e) => {
   card.classList.add('is-dragging');
 });
 document.getElementById('gridView').addEventListener('dragend', (e) => {
-  e.target.closest('.player-card')?.classList.remove('is-dragging');
+  e.target.closest('.player-row')?.classList.remove('is-dragging');
   document.querySelectorAll('.line-group.is-over').forEach(g => g.classList.remove('is-over'));
   draggedId = null;
 });

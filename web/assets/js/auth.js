@@ -52,7 +52,7 @@ async function requireAuth(opts = {}) {
      ses vidéos. */
   const currentPage = (window.location.pathname.split('/').pop() || '')
     .replace(/\.html$/i, '') || 'index';
-  const PLAYER_PAGES = ['mes-videos', 'voir-video', 'player-performance', 'mon-programme'];
+  const PLAYER_PAGES = ['mon-espace', 'mes-videos', 'voir-video', 'player-performance', 'mon-programme'];
   if (profile.role === 'joueur' && !PLAYER_PAGES.includes(currentPage)) {
     console.warn(`requireAuth: page « ${currentPage} » interdite au rôle joueur, renvoi sur son espace`);
     window.location.replace(homeFor(profile));
@@ -83,7 +83,7 @@ async function requireAuth(opts = {}) {
    staff, ou création de club pour un compte qui n'a encore aucun accès. */
 function homeFor(profile) {
   if (!profile?.club_id) return 'onboarding.html';
-  return profile.role === 'joueur' ? 'player-performance.html' : 'dashboard.html';
+  return profile.role === 'joueur' ? 'mon-espace.html' : 'dashboard.html';
 }
 
 /* Rattache le compte au club si l'administrateur a enregistré son adresse
@@ -98,15 +98,33 @@ async function logout() {
   window.location.href = 'index.html';
 }
 
-/* Trois comptes (platform_v2.sql) : admin, coach, joueur. Le staff
-   (admin, coach) fait tout le travail ; l'admin gère en plus le club.
-   L'interface masque, la RLS refuse. */
-function canEdit(role) {
+/* Quatre comptes (lmfc_v4.sql) : admin, coach, prepa (préparateur
+   physique), joueur. L'interface masque, la RLS refuse.
+     admin  : tout, plus la gestion du club ;
+     coach  : séances, joueurs, vidéos, objectifs ; consulte la
+              performance sans modifier les données physiques ;
+     prepa  : données physiques, tests, import Excel, objectifs et
+              préventions ; ni vidéos ni séances. */
+const STAFF_ALL = ['admin', 'coach', 'prepa'];
+const isStaffRole = (role) => STAFF_ALL.includes(role);
+function canEdit(role) {                       // séances, fiches joueurs, schémas
   return ['admin', 'coach'].includes(role);
 }
-const canEditPerformanceData = canEdit;
-const canManageVideos        = canEdit;
-const canManagePlans         = canEdit;
-const canSeeVideoStats       = canEdit;
+const canEditPerformanceData = (role) => ['admin', 'prepa'].includes(role);
+const canManageVideos        = (role) => ['admin', 'coach'].includes(role);
+const canManagePlans         = (role) => STAFF_ALL.includes(role);
+const canSeeVideoStats       = (role) => ['admin', 'coach'].includes(role);
+const canChangePlayerPhoto   = (role) => canEdit(role) || canEditPerformanceData(role);
 
-const ROLE_LABELS = { admin: 'Administrateur', coach: 'Coach', joueur: 'Joueur' };
+const ROLE_LABELS = { admin: 'Administrateur', coach: 'Coach', prepa: 'Préparateur physique', joueur: 'Joueur' };
+
+/* Photo d'un joueur : RPC set_player_photo (lmfc_v4.sql), seule écriture
+   permise au préparateur sur la fiche. Sans la migration : mise à jour
+   directe, comme avant. */
+async function savePlayerPhotoPath(playerId, path) {
+  const { error } = await sb.rpc('set_player_photo', { p_player_id: playerId, p_path: path });
+  if (!error) return null;
+  if (!/set_player_photo|function|PGRST202/i.test(`${error.code} ${error.message}`)) return error;
+  console.warn('set_player_photo indisponible (lmfc_v4.sql non passée ?) :', error.message);
+  return (await sb.from('players').update({ photo_path: path }).eq('id', playerId)).error;
+}

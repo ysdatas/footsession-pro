@@ -4,7 +4,8 @@
      - en-tête : blason, date, bonjour, club · fonction · équipe,
        et les actions les plus fréquentes ;
      - « À traiter » : séquences vidéo à regarder, prochaine
-       séance, objectifs en cours, accès en attente (admin) ;
+       séance, objectifs en cours, mesures du mois (admin, prépa),
+       accès en attente (admin) ;
      - « Accès rapides » : les rubriques permises à ce rôle, dans
        l'ordre de son menu (nav.js).
    Tout suit l'équipe choisie dans le menu, comme les autres pages.
@@ -21,6 +22,7 @@ const HOME_IC = {
   club: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
   key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
+  scale: '<path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0zM19 7l-3 7a4 4 0 0 0 6 0z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
 };
 const homeIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${HOME_IC[k] || HOME_IC.plus}</svg>`;
@@ -57,6 +59,7 @@ const HOME_DESC = {
     can('sessions') && `<a class="btn btn-primary" href="session-edit.html">${homeIc('plus')}Nouvelle séance</a>`,
     can('performance') && `<a class="btn" href="comparaison.html?tab=objectifs&new=1">${homeIc('target')}Objectif</a>`,
     can('videos') && `<a class="btn" href="videos.html">${homeIc('videos')}Vidéos</a>`,
+    canEditPerformanceData(profile.role) && `<a class="btn${can('sessions') ? '' : ' btn-primary'}" href="comparaison.html?tab=morpho">${homeIc('scale')}Données physiques</a>`,
   ].filter(Boolean).join('');
 
   document.getElementById('homeTiles').innerHTML = allowed.map(i => `
@@ -87,7 +90,9 @@ async function renderAttention(profile, can) {
     if (pErr) throw pErr;
     const ids = (players || []).map(p => p.id);
     const none = Promise.resolve({ data: [], count: 0 });
-    const [seqRes, nextRes, objRes, accessRes] = await Promise.all([
+    const month = monthLabelNow();
+    const measuring = canEditPerformanceData(profile.role) && month && ids.length;
+    const [seqRes, nextRes, objRes, accessRes, measRes] = await Promise.all([
       can('videos') && ids.length
         ? sb.from('video_sequences').select('id, player_id, submitted_at, feedback_at').in('player_id', ids).not('submitted_at', 'is', null)
         : none,
@@ -95,13 +100,17 @@ async function renderAttention(profile, can) {
         ? byTeam(sb.from('sessions').select('id, titre, date_seance').gte('date_seance', today).order('date_seance').limit(1))
         : none,
       can('performance') && ids.length
-        ? sb.from('player_performance_notes').select('id', { count: 'exact', head: true }).eq('kind', 'objective').eq('status', 'active').in('player_id', ids)
+        ? sb.from('player_performance_notes').select('id', { count: 'exact', head: true }).in('kind', ['objective', 'prevention']).eq('status', 'active').in('player_id', ids)
         : none,
       profile.role === 'admin'
         ? sb.from('club_access').select('id', { count: 'exact', head: true }).is('claimed_at', null)
         : none,
+      measuring
+        ? sb.from('player_physical_measurements').select('player_id, weight_kg, height_cm, body_fat_pct').in('player_id', ids)
+            .eq('month_label', month).eq('season_key', seasonKeyFor(null, clubSeasonStartMonth(profile.clubs)))
+        : none,
     ]);
-    [seqRes, nextRes, objRes, accessRes].forEach(r => { if (r.error) console.warn('Accueil : donnée indisponible', r.error); });
+    [seqRes, nextRes, objRes, accessRes, measRes].forEach(r => { if (r.error) console.warn('Accueil : donnée indisponible', r.error); });
 
     const cards = [];
     if (can('videos')) {
@@ -129,8 +138,17 @@ async function renderAttention(profile, can) {
       const n = objRes.count || 0;
       cards.push(attnCard({
         href: 'comparaison.html?tab=objectifs', icon: 'target', tone: n ? '' : 'calm',
-        value: n || '—', label: n ? `objectif${n > 1 ? 's' : ''} en cours` : 'Aucun objectif en cours',
-        detail: n ? 'Mettre à jour leur statut, en ajouter.' : 'Fixer des objectifs à un ou plusieurs joueurs.',
+        value: n || '—', label: n ? `objectif${n > 1 ? 's' : ''} et prévention${n > 1 ? 's' : ''} en cours` : 'Aucun objectif en cours',
+        detail: n ? 'Mettre à jour leur statut, en ajouter.' : 'Fixer des objectifs ou des préventions à un ou plusieurs joueurs.',
+      }));
+    }
+    if (measuring && !measRes.error) {
+      const done = new Set((measRes.data || []).filter(m => m.weight_kg != null || m.height_cm != null || m.body_fat_pct != null).map(m => m.player_id));
+      const missing = ids.filter(id => !done.has(id)).length;
+      cards.push(attnCard({
+        href: 'comparaison.html?tab=morpho', icon: 'scale', tone: missing ? '' : 'calm',
+        value: missing || '✓', label: missing ? `joueur${missing > 1 ? 's' : ''} sans mesure en ${month.toLowerCase()}` : `Mesures de ${month.toLowerCase()} à jour`,
+        detail: missing ? 'Importez l’Excel ou saisissez la mesure sur la fiche Performance.' : 'Tous les joueurs de l’équipe ont leur mesure du mois.',
       }));
     }
     if (profile.role === 'admin' && accessRes.count) {
@@ -144,4 +162,11 @@ async function renderAttention(profile, can) {
     console.error('Accueil : « À traiter » indisponible', e);
     box.innerHTML = `<p class="text-danger">Impossible de charger ces informations (${escapeHtml(e.message)}).</p>`;
   }
+}
+
+/* Mois en cours s'il fait partie de la saison (août → juin), sinon null. */
+function monthLabelNow() {
+  const m = new Date().toLocaleDateString('fr-FR', { month: 'long' });
+  const label = m.charAt(0).toUpperCase() + m.slice(1);
+  return MONTHS.includes(label) ? label : null;
 }

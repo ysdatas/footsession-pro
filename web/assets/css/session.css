@@ -109,7 +109,7 @@
 .lib-actions { display: flex; gap: 6px; }
 
 @media (max-width: 820px) {
-  .proc.expanded .proc-body { grid-template-columns: 1fr; }
+  .proc.expanded .proc-body { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ---------- Équipes de travail (chasubles) ---------- */

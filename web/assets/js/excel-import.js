@@ -631,8 +631,8 @@ const ExcelImport = (() => {
       if (error) return fail(`Lecture de l’effectif impossible : ${h(error.message)}`);
 
       st = {
-        workbook, fileName: file.name, season: $('xiSeason').value, roster: roster || [],
-        overrides: new Map(), suggested: new Set(), include: new Set(), create: new Set(),
+        workbook, fileName: file.name, fileSize: file.size, fileDate: file.lastModified, season: $('xiSeason').value, roster: roster || [],
+        overrides: new Map(), suggested: new Set(), confirmed: new Set(), include: new Set(), create: new Set(),
         existingMeasures: [], existingTests: [],
       };
       if (!(await loadExisting())) return;
@@ -669,9 +669,12 @@ const ExcelImport = (() => {
     }
     for (const e of st.entries) {
       const shared = [...e.claims].some(c => byClaim.get(c).length > 1);
+      // Même nom de famille mais prénom différent (« Alex ARNOUX » / « ARNOUX
+      // Nathan ») : jamais importé sans un clic de confirmation.
+      e.nameClash = !!e.data && !e.override && !st.confirmed.has(e.fiche.id) && firstNameClash(e);
       e.status = !e.data ? 'absent'
         : shared ? 'conflict'
-        : st.suggested.has(e.fiche.id) ? 'suggested'
+        : (st.suggested.has(e.fiche.id) || e.nameClash) ? 'suggested'
         : 'ok';
       if (e.status === 'conflict' || e.status === 'absent') st.include.delete(e.fiche.id);
       if (e.data) Object.assign(e, buildPlayerImport(e.data, e.fiche, {
@@ -682,6 +685,17 @@ const ExcelImport = (() => {
     }
     st.orphans = excelRoster(st.workbook).filter(n => !byClaim.has(normalizeName(n)));
     for (const n of [...st.create]) if (!st.orphans.includes(n)) st.create.delete(n);
+  }
+
+  /* Le prénom de la fiche n'apparaît dans aucune orthographe de l'Excel
+     (initiale ou prénom composé tolérés : « J. », « Jean », « Jean-Marc »). */
+  function firstNameClash(e) {
+    const fp = normalizeName(e.fiche.prenom || '');
+    if (!fp) return false;
+    const names = [...new Set(e.data.excelNames || [])]
+      .map(n => normalizeName(splitExcelName(n).prenom || '').replace(/\.$/, '')).filter(Boolean);
+    if (!names.length) return false;
+    return !names.some(p => p === fp || p.startsWith(fp) || fp.startsWith(p));
   }
 
   /* Orthographe différente entre la fiche et l'Excel (« Botherel » /
@@ -719,13 +733,24 @@ const ExcelImport = (() => {
     const statusCell = e => ({
       ok: e.changes ? `<span class="xi-badge xi-update">${e.changes} valeur${e.changes > 1 ? 's' : ''}</span>`
                     : '<span class="xi-badge xi-same">déjà à jour</span>',
-      suggested: '<span class="xi-badge xi-warn">rapprochement à confirmer</span>',
+      suggested: `<span class="xi-badge xi-warn">${e.nameClash ? 'prénom différent : à confirmer' : 'rapprochement à confirmer'}</span>`,
       conflict: '<span class="xi-badge xi-danger">ambigu : exclu</span>',
     })[e.status];
 
     const nLines = e => e.measurements.length + e.tests.length;
 
-    $('xiBody').innerHTML = `
+    // Source : le fichier lu, ses onglets reconnus, la saison et le mode visés.
+    const SHEETS = ['Anthropométrie', 'Plis cutanés', 'Tests bruts', 'Profil sur 10'];
+    const kb = Math.max(1, Math.round((st.fileSize || 0) / 1024));
+    const when = st.fileDate ? new Date(st.fileDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    const source = `<div class="xi-source">
+        <div class="xi-source-file"><span class="xi-source-k">Source</span><strong>${h(st.fileName)}</strong>
+          <small>${kb} Ko${when ? ` · modifié le ${h(when)}` : ''} · ${st.workbook.SheetNames.length} onglets</small></div>
+        <ul class="xi-sheets">${SHEETS.map(n => `<li class="${st.workbook.SheetNames.includes(n) ? 'is-ok' : 'is-missing'}">${st.workbook.SheetNames.includes(n) ? '✓' : '—'} ${h(n)}</li>`).join('')}</ul>
+        <div class="xi-source-target"><span class="xi-source-k">Vers</span><strong>Saison ${h(st.season)}</strong><small>${replaceMode() ? 'Remplacer' : 'Compléter'}</small></div>
+      </div>`;
+
+    $('xiBody').innerHTML = source + `
       <div class="xi-summary">
         <div><strong>${matched.length}</strong> joueur${matched.length > 1 ? 's' : ''} reconnu${matched.length > 1 ? 's' : ''}</div>
         <div><strong>${toUpdate}</strong> à mettre à jour</div>
@@ -745,8 +770,9 @@ const ExcelImport = (() => {
             <td class="xi-src">${h([...new Set(e.data.excelNames)].join(' · ') || e.override || '—')}
               ${e.data.individualSheet ? `<small>onglet ${h(e.data.individualSheet)}</small>` : ''}</td>
             <td class="xi-num">${nLines(e)}${e.created ? ` <small>dont ${e.created} nouvelle${e.created > 1 ? 's' : ''}</small>` : ''}</td>
-            <td>${statusCell(e)}</td>
-          </tr>`).join('')}
+            <td>${statusCell(e)} ${nLines(e) ? `<button class="xi-more" type="button" data-detail="${e.fiche.id}" aria-expanded="false">Voir</button>` : ''}</td>
+          </tr>
+          ${nLines(e) ? `<tr class="xi-detail hidden" data-detail-row="${e.fiche.id}"><td></td><td colspan="4">${detailHtml(e)}</td></tr>` : ''}`).join('')}
         </tbody>
       </table>
 
@@ -777,11 +803,21 @@ const ExcelImport = (() => {
       if (sel) sel.value = st.overrides.get(e.fiche.id) || '';
     });
 
+    $('xiBody').querySelectorAll('[data-detail]').forEach(b => b.addEventListener('click', () => {
+      const row = $('xiBody').querySelector(`[data-detail-row="${b.dataset.detail}"]`);
+      const open = row.classList.toggle('hidden') === false;
+      b.setAttribute('aria-expanded', String(open));
+      b.textContent = open ? 'Masquer' : 'Voir';
+    }));
     $('xiBody').querySelectorAll('[data-include]').forEach(cb => cb.addEventListener('change', () => {
       const id = Number(cb.dataset.include);
       cb.checked ? st.include.add(id) : st.include.delete(id);
-      // Cocher un rapprochement proposé vaut confirmation.
-      if (cb.checked && st.suggested.delete(id)) { compute(); render(); return; }
+      // Cocher un rapprochement proposé (ou un prénom différent) vaut confirmation.
+      const entry = st.entries.find(x => x.fiche.id === id);
+      if (cb.checked && entry?.status === 'suggested') {
+        st.suggested.delete(id); st.confirmed.add(id);
+        compute(); render(); return;
+      }
       updateConfirm();
     }));
     $('xiBody').querySelectorAll('[data-assoc]').forEach(sel => sel.addEventListener('change', () => {
@@ -796,6 +832,24 @@ const ExcelImport = (() => {
       updateConfirm();
     }));
     updateConfirm();
+  }
+
+  /* Valeurs qui seront écrites pour un joueur, telles que lues dans le
+     classeur : le préparateur vérifie la correspondance avant d'importer. */
+  function detailHtml(e) {
+    const val = (m, v) => `${Number(v).toFixed(m.digits).replace('.', ',')}${m.unit === '%' ? ' %' : ` ${m.unit}`}`;
+    const line = (label, metrics, r) => {
+      const parts = metrics.filter(m => r[m.key] !== null && r[m.key] !== undefined && r[m.key] !== '')
+        .map(m => `${h(m.short || m.label)} <b>${val(m, r[m.key])}</b>`);
+      return parts.length ? `<li><span>${h(label)}</span>${parts.join(' · ')}</li>` : '';
+    };
+    const meas = e.measurements.map(r => line(r.month_label || 'Mesure', MORPHO_METRICS, r)).join('');
+    const tests = e.tests.map(r => line(STAGES.find(x => x.key === r.stage)?.label || r.stage, PERF_METRICS, r)).join('');
+    return `<div class="xi-values">
+      ${meas ? `<div><h5>Mesures</h5><ul>${meas}</ul></div>` : ''}
+      ${tests ? `<div><h5>Tests</h5><ul>${tests}</ul></div>` : ''}
+      ${!meas && !tests ? '<p class="xi-hint">Aucune valeur lisible pour ce joueur.</p>' : ''}
+    </div>`;
   }
 
   function updateConfirm() {

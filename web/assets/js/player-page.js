@@ -1,9 +1,10 @@
 /* ============================================================
    LMFC Performance — player-page.js (fiche joueur)
    Point central d'un joueur côté staff : identité (modifiable),
-   photo, derniers relevés physiques, parcours et programme terrain
-   (points forts, axes d'amélioration, exercices), avec des accès
-   vers Performance et Vidéos.
+   photo, présence, derniers relevés physiques, parcours, objectifs
+   et préventions (statut, suppression sur place) et programme
+   terrain (points forts, axes d'amélioration, exercices), avec des
+   accès vers Performance et Vidéos.
    Réservée au staff (nav.js) ; la RLS ne renvoie de toute façon
    que les joueurs du club de l'utilisateur.
    ============================================================ */
@@ -53,11 +54,12 @@ const IDENTITY_FIELDS = [
   document.getElementById('btnAddStrength').addEventListener('click', () => openNoteModal('strength'));
   document.getElementById('btnAddImprovement').addEventListener('click', () => openNoteModal('improvement'));
   document.getElementById('btnAddObjective').addEventListener('click', () => openNoteModal('objective'));
+  document.getElementById('btnAddPrevention').addEventListener('click', () => openNoteModal('prevention'));
   document.getElementById('objAllLink').href = `comparaison.html?tab=objectifs&player=${fichePlayer.id}`;
   setupPhoto();
-  await Promise.all([loadPhysical(), loadCareer(), loadPhoto(), initProgramEditor(fichePlayer, ficheProfile),
+  await Promise.all([loadPhysical(), loadCareer(), loadPhoto(), loadPresence(), initProgramEditor(fichePlayer, ficheProfile),
     initNotes({ player: fichePlayer, canEdit: staffCanPlan, userId: ficheProfile.id,
-      lists: { objective: 'objectiveList', strength: 'strengthList', improvement: 'improvementList' } })]);
+      lists: { objective: 'objectiveList', prevention: 'preventionList', strength: 'strengthList', improvement: 'improvementList' } })]);
 })();
 
 const fullName = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim();
@@ -81,6 +83,8 @@ function renderHeader() {
   const line = lineOf(p);
   document.getElementById('ficheSub').textContent =
     [p.poste || (line ? LINE_SINGULAR[line] : null), teamName(p.team_id)].filter(Boolean).join(' · ');
+  document.getElementById('ficheKicker').textContent =
+    [ficheProfile.clubs?.nom || 'Le Mans FC', 'Fiche joueur'].join(' · ');
   const age = ageFrom(p.date_naissance);
   const facts = [
     age !== null ? `${age} ans` : null,
@@ -103,7 +107,7 @@ function showPhoto(src) {
 
 /* Photo : un clic sur l'avatar pour l'ajouter ou la changer. */
 function setupPhoto() {
-  if (!canEditPerformanceData(ficheProfile.role)) return;
+  if (!canChangePlayerPhoto(ficheProfile.role)) return;
   const btn = document.getElementById('ficheAvatarBtn');
   const input = document.getElementById('fichePhotoFile');
   btn.disabled = false;
@@ -117,7 +121,7 @@ function setupPhoto() {
     const path = `${fichePlayer.club_id}/${fichePlayer.id}/${Date.now()}.${ext}`;
     const up = await sb.storage.from('player-photos').upload(path, file, { contentType: file.type || 'image/jpeg' });
     if (up.error) return toast(up.error.message, 'error');
-    const { error } = await sb.from('players').update({ photo_path: path }).eq('id', fichePlayer.id);
+    const error = await savePlayerPhotoPath(fichePlayer.id, path);
     if (error) { await sb.storage.from('player-photos').remove([path]); return toast(error.message, 'error'); }
     const old = fichePlayer.photo_path;
     fichePlayer.photo_path = path;
@@ -138,7 +142,7 @@ function availableFields() {
 function displayValue(key, v) {
   if (key === 'ligne') {
     const l = lineOf(fichePlayer);
-    return l ? `${LINE_SINGULAR[l]}${v ? '' : ' (selon le poste)'}` : '—';
+    return l ? LINE_SINGULAR[l] : '—';
   }
   if (v === null || v === undefined || v === '') return '—';
   if (key === 'team_id') return teamName(v) || '—';
@@ -245,4 +249,35 @@ async function loadCareer() {
           .filter(Boolean).join(' · ') || '—')}</span>
       </li>`).join('')}</ul>`
     : '<p class="text-muted">Aucun club renseigné.</p>';
+}
+
+/* ---------- Présence ----------
+   Pourcentage sur les séances où l'appel a été fait pour ce joueur,
+   et les 8 dernières, de la plus ancienne à la plus récente. */
+async function loadPresence() {
+  const box = document.getElementById('presenceBox');
+  const { data, error } = await sb.from('attendance').select('present, session_id, sessions(titre, date_seance)').eq('player_id', playerId);
+  if (error) {
+    console.warn('Présences indisponibles :', error.message);
+    box.innerHTML = '<p class="text-muted">Présences indisponibles.</p>';
+    return;
+  }
+  const rows = (data || []).filter(r => r.sessions)
+    .sort((a, b) => String(a.sessions.date_seance || '').localeCompare(String(b.sessions.date_seance || '')));
+  if (!rows.length) {
+    box.innerHTML = '<p class="text-muted">Aucun appel enregistré pour ce joueur.</p>';
+    return;
+  }
+  const n = rows.filter(r => r.present).length;
+  const pct = Math.round(n / rows.length * 100);
+  const last = rows.slice(-8);
+  document.getElementById('presenceWhen').textContent = `${rows.length} séance${rows.length > 1 ? 's' : ''}`;
+  box.innerHTML = `
+    <div class="presence-main"><strong>${pct} %</strong><span>${n} présence${n > 1 ? 's' : ''} sur ${rows.length}</span></div>
+    <div class="presence-bar" role="img" aria-label="${pct} % de présence"><i style="width:${pct}%"></i></div>
+    <div class="presence-last" aria-label="Dernières séances">${last.map(r => {
+      const d = r.sessions.date_seance ? String(r.sessions.date_seance).slice(8, 10) + '/' + String(r.sessions.date_seance).slice(5, 7) : '?';
+      return `<span class="${r.present ? 'is-in' : 'is-out'}" title="${escapeHtml(`${r.sessions.titre || 'Séance'} — ${r.present ? 'présent' : 'absent'}`)}">${d}</span>`;
+    }).join('')}</div>
+    <p class="presence-legend">Dernières séances : doré = présent, rouge = absent.</p>`;
 }

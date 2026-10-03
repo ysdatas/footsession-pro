@@ -122,18 +122,32 @@ function makeSortable(list, { onChange } = {}) {
 }
 const dragHandle = (label) => `<span class="drag-handle" data-drag tabindex="0" role="button" aria-label="Déplacer ${escapeHtml(label)} (flèches haut et bas)" title="Glisser pour déplacer"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.4"/><circle cx="10.5" cy="3.5" r="1.4"/><circle cx="5.5" cy="8" r="1.4"/><circle cx="10.5" cy="8" r="1.4"/><circle cx="5.5" cy="12.5" r="1.4"/><circle cx="10.5" cy="12.5" r="1.4"/></svg></span>`;
 
-/* ---------- Barre latérale mobile ---------- */
-document.addEventListener('DOMContentLoaded', () => {
+/* ---------- Barre latérale mobile ----------
+   Appelée au chargement, et par la coque joueur quand elle insère son
+   menu plus tard (player-nav.js). Ne lie qu'une fois. */
+function bindSidebarToggle() {
   const toggle   = document.getElementById('sidebarToggle');
   const sidebar  = document.getElementById('sidebar');
-  const backdrop = document.getElementById('sidebarBackdrop');
+  if (!toggle || !sidebar || toggle.dataset.bound) return;
+  toggle.dataset.bound = '1';
+  // Voile derrière le menu ouvert : un tap à côté le referme.
+  let backdrop = document.getElementById('sidebarBackdrop');
+  if (!backdrop) {
+    backdrop = el('div', { class: 'sidebar-backdrop', id: 'sidebarBackdrop' });
+    sidebar.after(backdrop);
+  }
   const setOpen  = (open) => {
-    sidebar?.classList.toggle('open', open);
-    backdrop?.classList.toggle('open', open);
+    sidebar.classList.toggle('open', open);
+    backdrop.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', String(open));
   };
-  toggle?.addEventListener('click', () => setOpen(!sidebar.classList.contains('open')));
-  backdrop?.addEventListener('click', () => setOpen(false));
-});
+  toggle.setAttribute('aria-controls', 'sidebar');
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.addEventListener('click', () => setOpen(!sidebar.classList.contains('open')));
+  backdrop.addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sidebar.classList.contains('open')) setOpen(false); });
+}
+document.addEventListener('DOMContentLoaded', bindSidebarToggle);
 
 /* ---------- Couleurs : pastilles au lieu du sélecteur système ----------
    Chaque <input type="color"> devient une rangée de pastilles (palette

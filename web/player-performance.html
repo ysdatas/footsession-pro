@@ -16,24 +16,32 @@
   <link rel="stylesheet" href="assets/css/excel-import.css">
 </head>
 <body class="app fp-fm-page">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <nav class="nav" aria-label="Menu principal"></nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
   <main class="main perf-main">
 
-    <!-- Barre d'actions -->
+    <!-- Barre d'actions : retour à la fiche, import, PDF -->
     <div class="perf-topbar">
-      <div>
-        <a class="perf-brand" href="dashboard.html"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span>LMFC <span class="brand-pro">Performance</span></span></a>
-        <div class="text-muted" id="perfRoleLabel">Chargement…</div>
+      <div class="perf-crumbs">
+        <a class="back-link" id="backPlayers" href="players.html">← Joueurs</a>
+        <span class="text-muted" id="perfRoleLabel">Chargement…</span>
       </div>
       <div class="perf-actions">
-        <a class="btn" id="backPlayers" href="players.html">← Joueurs</a>
         <button class="btn hidden perf-editor-only" id="btnImportExcel" type="button">Importer Excel</button>
         <button class="btn btn-primary hidden perf-staff-only" id="btnExport" type="button">Générer le PDF</button>
-        <a class="btn hidden perf-staff-only" id="perfLogout" href="#" title="Se déconnecter">Déconnexion</a>
       </div>
     </div>
 
     <!-- En-tête joueur : identité, club, mesures -->
-    <section class="perf-hero card">
+    <section class="perf-hero card hero-surface has-crest">
       <div class="perf-identity">
         <button class="perf-photo-wrap" id="playerAvatar" type="button" disabled aria-label="Photo du joueur">
           <img id="playerPhoto" class="perf-photo hidden" alt="">
@@ -42,7 +50,7 @@
         </button>
         <div class="perf-identity-text">
           <div class="eyebrow-row">
-            <span class="eyebrow">DOSSIER JOUEUR</span>
+            <span class="eyebrow hero-kicker" id="perfKicker">Dossier performance</span>
             <button class="btn btn-sm btn-ghost hidden perf-staff-only" id="btnEditPlayer" type="button">Modifier</button>
           </div>
           <h1 id="playerName">Chargement…</h1>
@@ -122,10 +130,16 @@
       </section>
       <section class="card">
         <div class="section-head">
-          <div><h2>Objectifs</h2><p class="text-muted">Objectifs et exercices physiques, avec leurs images. Cliquer pour agrandir.</p></div>
-          <button class="btn btn-sm hidden perf-plans-only" id="btnAddObjective" type="button">+ Objectif</button>
+          <div><h2>Objectifs &amp; préventions</h2><p class="text-muted">Avec leur statut et leurs images. Cliquer pour agrandir.</p></div>
+          <div class="perf-plan-actions">
+            <button class="btn btn-sm hidden perf-plans-only" id="btnAddObjective" type="button">+ Objectif</button>
+            <button class="btn btn-sm hidden perf-plans-only" id="btnAddPrevention" type="button">+ Prévention</button>
+          </div>
         </div>
+        <h3 class="perf-sub">Objectifs</h3>
         <div id="objectiveList" class="note-grid"></div>
+        <h3 class="perf-sub">Préventions</h3>
+        <div id="preventionList" class="note-grid"></div>
       </section>
     </div>
 

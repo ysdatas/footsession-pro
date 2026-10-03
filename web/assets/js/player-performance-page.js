@@ -16,15 +16,16 @@ let career = [];           // parcours en club du joueur
 let careerMissing = false; // table player_career absente : migration non passée
 let identityMissing = false; // colonnes d'identité absentes : migration non passée
 let canEditPlayer = false; // identité : mêmes droits que la fiche joueur
-let canEditPlans = false;  // objectifs, points forts/amélioration : admin, coach
+let canEditPlans = false;  // objectifs, préventions, points : admin, coach, prépa
 let compareId = null;      // joueur superposé sur le radar (staff)
 let expandedTests = new Set();
 let clubLogoUrl = null;
 let currentSeason = null;  // saison affichée : la plus récente du joueur
 
 /* Rôles du staff ayant accès à la performance (can_view_performance()
-   côté base). Ce sont aussi ceux qui modifient la fiche (can_edit()). */
-const PERF_STAFF_ROLES = ['admin', 'coach'];
+   côté base) : admin, coach, préparateur physique. Les données physiques
+   ne sont modifiées que par l'admin et le préparateur (is_performance_editor()). */
+const PERF_STAFF_ROLES = ['admin', 'coach', 'prepa'];
 const isStaff = () => PERF_STAFF_ROLES.includes(ctxProfile?.role);
 
 /* Indicateurs internes au staff : jamais montrés au joueur (et jamais
@@ -835,25 +836,28 @@ async function loadPage() {
   canEditPerformance = canEditPerformanceData(ctxProfile.role);
   canEditPlans = canManagePlans(ctxProfile.role);
   canEditPlayer = canEdit(ctxProfile.role);
-  document.getElementById('perfRoleLabel').textContent =
-    ctxProfile.role === 'joueur' ? 'Espace joueur' : 'Staff · dossier individuel';
+  document.getElementById('perfRoleLabel').textContent = ctxProfile.role === 'joueur' ? 'Espace joueur'
+    : canEditPerformance ? 'Dossier individuel' : 'Dossier individuel · consultation (données physiques : préparateur)';
+  document.getElementById('perfKicker').textContent = ctxProfile.role === 'joueur'
+    ? 'Ma performance' : 'Dossier performance';
   document.querySelectorAll('.perf-editor-only').forEach(el => el.classList.toggle('hidden', !canEditPerformance));
   document.querySelectorAll('.perf-plans-only').forEach(el => el.classList.toggle('hidden', !canEditPlans));
   document.querySelectorAll('.perf-staff-only').forEach(el => el.classList.toggle('hidden', !isStaff()));
 
   const back = document.getElementById('backPlayers');
   if (ctxProfile.role === 'joueur') {
-    // Même barre que sur toutes les pages du joueur, déconnexion comprise.
-    back.classList.add('hidden');
-    renderPlayerNav();
+    // Même coque que sur toutes les pages du joueur (barre latérale, onglets).
+    document.querySelector('.perf-topbar').classList.add('hidden');   // ni retour ni actions staff
+    renderPlayerShell();
   } else {
-    document.getElementById('perfLogout').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+    document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });
     back.href = `player.html?id=${playerId}`;
     back.textContent = '← Fiche joueur';
   }
+  const canPhoto = canChangePlayerPhoto(ctxProfile.role);
   const avatar = document.getElementById('playerAvatar');
-  avatar.disabled = !canEditPerformance;
-  avatar.classList.toggle('is-editable', canEditPerformance);
+  avatar.disabled = !canPhoto;
+  avatar.classList.toggle('is-editable', canPhoto);
 
   // Les colonnes d'identité n'existent qu'après player_profile_career.sql :
   // leur absence ne doit pas empêcher d'ouvrir la fiche.
@@ -875,13 +879,14 @@ async function loadPage() {
       { message: `Aucune fiche lisible pour l'id ${playerId}. Si tu es joueur, vérifie que ton compte est bien associé à une fiche (policy players_read_self).` });
   }
   player = p;
+  if (ctxProfile.role === 'joueur') setPlayerShellUser(player, ctxProfile.clubs?.nom);
 
   const [[mRes, tRes], notesError] = await Promise.all([
     fetchPhysical(),
     // Page Performance : les objectifs (développement physique). Points forts
     // et axes d'amélioration vivent dans le Programme terrain.
     initNotes({ player, canEdit: canEditPlans, userId: ctxProfile.id,
-      lists: { objective: 'objectiveList' }, onError: (m) => notify(m, 'error') }),
+      lists: { objective: 'objectiveList', prevention: 'preventionList' }, onError: (m) => notify(m, 'error') }),
   ]);
   // Chaque erreur est affichée : des données absentes et un accès refusé
   // produisaient tous les deux une page vide, sans moyen de les distinguer.
@@ -1101,14 +1106,14 @@ async function reloadData() {
 }
 
 async function uploadPhoto(file) {
-  if (!file || !canEditPerformance) return;
+  if (!file || !canChangePlayerPhoto(ctxProfile?.role)) return;
   if (file.size > 5 * 1024 * 1024) return notify('Photo trop volumineuse (max 5 Mo).','error');
   const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
   const path=`${player.club_id}/${player.id}/${Date.now()}.${ext}`;
   const { error: upErr } = await sb.storage.from('player-photos').upload(path,file,{contentType:file.type||'image/jpeg'});
   if (upErr) return notify(upErr.message,'error');
   const old=player.photo_path;
-  const { error } = await sb.from('players').update({photo_path:path}).eq('id',player.id);
+  const error = await savePlayerPhotoPath(player.id, path);
   if (error) {
     await sb.storage.from('player-photos').remove([path]);
     return notify(error.message,'error');
@@ -1151,8 +1156,9 @@ document.getElementById('btnSavePlayer').addEventListener('click',savePlayerEdit
 document.getElementById('btnSaveMeasurement').addEventListener('click',saveMeasurement);
 document.getElementById('btnSaveTest').addEventListener('click',saveTest);
 document.getElementById('btnAddObjective').addEventListener('click',()=>openNoteModal('objective'));
+document.getElementById('btnAddPrevention').addEventListener('click',()=>openNoteModal('prevention'));
 // Photo : un clic sur l'avatar (initiales ou photo) pour l'ajouter ou la changer.
-document.getElementById('playerAvatar').addEventListener('click',()=>{ if (canEditPerformance) document.getElementById('photoFile').click(); });
+document.getElementById('playerAvatar').addEventListener('click',()=>{ if (canChangePlayerPhoto(ctxProfile?.role)) document.getElementById('photoFile').click(); });
 document.getElementById('photoFile').addEventListener('change',e=>uploadPhoto(e.target.files[0]));
 document.getElementById('btnImportExcel').addEventListener('click',()=>ExcelImport.open({
   clubId: player.club_id,

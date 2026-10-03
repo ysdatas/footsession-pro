@@ -66,3 +66,27 @@
 .xi-alert.hidden{display:none;}
 #xiModeNote{margin-top:-2px;}
 @media (max-width:760px){ .xi-controls{grid-template-columns:1fr;} }
+
+/* Source du fichier et détail des valeurs par joueur. */
+.xi-source {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) auto; gap: 10px 16px; align-items: center;
+  padding: 12px 14px; margin-bottom: 12px; border-radius: 12px;
+  border: 1px solid var(--gold-border); background: rgba(var(--gold-rgb), .06);
+}
+.xi-source-file, .xi-source-target { display: grid; gap: 1px; min-width: 0; }
+.xi-source-file strong { overflow-wrap: anywhere; }
+.xi-source small { color: var(--text-secondary); font-size: var(--fs-xs); }
+.xi-source-k { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.xi-sheets { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--fs-xs); }
+.xi-sheets .is-ok { color: #8CE99A; }
+.xi-sheets .is-missing { color: var(--text-secondary); }
+.xi-more { margin-left: 6px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-size: var(--fs-xs); }
+.xi-more:hover { color: var(--gold); border-color: var(--gold-border); }
+.xi-detail td { background: rgba(255,255,255,.02); }
+.xi-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 18px; padding: 4px 0; }
+.xi-values h5 { margin: 0 0 4px; font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.xi-values ul { display: grid; gap: 3px; }
+.xi-values li { font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5; }
+.xi-values li span { display: inline-block; min-width: 82px; color: var(--text-primary); font-weight: 600; }
+.xi-values b { color: var(--text-primary); font-weight: 600; }
+@media (max-width: 640px) { .xi-source { grid-template-columns: 1fr; } }

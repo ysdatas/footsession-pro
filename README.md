@@ -63,7 +63,18 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 21. supabase/video_status.sql               statuts des séquences : « Vu » (seen_at) et « Modifié » (edited_at)
 22. supabase/lmfc_v3.sql                   statut des objectifs, objectif figé sur son joueur, principe de jeu de la
                                            séance, stockage schemas/logos réservé au staff du club
+23. supabase/lmfc_v4.sql                   rôle préparateur physique (prepa), coach en consultation sur les données
+                                           physiques, préventions (kind 'prevention'), titre d'objectif facultatif,
+                                           photo du joueur (RPC set_player_photo), reprise des anciennes préventions
 ```
+
+### `lmfc_v4.sql` — à passer avant de déployer ce code
+
+- Le **coach ne modifie plus** les données physiques, les tests ni l'import Excel
+  (`is_performance_editor()` = admin + prepa). Un coach qui faisait ce travail doit passer
+  **Préparateur physique** dans *Mon club → Membres*.
+- Sans cette migration : les préventions et les objectifs sans titre sont refusés par la base,
+  et le rôle « Préparateur physique » ne peut pas être attribué.
 
 ### `fix_audit_2026_09.sql` — à ne pas sauter
 
@@ -92,10 +103,11 @@ de visionnage n'enregistre rien.**
 | Rôle | Accès |
 |---|---|
 | `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, suppression de fiches |
-| `coach` | Tout le travail du staff : séances, joueurs, données physiques et tests, import Excel, objectifs, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage |
-| `joueur` | **Uniquement ses données** : poids, masse grasse, chronos, radar /10, objectifs, programme terrain, ses vidéos. Il découpe, sélectionne et annote ses séquences et les envoie au staff. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
+| `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
+| `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique |
+| `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos. Il découpe, sélectionne et annote ses séquences et les envoie au staff. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
 
-Depuis `platform_v2.sql`, les anciens rôles `analyste`, `prepa` et `viewer` sont devenus `coach`.
+`platform_v2.sql` avait fondu `analyste`, `prepa` et `viewer` dans `coach` ; `lmfc_v4.sql` rétablit `prepa`.
 
 Les droits sont appliqués deux fois : dans l'interface (`auth.js`, `nav.js`) **et** dans la
 base (helpers `can_manage_videos()`, `can_manage_plans()`, `is_performance_editor()`).
@@ -104,7 +116,8 @@ et `my_physical_tests()`, qui ne renvoient que les colonnes qui lui sont destin�
 
 Le menu latéral (`web/assets/js/nav.js`) est construit selon le rôle ; chacun peut
 masquer et réordonner ses rubriques (**Paramètres → Mon menu**, stocké dans
-`profiles.prefs.nav`). Une page interdite au rôle renvoie au tableau de bord.
+`profiles.prefs.nav`). Une page interdite au rôle renvoie au tableau de bord. Un clic sur son nom, en bas du
+menu, ouvre son compte, son mot de passe, son menu et la déconnexion (staff et joueurs).
 
 ### Équipes
 
@@ -116,7 +129,7 @@ sont calculées au sein de l'équipe du joueur.
 ### Accès : adresse e-mail + fonction (+ fiche joueur)
 
 Plus de codes. L'admin enregistre dans **Mon club → Donner un accès** une adresse e-mail,
-une fonction (joueur, coach, admin) et, pour un joueur, sa fiche (`club_access`). La
+une fonction (joueur, coach, préparateur physique, admin) et, pour un joueur, sa fiche (`club_access`). La
 personne crée son compte avec cette adresse sur `index.html` (page unique de connexion)
 et confirme l'e-mail ; à la connexion, `claim_club_access()` la rattache au club avec son
 rôle et sa fiche. Seule une adresse **confirmée** est acceptée, et un compte déjà membre
@@ -132,10 +145,13 @@ ou une fuite de données.
 
 ## 📊 Import Excel du préparateur physique
 
-Page **Joueurs** ou fiche joueur → **Importer l’Excel**. Un seul fichier met à jour tout le club :
+Page **Joueurs** ou fiche Performance → **Importer l’Excel** (admin, préparateur physique). Un seul fichier met à jour tout le club :
 
 - chaque joueur du club est recherché dans le fichier, avec un tableau de contrôle avant validation ;
 - une orthographe différente (« Botherel » / « BOTHOREL ») est **proposée**, jamais appliquée sans confirmation ;
+- même nom de famille mais **prénom différent** (« Alex ARNOUX » / « ARNOUX Nathan ») : décoché, « à confirmer » ;
+- l'aperçu montre la **source** (fichier, taille, date, onglets reconnus, saison et mode visés) et,
+  par joueur, « Voir » détaille les valeurs lues (mesures par mois, tests par session) ;
 - les joueurs du fichier sans fiche peuvent être créés en même temps ;
 - **Compléter** (par défaut) : une cellule vide n’efface rien ; **Remplacer** : le fichier fait foi pour la saison.
 
@@ -158,11 +174,17 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 ## 🧭 Pages
 
 - **Accueil** (`dashboard.html`, `dashboard-page.js`) — où je suis (blason, date, club ·
-  fonction · équipe), **À traiter** (séquences vidéo à regarder, prochaine séance, objectifs en
-  cours, accès en attente pour l'admin) et **Accès rapides** (rubriques du rôle, dans l'ordre de
-  son menu). Le blason du menu y ramène.
-- **Page de connexion** (`index.html`) — identité LMFC Performance (blason, rouge et or) à côté
-  du formulaire ; une colonne sur téléphone.
+  fonction · équipe), **À traiter** (séquences vidéo à regarder, prochaine séance, objectifs et
+  préventions en cours, joueurs sans mesure ce mois-ci pour l'admin et le prépa, accès en attente
+  pour l'admin) et **Accès rapides** (rubriques du rôle, dans l'ordre de son menu).
+- **Signature visuelle** — l'en-tête « Bonjour » de l'accueil est repris sur chaque page :
+  `.page-head` (staff), `.pv-head` (joueur), `.hero-surface` (fiches) dans `main.css` — liseré
+  rouge et or à parts égales (`--stripe`), halos rouge à gauche / or à droite (`--hero-bg`),
+  blason en filigrane, ligne « club · équipe » au-dessus du titre (`renderPageKicker`, `nav.js`).
+- **Menu du profil** — clic sur son nom en bas du menu (`renderUserMenu`, `nav.js`) : mon compte,
+  mot de passe, mon menu, préférences du tableau, Mon club (admin), aide, déconnexion.
+- **Page de connexion** (`index.html`) — « LE MANS FC » en grand, centré sous le blason, rond
+  central et ligne médiane en filigrane, halos rouge et or symétriques, puis la connexion.
 - **Séances** — liste, recherche (titre, équipe, principe de jeu, date), export PDF, suppression.
 - **Créer / Modifier une séance** — titre + **principe de jeu** (une fois pour la séance,
   `sessions.principes_jeu` ; les procédés en héritent, un ancien procédé garde le sien :
@@ -176,24 +198,29 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **PDF** (`pdf-generator.js`, `pdf-coach.js`) — principe de jeu de la séance en tête, objectif
   de chaque procédé, équipes (chasubles) en colonnes compactes, blason LMFC par défaut.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
-- **Joueurs** — effectif rangé en Gardiens / Défenseurs / Milieux / Attaquants (ligne déduite du
-  poste, ou choisie en glissant la carte dans une autre rubrique), recherche, filtre par poste.
+- **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
+  mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne
+  déduite du poste, ou choisie en glissant la ligne, à la souris), recherche, filtre par poste.
 - **Fiche joueur** (`player.html`) — informations modifiables sur place, photo (clic sur
-  l'avatar), derniers relevés, parcours, **Programme terrain** ; accès Performance / Vidéos.
+  l'avatar), **présence** (% et 8 dernières séances), derniers relevés, parcours, **Objectifs &
+  préventions** (statut, modifier, supprimer ✕ sur place), **Programme terrain** ; accès Performance / Vidéos.
 - **Programme terrain** (fiche joueur) — développement footballistique : points forts, axes
   d'amélioration, exercices regroupés par séance (consignes, dosage, image légendée, schéma
   dessiné dans le tableau tactique via `tactical-board.html?exercise=ID`, vidéo déjà sur la
-  plateforme). Le joueur le consulte dans **Mon programme terrain** (`mon-programme.html`),
+  plateforme). Le joueur le consulte dans **Objectifs & préventions** (`mon-programme.html`),
   marque un exercice « fait » et laisse un ressenti (RPC `mark_program_exercise`).
-- **Performance** (`player-performance.html`) — développement physique : photo (clic sur
-  l'avatar), mesures, tests, radar /10 (comparaison à un 2e joueur pour le staff),
-  **Objectifs** (objectifs et exercices physiques avec images), parcours, **Générer le PDF**.
+- **Performance** (`player-performance.html`) — dans la plateforme (barre latérale du staff ou
+  du joueur) : photo (clic sur l'avatar), mesures, tests, radar /10 (comparaison à un 2e joueur
+  pour le staff), **Objectifs & préventions**, parcours, **Générer le PDF** (fichier direct,
+  html2pdf). Le coach consulte ; l'admin et le prépa saisissent et importent.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques,
-  **Objectifs** (`objectives-board.js`, `?tab=objectifs&player=…&new=1`) : tous les objectifs de
-  l'effectif par joueur, filtre par statut, ajout pour un ou plusieurs joueurs cochés (une ligne
-  par joueur), statut modifiable sur place, modifier, supprimer (images comprises). Les objectifs
-  sont aussi sur la **fiche joueur**. Statut : `player_performance_notes.status` (active, achieved,
-  missed) ; le trigger `guard_performance_note` interdit de changer le joueur d'un point.
+  **Objectifs · Préventions** (`objectives-board.js`, `?tab=objectifs&player=…&new=1`) : tous les
+  objectifs et préventions de l'effectif par joueur, filtres par type et par statut, ajout pour un
+  ou plusieurs joueurs cochés (une ligne par joueur), titre facultatif, **images importées dans la
+  fenêtre** (réduites à 1600 px, une copie dans le dossier de chaque joueur coché), statut modifiable
+  sur place, modifier, supprimer (images comprises). Aussi sur la **fiche joueur**. Statut :
+  `player_performance_notes.status` (active, achieved, missed) ; type : `kind` (objective,
+  prevention) ; le trigger `guard_performance_note` interdit de changer le joueur d'un point.
 - **Ordre au glisser-déposer** (`makeSortable`, `app.js`) — doigt et souris, poignée ⋮⋮, flèches
   au clavier : menu (Paramètres → Mon menu, enregistré au lâcher), équipes (Mon club,
   `teams.sort_order`), séquences d'une compilation.
@@ -233,11 +260,16 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     n'est stocké ; « Ajouter aux vidéos du joueur » l'envoie sur R2 dans le dossier de CE joueur.
 - **Mes vidéos** (joueur) — deux rubriques : **Vidéos** (sources) et **Mes séquences**
   (filtres Toutes · Brouillons · Envoyées), une carte avec miniature par contenu.
-- **Espace joueur** — même coque sur chaque page (`player-nav.js`) : en-tête avec le logo et,
-  sur téléphone, onglets en bas (Performance · Programme · Vidéos), masqués seulement pendant
-  une sélection ou une annotation ; garde `requirePlayer()`.
-- **Points** (objectifs, points forts, axes) — `notes.js` : un clic ouvre le point en grand
-  (images, légendes, consignes) ; « Modifier » ajoute, légende ou retire des images.
+- **Espace joueur** — la même coque que le staff (`player-nav.js` + `layout.css`) : barre
+  latérale (Accueil · Ma performance · Mes vidéos · Objectifs & préventions, son nom en bas avec
+  la déconnexion) et, sur téléphone, onglets en bas ; garde `requirePlayer()`.
+  **Accueil joueur** (`mon-espace.html`, `player-home.js`) : « Bonjour, Prénom », vidéos reçues,
+  retours du staff, objectifs et préventions en cours, exercices à faire, derniers chiffres.
+  **Objectifs & préventions** (`mon-programme.html`) : objectifs et préventions avec statut et
+  images, puis programme terrain, en lecture seule.
+- **Points** (objectifs, préventions, points forts, axes) — `notes.js` : un clic ouvre le point
+  en grand (images, légendes, consignes) ; « Modifier » ajoute, légende ou retire des images ;
+  sans titre, la carte reprend le début de la description.
 - **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
   e-mail, membres.
 - **Design system** — `main.css` : échelle typographique unique (`--fs-xs` à `--fs-2xl`,
@@ -246,7 +278,8 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   de Tailwind, le « Liquid Glass » est en CSS natif, réservé à ce qui flotte au-dessus d'un
   terrain ou d'une vidéo. **Logo** : le même partout (« LMFC » + badge `.brand-pro` « Performance ») —
   menu du staff, barre du haut sur téléphone (`nav.js`), espace joueur, connexion. Cibles
-  tactiles de 44 px sur téléphone. Règles détaillées : `docs/audit-mobile-ux.md`.
+  tactiles de 44 px sur téléphone. Règles détaillées : `docs/audit-mobile-ux.md` (vidéo) et
+  `docs/audit-voc-plateforme.md` (Voice of Customer et QA mobile de toute la plateforme).
 - **Couleurs** — partout (club, paramètres, tableau tactique) des pastilles d'une palette
   commune, plus « autre couleur » (`enhanceColorInputs`, `app.js`).
 - **Analytics** — graphiques Chart.js, export PDF.
@@ -288,7 +321,12 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Matériel** : cônes et coupelles en plusieurs couleurs, piquet, haie, échelle, cage, ballon.
 - **Taille** : un curseur dans la barre de l'élément (glisser → voir → relâcher), plus de
   S / M / L ; les pions suivants gardent la taille choisie. À la souris, tirer un coin marche
-  aussi. **Paramètres** règle la taille par défaut avec le même curseur.
+  aussi. **Pincer** (deux doigts, ou le pavé tactile : Ctrl + molette / `gesturechange` sur
+  Safari) agrandit la sélection, jamais la page (`touch-action: none`, viewport
+  `maximum-scale=1` sur cette page). **Paramètres** règle la taille par défaut avec le même curseur.
+- **Texte d'un pion** : « Texte » (nom, court libellé) en plus du N°, placé à l'une des 9 places
+  autour du pion (`labelPos` : tl, t, tr, l, c, r, bl, b, br), lisible sur pastille sombre, qui
+  suit le pion quand il bouge ou grandit. Un pion en image (maillot) peut pivoter.
 - **Étapes** : « + Étape » crée l'étape suivante ; cliquer une pastille (1, 2, 3…)
   l'affiche, et chaque déplacement y est enregistré. « ▶ Lire » part de l'étape 1.
 - **Fiche tactique (PDF)** : titre, objectif, consignes (pré-remplis depuis le procédé ou
@@ -329,10 +367,11 @@ Vérifications (Node ≥ 18, aucun framework, aucun `node_modules`) :
 ```bash
 node tests/perf-logic.test.mjs    # détection du joueur dans l'Excel + radar partiel
 node tests/excel-import.test.mjs  # import validé sur le vrai Tests_Physiques_N2-5.xlsx
-node tests/nav.test.mjs           # menu : rôles, ordre, rubriques masquées, pages interdites
+node tests/nav.test.mjs           # menu : rôles (dont prépa), ordre, rubriques masquées, pages interdites
 node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classement de chaque test
 node tests/video-worker.test.mjs  # Worker vidéo : droits, liens signés, lecture partielle (Range)
 node tests/session-principle.test.mjs  # principe de jeu : séance, anciennes séances, héritage
+node tests/video-status.test.mjs   # statuts des séquences vidéo
 ```
 
 Le second tourne sur une extraction du classeur réel

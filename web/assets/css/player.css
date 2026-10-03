@@ -31,7 +31,7 @@
 .prog-preview:empty { display: none; }
 .prog-preview { display: flex; align-items: center; gap: 10px; }
 .prog-preview img { width: 96px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
-@media (max-width: 640px) { .prog-form { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .prog-form { grid-template-columns: minmax(0, 1fr); } }
 .fiche-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 .fiche-card-head h3 { margin: 0; font-size: var(--fs-lg); }
 .fiche-link { font-size: var(--fs-sm); color: var(--text-secondary); }
@@ -75,10 +75,10 @@
 .career-mini li.is-current strong { color: var(--gold); }
 
 @media (max-width: 1080px) {
-  .fiche-layout { grid-template-columns: 1fr; }
+  .fiche-layout { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 680px) {
-  .fiche-grid { grid-template-columns: 1fr; }
+  .fiche-grid { grid-template-columns: minmax(0, 1fr); }
   .fiche-actions { width: 100%; }
   .fiche-actions .btn { flex: 1; text-align: center; }
   .phys-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -98,5 +98,34 @@
 .terrain-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
 .terrain-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .terrain-block-head h4 { margin: 0; font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: .07em; color: var(--text-secondary); }
-.terrain-block .note-grid { grid-template-columns: 1fr; }
-@media (max-width: 760px) { .terrain-cols { grid-template-columns: 1fr; } }
+.terrain-block .note-grid { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 760px) { .terrain-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* Colonne de gauche : informations puis présence. */
+.fiche-side { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.fiche-hero.hero-surface { padding: 22px 24px; background: var(--hero-bg); }
+.fiche-hero .hero-kicker { margin-bottom: 2px; }
+.fiche-hero-text h1 { font-weight: 800; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.fiche-actions { position: relative; z-index: 1; }
+
+/* Présence : pourcentage, compte, dernières séances. */
+.presence-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.presence-main strong { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--gold); }
+.presence-main span { color: var(--text-secondary); font-size: var(--fs-md); }
+.presence-bar { height: 6px; margin: 12px 0; border-radius: 999px; background: var(--bg-surface); overflow: hidden; }
+.presence-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--red), var(--gold)); }
+.presence-last { display: flex; flex-wrap: wrap; gap: 6px; }
+.presence-last span {
+  display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 8px;
+  font-size: var(--fs-xs); font-weight: 700; border: 1px solid var(--border); color: var(--text-secondary);
+}
+.presence-last span.is-in { color: #0A0A0A; background: var(--gold); border-color: var(--gold); }
+.presence-last span.is-out { color: #FF8A96; border-color: rgba(var(--red-rgb), .45); background: rgba(var(--red-rgb), .1); }
+.presence-legend { margin: 8px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+@media (max-width: 560px) {
+  .fiche-hero.hero-surface { padding: 18px 16px; gap: 14px; }
+  .fiche-hero-text h1 { font-size: 1.45rem; line-height: 1.2; }
+  .fiche-avatar, .fiche-photo { width: 60px; height: 60px; flex-basis: 60px; border-radius: 14px; font-size: var(--fs-xl); }
+  .fiche-actions { width: 100%; }
+  .fiche-actions .btn { flex: 1 1 0; justify-content: center; }
+}

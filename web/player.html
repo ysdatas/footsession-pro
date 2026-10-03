@@ -27,13 +27,14 @@
   <main class="main fiche">
     <a class="back-link" href="players.html">← Joueurs</a>
 
-    <section class="card fiche-hero">
+    <section class="card fiche-hero hero-surface has-crest">
       <button id="ficheAvatarBtn" class="fiche-avatar-btn" type="button" disabled aria-label="Photo du joueur">
         <div id="ficheAvatar" class="pc-avatar av0 fiche-avatar">?</div>
         <span class="fiche-avatar-edit">Photo</span>
       </button>
       <input id="fichePhotoFile" type="file" accept="image/jpeg,image/png,image/webp" hidden>
       <div class="fiche-hero-text">
+        <p class="hero-kicker" id="ficheKicker">Fiche joueur</p>
         <h1 id="ficheName">Chargement…</h1>
         <p class="fiche-sub" id="ficheSub"></p>
         <p class="fiche-facts" id="ficheFacts"></p>
@@ -45,6 +46,7 @@
     </section>
 
     <div class="fiche-layout">
+      <div class="fiche-side">
       <section class="card fiche-info">
         <div class="fiche-card-head">
           <h3>Informations</h3>
@@ -68,6 +70,11 @@
         <datalist id="posteList"><option>GB</option><option>DC</option><option>DD</option><option>DG</option><option>MDF</option><option>MC</option><option>MO</option><option>AD</option><option>AG</option><option>BU</option></datalist>
         <datalist id="statutList"><option>Pro</option><option>Aspirant</option><option>Stagiaire</option><option>Amateur</option></datalist>
       </section>
+      <section class="card" id="presenceCard">
+        <div class="fiche-card-head"><h3>Présence</h3><span class="fiche-when" id="presenceWhen"></span></div>
+        <div id="presenceBox"><p class="text-muted">Chargement…</p></div>
+      </section>
+      </div>
 
       <div class="fiche-grid">
         <section class="card">
@@ -81,18 +88,26 @@
         </section>
         <section class="card fiche-wide" id="objectivesCard">
           <div class="fiche-card-head">
-            <h3>Objectifs</h3>
+            <h3>Objectifs &amp; préventions</h3>
             <span class="fiche-head-actions">
-              <a class="fiche-link" id="objAllLink" href="comparaison.html?tab=objectifs">Tous les objectifs →</a>
-              <button class="btn btn-sm hidden plans-only" id="btnAddObjective" type="button">+ Objectif</button>
+              <a class="fiche-link" id="objAllLink" href="comparaison.html?tab=objectifs">Tous les objectifs de l’effectif →</a>
             </span>
           </div>
-          <div id="objectiveList" class="note-grid"><p class="text-muted">Chargement…</p></div>
+          <div class="terrain-cols">
+            <div class="terrain-block">
+              <div class="terrain-block-head"><h4>Objectifs</h4><button class="btn btn-sm hidden plans-only" id="btnAddObjective" type="button">+ Objectif</button></div>
+              <div id="objectiveList" class="note-grid"><p class="text-muted">Chargement…</p></div>
+            </div>
+            <div class="terrain-block">
+              <div class="terrain-block-head"><h4>Préventions</h4><button class="btn btn-sm hidden plans-only" id="btnAddPrevention" type="button">+ Prévention</button></div>
+              <div id="preventionList" class="note-grid"></div>
+            </div>
+          </div>
         </section>
         <section class="card fiche-wide">
           <div class="fiche-card-head">
             <h3>Programme terrain</h3>
-            <span class="fiche-when">Ce que le joueur voit dans « Mon programme terrain »</span>
+            <span class="fiche-when">Visible par le joueur dans « Objectifs &amp; préventions »</span>
           </div>
           <div class="terrain-cols">
             <div class="terrain-block">

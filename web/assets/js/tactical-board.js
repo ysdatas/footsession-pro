@@ -350,7 +350,9 @@ function drawImageToken(it, im) {
     ctx.beginPath(); ctx.arc(it.x, it.y, r - 1.5, 0, Math.PI * 2); ctx.clip();
     const k = Math.max((2 * r) / im.naturalWidth, (2 * r) / im.naturalHeight);   // photo : remplit le rond
     const w = im.naturalWidth * k, h = im.naturalHeight * k;
-    ctx.drawImage(im, it.x - w / 2, it.y - h / 2, w, h);
+    ctx.translate(it.x, it.y);
+    if (it.rot) ctx.rotate(it.rot * Math.PI / 180);
+    ctx.drawImage(im, -w / 2, -h / 2, w, h);
     ctx.restore();
     ctx.lineWidth = 3; ctx.strokeStyle = it.color;
     ctx.beginPath(); ctx.arc(it.x, it.y, r - 1.5, 0, Math.PI * 2); ctx.stroke();
@@ -358,7 +360,10 @@ function drawImageToken(it, im) {
     const k = Math.min((2.5 * r) / im.naturalWidth, (2.5 * r) / im.naturalHeight);   // maillot : entier
     const w = im.naturalWidth * k, h = im.naturalHeight * k;
     half = h / 2;
-    ctx.drawImage(im, it.x - w / 2, it.y - h / 2, w, h);
+    // Pivoter : l'image tourne, le numéro et le texte restent droits.
+    ctx.translate(it.x, it.y);
+    if (it.rot) ctx.rotate(it.rot * Math.PI / 180);
+    ctx.drawImage(im, -w / 2, -h / 2, w, h);
     ctx.restore();
   }
   if (state.showNumbers && it.number != null) {
@@ -374,11 +379,42 @@ function drawImageToken(it, im) {
       txt(String(it.number), it.x, it.y + r * .1);
     }
   }
-  if (it.label) {
-    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = '600 13px Inter';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    txt(it.label, it.x, it.y + half + 13);
-  }
+  drawTokenLabel(it, half);
+}
+
+/* Texte d'un pion (nom, numéro, court libellé) : à l'une des 9 places
+   autour du pion, choisie dans la barre de sélection. La place se
+   comprend à l'écran (en haut = en haut, même terrain tourné), et le
+   texte suit le pion quand il bouge ou change de taille. */
+const LABEL_POS = { tl: [-1, -1], t: [0, -1], tr: [1, -1], l: [-1, 0], c: [0, 0], r: [1, 0], bl: [-1, 1], b: [0, 1], br: [1, 1] };
+const LABEL_POS_NAMES = { tl: 'en haut à gauche', t: 'en haut', tr: 'en haut à droite', l: 'à gauche', c: 'au centre', r: 'à droite', bl: 'en bas à gauche', b: 'en dessous', br: 'en bas à droite' };
+function labelOffset(it, half, textW, fs) {
+  const [ux, uy] = LABEL_POS[it.labelPos] || LABEL_POS.b;
+  // En diagonale, le texte s'écarte un peu plus : il ne passe pas sous les poignées.
+  const gap = Math.max(4, half * .22) + (ux && uy ? 8 : 0);
+  // Décalage à l'écran, du centre du pion au centre du texte.
+  const sx = ux * (half + gap + textW / 2);
+  const sy = uy * (half + gap + fs * .6);
+  return isPortrait() ? { dx: -sy, dy: sx } : { dx: sx, dy: sy };
+}
+function drawTokenLabel(it, half) {
+  if (!it.label) return;
+  const fs = Math.round(Math.max(11, Math.min(18, it.r * .72)));
+  ctx.save();
+  ctx.font = `600 ${fs}px Inter, sans-serif`;
+  const w = ctx.measureText(it.label).width;
+  const { dx, dy } = labelOffset(it, half, w, fs);
+  ctx.translate(it.x + dx, it.y + dy);
+  if (isPortrait()) ctx.rotate(Math.PI / 2);
+  // Pastille sombre derrière le texte : lisible sur l'herbe comme sur une image.
+  const pw = w + fs * .8, ph = fs * 1.45;
+  ctx.fillStyle = 'rgba(8,8,10,.62)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(-pw / 2, -ph / 2, pw, ph, ph / 2); else ctx.rect(-pw / 2, -ph / 2, pw, ph);
+  ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(it.label, 0, 1);
+  ctx.restore();
 }
 
 function drawToken(it) {
@@ -397,11 +433,7 @@ function drawToken(it) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     txt(String(it.number), it.x, it.y + 1);
   }
-  if (it.label) {
-    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = '600 13px Inter';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    txt(it.label, it.x, it.y + it.r + 13);
-  }
+  drawTokenLabel(it, it.r);
 }
 
 function drawShape(it) {
@@ -765,7 +797,8 @@ function rotateItem(it, deg) {
 }
 /* Applique la rotation d'un élément au contexte, dessine, puis restaure. */
 function withRotation(it, drawFn) {
-  if (it.rot && it.type !== 'arrow' && it.type !== 'line') {
+  // Un pion tourne son image lui-même (drawImageToken) : texte et numéro restent droits.
+  if (it.rot && !['arrow', 'line', 'player', 'opponent'].includes(it.type)) {
     const c = itemCenter(it);
     ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(it.rot * Math.PI / 180); ctx.translate(-c.x, -c.y);
     drawFn(); ctx.restore();
@@ -792,6 +825,12 @@ function hideSizeTag() { if (sizeTag) sizeTag.style.display = 'none'; }
 canvas.addEventListener('pointerdown', (e) => {
   if (!CAN_EDIT || state.playing) return;
   if (e.button === 2) return;          // clic droit géré par le menu contextuel
+  if (e.pointerType === 'touch') {
+    if (!touchPts.size) preTouchSel = [...state.selIds];
+    touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch || touchPts.size > 2) return;
+    if (touchPts.size === 2) { startPinch(); return; }
+  }
   hideMenu();
   try { canvas.setPointerCapture(e.pointerId); } catch { /* pointeur déjà relâché */ }
   const p = getPos(e);
@@ -872,6 +911,8 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 
 canvas.addEventListener('pointermove', (e) => {
+  if (touchPts.has(e.pointerId)) touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch) { if (touchPts.size >= 2) applySizeGesture(pinch, touchDist() / pinch.d0); return; }
   if (!drag) { hoverCursor(e); return; }
   const p = getPos(e);
   // Dès que l'élément bouge vraiment, on libère la place autour de lui.
@@ -1358,13 +1399,22 @@ function syncSelBar() {
     else { $('#selTextLabel').textContent = 'Nom'; input.value = one.label || ''; input.placeholder = 'Nom de la zone'; }
   }
 
+  // Texte d'un pion (sélection unique) et sa place (tous les pions sélectionnés).
+  const tokensSel = sels.filter(x => x.type === 'player' || x.type === 'opponent');
+  $('#propLabel').classList.toggle('hidden', !isToken);
+  if (isToken && document.activeElement !== $('#selLabelText')) $('#selLabelText').value = one.label || '';
+  $('#selLabelPos').classList.toggle('hidden', !tokensSel.length);
+  if (!tokensSel.length) closeLabelPos(); else syncLabelPos();
+
   $('#fontSelect').classList.toggle('hidden', !(one && one.type === 'text'));
   if (one && one.type === 'text') $('#fontSelect').value = one.font || state.textFont;
   // Image : pour les pions (joueurs et adversaires).
   $('#selImage').classList.toggle('hidden', !sels.some(x => x.type === 'player' || x.type === 'opponent'));
   if ($('#selImage').classList.contains('hidden')) closeImgMenu();
   // Pivoter n'a de sens que pour ce qui a une orientation (pas un pion rond).
-  $('#selRotate').classList.toggle('hidden', !sels.some(x => ['shape', 'equip', 'text', 'logo', 'path'].includes(x.type)));
+  // Un pion en image (maillot) pivote aussi ; un rond de couleur, non.
+  $('#selRotate').classList.toggle('hidden', !sels.some(x => ['shape', 'equip', 'text', 'logo', 'path'].includes(x.type)
+    || ((x.type === 'player' || x.type === 'opponent') && x.img)));
 
   // Bouton d'angle : réservé aux tracés, il pose ou retire le coude.
   const bendBtn = $('#selBend');
@@ -1426,6 +1476,117 @@ $('#selText').addEventListener('input', e => {
   else if (it.type === 'shape') it.label = e.target.value;
   render(); scheduleSave();
 });
+/* ---------- Texte d'un pion et sa place ---------- */
+let labelTyping = false;
+$('#selLabelText').addEventListener('input', e => {
+  const it = selected(); if (!it || (it.type !== 'player' && it.type !== 'opponent')) return;
+  if (!labelTyping) { pushHistory(); labelTyping = true; }
+  const v = e.target.value.trim();
+  if (v) it.label = e.target.value; else delete it.label;
+  render(); scheduleSave();
+});
+$('#selLabelText').addEventListener('change', () => { labelTyping = false; });
+$('#selLabelText').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); e.stopPropagation(); });
+function syncLabelPos() {
+  const toks = tokenSels();
+  const cur = toks[0]?.labelPos && LABEL_POS[toks[0].labelPos] ? toks[0].labelPos : 'b';
+  $$('#tbLabelPos [data-lp]').forEach(b => { const on = b.dataset.lp === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+  $('#tbLabelPosNote').textContent = toks.some(x => x.label)
+    ? (toks.length > 1 ? `S’applique aux ${toks.length} pions sélectionnés.` : `Texte ${LABEL_POS_NAMES[cur]}.`)
+    : 'Écrivez d’abord un texte dans « Texte ».';
+}
+function openLabelPos() {
+  const pop = $('#tbLabelPos');
+  if (!pop.classList.contains('hidden')) return closeLabelPos();
+  closePalette(); closeImgMenu();
+  pop.classList.remove('hidden');
+  syncLabelPos();
+  placeFloat(pop, $('#selLabelPos'));
+}
+function closeLabelPos() { $('#tbLabelPos').classList.add('hidden'); }
+$('#selLabelPos').addEventListener('click', openLabelPos);
+$('#tbLabelPos').addEventListener('click', e => {
+  const b = e.target.closest('[data-lp]'); if (!b) return;
+  const toks = tokenSels(); if (!toks.length) return;
+  pushHistory();
+  toks.forEach(it => { it.labelPos = b.dataset.lp; });
+  commit(); syncLabelPos();
+});
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#tbLabelPos, #selLabelPos')) closeLabelPos(); });
+
+/* ---------- Agrandir / réduire sans zoomer la page ----------
+   Deux doigts sur le terrain (pincer), le pavé tactile (pincer =
+   Ctrl + molette) ou Safari (gesturechange) : c'est l'élément
+   sélectionné qui change de taille, jamais la page. Un seul
+   « annuler » par geste. */
+const touchPts = new Map();
+let pinch = null, preTouchSel = [];
+const touchDist = () => { const [a, b] = [...touchPts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+function beginSizeGesture() {
+  const items = selectedItems().filter(it => sizeKind(it));
+  if (!items.length) return null;
+  return { items: items.map(it => ({ it, s0: getSize(it) })), scale: 1 };
+}
+function applySizeGesture(g, scale) {
+  g.scale = scale;
+  g.items.forEach(({ it, s0 }) => {
+    setSize(it, s0 * scale);
+    if (sizeKind(it) === 'token') state.tokenR = it.r;
+    if (sizeKind(it) === 'equip') state.equipR = it.r;
+  });
+  render();
+}
+function endSizeGesture() {
+  selBarFrozen = false;
+  commit(); syncSelBar(); positionSelBar(); rememberPrefs();
+}
+/* Deuxième doigt posé : on annule le début de déplacement du premier et
+   on passe en redimensionnement de la sélection (gardée même si le
+   premier doigt avait touché une zone vide). */
+function startPinch() {
+  if (!state.selIds.length && preTouchSel.length) state.selIds = preTouchSel.filter(id => state.items.some(i => i.id === id));
+  if (drag?.mode === 'move-group') drag.orig.forEach(o => {
+    const it = o.it;
+    if (it.type === 'arrow' || it.type === 'line') Object.assign(it, { x1: o.x1, y1: o.y1, x2: o.x2, y2: o.y2 });
+    else { it.x = o.x; it.y = o.y; }
+  });
+  const g = beginSizeGesture();
+  if (!g) { drag = null; render(); return false; }
+  if (!drag || drag.mode !== 'move-group') pushHistory();
+  drag = null; hideSizeTag();
+  canvas.parentElement.classList.remove('is-dragging');
+  pinch = { ...g, d0: Math.max(12, touchDist()) };
+  selBarFrozen = true;
+  syncSelBar(); render();
+  return true;
+}
+canvas.addEventListener('pointerup', e => {
+  touchPts.delete(e.pointerId);
+  if (pinch && touchPts.size < 2) { pinch = null; endSizeGesture(); }
+});
+canvas.addEventListener('pointercancel', e => {
+  touchPts.delete(e.pointerId);
+  if (pinch && touchPts.size < 2) { pinch = null; endSizeGesture(); }
+});
+let wheelSize = null, wheelTimer = null;
+canvas.parentElement.addEventListener('wheel', e => {
+  if (!e.ctrlKey) return;                 // simple défilement : rien à faire
+  e.preventDefault();                     // jamais de zoom de la page
+  if (!CAN_EDIT || state.playing) return;
+  if (!wheelSize) { wheelSize = beginSizeGesture(); if (!wheelSize) return; pushHistory(); selBarFrozen = true; }
+  applySizeGesture(wheelSize, Math.max(.3, Math.min(4, wheelSize.scale * Math.exp(-e.deltaY * .01))));
+  clearTimeout(wheelTimer);
+  wheelTimer = setTimeout(() => { wheelSize = null; endSizeGesture(); }, 260);
+}, { passive: false });
+let gestureSize = null;
+['gesturestart', 'gesturechange', 'gestureend'].forEach(type => document.addEventListener(type, e => {
+  e.preventDefault();                     // Safari : pas de zoom de la page
+  if (pinch || !CAN_EDIT || state.playing || !e.target.closest?.('.tb-stage')) return;
+  if (type === 'gesturestart') { gestureSize = beginSizeGesture(); if (gestureSize) { pushHistory(); selBarFrozen = true; } }
+  else if (gestureSize && type === 'gesturechange') applySizeGesture(gestureSize, Math.max(.3, Math.min(4, e.scale)));
+  else if (gestureSize) { gestureSize = null; endSizeGesture(); }
+}, { passive: false }));
+
 /* ---------- Image d'un pion ----------
    Importée (PNG d'un maillot, JPG) ou prise sur la fiche d'un joueur,
    réduite à 192 px puis gardée DANS le schéma (dataURL) : elle

@@ -54,11 +54,11 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
     (myProfile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   document.getElementById('logoutLink').addEventListener('click', e => { e.preventDefault(); logout(); });
 
-  // can_view_performance() côté base : admin, coach.
-  if (!canEdit(myProfile.role)) {
-    document.getElementById('cmpSub').textContent = 'Accès réservé au staff technique.';
+  // can_view_performance() côté base : admin, coach, préparateur physique.
+  if (!isStaffRole(myProfile.role)) {
+    document.getElementById('cmpSub').textContent = 'Accès réservé au staff.';
     document.getElementById('cmpContent').innerHTML =
-      `<div class="empty">Cette rubrique est réservée au staff (administrateur, coach).</div>`;
+      `<div class="empty">Cette rubrique est réservée au staff (administrateur, coach, préparateur physique).</div>`;
     document.querySelector('.cmp-toolbar')?.classList.add('hidden');
     return;
   }

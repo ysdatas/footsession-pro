@@ -17,6 +17,14 @@
   --red:           #C8102E;
   --red-rgb:       200, 16, 46;
   --red-deep:      #8E0E1A;
+  /* Liseré du club : rouge et or à parts égales, fondus au centre. */
+  --stripe: linear-gradient(90deg, var(--red) 0%, var(--red) 42%, var(--gold) 58%, var(--gold) 100%);
+  /* Fond des en-têtes (accueil, pages, fiches) : halo rouge à gauche,
+     halo or à droite, d'intensité perçue égale, sur un noir chaud. */
+  --hero-bg:
+    radial-gradient(560px 260px at -6% 118%, rgba(var(--red-rgb), .24), transparent 70%),
+    radial-gradient(560px 260px at 106% -18%, rgba(var(--gold-rgb), .15), transparent 70%),
+    linear-gradient(180deg, #1C1B1D 0%, #151515 100%);
 
   --text-primary:  #F5F5F5;
   --text-secondary:#8A8A8A;
@@ -67,6 +75,12 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* Pas de zoom au double-tap (le pincement reste possible), et jamais de
+     défilement horizontal de la page entière. */
+  touch-action: manipulation;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
@@ -104,7 +118,9 @@ p  { margin: 0 0 .8em; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
+  min-width: 0;          /* dans une grille, une carte rétrécit au lieu de pousser l'écran */
 }
+@media (max-width: 560px) { .card { padding: 16px; } }
 .card.is-active,
 .card.gold {
   border-color: var(--border-gold);
@@ -144,6 +160,8 @@ p  { margin: 0 0 .8em; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ----- Champs ----- */
+/* Téléphone : 16 px minimum, sinon Safari zoome toute la page au focus. */
+@media (pointer: coarse) { input, select, textarea { font-size: 16px !important; } }
 label, .field-label {
   display: block;
   font-size: var(--fs-xs); font-weight: 600;
@@ -152,7 +170,7 @@ label, .field-label {
   margin-bottom: 6px;
 }
 input, select, textarea {
-  width: 100%;
+  width: 100%; min-width: 0;
   padding: 10px 12px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -206,16 +224,48 @@ select { appearance: none; cursor: pointer; }
 .table tbody tr { transition: var(--transition); }
 .table tbody tr:hover { background: var(--bg-surface); }
 
-/* ----- Page header ----- */
-.page-head {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+/* ----- En-tête de page : même signature que « Bonjour » de l'accueil ----- */
+.page-head, .pv-head, .hero-surface {
+  position: relative; overflow: hidden; isolation: isolate;
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--hero-bg);
 }
-.page-head .subtitle { color: var(--text-secondary); font-size: var(--fs-md); margin: 0; }
-.page-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.page-head::before, .pv-head::before, .hero-surface::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--stripe); z-index: 1;
+}
+/* Blason en filigrane, à droite : présent sans gêner la lecture. */
+.page-head::after, .pv-head::after, .hero-surface.has-crest::after {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  right: -38px; top: 50%; width: 210px; height: 210px; transform: translateY(-50%) rotate(-8deg);
+  background: url('../img/lmfc-logo.png') center / contain no-repeat; opacity: .055;
+}
+.page-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px 20px; margin-bottom: 22px; flex-wrap: wrap; padding: 22px 24px;
+}
+.page-head h1, .pv-head h1 { margin: 0 0 2px; font-size: clamp(1.45rem, 2.4vw, 1.95rem); font-weight: 800; letter-spacing: -.025em; line-height: 1.15; overflow-wrap: anywhere; }
+.page-head .subtitle, .pv-head .subtitle { color: var(--text-secondary); font-size: var(--fs-md); margin: 0; }
+.page-head > div:first-child { min-width: 0; flex: 1 1 260px; }
+.page-kicker, .hero-kicker {
+  margin: 0 0 4px; color: var(--gold); font-size: var(--fs-xs); font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; overflow-wrap: anywhere;
+}
+.page-actions { display: flex; gap: 10px; flex-wrap: wrap; position: relative; z-index: 1; }
+/* Titre de rubrique dans une page (« À traiter », « Accès rapides »…). */
+.section-kicker {
+  margin: 0 0 12px; color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+@media (max-width: 560px) {
+  .page-head { padding: 18px 16px 16px; margin-bottom: 16px; }
+  .page-head > div:first-child { flex: 0 0 auto; }   /* en colonne : pas de hauteur imposée */
+  .page-head::after, .pv-head::after { width: 150px; height: 150px; right: -40px; }
+  .page-actions { width: 100%; }
+  .page-actions > .btn { flex: 1 1 auto; justify-content: center; }
+}
 
 /* ----- Segmented control (filtres) ----- */
-.segmented { display: inline-flex; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 3px; }
+.segmented { display: inline-flex; flex-wrap: wrap; max-width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 3px; }
 .segmented button {
   border: none; background: transparent; color: var(--text-secondary);
   padding: 6px 14px; border-radius: 7px; font-size: var(--fs-sm); font-weight: 500;
@@ -223,15 +273,26 @@ select { appearance: none; cursor: pointer; }
 .segmented button.active { background: var(--bg-hover); color: var(--gold); border: 1px solid var(--gold-border); }
 
 /* ----- Modal ----- */
+/* Une fenêtre plus haute que l'écran défile dans son voile, au lieu de
+   sortir par le haut (titre) et par le bas (boutons). */
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,.65);
-  display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+  display: none; align-items: flex-start; justify-content: center; z-index: 100;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 .modal-backdrop.open { display: flex; }
 .modal {
+  position: relative; margin: auto;
   background: var(--bg-card); border: 1px solid var(--border-gold);
-  border-radius: var(--radius-lg); width: 100%; max-width: 460px;
+  border-radius: var(--radius-lg); width: 100%; max-width: 460px; min-width: 0;
   padding: 24px; box-shadow: var(--shadow);
+}
+.modal::before { content: ''; position: absolute; top: 0; left: 18px; right: 18px; height: 2px; border-radius: 0 0 2px 2px; background: var(--stripe); opacity: .9; }
+@media (max-width: 560px) {
+  .modal { padding: 20px 16px; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-actions .btn { flex: 1 1 auto; justify-content: center; }
 }
 .modal h3 { margin-bottom: 18px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
@@ -262,7 +323,7 @@ select { appearance: none; cursor: pointer; }
 /* ============================================================
    Visionneuse plein écran (lightbox.js) : images et vidéos
    ============================================================ */
-body.lb-open { overflow: hidden; }
+body.lb-open, body:has(.modal-backdrop.open) { overflow: hidden; }
 .lightbox {
   position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.86);
   display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -444,14 +505,14 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
    haut sur téléphone, espace joueur, connexion) — blason du club,
    « LMFC », badge « Performance ».
    ============================================================ */
-.brand, .m-brand, .pa-brand, .perf-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text-primary); }
+.brand, .m-brand, .perf-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text-primary); }
 .brand-crest { width: 36px; height: 36px; flex: 0 0 auto; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,.5)); }
-.m-brand .brand-crest, .pa-brand .brand-crest { width: 30px; height: 30px; }
+.m-brand .brand-crest { width: 30px; height: 30px; }
 .brand-name { white-space: nowrap; }
 /* Liseré rouge et or du club, en haut des barres de navigation. */
-.sidebar::before, .m-appbar::before, .pa-bar::before {
+.sidebar::before, .m-appbar::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; pointer-events: none;
-  background: linear-gradient(90deg, var(--red) 0%, var(--red) 62%, var(--gold) 62%, var(--gold) 100%);
+  background: var(--stripe);
 }
 .brand-pro {
   display: inline-block; vertical-align: middle;
@@ -463,42 +524,18 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
 }
 
 /* ============================================================
-   Espace joueur (player-nav.js) : même en-tête sur chaque page ;
-   sur téléphone, onglets en bas, à portée de pouce.
+   Espace joueur (player-nav.js) : la même barre latérale que le
+   staff (layout.css) ; sur téléphone, onglets en bas en plus.
    ============================================================ */
-.pa-bar {
-  position: sticky; top: 0; z-index: 60;
-  display: flex; align-items: center; gap: 16px; height: 56px;
-  padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
-  background: rgba(10,10,10,.8); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
-  border-bottom: 1px solid var(--border);
-}
-.pa-brand { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
-.pa-links { display: flex; gap: 4px; margin-left: auto; }
-.pa-link {
-  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 999px;
-  color: var(--text-secondary); font-size: var(--fs-md); font-weight: 500;
-  transition: background var(--dur-micro) ease, color var(--dur-micro) ease;
-}
-.pa-link:hover { color: var(--text-primary); background: var(--bg-surface); }
-.pa-link.is-active { color: #0A0A0A; background: var(--gold); font-weight: 600; }
-.pa-link .ic { width: 16px; height: 16px; }
-.pa-logout {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; padding: 0 12px;
-  border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-size: var(--fs-sm);
-}
-.pa-logout:hover { color: var(--danger); border-color: rgba(244,67,54,.35); }
-.pa-logout .ic { width: 16px; height: 16px; }
+@media (min-width: 981px) { body.pa-body:not(.app) { padding-left: var(--sidebar-w); } }
+@media (max-width: 980px) { body.pa-body:not(.app) { padding-top: 56px; } }
 .pa-tabbar { display: none; }
-@media (max-width: 760px) {
-  .pa-links { display: none; }
-  .pa-logout { margin-left: auto; width: 40px; padding: 0; }
-  .pa-logout span { display: none; }
+@media (max-width: 980px) {
   .pa-tabbar {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 44;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
-    background: rgba(12,12,12,.86); -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
+    background: rgba(12,12,12,.9); -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
     border-top: 1px solid rgba(255,255,255,.08);
   }
   .pa-tab {
@@ -509,12 +546,10 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
   .pa-tab:active { background: rgba(255,255,255,.06); }
   .pa-tab .ic { width: 22px; height: 22px; }
   .pa-tab.is-active { color: var(--gold); }
-  .pa-tab.is-active .ic { filter: drop-shadow(0 0 6px rgba(232,178,14,.45)); }
+  .pa-tab.is-active .ic { filter: drop-shadow(0 0 6px rgba(var(--gold-rgb), .45)); }
   body.pa-body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   body.pa-body #toast-stack { bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
-/* Page Performance vue par le joueur : la coque remplace la barre du staff. */
-body.pa-body .perf-topbar { display: none; }
 
 /* Toasts : pleine largeur sur téléphone, au-dessus du pouce. */
 @media (max-width: 560px) {
@@ -541,4 +576,24 @@ body.pa-body .perf-topbar { display: none; }
 .is-dragging {
   position: relative; z-index: 2; border-color: var(--gold) !important;
   box-shadow: 0 10px 28px rgba(0,0,0,.45); transform: scale(1.015); background: var(--bg-hover) !important;
+}
+
+/* Choix de fichiers : un vrai bouton, le champ système reste caché. */
+.file-pick { position: relative; display: inline-flex; margin: 0; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.file-pick input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: 0; }
+.file-pick:focus-within .btn { outline: 2px solid var(--gold); outline-offset: 2px; }
+.label-opt { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-muted); margin-left: 4px; }
+.badge-red { background: rgba(var(--red-rgb), .16); color: #FF6B7D; }
+
+/* ---------- Au doigt : des cibles d'au moins ~40 px ---------- */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; justify-content: center; }
+  .btn-sm { min-height: 40px; padding-inline: 13px; }
+  .btn-icon { width: 44px; height: 44px; }
+  .segmented button { min-height: 40px; }
+  .obj-chip, select.obj-status { min-height: 40px; }
+  .swatches { gap: 9px; }
+  .swatches .sw { width: 34px; height: 34px; }
+  input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; flex: 0 0 22px; }
+  .attendance-head { min-height: 44px; }
 }

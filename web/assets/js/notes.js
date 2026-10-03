@@ -1,22 +1,36 @@
 /* ============================================================
    LMFC Performance — notes.js
    Les « points » d'un joueur (table player_performance_notes) :
-     - objectifs physiques      → page Performance ;
+     - objectifs, préventions   → fiche joueur, Performance,
+                                  « Objectifs & préventions » du joueur ;
      - points forts, axes       → Programme terrain (fiche joueur
        d'amélioration              côté staff, « Mon programme
                                    terrain » côté joueur).
    Chaque point : titre, consignes, images légendées ; un clic
    l'ouvre en grand (lightbox.js). Le staff ajoute, modifie,
    supprime ; le joueur consulte (la RLS refuse le reste).
-   Un objectif a en plus un statut (En cours, Atteint, Non atteint),
-   modifiable d'un geste sur sa carte (lmfc_v3.sql).
+   Un objectif ou une prévention a en plus un statut (En cours,
+   Atteint, Non atteint), modifiable d'un geste sur sa carte
+   (lmfc_v3.sql). Le titre est facultatif (lmfc_v4.sql) : sans titre,
+   la carte reprend le début de la description.
    ============================================================ */
 
 const NOTE_KINDS = {
   strength:    { badge: 'Point fort',  cls: 'badge-success', empty: 'Aucun point fort.',          add: 'Ajouter un point fort' },
   improvement: { badge: 'Axe',         cls: 'badge-gold',    empty: 'Aucun axe d’amélioration.',  add: 'Ajouter un axe d’amélioration' },
-  objective:   { badge: 'Objectif',    cls: 'badge-gold',    empty: 'Aucun objectif.',            add: 'Ajouter un objectif ou un exercice' },
+  objective:   { badge: 'Objectif',    cls: 'badge-gold',    empty: 'Aucun objectif.',            add: 'Ajouter un objectif' },
+  prevention:  { badge: 'Prévention',  cls: 'badge-red',     empty: 'Aucune prévention.',         add: 'Ajouter une prévention' },
 };
+/* Objectifs et préventions ont un statut ; points forts et axes, non. */
+const hasStatus = (kind) => kind === 'objective' || kind === 'prevention';
+/* Titre affiché : le titre, sinon le début de la description, sinon le type. */
+function noteTitle(n) {
+  const t = (n.title || '').trim();
+  if (t) return t;
+  const first = (n.body || '').trim().split('\n')[0];
+  if (first) return first.length > 70 ? `${first.slice(0, 67)}…` : first;
+  return NOTE_KINDS[n.kind]?.badge || 'Point';
+}
 const NOTES_BUCKET = 'player-performance-media';
 const OBJ_STATUS = {
   active:   { label: 'En cours',    cls: 'is-active' },
@@ -28,7 +42,7 @@ const objStatusOf = (n) => OBJ_STATUS[n.status] ? n.status : 'active';
 function objStatusControl(n, canEdit) {
   const k = objStatusOf(n);
   if (!canEdit) return `<span class="obj-status ${OBJ_STATUS[k].cls}">${OBJ_STATUS[k].label}</span>`;
-  return `<select class="obj-status ${OBJ_STATUS[k].cls}" data-note-status="${n.id}" aria-label="Statut de l’objectif « ${escapeHtml(n.title)} »">
+  return `<select class="obj-status ${OBJ_STATUS[k].cls}" data-note-status="${n.id}" aria-label="Statut de « ${escapeHtml(noteTitle(n))} »">
     ${Object.entries(OBJ_STATUS).map(([v, s]) => `<option value="${v}"${v === k ? ' selected' : ''}>${s.label}</option>`).join('')}</select>`;
 }
 
@@ -77,16 +91,19 @@ function renderNoteLists() {
     const list = noteStore.notes.filter(n => n.kind === kind);
     box.innerHTML = list.length ? list.map(n => {
       const imgs = noteImages(n.id);
-      return `<article class="note-card is-openable${kind === 'objective' ? ` obj-${objStatusOf(n)}` : ''}" data-note-open="${n.id}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHtml(n.title)}">
+      const title = noteTitle(n);
+      // Sans titre, la description sert de titre : on ne la répète pas dessous.
+      const body = n.title?.trim() ? n.body : (n.body || '').trim().split('\n').slice(1).join('\n');
+      return `<article class="note-card is-openable${hasStatus(kind) ? ` obj-${objStatusOf(n)}` : ''}" data-note-open="${n.id}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHtml(title)}">
         <div class="note-card-head">
-          <h3>${escapeHtml(n.title)}</h3>
-          ${kind === 'objective' ? objStatusControl(n, noteStore.canEdit) : ''}
+          <h3>${escapeHtml(title)}</h3>
+          ${hasStatus(kind) ? objStatusControl(n, noteStore.canEdit) : ''}
           ${noteStore.canEdit ? `<div class="note-card-actions">
             <button class="btn btn-sm" type="button" data-note-edit="${n.id}">Modifier</button>
-            <button class="btn btn-sm btn-danger" type="button" data-note-delete="${n.id}" aria-label="Supprimer">✕</button></div>` : ''}
+            <button class="btn btn-sm btn-danger" type="button" data-note-delete="${n.id}" aria-label="Supprimer « ${escapeHtml(title)} »" title="Supprimer">✕</button></div>` : ''}
         </div>
-        ${n.body ? `<p>${escapeHtml(n.body).replace(/\n/g, '<br>')}</p>` : ''}
-        ${imgs.length ? `<div class="media-grid">${imgs.map((m, i) => `<figure data-img-index="${i}"><img src="${escapeHtml(m.signed_url)}" alt="${escapeHtml(m.caption || n.title)}" loading="lazy">${m.caption ? `<figcaption>${escapeHtml(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
+        ${body ? `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>` : ''}
+        ${imgs.length ? `<div class="media-grid">${imgs.map((m, i) => `<figure data-img-index="${i}"><img src="${escapeHtml(m.signed_url)}" alt="${escapeHtml(m.caption || title)}" loading="lazy">${m.caption ? `<figcaption>${escapeHtml(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
       </article>`;
     }).join('') : `<div class="empty">${k.empty}</div>`;
   }
@@ -97,7 +114,7 @@ function openNote(id, start = 0) {
   const n = noteStore.notes.find(x => x.id === id);
   if (!n) return;
   const box = openLightbox({
-    title: n.title,
+    title: noteTitle(n),
     text: n.body || '',
     items: noteImages(id).map(m => ({ type: 'image', src: m.signed_url, caption: m.caption || '' })),
     start,
@@ -139,15 +156,16 @@ function mountNoteModal() {
     <div class="modal">
       <h3 id="noteModalTitle">Ajouter un point</h3>
       <input id="noteKind" type="hidden"><input id="noteId" type="hidden">
-      <div class="field"><label for="noteTitle">Titre</label><input id="noteTitle" autocomplete="off"></div>
+      <div class="field"><label for="noteTitle">Titre <span class="label-opt">facultatif</span></label><input id="noteTitle" autocomplete="off" placeholder="Ex. Gainage : 3 séances par semaine"></div>
       <div class="field"><label for="noteBody">Description / consignes</label><textarea id="noteBody" rows="5"></textarea></div>
       <div class="field" id="noteStatusField"><label for="noteStatus">Statut</label>
         <select id="noteStatus">${Object.entries(OBJ_STATUS).map(([v, s]) => `<option value="${v}">${s.label}</option>`).join('')}</select></div>
       <div class="field">
         <label>Images / exercices</label>
         <div id="noteImages" class="note-images-edit"></div>
-        <input id="noteFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple>
-        <small class="field-hint">Chaque image peut avoir sa légende, affichée quand on l’ouvre en grand.</small>
+        <label class="file-pick"><input id="noteFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+          <span class="btn btn-sm">+ Ajouter des images (PNG, JPG)</span></label>
+        <small class="field-hint">Elles s’affichent tout de suite ici ; chaque image peut avoir sa légende.</small>
       </div>
       <div class="modal-actions">
         <button class="btn" data-close="noteModal" type="button">Annuler</button>
@@ -188,7 +206,7 @@ function openNoteModal(kind, id = null) {
   document.getElementById('noteModalTitle').textContent = n ? 'Modifier' : NOTE_KINDS[kind].add;
   document.getElementById('noteTitle').value = n?.title || '';
   document.getElementById('noteBody').value = n?.body || '';
-  document.getElementById('noteStatusField').classList.toggle('hidden', kind !== 'objective');
+  document.getElementById('noteStatusField').classList.toggle('hidden', !hasStatus(kind));
   document.getElementById('noteStatus').value = n ? objStatusOf(n) : 'active';
   noteStore.draft.pending.forEach(p => URL.revokeObjectURL(p.url));
   noteStore.draft = {
@@ -217,17 +235,18 @@ async function saveNote() {
   const id = Number(document.getElementById('noteId').value) || null;
   const title = document.getElementById('noteTitle').value.trim();
   const body = document.getElementById('noteBody').value.trim() || null;
-  const extra = kind === 'objective' ? { status: document.getElementById('noteStatus').value } : {};
-  if (!title) return noteStore.onError('Le titre est obligatoire.');
+  const extra = hasStatus(kind) ? { status: document.getElementById('noteStatus').value } : {};
+  const keptImages = d.existing.filter(m => !m.removed).length + d.pending.length;
+  if (!title && !body && !keptImages) return noteStore.onError('Écrivez un titre ou une description, ou ajoutez une image.');
   const btn = document.getElementById('btnSaveNote'); btn.disabled = true;
   try {
     let noteId = id;
     if (id) {
-      const { error } = await sb.from('player_performance_notes').update({ title, body, ...extra }).eq('id', id);
+      const { error } = await sb.from('player_performance_notes').update({ title: title || null, body, ...extra }).eq('id', id);
       if (error) throw error;
     } else {
       const { data: note, error } = await sb.from('player_performance_notes').insert({
-        club_id: p.club_id, player_id: p.id, kind, title, body, ...extra, created_by: noteStore.userId,
+        club_id: p.club_id, player_id: p.id, kind, title: title || null, body, ...extra, created_by: noteStore.userId,
       }).select().single();
       if (error) throw error;
       noteId = note.id;
@@ -248,9 +267,10 @@ async function saveNote() {
     }
     let order = Math.max(-1, ...noteStore.media.filter(m => m.note_id === noteId).map(m => m.sort_order || 0));
     for (const [index, pend] of d.pending.entries()) {
-      const ext = (pend.file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const file = await shrinkImage(pend.file);
+      const ext = file.type === 'image/png' ? 'png' : 'jpg';
       const path = `${p.club_id}/${p.id}/${noteId}/${Date.now()}-${index}.${ext}`;
-      const up = await sb.storage.from(NOTES_BUCKET).upload(path, pend.file, { contentType: pend.file.type || 'image/jpeg' });
+      const up = await sb.storage.from(NOTES_BUCKET).upload(path, file, { contentType: file.type || 'image/jpeg' });
       if (up.error) { noteStore.onError(`Une image n’a pas été envoyée : ${up.error.message}`); continue; }
       const { error } = await sb.from('player_performance_media').insert({
         club_id: p.club_id, player_id: p.id, note_id: noteId,
@@ -275,16 +295,37 @@ async function setNoteStatus(id, status) {
   if (error) { console.error('Statut non enregistré', error); noteStore.onError(error.message); return renderNoteLists(); }
   n.status = status;
   renderNoteLists();
-  toast(`Objectif : ${OBJ_STATUS[status].label.toLowerCase()}.`, 'success');
+  toast(`${NOTE_KINDS[n.kind]?.badge || 'Objectif'} : ${OBJ_STATUS[status].label.toLowerCase()}.`, 'success');
 }
 
 async function deleteNote(id) {
   const n = noteStore.notes.find(x => x.id === id);
-  if (!noteStore.canEdit || !n || !confirm(`Supprimer « ${n.title} »${noteImages(id).length ? ' et ses images' : ''} ? C’est définitif.`)) return;
+  if (!noteStore.canEdit || !n || !confirm(`Supprimer « ${noteTitle(n)} »${noteImages(id).length ? ' et ses images' : ''} ? C’est définitif.`)) return;
   const files = noteStore.media.filter(m => m.note_id === id).map(m => m.storage_path);
   const { error } = await sb.from('player_performance_notes').delete().eq('id', id);
   if (error) return noteStore.onError(error.message);
   if (files.length) await sb.storage.from(NOTES_BUCKET).remove(files);
   toast('Supprimé.', 'success');
   await loadNotes();
+}
+
+/* Image envoyée : réduite à 1600 px de côté (une photo de téléphone
+   passe de 4 Mo à ~300 Ko). PNG gardé pour la transparence ; le reste
+   en JPEG. En cas d'échec (format exotique), le fichier part tel quel. */
+async function shrinkImage(file, max = 1600) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    if (k === 1 && file.size < 600 * 1024) { bmp.close?.(); return file; }
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close?.();
+    const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    const blob = await new Promise(res => c.toBlob(res, type, 0.86));
+    return blob && blob.size < file.size ? new File([blob], file.name, { type }) : file;
+  } catch (e) {
+    console.warn('Image envoyée sans réduction', e);
+    return file;
+  }
 }
