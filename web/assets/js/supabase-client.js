@@ -64,3 +64,14 @@ async function removeVideoFile(path) {
   const { error } = await sb.storage.from('player-videos').remove([path]);
   if (error) throw error;
 }
+
+/* ---------- Corbeille (supabase/lmfc_v5.sql) ----------
+   Migration passée : une suppression garde la ligne ET ses fichiers
+   (vidéo, images) jusqu'à la suppression définitive depuis la page
+   Corbeille. Avant la migration, les fichiers partent avec la ligne,
+   comme avant. */
+let trashCheck = null;
+const trashReady = () => (trashCheck ??= sb.from('trash').select('id', { head: true, count: 'exact' }).limit(1)
+  .then(({ error }) => !error, () => false));
+/* Fin du message de confirmation d'une suppression. */
+const trashNote = async () => ((await trashReady()) ? '\n\nRécupérable depuis la Corbeille.' : '\n\nC’est définitif.');

@@ -66,7 +66,23 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 23. supabase/lmfc_v4.sql                   rôle préparateur physique (prepa), coach en consultation sur les données
                                            physiques, préventions (kind 'prevention'), titre d'objectif facultatif,
                                            photo du joueur (RPC set_player_photo), reprise des anciennes préventions
+24. supabase/lmfc_v5.sql                   corbeille : table trash, copie de chaque suppression (et de ce qui
+                                           part avec elle), trash_restore(), droits trash_right()
 ```
+
+### `lmfc_v5.sql` — la corbeille
+
+- Un déclencheur garde une copie de chaque ligne supprimée (séances et leurs exercices,
+  schémas, présences, commentaires ; vidéos et leurs séquences ; objectifs, préventions et
+  leurs images ; exercices du programme ; parcours ; modèles ; équipes). Les pages
+  suppriment comme avant ; la page **Corbeille** restaure (`trash_restore`, mêmes
+  identifiants, liens remis : joueurs d'une équipe, vidéo d'un exercice) ou supprime pour de bon
+  (fichiers compris).
+- Droits = ceux de la suppression d'origine (`trash_right`) ; le joueur n'y a pas accès.
+- Tant qu'elle n'est pas passée, rien ne change : une suppression reste définitive (la page le
+  dit) et les fichiers partent avec la ligne. Ensuite, vidéos et images restent dans le stockage
+  jusqu'à la suppression définitive.
+- Vérifiée sur un vrai Postgres : `npm i --no-save @electric-sql/pglite && node tests/trash-sql.test.mjs`.
 
 ### `lmfc_v4.sql` — à passer avant de déployer ce code
 
@@ -102,7 +118,7 @@ de visionnage n'enregistre rien.**
 
 | Rôle | Accès |
 |---|---|
-| `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, suppression de fiches |
+| `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, couleur du club, suppression de fiches ; toute la corbeille |
 | `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
 | `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique |
 | `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos. Il découpe, sélectionne et annote ses séquences et les envoie au staff. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
@@ -117,7 +133,7 @@ et `my_physical_tests()`, qui ne renvoient que les colonnes qui lui sont destin�
 Le menu latéral (`web/assets/js/nav.js`) est construit selon le rôle ; chacun peut
 masquer et réordonner ses rubriques (**Paramètres → Mon menu**, stocké dans
 `profiles.prefs.nav`). Une page interdite au rôle renvoie au tableau de bord. Un clic sur son nom, en bas du
-menu, ouvre son compte, son mot de passe, son menu et la déconnexion (staff et joueurs).
+menu, propose « Paramètres » (staff) ; la déconnexion est l'icône à côté du nom.
 
 ### Équipes
 
@@ -181,10 +197,26 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   `.page-head` (staff), `.pv-head` (joueur), `.hero-surface` (fiches) dans `main.css` — liseré
   rouge et or à parts égales (`--stripe`), halos rouge à gauche / or à droite (`--hero-bg`),
   blason en filigrane, ligne « club · équipe » au-dessus du titre (`renderPageKicker`, `nav.js`).
-- **Menu du profil** — clic sur son nom en bas du menu (`renderUserMenu`, `nav.js`) : mon compte,
-  mot de passe, mon menu, préférences du tableau, Mon club (admin), aide, déconnexion.
-- **Page de connexion** (`index.html`) — « LE MANS FC » en grand, centré sous le blason, rond
-  central et ligne médiane en filigrane, halos rouge et or symétriques, puis la connexion.
+- **Paramètres** — ce n'est pas une rubrique du menu : un clic sur son nom, en bas du menu,
+  propose un seul lien, « Paramètres » (`renderUserMenu`, `nav.js`). La déconnexion est l'icône
+  à côté du nom.
+- **Page de connexion** (`index.html`) — sobre : blason sur le rond central d'un terrain, ligne
+  médiane fine (rouge à gauche, or à droite) d'un bord à l'autre, « LMFC Performance » entre deux
+  filets, « Le Mans FC », la connexion, puis la devise en signature discrète (« Tous acteurs pour
+  réussir »), sur le fond aux halos rouge et or du club.
+- **Couleur du club** (`theme.js`, chargé dans le `<head>` de chaque page) — choisie dans Mon club,
+  appliquée aussitôt à toute l'interface (`--gold`, `--gold-rgb`, `--on-gold` : texte noir ou blanc
+  selon le contraste) et aux PDF, enregistrée dans `clubs.color`, relue à chaque page
+  (`requireAuth`, `requirePlayer`) ; gardée dans le navigateur pour s'afficher dès la première image.
+- **Mémoire de navigation** (`app.js`) — chaque rubrique du menu rouvre sa dernière page (fiche,
+  onglet), avec ses champs `data-remember` (recherche, filtres), les questions ouvertes de la FAQ
+  et la position dans la page ; les liens `data-back` (« ← Joueurs ») retrouvent la liste telle
+  qu'on l'a laissée. `sessionStorage`, vidé à la déconnexion et à la connexion.
+- **Sélection multiple** — « Tout sélectionner / Tout désélectionner » (`selectAllHtml`,
+  `[data-select-scope]`, `app.js`) : export PDF, import Excel (joueurs reconnus seulement, jamais un
+  rapprochement à confirmer), objectifs pour plusieurs joueurs, menu, compilation vidéo
+  (plus « Sélection du joueur »), corbeille.
+- **Corbeille** (`trash.html`) — voir `lmfc_v5.sql`.
 - **Séances** — liste, recherche (titre, équipe, principe de jeu, date), export PDF, suppression.
 - **Créer / Modifier une séance** — titre + **principe de jeu** (une fois pour la séance,
   `sessions.principes_jeu` ; les procédés en héritent, un ancien procédé garde le sien :
@@ -196,14 +228,17 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   saisi n'est perdu ; quitter une séance non enregistrée demande confirmation. Un nouvel essai
   après une erreur met à jour la séance déjà créée au lieu d'en créer une seconde.
 - **PDF** (`pdf-generator.js`, `pdf-coach.js`) — principe de jeu de la séance en tête, objectif
-  de chaque procédé, équipes (chasubles) en colonnes compactes, blason LMFC par défaut.
+  de chaque procédé, équipes (chasubles) en colonnes compactes, blason LMFC par défaut. Un texte
+  trop long pour son bloc continue sur une page de suite au lieu d'être coupé.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne
   déduite du poste, ou choisie en glissant la ligne, à la souris), recherche, filtre par poste.
-- **Fiche joueur** (`player.html`) — informations modifiables sur place, photo (clic sur
-  l'avatar), **présence** (% et 8 dernières séances), derniers relevés, parcours, **Objectifs &
-  préventions** (statut, modifier, supprimer ✕ sur place), **Programme terrain** ; accès Performance / Vidéos.
+- **Fiche joueur** (`player.html`) — l'essentiel **à côté du nom** : taille — poids — poste, puis
+  équipe, ligne, âge, pied, statut sur une ligne discrète ; « Modifier » ouvre la fiche en fenêtre.
+  Photo (clic sur l'avatar), derniers relevés, parcours, **Objectifs & préventions** (statut,
+  modifier, supprimer ✕ sur place), **Programme terrain** ; accès Performance / Vidéos. Pas de
+  présences dans la rubrique Joueurs (elles restent dans chaque séance et dans le Bilan).
 - **Programme terrain** (fiche joueur) — développement footballistique : points forts, axes
   d'amélioration, exercices regroupés par séance (consignes, dosage, image légendée, schéma
   dessiné dans le tableau tactique via `tactical-board.html?exercise=ID`, vidéo déjà sur la
@@ -212,7 +247,7 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Performance** (`player-performance.html`) — dans la plateforme (barre latérale du staff ou
   du joueur) : photo (clic sur l'avatar), mesures, tests, radar /10 (comparaison à un 2e joueur
   pour le staff), **Objectifs & préventions**, parcours, **Générer le PDF** (fichier direct,
-  html2pdf). Le coach consulte ; l'admin et le prépa saisissent et importent.
+  `pdf-kit.js`). Le coach consulte ; l'admin et le prépa saisissent et importent.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques,
   **Objectifs · Préventions** (`objectives-board.js`, `?tab=objectifs&player=…&new=1`) : tous les
   objectifs et préventions de l'effectif par joueur, filtres par type et par statut, ajout pour un
@@ -294,7 +329,8 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   (outil ↖) puis **tirer un coin** pour la redimensionner.
 - **Formations** : menu déroulant (4-3-3, 4-4-2…) place 11 joueurs.
 - **Pion en image** : sélectionner un pion → icône image : PNG/JPG importé (maillot détouré,
-  forme libre) ou photo d'un joueur du club (forme ronde, nom repris), « Même image pour toute
+  forme libre), photo d'un joueur du club (forme ronde, nom repris) ou **maillot du club** dessiné
+  à la couleur du pion (col et manches à la couleur du club, `jerseyPng`), « Même image pour toute
   l'équipe », retirer. L'image, réduite à 192 px, est gardée DANS le schéma (`images` : id →
   dataURL ; le pion porte `img` et `imgFit`) : un seul exemplaire pour onze pions, et elle
   suit déplacement, copier-coller, taille, étapes animées, enregistrement et export.
@@ -346,11 +382,22 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 
 ## 📄 Export PDF
 
-Bouton *Exporter PDF* (séance) → couverture, un procédé par page (schéma + fiche en
-deux colonnes), page de présence. Généré côté client (jsPDF).
+Tous les PDF sont générés dans le navigateur avec jsPDF, en texte vectoriel (net à
+l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
 
-Fiche Performance → **Générer le PDF** : fichier téléchargé directement (html2pdf.js,
-chargé au premier export), sans fenêtre d'impression. Rubriques et période au choix.
+- en-tête sur panneau clair : blason, rubrique du club, titre, faits clés à droite — pas de
+  filet sous le logo ;
+- rubriques numérotées (01, 02…), tableaux légers dont l'en-tête se répète en haut de page et
+  dont aucune ligne n'est coupée, chiffres clés, radar vectoriel, images en grille ;
+- pied de page : le numéro de page, rien d'autre ; couleur d'accent = couleur du club.
+
+| Export | Où | Fichier |
+|---|---|---|
+| Fiche Performance (rubriques et période au choix, préventions comprises) | Performance d'un joueur | `perf-export.js` |
+| Séance complète (récapitulatif, un procédé par page) | Séances, séance | `pdf-generator.js` |
+| Fiche coach (4 procédés par page) | Séances, séance | `pdf-coach.js` |
+| Bilan (chiffres clés, graphiques redessinés pour le papier) | Bilan & Analytics | `analytics-page.js` |
+| Fiche tactique (une image par étape) | Tableau tactique | `tactical-board-ui.js` |
 
 ---
 
@@ -372,6 +419,7 @@ node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classemen
 node tests/video-worker.test.mjs  # Worker vidéo : droits, liens signés, lecture partielle (Range)
 node tests/session-principle.test.mjs  # principe de jeu : séance, anciennes séances, héritage
 node tests/video-status.test.mjs   # statuts des séquences vidéo
+node tests/trash-sql.test.mjs      # corbeille sur un vrai Postgres (ignoré sans PGlite)
 ```
 
 Le second tourne sur une extraction du classeur réel
@@ -395,9 +443,12 @@ code déployé sans sa migration échoue en silence.**
 1. **R2 Object Storage** → activer (moyen de paiement demandé ; gratuit jusqu'à 10 Go).
 2. **Create bucket** `lmfc-performance`, juridiction **Union européenne** (sinon,
    retirer `"jurisdiction"` dans `wrangler.jsonc`). Sans ce bucket, le déploiement échoue.
-3. **Workers → footsession-pro → Settings → Variables and Secrets** → secret
-   `VIDEO_URL_SECRET` = une longue chaîne aléatoire (signe les liens de lecture ; la
-   changer invalide seulement les liens en cours). Jamais dans le code.
+3. **Workers → footsession-pro → Settings → Variables and Secrets** → **Add** → type
+   **Secret** (pas « Text »), nom `VIDEO_URL_SECRET`, valeur = une longue chaîne aléatoire
+   (signe les liens de lecture ; la changer invalide seulement les liens en cours). Jamais
+   dans le code. Sans lui, l'envoi marche mais aucune vidéo ne se lit : le Worker répond 503
+   « Serveur vidéo incomplet : secret VIDEO_URL_SECRET absent ». `keep_vars` (wrangler.jsonc)
+   évite qu'un déploiement efface une variable ajoutée à la main.
 
 Les nouvelles vidéos (chemin `r2/{club_id}/{player_id}/…`, 95 Mo au plus) vont sur R2 ;
 les anciennes restent lisibles dans le bucket Supabase `player-videos`. Tout passe par

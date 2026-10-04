@@ -204,7 +204,7 @@ function table(list) {
 }
 
 window.deleteSession = async (id, btn) => {
-  if (!confirm('Supprimer cette séance et tous ses procédés ?')) return;
+  if (!confirm(`Supprimer cette séance et tous ses procédés ?${await trashNote()}`)) return;
   try {
     const { error } = await sb.from('sessions').delete().eq('id', id);
     if (error) throw error;

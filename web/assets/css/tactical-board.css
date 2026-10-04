@@ -89,7 +89,7 @@
 .tb-step:hover { background: rgba(255, 255, 255, .14); }
 .tb-step:active { transform: scale(.92); }
 .tb-step.is-new { animation: tbPop var(--dur-panel) var(--ease-out); }
-.tb-step.active { background: var(--gold); border-color: var(--gold); color: #0A0A0A; box-shadow: 0 0 12px rgba(232, 178, 14, .45); }
+.tb-step.active { background: var(--gold); border-color: var(--gold); color: var(--on-gold); box-shadow: 0 0 12px rgba(var(--gold-rgb), .45); }
 #clipBtn { max-width: 170px; }
 #clipLabel { overflow: hidden; text-overflow: ellipsis; }
 .tb-stepinfo { font-size: var(--fs-xs); color: var(--text-secondary); padding: 0 6px; white-space: nowrap; }
@@ -137,10 +137,10 @@
 .tb-drawer .tb-tool:hover { background: rgba(255, 255, 255, .13); }
 .tb-drawer .tb-tool:active { transform: scale(.97); }
 .tb-drawer .tb-tool:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.tb-drawer .tb-tool.active { background: rgba(232, 178, 14, .2); border-color: rgba(232, 178, 14, .55); color: var(--gold-light); }
+.tb-drawer .tb-tool.active { background: rgba(var(--gold-rgb), .2); border-color: rgba(var(--gold-rgb), .55); color: var(--gold-light); }
 .tb-drawer .tb-tool:disabled { opacity: .38; cursor: not-allowed; transform: none; }
 .tb-drawer .tb-tool .ic { width: 16px; height: 16px; }
-.tb-tool.tb-strong { border-color: rgba(232, 178, 14, .5); color: var(--gold-light); font-weight: 600; }
+.tb-tool.tb-strong { border-color: rgba(var(--gold-rgb), .5); color: var(--gold-light); font-weight: 600; }
 
 /* Matériel : groupes, icône au-dessus du nom */
 .tb-equip-groups { display: grid; gap: 8px; }
@@ -158,7 +158,7 @@
   background: rgba(255, 255, 255, .05); color: var(--text-primary); font: 500 var(--fs-sm)/1.3 var(--font-main); cursor: pointer;
 }
 .tb-clip span { font-size: var(--fs-xs); color: var(--text-secondary); }
-.tb-clip.active { border-color: rgba(232, 178, 14, .6); background: rgba(232, 178, 14, .14); }
+.tb-clip.active { border-color: rgba(var(--gold-rgb), .6); background: rgba(var(--gold-rgb), .14); }
 
 /* Vidéo liée */
 .tb-video-list { display: grid; gap: 6px; }
@@ -169,7 +169,7 @@
   color: var(--text-primary); cursor: pointer; font: inherit;
 }
 .tb-video:hover { border-color: var(--gold-border); }
-.tb-video.active { border-color: var(--gold); background: rgba(232, 178, 14, .12); }
+.tb-video.active { border-color: var(--gold); background: rgba(var(--gold-rgb), .12); }
 .tb-video strong { font-size: var(--fs-sm); }
 .tb-video span { font-size: var(--fs-xs); color: var(--text-secondary); }
 
@@ -242,13 +242,13 @@
 /* ---------- Repères pendant le cadrage ---------- */
 .tb-screenhint {
   position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 8;
-  background: var(--gold); color: #0A0A0A; font: 600 var(--fs-sm)/1 var(--font-main);
+  background: var(--gold); color: var(--on-gold); font: 600 var(--fs-sm)/1 var(--font-main);
   padding: 8px 13px; border-radius: 999px; pointer-events: none; box-shadow: var(--elev-float);
 }
 .tb-screenhint.hidden, .tb-cropchip.hidden { display: none; }
 .tb-cropchip { position: absolute; bottom: 80px; right: 12px; z-index: 8; color: var(--gold-light); }
 .tb-sizetag {
-  position: fixed; z-index: 300; display: none; background: var(--gold); color: #0A0A0A;
+  position: fixed; z-index: 300; display: none; background: var(--gold); color: var(--on-gold);
   font: 600 var(--fs-xs)/1 var(--font-main); padding: 5px 9px; border-radius: 6px; pointer-events: none; box-shadow: var(--shadow);
 }
 
@@ -275,7 +275,7 @@
 .tbm-btn:hover { border-color: var(--border-gold); }
 .tbm-seg { display: inline-flex; gap: 3px; }
 .tbm-seg button { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; padding: 4px 8px; font-size: var(--fs-sm); min-width: 28px; }
-.tbm-seg button.on { border-color: var(--gold); color: var(--gold); background: rgba(232,178,14,.12); }
+.tbm-seg button.on { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .12); }
 
 .tb-menu { background: rgba(18, 20, 18, .9); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-radius: var(--radius-float); }
 
@@ -294,21 +294,6 @@
 }
 .tb-presentbar .tb-presexit { background: rgba(244, 67, 54, .16); border-color: rgba(244, 67, 54, .4); color: #ff8a80; }
 .tb-presentbar span { color: var(--text-secondary); font-size: var(--fs-sm); padding: 0 6px; min-width: 90px; text-align: center; }
-
-/* Fiche tactique (feuille A4 hors écran, clonée par html2pdf) */
-.tb-sheet-holder { position: fixed; left: -10000px; top: 0; }
-.tb-sheet { width: 190mm; background: #fff; color: #111; font: 10.5pt/1.45 Inter, Arial, sans-serif; padding: 0; }
-.tb-sheet header { border-bottom: 2px solid #E8B20E; padding-bottom: 6px; margin-bottom: 10px; }
-.tb-sheet-eyebrow { font-size: 8pt; text-transform: uppercase; letter-spacing: .08em; color: #8a6d1f; }
-.tb-sheet h1 { font-size: 18pt; margin: 2px 0 0; color: #111; }
-.tb-sheet h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: .06em; color: #8a6d1f; margin: 12px 0 4px; }
-.tb-sheet p { margin: 0; color: #222; }
-.tb-sheet-imgs { display: grid; gap: 6mm; }
-.tb-sheet-imgs.is-steps { grid-template-columns: 1fr 1fr; }
-.tb-sheet figure { margin: 0; }
-.tb-sheet img { width: 100%; display: block; border-radius: 3mm; }
-.tb-sheet figcaption { font-size: 8.5pt; color: #555; margin-top: 2px; }
-
 
 /* ---------- Tablette et téléphone : le terrain reste prioritaire ---------- */
 @media (max-width: 980px) {

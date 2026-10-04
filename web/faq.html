@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/faq.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -23,14 +24,14 @@
       <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
     </div>
   </aside>
-  <main class="main faq">
+  <main class="main faq" data-remember-open>
     <div class="page-head">
       <div>
         <h1>FAQ</h1>
         <p class="subtitle">Cliquez sur une question pour afficher la réponse.</p>
       </div>
     </div>
-    <input type="search" id="faqSearch" class="faq-search" placeholder="Rechercher une question…" aria-label="Rechercher dans la FAQ">
+    <input type="search" id="faqSearch" data-remember class="faq-search" placeholder="Rechercher une question…" aria-label="Rechercher dans la FAQ">
 
     <h2 class="faq-group">Utiliser la plateforme</h2>
     <details class="faq-q">
@@ -80,8 +81,8 @@
     </details>
     <details class="faq-q">
       <summary>Comment réunir plusieurs séquences en une seule vidéo ?</summary>
-      <div class="faq-a"><p><em>Vidéos joueurs</em> → un joueur → Séquences → « Compiler des séquences ». Touchez les séquences dans l’ordre voulu, puis « Compiler » : réordonnez-les en les glissant, puis « Générer la compilation ». Les annotations et les arrêts sur image du joueur sont incrustés dans la vidéo (option), avec un carton de titre avant chaque séquence (option).</p>
-      <p>La vidéo se fabrique en direct dans le navigateur : elle dure le temps des séquences, gardez l’onglet ouvert et au premier plan. Elle est ensuite <strong>téléchargée</strong> (rien n’est stocké). « Ajouter aux vidéos du joueur » la range dans son espace : lui seul et le staff la voient. « Télécharger » sur une ligne donne une séquence seule.</p></div>
+      <div class="faq-a"><p><em>Vidéos joueurs</em> → un joueur → Séquences → « Compiler des séquences ». Touchez les séquences dans l’ordre voulu, ou d’un geste : « Tout sélectionner », « Sélection du joueur » (celles qu’il a choisies), « Tout désélectionner ». Puis « Compiler » : réordonnez-les en les glissant, puis « Générer la compilation ». Les annotations et les arrêts sur image sont incrustés dans la vidéo (option), avec un carton de titre avant chaque séquence (option).</p>
+      <p>La vidéo se fabrique en direct dans le navigateur : elle dure le temps des séquences, gardez l’onglet ouvert et au premier plan. Elle est ensuite <strong>téléchargée</strong> (rien n’est stocké). « Ajouter aux vidéos du joueur » la range dans son espace : lui seul et le staff la voient. « Séquence » sur une ligne donne une séquence seule, habillage compris ; « Vidéo d’origine » télécharge le fichier source tel qu’il a été envoyé, sans copie dans le stockage.</p></div>
     </details>
     <details class="faq-q">
       <summary>Où mettre le travail physique, où mettre le travail terrain ?</summary>
@@ -101,7 +102,7 @@
     </details>
     <details class="faq-q">
       <summary>Comment mettre un maillot ou la photo d’un joueur sur un pion ?</summary>
-      <div class="faq-a"><p>Tableau tactique : touchez un pion, puis l’icône image de sa barre. « Importer une image » prend un PNG (un maillot détouré garde sa forme) ou un JPG ; « Photo d’un joueur du club » reprend la photo de sa fiche et son nom. Forme <em>libre</em> pour un maillot, <em>ronde</em> pour une photo. « Même image pour toute l’équipe » habille tous les pions de la même couleur d’un coup. Le pion se déplace, se copie, s’anime et s’exporte comme avant ; un maillot peut aussi pivoter.</p></div>
+      <div class="faq-a"><p>Tableau tactique : touchez un pion, puis l’icône image de sa barre. « Importer une image » prend un PNG (un maillot détouré garde sa forme) ou un JPG ; « Photo d’un joueur du club » reprend la photo de sa fiche et son nom ; « Maillot du club » dessine un maillot de la couleur du pion, col et manches à la couleur du club. Forme <em>libre</em> pour un maillot, <em>ronde</em> pour une photo. « Même image pour toute l’équipe » habille tous les pions de la même couleur d’un coup. Le pion se déplace, se copie, s’anime et s’exporte comme avant ; un maillot peut aussi pivoter.</p></div>
     </details>
     <details class="faq-q">
       <summary>Comment écrire un nom ou un numéro à côté d’un pion ?</summary>
@@ -121,8 +122,24 @@
       <div class="faq-a"><p><em>Joueurs</em> → « Importer l’Excel », ou depuis la page Performance d’un joueur (administrateur, préparateur physique). Avant tout enregistrement, l’aperçu montre la source (fichier, onglets reconnus, saison visée), chaque fiche avec son nom dans l’Excel, et « Voir » détaille les valeurs lues. Un homonyme est exclu ; un prénom différent attend votre confirmation. Rien n’est inventé : une cellule vide ne supprime rien en mode « Compléter ».</p></div>
     </details>
     <details class="faq-q">
+      <summary>J’ai supprimé quelque chose par erreur : comment le récupérer ?</summary>
+      <div class="faq-a"><p>Rien n’est effacé tout de suite : une séance, une vidéo, une séquence, un objectif, une prévention, un exercice, un club du parcours, un modèle ou une équipe supprimés vont dans la <em>Corbeille</em> (menu), avec tout ce qui est parti avec eux (exercices et schémas d’une séance, séquences d’une vidéo, images d’un objectif). « Restaurer » les remet tels quels ; « Supprimer » les efface pour de bon, fichiers compris. « Tout sélectionner » agit sur toute la liste. Chacun n’y voit que ce qu’il avait le droit de supprimer ; le joueur ne la voit pas.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment revenir là où j’étais ?</summary>
+      <div class="faq-a"><p>Chaque rubrique du menu vous ramène à la dernière page que vous y avez ouverte : le même joueur, le même onglet, les mêmes filtres et recherches, à la même hauteur. Touchez la rubrique où vous êtes déjà pour revenir à sa page principale. Les liens « ← Joueurs » et « ← Séances » retrouvent aussi la liste telle que vous l’aviez laissée. La mémoire vaut pour l’onglet du navigateur et s’efface à la déconnexion.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment changer la couleur du club ?</summary>
+      <div class="faq-a"><p><em>Mon club</em> → « Couleur du club » (administrateur) : la couleur choisie s’applique aussitôt à toute la plateforme (boutons, rubriques, titres) et aux PDF, pour tous les comptes du club, et reste après actualisation ou reconnexion. « Or LMFC » revient à l’or d’origine.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Une vidéo ne se charge pas : que faire ?</summary>
+      <div class="faq-a"><p>Le message dit ce qui bloque. « Serveur vidéo incomplet : secret VIDEO_URL_SECRET absent » : l’administrateur doit l’ajouter sur Cloudflare (Workers → footsession-pro → Settings → Variables and Secrets, type <strong>Secret</strong>). « Session expirée » : reconnectez-vous. « Vidéo introuvable » : le fichier n’est plus dans le stockage, renvoyez-la.</p></div>
+    </details>
+    <details class="faq-q">
       <summary>Comment personnaliser mon menu ?</summary>
-      <div class="faq-a"><p>Cliquez sur votre nom en bas du menu : mon compte, mot de passe, mon menu, déconnexion. <em>Paramètres</em> → « Mon menu » : attrapez une rubrique par sa poignée (⋮⋮) et glissez-la, décochez celles que vous n’utilisez pas. C’est enregistré tout de suite. L’ordre des équipes se règle de la même façon dans <em>Mon club</em>.</p></div>
+      <div class="faq-a"><p>Cliquez sur votre nom en bas du menu, puis « Paramètres » (la déconnexion est l’icône à côté du nom). <em>Paramètres</em> → « Mon menu » : attrapez une rubrique par sa poignée (⋮⋮) et glissez-la, décochez celles que vous n’utilisez pas (« Tout sélectionner » les réaffiche toutes ; l’accueil reste toujours là). C’est enregistré tout de suite. L’ordre des équipes se règle de la même façon dans <em>Mon club</em>.</p></div>
     </details>
 
     <h2 class="faq-group" id="calculs">Données et calculs <span class="faq-staff">Staff</span></h2>
@@ -339,7 +356,7 @@
       <table class="faq-table">
         <thead><tr><th></th><th>Voit</th><th>Modifie</th></tr></thead>
         <tbody>
-          <tr><td>Administrateur</td><td>Tout</td><td>Tout, plus la gestion du club : accès, membres, équipes, suppression de fiches</td></tr>
+          <tr><td>Administrateur</td><td>Tout</td><td>Tout, plus la gestion du club : accès, membres, équipes, couleur du club, suppression de fiches ; corbeille complète</td></tr>
           <tr><td>Coach</td><td>Séances, joueurs, performance (consultation), vidéos, statistiques de visionnage</td><td>Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs. <strong>Pas</strong> les données physiques ni les tests</td></tr>
           <tr><td>Préparateur physique</td><td>Joueurs, performance, objectifs et préventions</td><td>Données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Pas de vidéos ni de séances</td></tr>
           <tr><td>Joueur</td><td>Ses propres données : poids, masse grasse, chronos, radar, objectifs, préventions, programme terrain, vidéos</td><td>Ses séquences : sélection, dessins, analyse, envoi au staff ; « fait » et ressenti sur ses exercices</td></tr>
@@ -375,6 +392,8 @@
         if (q && hit) d.setAttribute('open', ''); else if (!q) d.removeAttribute('open');
       });
     });
+    // Recherche retenue (retour sur la FAQ) : la liste se refiltre.
+    if (document.getElementById('faqSearch').value) document.getElementById('faqSearch').dispatchEvent(new Event('input'));
   </script>
 </body>
 </html>

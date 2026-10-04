@@ -167,11 +167,11 @@ async function drawSchema() {
 
 async function deleteExercise() {
   const e = prog.editing;
-  if (!e || !confirm(`Supprimer l’exercice « ${e.title} » ?`)) return;
+  if (!e || !confirm(`Supprimer l’exercice « ${e.title} » ?${await trashNote()}`)) return;
   const { error } = await sb.from('program_exercises').delete().eq('id', e.id);
   if (error) return toast(error.message, 'error');
   const files = [e.image_path, e.schema_path].filter(Boolean);
-  if (files.length) await sb.storage.from(PROGRAM_BUCKET).remove(files);
+  if (files.length && !(await trashReady())) await sb.storage.from(PROGRAM_BUCKET).remove(files);   // corbeille : gardés
   closeModal('programModal');
   toast('Exercice supprimé', 'success');
   await reloadProgram();

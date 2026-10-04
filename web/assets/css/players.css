@@ -22,10 +22,10 @@
   background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px;
 }
 /* Couleurs d'avatar (rotation) : les couleurs du club, rien d'autre. */
-.av0 { background: linear-gradient(135deg, #F6D35B, #E8B20E); color: #0A0A0A !important; }
+.av0 { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: var(--on-gold) !important; }
 .av1 { background: linear-gradient(135deg, #D7263D, #8E0E1A); color: #fff !important; }
 .av2 { background: #26262A; color: var(--gold) !important; box-shadow: inset 0 0 0 1px var(--gold-border); }
-.av3 { background: linear-gradient(135deg, #E8B20E, #C8102E); color: #fff !important; }
+.av3 { background: linear-gradient(135deg, var(--gold), #C8102E); color: #fff !important; }
 .av4 { background: #2A1418; color: #FF8A96 !important; box-shadow: inset 0 0 0 1px rgba(var(--red-rgb), .45); }
 .av5 { background: linear-gradient(135deg, #3A3A3E, #232326); color: var(--gold-light) !important; }
 
@@ -42,13 +42,13 @@
 .unassigned-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: 10px 14px; margin-bottom: 16px; border-radius: var(--radius-md);
-  border: 1px solid var(--gold-border); background: rgba(232,178,14,.08); font-size: var(--fs-md);
+  border: 1px solid var(--gold-border); background: rgba(var(--gold-rgb), .08); font-size: var(--fs-md);
 }
 
 /* ----- Rubriques par ligne ----- */
 .lines-hint { font-size: var(--fs-sm); color: var(--text-secondary); margin: -4px 0 14px; }
 .line-group { margin-bottom: 22px; border-radius: var(--radius-lg); padding: 4px; transition: background .15s, box-shadow .15s; }
-.line-group.is-over { background: rgba(232,178,14,.06); box-shadow: inset 0 0 0 1px var(--gold-border); }
+.line-group.is-over { background: rgba(var(--gold-rgb), .06); box-shadow: inset 0 0 0 1px var(--gold-border); }
 .line-title {
   display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding-left: 10px;
   font-size: var(--fs-sm); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;

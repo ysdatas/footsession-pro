@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/session.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -35,7 +36,7 @@
     </div>
 
     <div class="list-toolbar">
-      <input id="searchSession" type="search" placeholder="Rechercher une séance…" aria-label="Rechercher une séance" style="max-width:320px;">
+      <input id="searchSession" data-remember type="search" placeholder="Rechercher une séance…" aria-label="Rechercher une séance" style="max-width:320px;">
       <div class="lt-group">
         <label for="sortBy">Trier par</label>
         <select id="sortBy">
@@ -59,6 +60,7 @@
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/procedure-time.js"></script>
+  <script src="assets/js/pdf-kit.js"></script>
   <script src="assets/js/pdf-generator.js"></script>
   <script src="assets/js/pdf-coach.js"></script>
   <script src="assets/js/sessions-list-page.js"></script>

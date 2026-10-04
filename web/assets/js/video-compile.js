@@ -201,12 +201,22 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved }) {
   const mime = compileMime();
   const st = { order: seqs.map(s => s.id), running: false, cancel: false, blob: null, url: null };
   const byId = (id) => seqs.find(s => s.id === id);
+  /* Fichier d'origine : tel qu'envoyé, sans réencodage ni copie dans le
+     stockage. Le Worker le sert en téléchargement (dl=1, nom lisible). */
+  const origUrl = (s) => {
+    const u = s && urlOf(s);
+    if (!u) return null;
+    if (!u.startsWith('/api/videos/')) return u;
+    const title = (videoOf(s)?.titre || 'video').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '-').slice(0, 60);
+    return `${u}&dl=1&n=${encodeURIComponent(title)}`;
+  };
   document.body.insertAdjacentHTML('beforeend', `
   <div class="modal-backdrop open" id="vcModal">
     <div class="modal modal-wide vc-modal" role="dialog" aria-modal="true" aria-labelledby="vcTitle">
       <h3 id="vcTitle">Compilation — ${escapeHtml(name)}</h3>
       <p class="text-muted vc-lead">Glissez les séquences dans l’ordre voulu. Elles seront mises bout à bout dans une seule vidéo.</p>
       <ol class="vc-list" id="vcList"></ol>
+      <button class="btn btn-sm vc-orig" type="button" id="vcOrig"></button>
       <div class="vc-options">
         <label><input type="checkbox" id="vcInk" checked> Incruster l’habillage (annotations, arrêts sur image)</label>
         <label><input type="checkbox" id="vcTitles" checked> Carton de titre avant chaque séquence</label>
@@ -228,6 +238,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved }) {
   const $c = (sel) => document.querySelector(`#vcModal ${sel}`);
   const opts = () => ({ ink: $c('#vcInk').checked, titles: $c('#vcTitles').checked });
   const renderList = () => {
+    const sources = [...new Set(st.order.map(id => byId(id).video_id))];
     $c('#vcList').innerHTML = st.order.map((id, i) => {
       const s = byId(id), len = s.end_sec - s.start_sec, n = (s.drawings || []).length;
       return `<li data-id="${id}">
@@ -236,10 +247,15 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved }) {
         ${thumbHtml(urlOf(s), s.start_sec, fmtDur(len))}
         <span class="vc-body"><strong>${escapeHtml(s.label || 'Séquence')}</strong>
           <small>${escapeHtml(videoOf(s)?.titre || 'Vidéo')} · ${n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans habillage'}</small></span>
-        <button class="btn btn-sm" type="button" data-one="${id}" title="Télécharger cette séquence seule">Télécharger</button>
-        <button class="btn btn-sm vc-remove" type="button" data-remove="${id}" aria-label="Retirer de la compilation">✕</button>
+        <span class="vc-actions">
+          <button class="btn btn-sm" type="button" data-one="${id}" title="Générer et télécharger cette séquence seule, habillage compris">Séquence</button>
+          ${sources.length > 1 && origUrl(s) ? `<a class="btn btn-sm" href="${escapeHtml(origUrl(s))}" download title="Vidéo source complète, telle qu’elle a été envoyée (sans habillage)">Vidéo d’origine</a>` : ''}
+          <button class="btn btn-sm vc-remove" type="button" data-remove="${id}" aria-label="Retirer de la compilation">✕</button>
+        </span>
       </li>`;
     }).join('');
+    $c('#vcOrig').textContent = `Télécharger ${sources.length > 1 ? `les ${sources.length} vidéos` : 'la vidéo'} d’origine`;
+    $c('#vcOrig').classList.toggle('hidden', !sources.some(v => origUrl(seqs.find(s => s.video_id === v))));
     loadThumbs($c('#vcList'));
     const secs = Math.round(compileDuration(st.order.map(id => ({ seq: byId(id) })), opts()));
     $c('#vcTime').textContent = `${st.order.length} séquence${st.order.length > 1 ? 's' : ''} · environ ${fmtDur(secs)} de vidéo (et autant de temps de génération).`;
@@ -324,6 +340,19 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved }) {
     }
   }
   $c('#vcGo').addEventListener('click', () => generate(st.order));
+  // Toutes les vidéos d'origine, l'une après l'autre (le navigateur peut
+  // demander d'autoriser les téléchargements multiples).
+  $c('#vcOrig').addEventListener('click', async () => {
+    const done = new Set();
+    for (const id of st.order) {
+      const s = byId(id), u = origUrl(s);
+      if (!u || done.has(s.video_id)) continue;
+      done.add(s.video_id);
+      const a = el('a', { href: u, download: '' });
+      document.body.append(a); a.click(); a.remove();
+      await compileSleep(700);
+    }
+  });
   $c('#vcList').addEventListener('click', (e) => {
     const one = e.target.closest('[data-one]');
     if (one) return generate([Number(one.dataset.one)]);

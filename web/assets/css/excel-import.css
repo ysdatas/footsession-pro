@@ -32,7 +32,7 @@
 .xi-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle;}
 .xi-table td:first-child{width:28px;}
 .xi-table input[type=checkbox]{width:16px;height:16px;}
-.xi-table tr.is-focus td{background:rgba(232,178,14,.08);}
+.xi-table tr.is-focus td{background:rgba(var(--gold-rgb), .08);}
 .xi-table tr.xi-conflict td{opacity:.6;}
 .xi-name{font-weight:600;}
 .xi-name small,.xi-src small,.xi-num small{display:block;font-weight:400;font-size:var(--fs-xs);color:var(--text-secondary,#9da4ae);}

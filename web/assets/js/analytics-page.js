@@ -4,8 +4,13 @@
    reçoit que les séances du club de l'utilisateur connecté.
    ============================================================ */
 
-const GOLD = '#E8B20E', GOLD_L = '#F6D35B', GRID = 'rgba(255,255,255,.06)', TXT = '#8A8A8A';
-const PIE_COLORS = ['#E8B20E', '#C8102E', '#7e6cff', '#3aa0ff', '#4CAF50', '#ff8a5b', '#ff6b9d', '#E2C97E', '#26c6da'];
+// Couleur du club (theme.js) : les graphiques suivent l'interface.
+const CSS_VARS = getComputedStyle(document.documentElement);
+const GOLD = CSS_VARS.getPropertyValue('--gold').trim() || '#E8B20E';
+const GOLD_L = CSS_VARS.getPropertyValue('--gold-light').trim() || '#F6D35B';
+const GOLD_RGB = CSS_VARS.getPropertyValue('--gold-rgb').trim() || '232, 178, 14';
+const GRID = 'rgba(255,255,255,.06)', TXT = '#8A8A8A';
+const PIE_COLORS = [GOLD, '#C8102E', '#7e6cff', '#3aa0ff', '#4CAF50', '#ff8a5b', '#ff6b9d', '#E2C97E', '#26c6da'];
 
 let charts = {};
 let currentPeriod = 'month';
@@ -183,7 +188,7 @@ function line(id, rows) {
   make(id, {
     type: 'line',
     data: { labels: labelsOf(rows), datasets: [{
-      data: valuesOf(rows), borderColor: GOLD, backgroundColor: 'rgba(232,178,14,.12)',
+      data: valuesOf(rows), borderColor: GOLD, backgroundColor: `rgba(${GOLD_RGB}, .12)`,
       fill: true, tension: .35, pointBackgroundColor: GOLD, pointRadius: 4 }] },
     options: { ...noLegend, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
   });
@@ -196,20 +201,78 @@ function pie(id, rows) {
   });
 }
 
-/* ---------- Export PDF du bilan ---------- */
+/* ---------- Export PDF du bilan ----------
+   Mise en page commune (pdf-kit.js). Les graphiques sont redessinés pour
+   le papier (fond blanc, texte sombre), pas copiés de l'écran sombre. */
+const PRINT_CHARTS = [
+  ['chartCategory', 'Répartition par type de procédé'], ['chartMonths', 'Séances par mois (6 mois)'],
+  ['chartEspaces', 'Espaces de jeu utilisés'], ['chartVolume', 'Volume par séance (min)'],
+  ['chartPrincipes', 'Principes de jeu récurrents'], ['chartEffectifs', 'Effectifs utilisés'],
+];
+function chartForPrint(id) {
+  const ch = charts[id];
+  // Graphique sans aucune valeur : rien à imprimer.
+  if (!ch || !ch.data.datasets.some(d => (d.data || []).some(v => Number(v) > 0))) return null;
+  const c = document.createElement('canvas');
+  c.width = 900; c.height = 520;
+  const o = ch.config.options || {};
+  const font = { size: 22, family: 'Helvetica, Arial, sans-serif' };
+  const scales = Object.fromEntries(Object.entries(o.scales || {}).map(([k, v]) =>
+    [k, { ...v, ticks: { ...v.ticks, color: '#4b5563', font }, grid: { color: '#e5e7eb' }, border: { color: '#d1d5db' } }]));
+  const print = new Chart(c, {
+    type: ch.config.type,
+    data: { labels: [...(ch.data.labels || [])], datasets: ch.data.datasets.map(d => ({ ...d, borderColor: d.borderColor === '#141414' ? '#ffffff' : d.borderColor })) },
+    options: { ...o, responsive: false, animation: false, devicePixelRatio: 1, maintainAspectRatio: false, scales,
+      plugins: { ...o.plugins, legend: { ...o.plugins?.legend, labels: { ...o.plugins?.legend?.labels, color: '#374151', font, boxWidth: 22 } } } },
+    plugins: [{ id: 'papier', beforeDraw: (chart) => { const g = chart.ctx; g.save(); g.fillStyle = '#fff'; g.fillRect(0, 0, chart.width, chart.height); g.restore(); } }],
+  });
+  const url = c.toDataURL('image/jpeg', 0.92);
+  print.destroy();
+  return url;
+}
+
 async function exportAnalyticsPdf() {
-  const { jsPDF } = window.jspdf || {};
-  if (!jsPDF || !window.html2canvas) return toast('Module PDF indisponible.', 'error');
-  toast('Génération du PDF…');
+  const btn = document.getElementById('btnExportAnalytics');
+  btn.disabled = true;
   try {
-    const node = document.getElementById('analyticsContent');
-    const canvas = await html2canvas(node, { backgroundColor: '#ffffff', scale: 2 });
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const w = 210, h = canvas.height * w / canvas.width;
-    pdf.setTextColor(GOLD); pdf.setFontSize(18);
-    pdf.text('LMFC Performance — Bilan', 14, 16);
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 22, w, h);
-    pdf.save('bilan-lmfc-performance.pdf');
+    const club = window.CURRENT_PROFILE?.clubs?.nom || 'Le Mans FC';
+    const team = typeof currentTeam === 'function' ? currentTeam()?.nom : null;
+    const period = document.querySelector('#periodSwitch button.active')?.textContent.trim() || '';
+    const { from, to } = periodRange() || {};
+    const range = [from, to].every(Boolean) ? `${fmtDate(from)} – ${fmtDate(to)}` : period;
+    const k = await openPdf({ accent: window.CURRENT_PROFILE?.clubs?.color, runTitle: 'Bilan des séances', runRight: club });
+    k.cover({
+      kicker: `${club} · Bilan`,
+      title: 'Bilan des séances',
+      subtitle: [team || 'Toutes les équipes', period].filter(Boolean).join(' · '),
+      facts: [['Période', range], ['Édité le', new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })]],
+    });
+    const val = (id) => document.getElementById(id)?.textContent.trim() || '—';
+    k.kpis([
+      { label: 'Séances', value: val('kpiSessions'), sub: 'réalisées' },
+      { label: 'Procédés', value: val('kpiProcedures'), sub: 'travaillés' },
+      { label: 'Présence', value: val('kpiPresence'), sub: 'moyenne' },
+      { label: 'Volume', value: val('kpiVolume'), sub: 'de travail' },
+    ]);
+    const all = PRINT_CHARTS.map(([id, title]) => ({ title, src: chartForPrint(id) }));
+    const shown = all.filter(x => x.src), empty = all.filter(x => !x.src).map(x => x.title);
+    k.section('Activité', { keep: shown.length ? 70 : 12 });
+    if (!shown.length) k.text('Pas encore assez de données sur cette période.', { color: PDF_MUTE, style: 'italic' });
+    const gap = 6, w = (k.CW - gap) / 2, h = w * 520 / 900;
+    for (let i = 0; i < shown.length; i += 2) {
+      k.ensure(h + 9);
+      shown.slice(i, i + 2).forEach((c, j) => {
+        const x = k.M + j * (w + gap);
+        k.font(8.6, 'bold', PDF_INK); k.write(c.title, x, k.y);
+        k.doc.addImage(c.src, 'JPEG', x, k.y + 5.5, w, h);
+      });
+      k.y += h + 12;
+    }
+    if (shown.length && empty.length) k.text(`Sans donnée sur la période : ${empty.join(', ').toLowerCase()}.`, { size: 7.6, color: PDF_MUTE });
+    k.save(pdfFileName('bilan', team || 'club', new Date().toISOString().slice(0, 10)));
     toast('PDF généré', 'success');
-  } catch (e) { toast('Échec de l\'export PDF.', 'error'); }
+  } catch (e) {
+    console.error('Export PDF du bilan impossible', e);
+    toast(`Export PDF impossible : ${e.message}`, 'error');
+  } finally { btn.disabled = false; }
 }

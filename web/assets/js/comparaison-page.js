@@ -17,13 +17,15 @@ let roster = [];        // players du club
 let allTests = [];      // player_physical_tests, toutes sessions
 let allMeasures = [];   // player_physical_measurements
 const CMP_PARAMS = new URLSearchParams(location.search);
-let cmpTab = ['tests', 'evolution', 'morpho', 'objectifs'].includes(CMP_PARAMS.get('tab')) ? CMP_PARAMS.get('tab') : 'tests';
+// Onglet : celui du lien, sinon celui laissé en partant (mémoire de navigation).
+const CMP_TABS = ['tests', 'evolution', 'morpho', 'objectifs'];
+let cmpTab = [CMP_PARAMS.get('tab'), pageState().tab].find(t => CMP_TABS.includes(t)) || 'tests';
 let cmpStage = 'pre';
 let cmpMetric = 'vift_kmh';
 let cmpSearch = '';
 let cmpOnlyFlagged = false;
-let sortKey = 'name';
-let sortAsc = true;
+let sortKey = pageState().sortKey || 'name';
+let sortAsc = pageState().sortAsc ?? true;
 let cmpSeason = null;
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -66,6 +68,12 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
   document.getElementById('cmpMetric').innerHTML =
     PERF_METRICS.map(m => `<option value="${m.key}">${esc(m.label)}</option>`).join('');
   document.getElementById('cmpMetric').value = cmpMetric;
+  // Filtres laissés en partant (app.js : data-remember).
+  restoreRemembered(document.querySelector('.cmp-toolbar'));
+  cmpStage = document.getElementById('cmpStage').value;
+  cmpMetric = document.getElementById('cmpMetric').value;
+  cmpSearch = document.getElementById('cmpSearch').value;
+  cmpOnlyFlagged = document.getElementById('cmpOnlyFlagged').checked;
 
   document.querySelectorAll('#cmpTabs button').forEach(b =>
     b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -77,7 +85,7 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
   bindObjectivesTab();
   objBoard.player = Number(CMP_PARAMS.get('player')) || null;
   await loadData();
-  switchTab(cmpTab);
+  switchTab(cmpTab, true);
   if (cmpTab === 'objectifs' && CMP_PARAMS.get('new')) openObjectiveModal(null, objBoard.player);
 })();
 
@@ -116,8 +124,9 @@ async function loadData() {
     `${n} joueur${n > 1 ? 's' : ''}${cmpSeason ? ` · saison ${cmpSeason}` : ''} · ${allTests.length} session${allTests.length > 1 ? 's' : ''} de tests enregistrée${allTests.length > 1 ? 's' : ''}`;
 }
 
-function switchTab(tab) {
+function switchTab(tab, keepSort = false) {
   cmpTab = tab;
+  savePageState({ tab });
   document.querySelectorAll('#cmpTabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelector('.cmp-metric-field').classList.toggle('hidden', tab !== 'evolution');
   document.querySelector('#cmpStage').closest('.cmp-field').classList.toggle('hidden', tab === 'evolution' || tab === 'objectifs');
@@ -127,7 +136,7 @@ function switchTab(tab) {
   const u = new URL(location.href);
   if (tab === 'tests') u.searchParams.delete('tab'); else u.searchParams.set('tab', tab);
   history.replaceState(null, '', u);
-  sortKey = 'name'; sortAsc = true;
+  if (!keepSort) { sortKey = 'name'; sortAsc = true; savePageState({ sortKey, sortAsc }); }
   render();
 }
 
@@ -178,6 +187,7 @@ function bindSorting() {
     const key = th.dataset.sort;
     if (sortKey === key) sortAsc = !sortAsc;
     else { sortKey = key; sortAsc = key === 'name'; }
+    savePageState({ sortKey, sortAsc });
     render();
   }));
 }

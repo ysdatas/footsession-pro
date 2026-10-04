@@ -12,6 +12,10 @@ const ctx = canvas.getContext('2d');
 
 let idSeq = 1;
 const nid = () => idSeq++;
+/* Couleur du club (theme.js) pour la sélection et les repères. */
+const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+const accentColor = () => cssVar('--gold', '#E8B20E');
+const accentRgb = () => cssVar('--gold-rgb', '232, 178, 14');
 
 const state = {
   view: 'complet', tool: 'select',
@@ -296,7 +300,7 @@ function drawScreenFrame() {
   ctx.fillRect(0, f.y + f.h, LW, LH - (f.y + f.h));
   ctx.fillRect(0, f.y, f.x, f.h);
   ctx.fillRect(f.x + f.w, f.y, LW - (f.x + f.w), f.h);
-  ctx.strokeStyle = '#E8B20E'; ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
+  ctx.strokeStyle = accentColor(); ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
   ctx.strokeRect(f.x, f.y, f.w, f.h);
   ctx.setLineDash([]);
   ctx.restore();
@@ -645,12 +649,12 @@ function drawSelection() {
   if (drag && drag.mode === 'marquee') {
     const x = Math.min(drag.x0, drag.x1), y = Math.min(drag.y0, drag.y1);
     const w = Math.abs(drag.x1 - drag.x0), h = Math.abs(drag.y1 - drag.y0);
-    ctx.setLineDash([6, 4]); ctx.strokeStyle = '#E8B20E'; ctx.lineWidth = 1.2;
-    ctx.fillStyle = 'rgba(232,178,14,0.10)';
+    ctx.setLineDash([6, 4]); ctx.strokeStyle = accentColor(); ctx.lineWidth = 1.2;
+    ctx.fillStyle = `rgba(${accentRgb()}, 0.10)`;
     ctx.fillRect(x, y, w, h); ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
   }
   const sels = selectedItems(); if (!sels.length) return;
-  ctx.strokeStyle = '#E8B20E'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = accentColor(); ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
   for (const it of sels) {
     if (it.type === 'arrow' || it.type === 'line') {
       const bend = bendOf(it);
@@ -674,8 +678,8 @@ function drawSelection() {
 }
 function handle(x, y, hollow) {
   ctx.beginPath(); ctx.arc(x, y, HANDLE - 2, 0, Math.PI * 2);
-  ctx.fillStyle = hollow ? 'rgba(232,178,14,.25)' : '#E8B20E'; ctx.fill();
-  ctx.strokeStyle = hollow ? '#E8B20E' : '#000'; ctx.lineWidth = hollow ? 1.6 : 1; ctx.stroke();
+  ctx.fillStyle = hollow ? `rgba(${accentRgb()}, .25)` : accentColor(); ctx.fill();
+  ctx.strokeStyle = hollow ? accentColor() : '#000'; ctx.lineWidth = hollow ? 1.6 : 1; ctx.stroke();
 }
 
 /* ============================================================
@@ -1641,6 +1645,24 @@ $('#tbImgFile').addEventListener('change', async (e) => {
   try { applyTokenImage(await imageToDataUrl(file), file.type === 'image/png' || file.type === 'image/webp' ? 'free' : 'round'); }
   catch (err) { console.error('Image de pion illisible', err); toast('Image illisible : essayez un PNG ou un JPG.', 'error'); }
 });
+/* Maillot dessiné (pas de fichier) : corps de la couleur du pion, col et
+   manches de la couleur du club (or, ou blanc si le pion est déjà de
+   cette teinte). PNG : s'enregistre et s'exporte comme une image importée. */
+function jerseyPng(color) {
+  const S = 192, c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.scale(S / 100, S / 100);
+  const club = accentColor();
+  const trim = toHex(color).toLowerCase() === toHex(club).toLowerCase() ? '#FFFFFF' : club;
+  const body = new Path2D('M31 9 L41 5 Q50 13 59 5 L69 9 L92 24 L84 41 L74 36 L74 94 Q50 97 26 94 L26 36 L16 41 L8 24 Z');
+  g.fillStyle = color; g.fill(body);
+  g.lineJoin = 'round'; g.lineWidth = 2.2; g.strokeStyle = 'rgba(0,0,0,.45)'; g.stroke(body);
+  g.strokeStyle = trim; g.lineWidth = 4; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(41.5, 7); g.quadraticCurveTo(50, 15.5, 58.5, 7); g.stroke();   // col
+  g.beginPath(); g.moveTo(10.5, 27); g.lineTo(18, 39); g.moveTo(89.5, 27); g.lineTo(82, 39); g.stroke();   // poignets
+  return c.toDataURL('image/png');
+}
 let clubPhotos = null;   // joueurs du club qui ont une photo
 async function showPlayerPhotos() {
   const box = $('#tbImgPlayers');
@@ -1678,6 +1700,13 @@ $('#tbImgMenu').addEventListener('click', (e) => {
   const act = e.target.closest('[data-img]')?.dataset.img;
   if (act === 'file') return $('#tbImgFile').click();
   if (act === 'photo') return showPlayerPhotos();
+  if (act === 'jersey') {
+    // Un maillot par couleur : rouges et bleus sélectionnés gardent chacun la leur.
+    const sels = tokenSels(); if (!sels.length) return;
+    pushHistory();
+    sels.forEach(it => { it.img = registerImage(jerseyPng(it.color || '#C8102E')); it.imgFit = 'free'; });
+    commit(); syncSelBar(); return syncImgMenu();
+  }
   if (act === 'remove') {
     const sels = tokenSels().filter(x => x.img); if (!sels.length) return;
     pushHistory(); sels.forEach(it => { delete it.img; delete it.imgFit; }); commit(); syncSelBar(); return syncImgMenu();

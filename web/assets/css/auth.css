@@ -15,63 +15,44 @@ body.auth {
 /* Liseré du club en haut de l'écran. */
 body.auth::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 4px; background: var(--stripe); z-index: 2; }
 
-/* ---------- Page d'accueil : le club d'abord, la connexion ensuite ---------- */
+/* ---------- Page d'accueil : blason, nom de l'application, connexion ---------- */
+body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre, sans défilement */
 .landing {
-  width: 100%; max-width: 1080px; margin-block: auto;
-  display: flex; flex-direction: column; align-items: center; gap: 30px;
+  width: 100%; max-width: 400px; margin-block: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 24px;
 }
-.landing-hero { position: relative; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; isolation: isolate; }
-/* Rond central et ligne médiane d'un terrain, en filigrane derrière le blason. */
-.landing-pitch { position: absolute; inset: -10px 0 auto; height: 260px; z-index: -1; pointer-events: none; }
+.landing-hero { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; isolation: isolate; }
+/* Rond central et ligne médiane d'un terrain, en filigrane derrière le
+   blason : la ligne fine, rouge à gauche et or à droite, traverse l'écran. */
+.landing-pitch { position: absolute; left: 50%; top: -22px; width: min(1040px, 100vw); height: 140px; transform: translateX(-50%); z-index: -1; pointer-events: none; }
 .landing-pitch::before {
-  content: ''; position: absolute; left: 50%; top: 4px; width: 236px; height: 236px; transform: translateX(-50%);
+  content: ''; position: absolute; left: 50%; top: 0; width: 140px; height: 140px; transform: translateX(-50%);
   border-radius: 50%; border: 1px solid rgba(255,255,255,.07);
-  box-shadow: 0 0 0 46px rgba(255,255,255,.012), 0 0 80px rgba(var(--red-rgb), .08) inset;
+  box-shadow: 0 0 0 34px rgba(255,255,255,.012), 0 0 70px rgba(var(--red-rgb), .08) inset;
 }
 .landing-pitch::after {
-  content: ''; position: absolute; left: 0; right: 0; top: 122px; height: 1px;
+  content: ''; position: absolute; left: 0; right: 0; top: 70px; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(var(--red-rgb), .5) 18%, rgba(255,255,255,.08) 42%, rgba(255,255,255,.08) 58%, rgba(var(--gold-rgb), .45) 82%, transparent);
 }
-.landing-crest { width: 148px; height: 148px; object-fit: contain; filter: drop-shadow(0 16px 36px rgba(0,0,0,.55)); }
-.landing-title {
-  margin: 18px 0 0; font-size: clamp(2.7rem, 10.5vw, 6.4rem); font-weight: 900; line-height: .95;
-  letter-spacing: -.01em; text-transform: uppercase; white-space: nowrap;
+.landing-crest { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 10px 24px rgba(0,0,0,.5)); }
+.landing-brand {
+  display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%;
+  margin: 18px 0 0; font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.01em;
 }
-.lt-club { color: var(--text-primary); }
-.lt-fc {
-  background: linear-gradient(180deg, var(--gold-light), var(--gold) 55%, #C99300);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.landing-product {
-  display: flex; align-items: center; justify-content: center; gap: 14px; width: min(520px, 100%);
-  margin: 16px 0 0; font-size: var(--fs-lg); font-weight: 700; letter-spacing: .02em;
-}
-.landing-product .brand-pro { font-size: var(--fs-sm); padding: 4px 8px; top: 0; }
-.lp-line { flex: 1; height: 1px; }
+.landing-brand .brand-pro { top: -2px; }
+.lp-line { flex: 1; height: 1px; max-width: 90px; }
 .lp-line:first-child { background: linear-gradient(90deg, transparent, var(--red)); }
 .lp-line:last-child { background: linear-gradient(90deg, var(--gold), transparent); }
-.landing-pillars { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 0; margin: 14px 0 0; }
-.landing-pillars li {
-  font-size: var(--fs-xs); font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: var(--text-secondary);
-  padding: 0 14px;
-}
-.landing-pillars li + li { border-left: 1px solid rgba(255,255,255,.14); }
-.landing-pillars li { color: #DADADA; }
-.landing-lead { max-width: 34em; margin: 14px auto 0; color: var(--text-secondary); font-size: var(--fs-md); line-height: 1.55; }
+.landing-club { margin: 4px 0 0; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-secondary); }
+/* Devise du club : une signature discrète sous la connexion. */
+.landing-motto { margin: -4px 0 0; font-size: var(--fs-xs); font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: rgba(255,255,255,.42); text-align: center; }
 @media (max-width: 560px) {
-  .landing { gap: 22px; }
-  .landing-crest { width: 96px; height: 96px; }
-  .landing-pitch { height: 180px; }
-  .landing-pitch::before { width: 160px; height: 160px; top: 6px; box-shadow: 0 0 0 30px rgba(255,255,255,.012); }
-  .landing-pitch::after { top: 86px; }
-  .landing-title { margin-top: 12px; }
-  .landing-product { font-size: var(--fs-md); }
-  .landing-pillars li { padding: 0 9px; letter-spacing: .16em; }
-}
-@media (max-height: 760px) and (min-width: 561px) {
-  .landing-crest { width: 108px; height: 108px; }
-  .landing-pitch::before { width: 190px; height: 190px; }
-  .landing-pitch::after { top: 100px; }
+  .landing { gap: 20px; }
+  .landing-crest { width: 80px; height: 80px; }
+  .landing-pitch { top: -20px; height: 120px; }
+  .landing-pitch::before { width: 120px; height: 120px; box-shadow: 0 0 0 24px rgba(255,255,255,.012), 0 0 60px rgba(var(--red-rgb), .08) inset; }
+  .landing-pitch::after { top: 60px; }
+  .lp-line { max-width: 56px; }
 }
 
 .auth-card {

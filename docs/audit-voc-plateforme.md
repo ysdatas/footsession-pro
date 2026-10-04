@@ -29,6 +29,10 @@ téléphone**. « Ça marche » ne suffisait pas.
 - **Problème :** l'équipe de travail n'apparaissait que dans le sélecteur du menu.
 - **Solution :** chaque page affiche « Le Mans FC · N2 » (ou « Toutes les équipes ») au-dessus du titre.
 
+**« Les informations du joueur prennent toute une colonne »** (retour du 4 octobre)
+- **Problème :** la carte « Informations » occupait une colonne entière sous l'en-tête, et une carte « Présence » s'y ajoutait.
+- **Solution :** l'essentiel est affiché **à côté du nom** : « 1,80 m | 73,8 kg | MC ». Équipe, ligne, âge, pied et statut suivent sur une ligne discrète, et les traits ne s'affichent qu'entre deux valeurs. « Modifier » ouvre la fiche en fenêtre. Les présences sont retirées de la rubrique Joueurs.
+
 **« Je cherche un joueur, je vois des cartes »**
 - **Problème :** une carte par joueur, avec les informations sous le nom. Peu de joueurs par écran, rien de comparable d'un coup d'œil.
 - **Solution :** une ligne par joueur. Le nom est à gauche ; **taille — poids — poste** sont à droite, séparés par de fins traits (dernière mesure connue, rien d'inventé). On peut rechercher par nom et filtrer par poste. Pas de présence dans la liste, pas de « Poste non renseigné ».
@@ -109,27 +113,20 @@ téléphone**. « Ça marche » ne suffisait pas.
 ### Administrateur
 
 **« Mes réglages sont loin »**
-- **Solution :** un clic sur son nom, en bas du menu, ouvre :
-  - son compte et son mot de passe ;
-  - son menu ;
-  - les préférences du tableau tactique ;
-  - Mon club ;
-  - l'aide ;
-  - la déconnexion.
-  Le menu se ferme avec Échap ou par un clic à côté, et se navigue aux flèches. L'icône de déconnexion isolée disparaît ; le nom et la fonction s'affichent en entier.
+- **Solution :** « Paramètres » n'est plus une rubrique du menu. Un clic sur son nom, en bas du menu, propose ce seul lien (retour du 4 octobre : rien d'autre, tout est déjà dans Paramètres).
+- La déconnexion reste l'icône à côté du nom.
+- La fonction s'écrit en casse normale (« Administrateur ») pour tenir sans couper le mot.
 
 **« Donner le bon rôle »**
 - **Solution :** « Préparateur physique » est proposé dans « Donner un accès » et dans la liste des membres.
 
 ### Landing (première impression)
 
-- **Problème :** le blason et « LMFC Performance » étaient à gauche et la connexion à droite. La page restait asymétrique et ressemblait à un modèle générique.
-- **Solution :** une composition centrée.
-  - Le blason est posé sur le rond central et la ligne médiane d'un terrain, en filigrane.
-  - « **LE MANS FC** » est affiché en très grand, avec « FC » en or.
-  - En dessous : « LMFC Performance », puis FOOTBALL · PERFORMANCE · ANALYSE.
-  - Les halos rouge et or sont symétriques, et la connexion vient dessous.
-  - Le clavier ne s'ouvre plus tout seul sur téléphone (pas d'`autofocus`).
+- **Problème :** une première version mettait « LE MANS FC » en très grand avec des mots-slogans (FOOTBALL · PERFORMANCE · ANALYSE). Retour du 4 octobre : trop marketing, trop « fait par une IA » pour un outil interne au club.
+- **Solution :** une page sobre.
+  - Le blason, « LMFC Performance » et « Le Mans FC » en petit, puis la connexion.
+  - Le fond aux halos rouge et or est conservé, sans slogan, sans phrase d'accroche.
+  - Le clavier ne s'ouvre pas tout seul sur téléphone (pas d'`autofocus`).
 
 ---
 
@@ -191,3 +188,114 @@ téléphone**. « Ça marche » ne suffisait pas.
 - **Anciennes préventions :**
   - Celles visibles par le joueur sont reprises par `lmfc_v4.sql`.
   - Celles marquées « staff uniquement » restent dans `player_programs`, non affichées.
+
+---
+
+## 5. Passe du 4 octobre (29 points) — constats et corrections
+
+### Vidéos : diagnostic avant correction
+
+Symptômes en ligne : « Vidéo introuvable dans le stockage » (staff), « Impossible de charger la
+vidéo (Erreur du serveur vidéo.) » (joueur), alors que l'envoi aboutissait.
+
+| Vérification | Résultat |
+|---|---|
+| Lien de lecture expiré envoyé au Worker en ligne | 403 « expiré ou invalide » : routage, Worker et contrôle d'échéance fonctionnent |
+| Même lien, échéance future | **500** : le Worker plante au moment de vérifier la signature |
+| Code de la signature (`hmacKey`) | lève une erreur quand `VIDEO_URL_SECRET` est absent ou vide |
+| Envoi (PUT) | n'utilise pas le secret : c'est pour ça qu'il marchait |
+| Supabase (RLS `player_videos`, ligne créée) | correct : la vidéo « FFFF » est bien listée |
+
+**Cause :** configuration Cloudflare. Le secret `VIDEO_URL_SECRET` manque sur le Worker en ligne.
+Ce n'est ni le code, ni Supabase, ni R2, ni un push manquant. Cause probable : une variable
+ajoutée en type « Text » dans le tableau de bord, que chaque `wrangler deploy` remplace par les
+`vars` du fichier.
+
+**Corrections dans le code :**
+- le Worker répond 503 avec la marche à suivre au lieu d'une « erreur du serveur » ;
+- les pages affichent la vraie cause au lieu de « introuvable » ;
+- `keep_vars` est ajouté dans `wrangler.jsonc`.
+
+**Reste à faire par l'administrateur :** ajouter le secret, en type **Secret**.
+
+### Coach
+
+| Retour | Correction |
+|---|---|
+| « Je vais voir la FAQ, je reviens sur Performance : je repars de zéro. » | Mémoire de navigation : même joueur, même onglet, mêmes filtres, même hauteur ; « ← Joueurs » retrouve la liste filtrée. |
+| « J'ai supprimé une séance par erreur. » | Corbeille : la séance revient avec ses exercices, schémas, présences et commentaires. |
+| « Cocher 30 séquences une par une. » | « Tout sélectionner », « Sélection du joueur », « Tout désélectionner » ; téléchargement des vidéos d'origine depuis la compilation. |
+| « Le PDF fait document généré : bandeaux noirs, trait doré sous le logo, mention en bas à gauche. » | Nouvelle composition commune (voir ci-dessous). |
+
+### Préparateur physique
+
+| Retour | Correction |
+|---|---|
+| « Dans l'import Excel, tout cocher m'oblige à refaire un par un ce qui est à confirmer. » | « Tout sélectionner » coche les joueurs reconnus, jamais un rapprochement à confirmer (homonyme, prénom différent). |
+| « La fiche PDF commence en bas de la page 1 et perd les objectifs. » | Le PDF ne dépend plus de la position dans la page ; aucune rubrique n'est perdue (vérifié avec 16 clubs et 12 objectifs aux textes longs). |
+| « Les préventions ne sont pas dans le PDF. » | Rubrique « Préventions » ajoutée à l'export. |
+
+### Joueur
+
+- Accueil, Performance, Vidéos et Objectifs ont le même menu et le même en-tête (« Bonjour, Prénom »).
+- La couleur du club s'applique aussi à son espace.
+- Il ne voit pas la corbeille : la base la lui refuse.
+
+### Administrateur
+
+| Retour | Correction |
+|---|---|
+| « Je choisis une couleur, rien ne change. » | La couleur s'applique aussitôt à toute l'interface et aux PDF. Elle est enregistrée dans `clubs.color`, relue à chaque page et à chaque connexion, sans rien à valider. La chaîne complète a été vérifiée, y compris avec le cache du navigateur vidé. |
+| « Paramètres encombre le menu. » | Un clic sur le nom en bas du menu propose seulement « Paramètres ». |
+
+### Landing
+
+- Retirés : le nom du club en très grand, le slogan marketing, « Football / Analyse / Performance ».
+- Gardés : les halos rouge et or, le rond central du terrain et la ligne médiane fine derrière le blason, les filets autour de « LMFC Performance ».
+- La devise « Tous acteurs pour réussir » apparaît en petites capitales discrètes sous la connexion.
+
+### Exports PDF : audit et nouvelle composition
+
+Les 5 exports ont été générés avec peu de données, beaucoup de données, des textes longs, un nom très long et des images, puis relus page par page.
+
+| Défaut trouvé | Où | Correction |
+|---|---|---|
+| Page 1 presque vide : le contenu est décalé de la hauteur défilée | Fiche Performance | Génération en texte vectoriel, indépendante de l'écran |
+| Rubriques de fin perdues (objectifs, mi-saison) | Fiche Performance | Pagination maîtrisée ; un bloc ne se coupe pas |
+| Texte coupé à droite, en-têtes de tableau décalés | Fiche Performance | Tableaux aux colonnes calculées, chiffres alignés à droite |
+| Texte d'exercice tronqué en silence | Séance | La suite passe sur une page de suite |
+| Titre long coupé (« …MONTG ») | Toutes | La taille du titre baisse, le texte reste entier |
+| Images non JPEG/PNG absentes (WebP, SVG) | Fiche Performance | Toute image est redessinée en JPEG ou PNG |
+| Signe « − » illisible dans les polices PDF | Toutes | Caractères hors police remplacés |
+| Bilan de 9,6 Mo, capture de l'écran sombre | Bilan | Graphiques redessinés pour le papier, en JPEG : 99 Ko ; graphiques vides signalés au lieu d'être imprimés |
+
+**Composition (`pdf-kit.js`) :**
+- en-tête sur panneau clair : blason, rubrique du club, titre, faits clés à droite ;
+- rubriques numérotées ;
+- tableaux légers dont l'en-tête se répète sur la page suivante ;
+- chiffres clés et radar vectoriel ;
+- numéro de page seul en pied de page.
+
+**Supprimés :** le filet sous le logo, les bandeaux noirs, la mention technique en bas à gauche.
+
+### QA mobile de cette passe
+
+- **Pages testées :** 22 pages, avec les rôles admin, coach, préparateur et joueur.
+- **Tailles :** 320 × 640, 375 × 812, 812 × 375, 768 × 1024, 1366 × 800, avec 47 joueurs.
+- **Débordement horizontal :** aucun, sur toutes les pages et à toutes les tailles.
+- **Petites cibles :** celles relevées à la souris font 30 px ; sur écran tactile, elles passent à 40-44 px (`pointer: coarse`).
+- **Sélection multiple sur petit téléphone :** les deux boutons tiennent côte à côte.
+- **Tableau tactique au doigt, sur 375 px :**
+  - sélectionner un pion ;
+  - lui mettre le maillot du club ;
+  - écrire un nom ;
+  - le placer en haut à droite.
+
+  Aucun défilement horizontal. Le pincement agit sur l'élément, pas sur la page. Le double appui ne zoome pas.
+
+### Limites de cette passe
+
+- **La corbeille ne se vide pas toute seule.** Les vidéos et les images restent dans le stockage jusqu'à la suppression définitive.
+- **La restauration d'une séquence en reprend le contenu.** La date « modifiée le » est recalculée par la base.
+- **La compilation se fabrique dans le navigateur.** Il faut garder l'onglet ouvert, pendant une durée égale à celle des séquences.
+- **Les gestes ont été vérifiés en émulation.** Un essai sur un vrai iPhone reste conseillé après le déploiement.

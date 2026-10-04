@@ -687,7 +687,7 @@ async function saveCareer() {
 
 async function deleteCareer() {
   const id = Number(document.getElementById('c-id').value) || null;
-  if (!id || !canEditPlayer || !confirm('Retirer ce club du parcours ?')) return;
+  if (!id || !canEditPlayer || !confirm(`Retirer ce club du parcours ?${await trashNote()}`)) return;
   const { error } = await sb.from('player_career').delete().eq('id', id);
   if (error) return notify(error.message, 'error');
   closePerfModal('careerModal');
@@ -879,7 +879,7 @@ async function loadPage() {
       { message: `Aucune fiche lisible pour l'id ${playerId}. Si tu es joueur, vérifie que ton compte est bien associé à une fiche (policy players_read_self).` });
   }
   player = p;
-  if (ctxProfile.role === 'joueur') setPlayerShellUser(player, ctxProfile.clubs?.nom);
+  if (ctxProfile.role === 'joueur') setPlayerShellUser(player);
 
   const [[mRes, tRes], notesError] = await Promise.all([
     fetchPhysical(),

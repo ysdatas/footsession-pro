@@ -66,6 +66,9 @@ async function requireAuth(opts = {}) {
 
   window.CURRENT_USER = session.user;
   window.CURRENT_PROFILE = profile;
+  // Couleur du club relue à chaque page : un changement fait par
+  // l'administrateur arrive chez tout le monde (theme.js).
+  if (typeof applyClubColor === 'function' && profile.clubs) applyClubColor(profile.clubs.color);
 
   // Menu, équipes et pages réservées à certains rôles (nav.js, pages staff).
   if (profile.role !== 'joueur' && typeof navGuard === 'function') {
@@ -94,6 +97,7 @@ async function claimClubAccess() {
 }
 
 async function logout() {
+  if (typeof clearNavMemory === 'function') clearNavMemory();
   await sb.auth.signOut();
   window.location.href = 'index.html';
 }

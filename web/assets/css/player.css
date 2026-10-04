@@ -11,7 +11,6 @@
 .fiche-photo { object-fit: cover; border: 1px solid var(--border); }
 .fiche-hero-text { flex: 1; min-width: 200px; }
 .fiche-hero-text h1 { margin: 0; font-size: var(--fs-2xl); letter-spacing: -.02em; }
-.fiche-sub { margin: 4px 0 0; color: var(--gold); font-weight: 600; font-size: var(--fs-md); }
 .fiche-facts { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; }
 .fiche-facts:empty { display: none; }
 /* Séparés par un trait vertical, pas enfermés dans des bulles. */
@@ -20,7 +19,7 @@
 .fiche-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Mise en page : informations à gauche, cartes à droite */
-.fiche-layout { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.fiche-layout { display: block; }
 .fiche-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .fiche-layout .card, .fiche-grid .card { margin: 0; }
 .fiche-grid .fiche-wide { grid-column: 1 / -1; }
@@ -38,13 +37,6 @@
 .fiche-head-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .fiche-link:hover { color: var(--gold); }
 .fiche-when { font-size: var(--fs-sm); color: var(--text-secondary); }
-
-/* Informations : lecture */
-.fiche-dl { display: grid; grid-template-columns: auto 1fr; gap: 0; margin: 0; }
-.fiche-dl dt, .fiche-dl dd { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-md); }
-.fiche-dl dt { color: var(--text-secondary); padding-right: 16px; }
-.fiche-dl dd { margin: 0; text-align: right; font-weight: 600; }
-.fiche-dl dt:nth-last-of-type(1), .fiche-dl dd:last-child { border-bottom: 0; }
 
 /* Informations : édition */
 .fiche-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
@@ -101,31 +93,33 @@
 .terrain-block .note-grid { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 760px) { .terrain-cols { grid-template-columns: minmax(0, 1fr); } }
 
-/* Colonne de gauche : informations puis présence. */
-.fiche-side { display: grid; gap: 16px; align-content: start; min-width: 0; }
 .fiche-hero.hero-surface { padding: 22px 24px; background: var(--hero-bg); }
 .fiche-hero .hero-kicker { margin-bottom: 2px; }
 .fiche-hero-text h1 { font-weight: 800; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .fiche-actions { position: relative; z-index: 1; }
 
-/* Présence : pourcentage, compte, dernières séances. */
-.presence-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.presence-main strong { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--gold); }
-.presence-main span { color: var(--text-secondary); font-size: var(--fs-md); }
-.presence-bar { height: 6px; margin: 12px 0; border-radius: 999px; background: var(--bg-surface); overflow: hidden; }
-.presence-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--red), var(--gold)); }
-.presence-last { display: flex; flex-wrap: wrap; gap: 6px; }
-.presence-last span {
-  display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 8px;
-  font-size: var(--fs-xs); font-weight: 700; border: 1px solid var(--border); color: var(--text-secondary);
-}
-.presence-last span.is-in { color: #0A0A0A; background: var(--gold); border-color: var(--gold); }
-.presence-last span.is-out { color: #FF8A96; border-color: rgba(var(--red-rgb), .45); background: rgba(var(--red-rgb), .1); }
-.presence-legend { margin: 8px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 @media (max-width: 560px) {
   .fiche-hero.hero-surface { padding: 18px 16px; gap: 14px; }
   .fiche-hero-text h1 { font-size: 1.45rem; line-height: 1.2; }
   .fiche-avatar, .fiche-photo { width: 60px; height: 60px; flex-basis: 60px; border-radius: 14px; font-size: var(--fs-xl); }
   .fiche-actions { width: 100%; }
   .fiche-actions .btn { flex: 1 1 0; justify-content: center; }
+}
+
+/* L'essentiel à côté du nom : taille — poids — poste, puis une ligne discrète.
+   Séparateurs entre les valeurs seulement : le trait d'une valeur qui ouvre
+   une ligne est rogné (marge négative + overflow), jamais affiché seul. */
+.fiche-title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.fiche-title-row h1 { margin: 0; }
+.fiche-key, .fiche-hero .fiche-facts { display: flex; flex-wrap: wrap; align-items: baseline; margin: 0 0 0 -11px; overflow: hidden; }
+.fiche-key:empty, .fiche-hero .fiche-facts:empty { display: none; }
+.fiche-key > span, .fiche-hero .fiche-facts > span {
+  margin: 0 0 0 -1px; padding: 0 11px; border-left: 1px solid rgba(255,255,255,.18); line-height: 1.3;
+}
+.fiche-key { font-size: var(--fs-lg); font-weight: 700; font-variant-numeric: tabular-nums; }
+.fiche-key span:last-child { color: var(--gold); }
+.fiche-hero .fiche-facts { margin-top: 6px; row-gap: 2px; }
+.fiche-hero .fiche-facts > span, .fiche-hero .fiche-facts > span + span { font-size: var(--fs-sm); font-weight: 500; color: var(--text-secondary); border-left-color: rgba(255,255,255,.12); }
+@media (max-width: 560px) {
+  .fiche-key { font-size: var(--fs-md); }
 }

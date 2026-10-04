@@ -43,14 +43,6 @@ const DEFAULT_PREFS = {
   makeSortable(document.getElementById('menuEditor'), { onChange: saveMenu });
   // Le tableau tactique est un outil du staff terrain (admin, coach).
   document.getElementById('tableau').classList.toggle('hidden', !canEdit(myProfile.role));
-  // Arrivée par le menu du profil (#compte, #menu…) : la carte visée s'éclaire.
-  const showTarget = () => {
-    const target = /^#[a-z-]+$/.test(location.hash) && document.querySelector(`.anchor-card${location.hash}`);
-    document.querySelectorAll('.anchor-card.is-target').forEach(c => c.classList.remove('is-target'));
-    if (target) { target.scrollIntoView({ block: 'start' }); target.classList.add('is-target'); }
-  };
-  showTarget();
-  window.addEventListener('hashchange', showTarget);
 
   fillPrefs(await loadPrefs());
 
@@ -116,11 +108,22 @@ function renderMenuEditor(prefs) {
   list.innerHTML = orderedNavItems(myProfile.role, prefs).map(item => `
     <li data-key="${item.key}" class="${item.hidden ? 'is-hidden' : ''}">
       ${dragHandle(item.label)}
-      <label><input type="checkbox" ${item.hidden ? '' : 'checked'} ${item.fixed ? 'disabled' : ''}>
-        ${escapeHtml(item.label)}${item.fixed ? ' <span class="text-muted">(toujours affiché)</span>' : ''}</label>
+      <label><input type="checkbox" ${item.hidden ? '' : 'checked'}>
+        ${escapeHtml(item.label)}</label>
     </li>`).join('');
 }
 
+/* Tout afficher / tout masquer en un enregistrement. L'accueil reste
+   toujours visible : un menu vide ne mènerait plus nulle part. */
+document.getElementById('menuSelect').addEventListener('select-all', (e) => {
+  e.preventDefault();
+  document.querySelectorAll('#menuEditor li').forEach(li => {
+    const on = e.detail.on || li.dataset.key === 'dashboard';
+    li.querySelector('input').checked = on;
+    li.classList.toggle('is-hidden', !on);
+  });
+  saveMenu();
+});
 document.getElementById('menuEditor').addEventListener('change', (e) => {
   e.target.closest('li')?.classList.toggle('is-hidden', !e.target.checked);
   saveMenu();

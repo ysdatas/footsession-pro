@@ -156,6 +156,8 @@ document.addEventListener('DOMContentLoaded', bindSidebarToggle);
    continuent d'écouter ses événements input/change et de lire .value. */
 const COLOR_PALETTE = ['#C9A84C', '#E03131', '#F76707', '#FAB005', '#2F9E44', '#1098AD', '#1F6FEB', '#7048E8', '#F1F3F5', '#212529'];
 const COLOR_NAMES = ['Or', 'Rouge', 'Orange', 'Jaune', 'Vert', 'Turquoise', 'Bleu', 'Violet', 'Blanc', 'Noir'];
+const CLUB_PALETTE = [['#E8B20E', 'Or LMFC'], ['#C8102E', 'Rouge LMFC'], ['#F76707', 'Orange'], ['#2F9E44', 'Vert'],
+  ['#1098AD', 'Turquoise'], ['#1F6FEB', 'Bleu'], ['#7048E8', 'Violet'], ['#F1F3F5', 'Blanc']];
 
 function enhanceColorInputs(root = document) {
   $$('input[type="color"]:not([data-enhanced])', root).forEach(input => {
@@ -167,10 +169,14 @@ function enhanceColorInputs(root = document) {
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
     };
-    // data-palette="compact" : les couleurs essentielles, pour les barres flottantes.
-    const keep = input.dataset.palette === 'compact' ? [1, 3, 4, 6, 8, 9] : COLOR_PALETTE.map((_, i) => i);
-    COLOR_PALETTE.forEach((c, i) => keep.includes(i) && wrap.append(el('button', {
-      type: 'button', class: 'sw', role: 'radio', title: COLOR_NAMES[i], 'aria-label': COLOR_NAMES[i],
+    // data-palette="compact" : les couleurs essentielles, pour les barres flottantes ;
+    // data-palette="club" : l'or et le rouge du blason en tête (couleur du club).
+    const club = input.dataset.palette === 'club';
+    const colors = club ? CLUB_PALETTE.map(([c]) => c) : COLOR_PALETTE;
+    const names = club ? CLUB_PALETTE.map(([, n]) => n) : COLOR_NAMES;
+    const keep = input.dataset.palette === 'compact' ? [1, 3, 4, 6, 8, 9] : colors.map((_, i) => i);
+    colors.forEach((c, i) => keep.includes(i) && wrap.append(el('button', {
+      type: 'button', class: 'sw', role: 'radio', title: names[i], 'aria-label': names[i],
       style: `background:${c}`, dataset: { color: c.toLowerCase() }, onclick: () => set(c),
     })));
     const custom = el('button', { type: 'button', class: 'sw sw-custom', title: 'Autre couleur', 'aria-label': 'Autre couleur',
@@ -197,3 +203,142 @@ function enhanceColorInputs(root = document) {
   });
 }
 enhanceColorInputs();
+
+/* ---------- Mémoire de navigation ----------
+   On revient là où on était. Chaque page retient sa dernière adresse
+   (fiche, onglet : ?id=, ?tab=…), ses champs marqués data-remember
+   (recherche, filtres) et sa position dans la page. Le menu ouvre la
+   dernière page vue de chaque rubrique ; les liens data-back
+   (« ← Joueurs ») la dernière adresse de leur page. Mémoire de
+   l'onglet du navigateur (sessionStorage), vidée à la déconnexion. */
+const NAV_MEM = 'lmfc-nav';
+const memRead = () => { try { return JSON.parse(sessionStorage.getItem(NAV_MEM)) || {}; } catch { return {}; } };
+const memWrite = (m) => { try { sessionStorage.setItem(NAV_MEM, JSON.stringify(m)); } catch { /* stockage bloqué : pas de mémoire */ } };
+const pageOf = (href) => (String(href).split(/[?#]/)[0].split('/').pop() || 'index').replace(/\.html$/i, '') || 'index';
+const PAGE = pageOf(location.pathname);
+const hereUrl = () => `${location.pathname.split('/').pop() || 'index.html'}${location.search}${location.hash}`;
+
+function pageState() { return memRead().state?.[PAGE] || {}; }
+function savePageState(patch) {
+  const m = memRead();
+  m.state = { ...m.state, [PAGE]: { ...m.state?.[PAGE], ...patch } };
+  memWrite(m);
+}
+function rememberUrl() {
+  const m = memRead();
+  m.url = { ...m.url, [PAGE]: { u: hereUrl(), t: Date.now() } };
+  memWrite(m);
+}
+/* Dernière adresse connue d'une page (ou null), et la plus récente
+   d'une liste de pages (une rubrique et ses pages filles). */
+const lastUrl = (page) => memRead().url?.[page]?.u || null;
+function latestUrl(pages) {
+  const urls = memRead().url || {};
+  const best = pages.map(p => urls[p]).filter(Boolean).sort((a, b) => b.t - a.t)[0];
+  return best?.u || null;
+}
+function clearNavMemory() { try { sessionStorage.removeItem(NAV_MEM); } catch { /* rien à vider */ } }
+
+['pushState', 'replaceState'].forEach(fn => {
+  const orig = history[fn].bind(history);
+  history[fn] = (...args) => { const r = orig(...args); rememberUrl(); return r; };
+});
+rememberUrl();
+
+/* Champs data-remember : valeur reprise au retour. Une liste remplie
+   plus tard (options chargées) se rappelle avec restoreRemembered(). */
+function restoreRemembered(root = document) {
+  const fields = pageState().fields || {};
+  $$('[data-remember]', root).forEach(c => {
+    if (!c.id || !(c.id in fields)) return;
+    const v = fields[c.id];
+    if (c.type === 'checkbox') c.checked = !!v;
+    else if (c.tagName !== 'SELECT' || [...c.options].some(o => o.value === v)) c.value = v;
+  });
+}
+const saveField = (e) => {
+  const c = e.target.closest?.('[data-remember]');
+  if (!c?.id) return;
+  savePageState({ fields: { ...pageState().fields, [c.id]: c.type === 'checkbox' ? c.checked : c.value } });
+};
+document.addEventListener('input', saveField);
+document.addEventListener('change', saveField);
+/* Questions ouvertes d'une liste <details> (FAQ) : [data-remember-open]. */
+document.addEventListener('toggle', (e) => {
+  const box = e.target.closest?.('[data-remember-open]');
+  if (!box || e.target.tagName !== 'DETAILS') return;
+  savePageState({ open: $$('details', box).flatMap((d, i) => (d.open ? [i] : [])) });
+}, true);
+function restoreOpenDetails() {
+  const open = pageState().open || [];
+  $$('[data-remember-open]').forEach(box => $$('details', box).forEach((d, i) => { if (open.includes(i)) d.open = true; }));
+}
+restoreRemembered();
+restoreOpenDetails();
+
+/* Position dans la page : retenue en partant, reprise quand on revient
+   par le menu ou un lien de retour (le contenu arrive en différé : on
+   attend qu'il soit assez haut, 4 s au plus, sans lutter contre un
+   défilement de l'utilisateur). */
+addEventListener('pagehide', () => {
+  const m = memRead();
+  m.scroll = { ...m.scroll, [hereUrl()]: Math.round(scrollY) };
+  const keys = Object.keys(m.scroll);
+  if (keys.length > 40) keys.slice(0, keys.length - 40).forEach(k => delete m.scroll[k]);
+  memWrite(m);
+});
+(() => {
+  const m = memRead();
+  if (m.restore !== hereUrl()) return;
+  delete m.restore; memWrite(m);
+  const y = m.scroll?.[hereUrl()];
+  if (!y) return;
+  const until = Date.now() + 4000;
+  let stop = false;
+  const cancel = () => { stop = true; };
+  ['wheel', 'touchstart', 'keydown'].forEach(t => addEventListener(t, cancel, { once: true, passive: true }));
+  const tick = () => {
+    if (stop) return;
+    if (document.documentElement.scrollHeight - innerHeight >= y) return scrollTo(0, y);
+    if (Date.now() < until) setTimeout(tick, 60);
+  };
+  setTimeout(tick, 0);
+})();
+
+/* Liens à mémoire : data-mem="rubrique" (menu, résolu par
+   window.resolveNavHref) ou data-back (dernière adresse de la page
+   visée). Clic du milieu ou Cmd/Ctrl : lien normal. */
+document.addEventListener('click', (e) => {
+  const a = e.target.closest?.('a[data-mem], a[data-back]');
+  if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const url = a.dataset.mem ? window.resolveNavHref?.(a.dataset.mem) : lastUrl(pageOf(a.getAttribute('href')));
+  if (!url) return;
+  e.preventDefault();
+  const m = memRead(); m.restore = url; memWrite(m);
+  location.href = url;
+});
+
+/* ---------- Sélection multiple : Tout sélectionner / Tout désélectionner ----------
+   selectAllHtml() se pose au-dessus de toute liste à cocher, dans un
+   conteneur [data-select-scope] (ou data-select-scope="#autre" pour
+   viser une liste ailleurs). Par défaut, les cases visibles et actives
+   de la liste sont cochées une à une, avec leur événement change :
+   le code de la page n'a rien à savoir. Une page qui tient sa sélection
+   autrement écoute l'événement « select-all » (detail.on) sur le
+   conteneur et appelle preventDefault(). */
+const selectAllHtml = (extra = '') => `<div class="select-all" role="group" aria-label="Sélection">
+  <button type="button" class="btn btn-sm" data-select-all="1">Tout sélectionner</button>
+  <button type="button" class="btn btn-sm" data-select-all="0">Tout désélectionner</button>${extra}</div>`;
+document.addEventListener('click', (e) => {
+  const b = e.target.closest?.('[data-select-all]');
+  if (!b) return;
+  const host = b.closest('[data-select-scope]');
+  if (!host) return;
+  const on = b.dataset.selectAll === '1';
+  const target = host.dataset.selectScope ? document.querySelector(host.dataset.selectScope) : host;
+  const evt = new CustomEvent('select-all', { detail: { on }, cancelable: true });
+  if (!host.dispatchEvent(evt) || !target) return;
+  $$('input[type="checkbox"]', target)
+    .filter(c => !c.disabled && c.checked !== on && !c.closest('.select-all, .hidden, [hidden]') && c.getClientRects().length)
+    .forEach(c => { c.checked = on; c.dispatchEvent(new Event('change', { bubbles: true })); });
+});

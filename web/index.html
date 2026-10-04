@@ -11,22 +11,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/auth.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="auth">
   <main class="landing">
-  <section class="landing-hero" aria-labelledby="landingTitle">
+  <header class="landing-hero">
     <div class="landing-pitch" aria-hidden="true"></div>
-    <img class="landing-crest" src="assets/img/lmfc-logo.png" alt="Blason du Le Mans FC" width="148" height="148">
-    <h1 class="landing-title" id="landingTitle"><span class="lt-club">Le Mans</span> <span class="lt-fc">FC</span></h1>
-    <p class="landing-product"><span class="lp-line" aria-hidden="true"></span>LMFC <span class="brand-pro">Performance</span><span class="lp-line" aria-hidden="true"></span></p>
-    <ul class="landing-pillars" aria-label="Ce que fait la plateforme">
-      <li>Football</li><li>Performance</li><li>Analyse</li>
-    </ul>
-    <p class="landing-lead">La plateforme du staff et des joueurs du club : séances, données physiques, objectifs et vidéo, au même endroit.</p>
-  </section>
+    <img class="landing-crest" src="assets/img/lmfc-logo.png" alt="Blason du Le Mans FC" width="96" height="96">
+    <h1 class="landing-brand"><span class="lp-line" aria-hidden="true"></span><span>LMFC <span class="brand-pro">Performance</span></span><span class="lp-line" aria-hidden="true"></span></h1>
+    <p class="landing-club">Le Mans FC</p>
+  </header>
   <div class="auth-card">
     <h2 class="auth-title">Connexion</h2>
-    <div class="auth-sub" id="authSub">Staff et joueurs du Le Mans FC</div>
+    <div class="auth-sub" id="authSub">Staff et joueurs</div>
 
     <div id="authError" class="auth-error hidden"></div>
     <div id="authOk" class="auth-ok hidden"></div>
@@ -66,6 +63,7 @@
       <a href="#" id="toggleMode">Pas encore de compte ? Créer un compte</a>
     </div>
   </div>
+  <p class="landing-motto">Tous acteurs pour réussir</p>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -91,7 +89,7 @@
       loginForm.classList.toggle('hidden', mode !== 'login');
       signupForm.classList.toggle('hidden', mode !== 'signup');
       toggleLink.textContent = mode === 'login' ? 'Pas encore de compte ? Créer un compte' : 'Déjà un compte ? Se connecter';
-      sub.textContent = mode === 'login' ? 'Staff et joueurs du Le Mans FC' : 'Créer mon compte';
+      sub.textContent = mode === 'login' ? 'Staff et joueurs' : 'Avec l’adresse enregistrée par le club';
       document.querySelector('.auth-title').textContent = mode === 'login' ? 'Connexion' : 'Créer mon compte';
     });
 
@@ -102,6 +100,7 @@
       const password = document.getElementById('l-password').value;
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) return showError('Identifiants incorrects ou compte inexistant.');
+      try { sessionStorage.removeItem('lmfc-nav'); } catch { /* mémoire de navigation (app.js) */ }
       await goHome();
     });
 

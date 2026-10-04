@@ -23,6 +23,9 @@ const MAX_PATHS = 100;
 const KEY_RE = /^r2\/(\d+)\/\d+\/\d+\.[a-zA-Z0-9]{1,8}$/;
 
 const fail = (status, error) => Response.json({ error }, { status });
+/* Réglage Cloudflare manquant : dit clairement quoi corriger au lieu
+   d'une « erreur du serveur » sans indice. */
+class ConfigError extends Error {}
 const tokenOf = (req) => (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
 
 export default {
@@ -42,6 +45,7 @@ export default {
       }
     } catch (e) {
       console.error('Worker vidéos :', request.method, url.pathname, e);
+      if (e instanceof ConfigError) return fail(503, e.message);
       return fail(500, 'Erreur du serveur vidéo.');
     }
   },
@@ -67,7 +71,9 @@ async function canManage(request, env, key) {
 
 /* ---------- Liens signés (HMAC-SHA256 du chemin et de l'échéance) ---------- */
 async function hmacKey(env) {
-  if (!env.VIDEO_URL_SECRET) throw new Error('Secret VIDEO_URL_SECRET absent (Workers > Settings > Variables and Secrets).');
+  if (!env.VIDEO_URL_SECRET) {
+    throw new ConfigError('Serveur vidéo incomplet : secret VIDEO_URL_SECRET absent sur Cloudflare (Workers > footsession-pro > Settings > Variables and Secrets, type « Secret »).');
+  }
   return crypto.subtle.importKey('raw', new TextEncoder().encode(env.VIDEO_URL_SECRET),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
@@ -119,6 +125,11 @@ async function read(request, env, key, url) {
   h.set('etag', obj.httpEtag);
   h.set('accept-ranges', 'bytes');
   h.set('cache-control', 'private, max-age=3600');
+  // ?dl=1 : téléchargement du fichier d'origine (compilation, staff), nom lisible.
+  if (url.searchParams.get('dl')) {
+    const name = (url.searchParams.get('n') || 'video').replace(/[^\w.-]+/g, '-').slice(0, 80);
+    h.set('content-disposition', `attachment; filename="${name}.${key.split('.').pop()}"`);
+  }
   if (ranged && obj.range) {
     const r = obj.range;
     const offset = 'suffix' in r ? obj.size - r.suffix : (r.offset ?? 0);

@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/players.css">
   <link rel="stylesheet" href="assets/css/player.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -25,7 +26,7 @@
     </div>
   </aside>
   <main class="main fiche">
-    <a class="back-link" href="players.html">← Joueurs</a>
+    <a class="back-link" href="players.html" data-back>← Joueurs</a>
 
     <section class="card fiche-hero hero-surface has-crest">
       <button id="ficheAvatarBtn" class="fiche-avatar-btn" type="button" disabled aria-label="Photo du joueur">
@@ -35,47 +36,20 @@
       <input id="fichePhotoFile" type="file" accept="image/jpeg,image/png,image/webp" hidden>
       <div class="fiche-hero-text">
         <p class="hero-kicker" id="ficheKicker">Fiche joueur</p>
-        <h1 id="ficheName">Chargement…</h1>
-        <p class="fiche-sub" id="ficheSub"></p>
+        <div class="fiche-title-row">
+          <h1 id="ficheName">Chargement…</h1>
+          <p class="fiche-key" id="ficheKey"></p>
+        </div>
         <p class="fiche-facts" id="ficheFacts"></p>
       </div>
       <div class="fiche-actions">
+        <button class="btn hidden" id="btnEditInfo" type="button">Modifier</button>
         <a class="btn btn-primary" id="linkPerformance" href="#">Performance</a>
         <a class="btn hidden" id="linkVideos" href="#">Vidéos</a>
       </div>
     </section>
 
     <div class="fiche-layout">
-      <div class="fiche-side">
-      <section class="card fiche-info">
-        <div class="fiche-card-head">
-          <h3>Informations</h3>
-          <button class="btn btn-sm hidden" id="btnEditInfo" type="button">Modifier</button>
-        </div>
-        <dl class="fiche-dl" id="infoView"></dl>
-        <form id="infoForm" class="fiche-form hidden">
-          <label>Prénom<input name="prenom" autocomplete="off"></label>
-          <label>Nom<input name="nom" required autocomplete="off"></label>
-          <label>Poste<input name="poste" list="posteList" autocomplete="off"></label>
-          <label>Ligne<select name="ligne"><option value="">Selon le poste</option><option value="gardien">Gardien</option><option value="defenseur">Défenseur</option><option value="milieu">Milieu</option><option value="attaquant">Attaquant</option></select></label>
-          <label class="hidden" id="teamField">Équipe<select name="team_id"><option value="">Sans équipe</option></select></label>
-          <label>Date de naissance<input name="date_naissance" type="date"></label>
-          <label>Pied fort<select name="pied_fort"><option value="">—</option><option>Droit</option><option>Gauche</option><option>Les deux</option></select></label>
-          <label>Statut<input name="statut" list="statutList" autocomplete="off"></label>
-          <div class="fiche-form-actions">
-            <button class="btn btn-sm" id="btnCancelInfo" type="button">Annuler</button>
-            <button class="btn btn-primary btn-sm" type="submit">Enregistrer</button>
-          </div>
-        </form>
-        <datalist id="posteList"><option>GB</option><option>DC</option><option>DD</option><option>DG</option><option>MDF</option><option>MC</option><option>MO</option><option>AD</option><option>AG</option><option>BU</option></datalist>
-        <datalist id="statutList"><option>Pro</option><option>Aspirant</option><option>Stagiaire</option><option>Amateur</option></datalist>
-      </section>
-      <section class="card" id="presenceCard">
-        <div class="fiche-card-head"><h3>Présence</h3><span class="fiche-when" id="presenceWhen"></span></div>
-        <div id="presenceBox"><p class="text-muted">Chargement…</p></div>
-      </section>
-      </div>
-
       <div class="fiche-grid">
         <section class="card">
           <div class="fiche-card-head"><h3>Suivi physique</h3><a class="fiche-link" id="physLink" href="#">Tout voir →</a></div>
@@ -128,6 +102,28 @@
     </div>
   </main>
 
+
+  <div class="modal-backdrop" id="infoModal">
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+      <h3 id="infoModalTitle">Modifier la fiche</h3>
+      <form id="infoForm" class="fiche-form">
+        <label>Prénom<input name="prenom" autocomplete="off"></label>
+        <label>Nom<input name="nom" required autocomplete="off"></label>
+        <label>Poste<input name="poste" list="posteList" autocomplete="off"></label>
+        <label>Ligne<select name="ligne"><option value="">Selon le poste</option><option value="gardien">Gardien</option><option value="defenseur">Défenseur</option><option value="milieu">Milieu</option><option value="attaquant">Attaquant</option></select></label>
+        <label class="hidden" id="teamField">Équipe<select name="team_id"><option value="">Sans équipe</option></select></label>
+        <label>Date de naissance<input name="date_naissance" type="date"></label>
+        <label>Pied fort<select name="pied_fort"><option value="">—</option><option>Droit</option><option>Gauche</option><option>Les deux</option></select></label>
+        <label>Statut<input name="statut" list="statutList" autocomplete="off"></label>
+        <div class="modal-actions fiche-form-actions">
+          <button class="btn" type="button" data-close="infoModal">Annuler</button>
+          <button class="btn btn-primary" type="submit">Enregistrer</button>
+        </div>
+      </form>
+      <datalist id="posteList"><option>GB</option><option>DC</option><option>DD</option><option>DG</option><option>MDF</option><option>MC</option><option>MO</option><option>AD</option><option>AG</option><option>BU</option></datalist>
+      <datalist id="statutList"><option>Pro</option><option>Aspirant</option><option>Stagiaire</option><option>Amateur</option></datalist>
+    </div>
+  </div>
 
   <div class="modal-backdrop" id="programModal">
     <div class="modal modal-wide">

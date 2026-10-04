@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/tactical-board.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -247,6 +248,7 @@
         <div class="tb-palette-title" id="tbImgTitle">Image du pion</div>
         <button type="button" class="tb-imgmenu-btn" data-img="file"><svg class="ic"><use href="#i-download"/></svg>Importer une image (PNG, JPG)</button>
         <button type="button" class="tb-imgmenu-btn" data-img="photo"><svg class="ic"><use href="#i-image"/></svg>Photo d’un joueur du club</button>
+        <button type="button" class="tb-imgmenu-btn" data-img="jersey"><svg class="ic"><use href="#i-image"/></svg>Maillot du club (couleur du pion)</button>
         <div class="tb-imgmenu-players hidden" id="tbImgPlayers"></div>
         <div class="tb-imgmenu-seg" role="radiogroup" aria-label="Forme du pion">
           <button type="button" role="radio" data-fit="free">Libre (maillot)</button>
@@ -311,6 +313,7 @@
   <script src="assets/js/app.js"></script>
   <script src="assets/js/lightbox.js"></script>
   <script src="assets/js/tactical-board.js"></script>
+  <script src="assets/js/pdf-kit.js"></script>
   <script src="assets/js/tactical-board-ui.js"></script>
 </body>
 </html>

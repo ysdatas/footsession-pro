@@ -1,0 +1,41 @@
+/* ============================================================
+   LMFC Performance — trash.css (Corbeille)
+   ============================================================ */
+.trash-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 14px;
+  position: sticky; top: 0; z-index: 4; padding: 10px 0; background: var(--bg-primary);
+}
+.trash-toolbar select { width: auto; min-width: 200px; }
+.trash-toolbar .select-all { margin: 0; }
+.trash-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.trash-count { font-size: var(--fs-sm); color: var(--gold); font-weight: 600; }
+.trash-list { display: grid; gap: 8px; }
+.trash-row {
+  display: flex; align-items: center; gap: 14px; margin: 0; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card);
+  text-transform: none; letter-spacing: normal; font-size: var(--fs-md); font-weight: 400; color: var(--text-primary);
+  cursor: pointer; transition: border-color .15s;
+}
+.trash-row:hover { border-color: #3a3a3a; }
+.trash-row:has(input:checked) { border-color: var(--gold-border); background: rgba(var(--gold-rgb), .05); }
+.trash-row input { width: 18px; height: 18px; flex: 0 0 auto; margin: 0; accent-color: var(--gold); }
+.trash-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.trash-main strong { overflow-wrap: anywhere; }
+.trash-main small { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.4; }
+.trash-type { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+.trash-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.trash-empty {
+  padding: 28px 18px; text-align: center; color: var(--text-secondary);
+  border: 1px dashed var(--border); border-radius: var(--radius-md);
+}
+@media (max-width: 980px) { .trash-toolbar { top: 56px; } }   /* sous la barre du haut (layout.css) */
+@media (max-width: 640px) {
+  .trash-toolbar select { flex: 1 1 100%; min-width: 0; }
+  .trash-bulk { margin-left: 0; width: 100%; }
+  .trash-bulk .btn { flex: 1 1 auto; justify-content: center; }
+  .trash-count { flex: 1 1 100%; }
+  .trash-row { flex-wrap: wrap; align-items: flex-start; }
+  .trash-row input { margin-top: 3px; }
+  .trash-actions { width: 100%; padding-left: 32px; }
+  .trash-actions .btn { flex: 1 1 auto; justify-content: center; }
+}

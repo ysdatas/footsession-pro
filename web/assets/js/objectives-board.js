@@ -134,8 +134,8 @@ function mountObjectiveModal() {
         <div class="obj-picker">
           <div class="obj-picker-tools">
             <input id="objPlayerSearch" type="search" placeholder="Rechercher un joueur…" autocomplete="off">
-            <button class="btn btn-sm" type="button" data-obj-all>Tout cocher</button>
-            <button class="btn btn-sm" type="button" data-obj-none>Aucun</button>
+            <button class="btn btn-sm" type="button" data-obj-all>Tout sélectionner</button>
+            <button class="btn btn-sm" type="button" data-obj-none>Tout désélectionner</button>
           </div>
           <div id="objPlayerList" class="obj-picker-list" role="group" aria-label="Joueurs"></div>
         </div>
@@ -356,11 +356,11 @@ async function deleteObjective(id) {
   const r = objBoard.rows.find(x => x.id === id);
   if (!r) return;
   const files = (objBoard.media.get(id) || []).map(m => m.storage_path);
-  if (!confirm(`Supprimer « ${noteTitle(r)} » (${objKindLabel(r.kind).toLowerCase()}) de ${playerName(objPlayer(r.player_id))}${files.length ? ' et ses images' : ''} ? C’est définitif.`)) return;
+  if (!confirm(`Supprimer « ${noteTitle(r)} » (${objKindLabel(r.kind).toLowerCase()}) de ${playerName(objPlayer(r.player_id))}${files.length ? ' et ses images' : ''} ?${await trashNote()}`)) return;
   try {
     const { error } = await sb.from('player_performance_notes').delete().eq('id', id);
     if (error) throw error;
-    if (files.length) {
+    if (files.length && !(await trashReady())) {   // corbeille : images gardées
       const { error: sErr } = await sb.storage.from(NOTES_BUCKET).remove(files);
       if (sErr) console.warn('Images supprimées de la fiche mais pas du stockage', sErr);
     }

@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/session.css">
   <link rel="stylesheet" href="assets/css/dashboard.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -31,7 +32,7 @@
         <p class="subtitle" id="editorSubtitle">Renseignez les informations puis ajoutez vos procédés.</p>
       </div>
       <div class="page-actions">
-        <a class="btn" href="sessions.html">← Séances</a>
+        <a class="btn" href="sessions.html" data-back>← Séances</a>
         <button class="btn hidden" id="btnPdfFull" type="button" title="Fiche détaillée : une page par procédé avec schéma">PDF complet</button>
         <button class="btn hidden" id="btnPdfCoach" type="button" title="Tout sur une feuille, à distribuer avant la séance">Fiche coach</button>
         <button class="btn btn-primary" id="btnSave" type="button">Sauvegarder</button>
@@ -132,6 +133,7 @@
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/procedure-time.js"></script>
+  <script src="assets/js/pdf-kit.js"></script>
   <script src="assets/js/pdf-generator.js"></script>
   <script src="assets/js/pdf-coach.js"></script>
   <script src="assets/js/lightbox.js"></script>

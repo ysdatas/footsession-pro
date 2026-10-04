@@ -97,6 +97,7 @@ function fillPosteFilter() {
   select.innerHTML = '<option value="">Tous postes</option>'
     + postes.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
   select.value = postes.includes(current) ? current : '';
+  restoreRemembered(select.parentElement);   // filtre retenu (mémoire de navigation)
 }
 
 /* Glisser une carte vers une autre rubrique enregistre la ligne du

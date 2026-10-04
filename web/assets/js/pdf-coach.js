@@ -26,26 +26,30 @@ window.generateCoachPDF = async function (sessionId) {
   const principe = sessionPrinciple(s, procedures);
   const teams = sessionTeams(s, attendance);
 
-  const { INK, LIGHT, LINE, DARK, MUT, imgSize, hexRgb, ACCENT } = window.PDF_THEME;
+  const { INK, LIGHT, LINE, PANEL, DARK, MUT, imgSize, hexRgb, ACCENT } = window.PDF_THEME;
+  const str = (t) => (typeof pdfStr === 'function' ? pdfStr(t) : String(t ?? ''));
   const { jsPDF } = lib;
   const doc = new jsPDF('l', 'mm', 'a4');
   const W = 297, H = 210, M = 7;
-  const gold = hexRgb(s.club_color) || ACCENT;
+  const gold = typeof pdfAccent === 'function' ? pdfAccent(s.club_color) : (hexRgb(s.club_color) || ACCENT);
 
   const fill = (x, y, w, h, rgb) => { doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(x, y, w, h, 'F'); };
   const box = (x, y, w, h) => { doc.setDrawColor(LINE[0], LINE[1], LINE[2]); doc.setLineWidth(0.3); doc.rect(x, y, w, h); };
 
   /* Bandeau haut de page, volontairement bas : chaque millimètre gagné
      ici profite aux schémas. */
-  const banner = (pageNo, nbPages) => {
-    const h = 11;
+  const banner = () => {
+    const h = 12;
     fill(0, 0, W, H, [255, 255, 255]);
-    fill(M, M, W - 2 * M, h, INK);
+    doc.setFillColor(...PANEL); doc.roundedRect(M, M, W - 2 * M, h, 2, 2, 'F');
     if (s.club_logo) {
-      try { doc.addImage(s.club_logo, M + 1.2, M + 1, h - 2, h - 2); } catch (e) {}
+      try { doc.addImage(s.club_logo, M + 2, M + 1.5, h - 3, h - 3); } catch (e) { console.warn('Logo du club non ajouté', e); }
     }
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-    doc.text((s.titre || 'Séance').toUpperCase(), M + h + 2, M + h / 2, { baseline: 'middle' });
+    const tx = M + (s.club_logo ? h + 1.5 : 3);
+    doc.setTextColor(...gold); doc.setFont('helvetica', 'bold'); doc.setFontSize(5.8);
+    doc.text(str(`${s.coach_club || 'Le Mans FC'} · Fiche coach`.toUpperCase()), tx, M + 3.2, { baseline: 'top', charSpace: 0.25 });
+    doc.setTextColor(...INK); doc.setFontSize(10.5);
+    doc.text(str(s.titre || 'Séance'), tx, M + 6.1, { baseline: 'top' });
 
     const infos = [
       fmtDateFr(s.date_seance),
@@ -54,15 +58,8 @@ window.generateCoachPDF = async function (sessionId) {
       `travail ${fmtMin(sessionWorkMin(procedures))}'`,
       `total ${fmtMin(sessionTotalMin(procedures))}'`,
     ].filter(Boolean).join('   ·   ');
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
-    doc.text(infos, W - M - 2, M + h / 2, { align: 'right', baseline: 'middle' });
-
-    doc.setDrawColor(...gold); doc.setLineWidth(0.7);
-    doc.line(M, M + h + 0.9, W - M, M + h + 0.9);
-
-    doc.setFontSize(7); doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal');
-    doc.text(`LMFC Performance · fiche coach`, M, H - 3);
-    doc.text(`Page ${pageNo} / ${nbPages}`, W - M, H - 3, { align: 'right' });
+    doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
+    doc.text(str(infos), W - M - 3, M + h / 2, { align: 'right', baseline: 'middle' });
     return M + h + 3;
   };
 
@@ -87,11 +84,12 @@ window.generateCoachPDF = async function (sessionId) {
   };
 
   if (!procedures.length) {
-    const below = banner(1, 1);
+    const below = banner();
     const top = below + sessionStrip(below, false);
     fill(M, top, W - 2 * M, 14, LIGHT); box(M, top, W - 2 * M, 14);
     doc.setTextColor(...MUT); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
     doc.text('Aucun procédé enregistré.', W / 2, top + 7, { align: 'center', baseline: 'middle' });
+    numberPages(doc, W, H, M);
     doc.save(fileName(s));
     toast('Fiche coach générée', 'success');
     return;
@@ -108,13 +106,13 @@ window.generateCoachPDF = async function (sessionId) {
 
   for (let page = 0; page < nbPages; page++) {
     if (page > 0) doc.addPage();
-    let top = banner(page + 1, nbPages);
+    let top = banner();
     if (page === 0) top += sessionStrip(top, false);
 
     // Géométrie des quatre quarts.
     const gap = 3;
     const cellW = (W - 2 * M - gap) / 2;
-    const cellH = (H - top - 6 - gap) / 2;
+    const cellH = (H - top - 9 - gap) / 2;   // le bas de page garde son numéro
 
     const slice = procedures.slice(page * COACH_PER_PAGE, (page + 1) * COACH_PER_PAGE);
     slice.forEach((p, k) => {
@@ -131,14 +129,21 @@ window.generateCoachPDF = async function (sessionId) {
     const pad = 2.2;
     box(x, y, w, h);
 
-    // Bandeau de titre du procédé.
+    // Titre du procédé sur panneau clair, numéro dans la couleur du club.
     const tH = 6.4;
-    fill(x, y, w, tH, INK);
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.4);
-    doc.text(`${index + 1}. ${(p.nom || 'Procédé').toUpperCase()}`, x + 2, y + tH / 2, { baseline: 'middle' });
+    fill(x, y, w, tH, PANEL);
+    doc.setTextColor(...gold); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.4);
+    doc.text(`${index + 1}`, x + 2.2, y + tH / 2, { baseline: 'middle' });
     // Séquences alignées à droite du bandeau : l'information la plus utile sur le terrain.
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
-    doc.text(sequenceLabel(p), x + w - 2, y + tH / 2, { align: 'right', baseline: 'middle' });
+    doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
+    const seq = str(sequenceLabel(p));
+    doc.text(seq, x + w - 2, y + tH / 2, { align: 'right', baseline: 'middle' });
+    // Nom du procédé : raccourci s'il touche les séquences, jamais par-dessus.
+    doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.4);
+    const room = w - 6.5 - doc.getTextWidth(seq) - 6;
+    let title = str((p.nom || 'Procédé').toUpperCase());
+    while (title.length > 4 && doc.getTextWidth(title) > room) title = `${title.slice(0, -2).trimEnd()}…`;
+    doc.text(title, x + 6.5, y + tH / 2, { baseline: 'middle' });
 
     const innerY = y + tH + pad;
     const innerH = h - tH - 2 * pad;
@@ -196,6 +201,7 @@ window.generateCoachPDF = async function (sessionId) {
     }
   }
 
+  numberPages(doc, W, H, M);
   doc.save(fileName(s));
   toast('Fiche coach générée', 'success');
 };

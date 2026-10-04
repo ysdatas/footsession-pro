@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="assets/css/player-performance-fm.css">
   <link rel="stylesheet" href="assets/css/player-performance.css">
   <link rel="stylesheet" href="assets/css/excel-import.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="app fp-fm-page">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -267,8 +268,12 @@
           <button type="button" class="chip" data-preset="end">Fin de saison</button>
         </div>
         <div class="export-period">
-          <div>
+          <div data-select-scope>
             <span class="export-sub">Sessions de tests</span>
+            <div class="select-all" role="group" aria-label="Sélection des sessions">
+              <button type="button" class="btn btn-sm" data-select-all="1">Tout sélectionner</button>
+              <button type="button" class="btn btn-sm" data-select-all="0">Tout désélectionner</button>
+            </div>
             <label class="check"><input type="checkbox" name="exp-stage" value="pre" checked> Pré-saison</label>
             <label class="check"><input type="checkbox" name="exp-stage" value="mid" checked> Mi-saison</label>
             <label class="check"><input type="checkbox" name="exp-stage" value="end" checked> Fin de saison</label>
@@ -283,8 +288,12 @@
         </div>
       </div>
 
-      <div class="export-block">
+      <div class="export-block" data-select-scope>
         <div class="export-title">Contenu</div>
+        <div class="select-all" role="group" aria-label="Sélection du contenu">
+          <button type="button" class="btn btn-sm" data-select-all="1">Tout sélectionner</button>
+          <button type="button" class="btn btn-sm" data-select-all="0">Tout désélectionner</button>
+        </div>
         <div class="export-sections">
           <label class="check"><input type="checkbox" name="exp-sec" value="identity" checked> Identité et parcours</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="measures" checked> Mesures physiques</label>
@@ -294,6 +303,7 @@
           <label class="check"><input type="checkbox" name="exp-sec" value="strength" checked> Points forts</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="improvement" checked> Axes d’amélioration</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="objective" checked> Objectifs</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="prevention" checked> Préventions</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="images"> Images</label>
         </div>
       </div>
@@ -318,6 +328,7 @@
   <script src="assets/js/notes.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>
+  <script src="assets/js/pdf-kit.js"></script>
   <script src="assets/js/perf-export.js"></script>
 </body>
 </html>

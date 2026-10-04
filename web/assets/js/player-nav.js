@@ -2,7 +2,7 @@
    LMFC Performance — player-nav.js
    Espace joueur : la MÊME coque que le staff (nav.js, layout.css).
    - Ordinateur : barre latérale à gauche (blason, rubriques, « moi »
-     en bas : un clic ouvre mon compte et la déconnexion).
+     en bas avec la déconnexion).
    - Téléphone : barre du haut avec le blason, menu repliable, et
      onglets en bas, à portée de pouce.
    Rubriques : Accueil · Performance · Vidéos · Objectifs.
@@ -10,7 +10,7 @@
    coque s'affiche dès le chargement. La page Performance, partagée
    avec le staff, l'affiche seulement pour un compte joueur.
    Contient aussi la garde commune de ces pages (requirePlayer).
-   Dépend de app.js (el, escapeHtml) et nav.js (renderUserMenu).
+   Dépend de app.js (el, escapeHtml) et nav.js (fillUserBlock).
    ============================================================ */
 
 const PLAYER_NAV = [
@@ -39,7 +39,16 @@ const SIDEBAR_HTML = `
   </aside>
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>`;
 
+/* Rubrique du joueur : sa dernière adresse (la lecture d'une vidéo
+   compte pour « Mes vidéos »). */
+function playerNavHref(key) {
+  if (!PLAYER_NAV.some(([k]) => k === key)) return null;
+  const pages = key === 'mes-videos' ? ['mes-videos', 'voir-video'] : [key];
+  return (pages.includes(PAGE) ? lastUrl(key) : latestUrl(pages)) || `${key}.html`;
+}
+
 const playerSignOut = async () => {
+  clearNavMemory();
   await sb.auth.signOut();
   window.location.href = 'index.html';
 };
@@ -49,13 +58,14 @@ function renderPlayerShell() {
   let page = (location.pathname.split('/').pop() || '').replace(/\.html$/i, '');
   if (page === 'voir-video') page = 'mes-videos';
   document.body.classList.add('pa-body');
+  window.resolveNavHref = playerNavHref;   // la page Performance charge aussi nav.js
   if (!document.getElementById('sidebar')) document.body.insertAdjacentHTML('afterbegin', SIDEBAR_HTML);
   const sidebar = document.getElementById('sidebar');
   sidebar.querySelector('.brand')?.setAttribute('href', 'mon-espace.html');
   sidebar.querySelector('.nav').setAttribute('aria-label', 'Espace joueur');
   sidebar.querySelector('.nav').innerHTML = PLAYER_NAV.map(([key, long]) => {
     const on = key === page;
-    return `<a class="nav-item${on ? ' active' : ''}" href="${key}.html"${on ? ' aria-current="page"' : ''}><span class="nav-dot"></span>${long}</a>`;
+    return `<a class="nav-item${on ? ' active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}><span class="nav-dot"></span>${long}</a>`;
   }).join('');
   if (!document.querySelector('.m-appbar')) {
     document.body.insertAdjacentHTML('afterbegin',
@@ -64,22 +74,22 @@ function renderPlayerShell() {
   document.body.insertAdjacentHTML('beforeend',
     `<nav class="pa-tabbar" aria-label="Espace joueur">${PLAYER_NAV.map(([key, , short, icon]) => {
       const on = key === page;
-      return `<a class="pa-tab${on ? ' is-active' : ''}" href="${key}.html"${on ? ' aria-current="page"' : ''}>${paIc(icon)}<span>${short}</span></a>`;
+      return `<a class="pa-tab${on ? ' is-active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${paIc(icon)}<span>${short}</span></a>`;
     }).join('')}</nav>`);
+  const out = document.getElementById('logoutLink');
+  if (out && !out.dataset.bound) {
+    out.dataset.bound = '1';
+    out.addEventListener('click', (e) => { e.preventDefault(); playerSignOut(); });
+  }
   bindSidebarToggle();
 }
 /* Ancien nom, encore appelé par la page Performance. */
 const renderPlayerNav = renderPlayerShell;
 
 /* Le bloc « moi » prend le nom du joueur une fois sa fiche connue. */
-function setPlayerShellUser(player, clubName) {
+function setPlayerShellUser(player) {
   renderPlayerShell();
-  const nom = `${player?.prenom || ''} ${player?.nom || ''}`.trim() || 'Joueur';
-  renderUserMenu({ nom, clubs: { nom: clubName } }, {
-    roleLabel: 'Joueur',
-    onLogout: playerSignOut,
-    links: [['mon-espace.html', 'user', 'Mon espace'], ['mon-programme.html', 'menu', 'Mes objectifs et préventions']],
-  });
+  fillUserBlock(`${player?.prenom || ''} ${player?.nom || ''}`.trim() || 'Joueur', 'Joueur');
 }
 
 /* Garde des pages du joueur : connecté, compte joueur, fiche liée.
@@ -90,7 +100,7 @@ async function requirePlayer() {
   if (!session) { window.location.href = 'index.html'; return null; }
   window.CURRENT_USER = session.user;
   const { data: profile } = await sb.from('profiles')
-    .select('role, club_id, clubs(nom)').eq('id', session.user.id).maybeSingle();
+    .select('role, club_id, clubs(nom, color)').eq('id', session.user.id).maybeSingle();
   if (profile && profile.role !== 'joueur') {
     window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
     return null;
@@ -100,7 +110,8 @@ async function requirePlayer() {
   if (error) throw error;
   if (!player) { window.location.href = 'index.html'; return null; }
   window.PLAYER_CLUB = profile?.clubs?.nom || '';
-  setPlayerShellUser(player, window.PLAYER_CLUB);
+  if (typeof applyClubColor === 'function' && profile?.clubs) applyClubColor(profile.clubs.color);
+  setPlayerShellUser(player);
   return player;
 }
 

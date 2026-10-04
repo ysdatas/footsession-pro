@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/comparaison.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -42,19 +43,19 @@
 
     <div class="cmp-toolbar">
       <label class="cmp-field">Session
-        <select id="cmpStage">
+        <select id="cmpStage" data-remember>
           <option value="pre">Pré-saison</option>
           <option value="mid">Mi-saison</option>
           <option value="end">Fin de saison</option>
         </select>
       </label>
       <label class="cmp-field cmp-metric-field hidden">Test suivi
-        <select id="cmpMetric"></select>
+        <select id="cmpMetric" data-remember></select>
       </label>
       <label class="cmp-field cmp-grow">Rechercher
-        <input id="cmpSearch" placeholder="Nom d’un joueur…">
+        <input id="cmpSearch" data-remember placeholder="Nom d’un joueur…">
       </label>
-      <label class="cmp-check"><input type="checkbox" id="cmpOnlyFlagged">
+      <label class="cmp-check"><input type="checkbox" id="cmpOnlyFlagged" data-remember>
         Valeurs suspectes seulement</label>
     </div>
 

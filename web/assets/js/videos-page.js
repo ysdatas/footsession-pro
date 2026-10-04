@@ -16,10 +16,10 @@ let playersCache = [];
 let videosCache = [];
 let seqsCache = [];
 let urlCache = new Map();   // id vidéo → URL signée (miniatures, lecture)
-let vpQuery = '';
+let vpQuery = pageState().vpQuery || '';
 const view = { player: null, tab: null };
 /* Compilation : choix des séquences d'un joueur (dans l'ordre des touches). */
-const pick = { on: false, ids: [] };
+const pick = { on: false, ids: [], pool: [] };   // pool : séquences de l'onglet affiché, dans l'ordre
 let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton retour)
 
 (async () => {
@@ -86,13 +86,15 @@ async function loadVideos() {
   }
 }
 /* URL signées en une seule requête (miniatures et lecture). */
+let signError = null;   // dernière panne du serveur vidéo : affichée au lieu de « introuvable »
 async function signUrls(videos) {
   const missing = videos.filter(v => !urlCache.has(v.id));
   if (!missing.length) return;
   try {
     const urls = await videoUrls(missing.map(v => v.storage_path));
     missing.forEach(v => urls.has(v.storage_path) && urlCache.set(v.id, urls.get(v.storage_path)));
-  } catch (e) { console.warn('Miniatures indisponibles', e); }
+    signError = null;
+  } catch (e) { signError = e; console.warn('Liens de lecture indisponibles', e); }
 }
 
 /* ---------- Navigation : ensemble → joueur → rubrique ---------- */
@@ -224,6 +226,8 @@ function renderPlayer(p) {
   const box = document.getElementById('vpView');
   const canCompile = tab !== 'videos' && seqs.length > 0;
   if (!canCompile) pick.on = false;
+  pick.pool = tab === 'todo' ? todo : ordered;
+  const chosenByPlayer = pick.pool.filter(s => s.selected).length;
   box.innerHTML = `
     <div class="vp-tabs" role="tablist" aria-label="Rubriques">${tabs.map(([k, label, n]) => `
       <button type="button" role="tab" data-tab="${k}" aria-selected="${k === tab}">${label}${n ? ` <span>${n}</span>` : ''}</button>`).join('')}
@@ -231,6 +235,11 @@ function renderPlayer(p) {
     ${canCompile ? `<div class="vp-compile-bar${pick.on ? ' is-on' : ''}">
       ${pick.on
         ? `<span><strong>${pick.ids.length}</strong> séquence${pick.ids.length > 1 ? 's' : ''} choisie${pick.ids.length > 1 ? 's' : ''} — touchez-les dans l’ordre voulu</span>
+           <span class="select-all" role="group" aria-label="Sélection des séquences">
+             <button class="btn btn-sm" type="button" data-pick-all>Tout sélectionner</button>
+             ${chosenByPlayer ? `<button class="btn btn-sm" type="button" data-pick-player title="Les séquences que le joueur a sélectionnées">Sélection du joueur (${chosenByPlayer})</button>` : ''}
+             <button class="btn btn-sm" type="button" data-pick-none>Tout désélectionner</button>
+           </span>
            <button class="btn btn-sm" type="button" data-pick-cancel>Annuler</button>
            <button class="btn btn-sm btn-primary" type="button" data-pick-go ${pick.ids.length ? '' : 'disabled'}>Compiler</button>`
         : `<span class="text-muted">Réunir plusieurs séquences en une seule vidéo, habillage compris.</span>
@@ -260,6 +269,9 @@ document.getElementById('vpView').addEventListener('click', (e) => {
     return render();
   }
   if (e.target.closest('[data-pick-start]')) { pick.on = true; pick.ids = []; return render(); }
+  if (e.target.closest('[data-pick-all]')) { pick.ids = pick.pool.map(s => s.id); return render(); }
+  if (e.target.closest('[data-pick-player]')) { pick.ids = pick.pool.filter(s => s.selected).map(s => s.id); return render(); }
+  if (e.target.closest('[data-pick-none]')) { pick.ids = []; return render(); }
   if (e.target.closest('[data-pick-cancel]')) { pick.on = false; pick.ids = []; return render(); }
   if (e.target.closest('[data-pick-go]')) return openCompile();
   const open = e.target.closest('[data-open-video]');
@@ -274,6 +286,7 @@ document.getElementById('vpView').addEventListener('click', (e) => {
 document.getElementById('vpView').addEventListener('input', (e) => {
   if (!e.target.matches('#vpSearch')) return;
   vpQuery = e.target.value.trim().toLowerCase();
+  savePageState({ vpQuery });
   const pos = e.target.selectionStart;
   render();
   const input = document.getElementById('vpSearch');
@@ -290,7 +303,7 @@ async function openWorkspace(videoId, seqId) {
   if (!v) return;
   if (!urlCache.has(v.id)) await signUrls([v]);
   const url = urlCache.get(v.id);
-  if (!url) return toast('Vidéo introuvable dans le stockage.', 'error');
+  if (!url) return toast(signError ? `Lecture impossible : ${signError.message}` : 'Vidéo introuvable dans le stockage.', 'error');
   const player = playersCache.find(p => p.id === v.player_id);
   document.getElementById('wsTitle').textContent = fullName(player);
   openModal('wsModal');
@@ -362,11 +375,12 @@ async function uploadVideo() {
 
 async function deleteVideo(id) {
   const v = videosCache.find(x => x.id === id);
-  if (!v || !confirm(`Supprimer « ${v.titre} » ? Le joueur n’y aura plus accès, ses séquences seront supprimées.`)) return;
+  if (!v || !confirm(`Supprimer « ${v.titre} » ? Le joueur n’y aura plus accès, ses séquences partent avec elle.${await trashNote()}`)) return;
   try {
     const { error } = await sb.from('player_videos').delete().eq('id', id);
     if (error) throw error;
-    await removeVideoFile(v.storage_path).catch(e => console.warn('Suppression du fichier vidéo :', v.storage_path, e));
+    // Corbeille : le fichier reste jusqu'à la suppression définitive.
+    if (!(await trashReady())) await removeVideoFile(v.storage_path).catch(e => console.warn('Suppression du fichier vidéo :', v.storage_path, e));
     toast('Vidéo supprimée.', 'success');
     await loadVideos();
   } catch (e) { toast(e.message, 'error'); }

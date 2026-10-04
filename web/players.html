@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/players.css">
   <link rel="stylesheet" href="assets/css/excel-import.css">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
@@ -37,8 +38,8 @@
     </div>
 
     <div class="players-filters">
-      <input id="searchPlayer" type="search" placeholder="Rechercher un joueur…" aria-label="Rechercher un joueur par son nom">
-      <select id="posteFilter" aria-label="Filtrer par poste"><option value="">Tous postes</option></select>
+      <input id="searchPlayer" data-remember type="search" placeholder="Rechercher un joueur…" aria-label="Rechercher un joueur par son nom">
+      <select id="posteFilter" data-remember aria-label="Filtrer par poste"><option value="">Tous postes</option></select>
     </div>
 
     <div class="unassigned-bar hidden" id="unassignedBar"></div>

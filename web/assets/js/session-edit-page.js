@@ -370,7 +370,7 @@ window.insertTemplate = async (id) => {
   } catch (e) { toast(e.message, 'error'); }
 };
 window.deleteTemplate = async (id, btn) => {
-  if (!confirm('Supprimer ce modèle ?')) return;
+  if (!confirm(`Supprimer ce modèle ?${await trashNote()}`)) return;
   try {
     const { error } = await sb.from('exercise_templates').delete().eq('id', id);
     if (error) throw error;

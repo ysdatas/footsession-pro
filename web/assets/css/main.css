@@ -13,7 +13,8 @@
   --gold:          #E8B20E;
   --gold-light:    #F6D35B;
   --gold-rgb:      232, 178, 14;
-  --gold-border:   rgba(232, 178, 14, 0.30);
+  --on-gold:       #0A0A0A;   /* texte sur l'or (blanc si la couleur du club est foncée : theme.js) */
+  --gold-border:   rgba(var(--gold-rgb), 0.30);
   --red:           #C8102E;
   --red-rgb:       200, 16, 46;
   --red-deep:      #8E0E1A;
@@ -31,7 +32,7 @@
   --text-muted:    #4A4A4A;
 
   --border:        #2A2A2A;
-  --border-gold:   rgba(232, 178, 14, 0.40);
+  --border-gold:   rgba(var(--gold-rgb), 0.40);
 
   --success:       #4CAF50;
   --warning:       #FF9800;
@@ -42,7 +43,7 @@
   --radius-lg:     16px;
 
   --shadow:        0 4px 24px rgba(0,0,0,0.40);
-  --shadow-gold:   0 0 20px rgba(232,178,14,0.15);
+  --shadow-gold:   0 0 20px rgba(var(--gold-rgb), 0.15);
 
   --font-main:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --transition:    all 0.2s ease;
@@ -93,7 +94,7 @@ h2 { font-size: var(--fs-xl); }
 h3 { font-size: var(--fs-lg); }
 p  { margin: 0 0 .8em; }
 
-::selection { background: var(--gold); color: #000; }
+::selection { background: var(--gold); color: var(--on-gold); }
 
 /* ----- Scrollbar ----- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -143,7 +144,7 @@ p  { margin: 0 0 .8em; }
 .btn-primary {
   background: var(--gold);
   border-color: var(--gold);
-  color: #0A0A0A;
+  color: var(--on-gold);
   font-weight: 600;
   box-shadow: var(--shadow-gold);
 }
@@ -156,6 +157,12 @@ p  { margin: 0 0 .8em; }
 .btn-danger:hover { background: rgba(244,67,54,.12); }
 
 .btn-sm { padding: 6px 11px; font-size: var(--fs-sm); }
+/* Tout sélectionner / Tout désélectionner (app.js : selectAllHtml). */
+.select-all { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.select-all .btn-sm { min-height: 32px; }
+@media (max-width: 480px) {   /* les deux côte à côte, même sur un petit téléphone */
+  .select-all > .btn-sm { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: var(--fs-xs); white-space: nowrap; justify-content: center; }
+}
 .btn-icon { padding: 8px; width: 36px; height: 36px; justify-content: center; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -183,12 +190,13 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--border-gold);
-  box-shadow: 0 0 0 3px rgba(232,178,14,.12);
+  box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .12);
 }
 textarea { resize: vertical; min-height: 70px; }
 select { appearance: none; cursor: pointer; }
 
 .field { margin-bottom: 14px; }
+.field-hint { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.4; }
 .field-row { display: flex; gap: 14px; flex-wrap: wrap; }
 .field-row > .field { flex: 1; min-width: 140px; }
 
@@ -201,7 +209,7 @@ select { appearance: none; cursor: pointer; }
   background: var(--bg-hover);
   color: var(--text-secondary);
 }
-.badge-gold { background: rgba(232,178,14,.15); color: var(--gold); }
+.badge-gold { background: rgba(var(--gold-rgb), .15); color: var(--gold); }
 .badge-success { background: rgba(76,175,80,.15); color: var(--success); }
 
 .pill {
@@ -485,10 +493,10 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
 .glass-btn:active { transform: translateY(0) scale(.95); box-shadow: inset 0 2px 6px rgba(0, 0, 0, .35); }
 .glass-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .glass-btn.active, .glass-btn[aria-pressed="true"] {
-  --gb-bg: rgba(232, 178, 14, .22); border-color: rgba(232, 178, 14, .55); color: var(--gold-light);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 14px rgba(232, 178, 14, .25);
+  --gb-bg: rgba(var(--gold-rgb), .22); border-color: rgba(var(--gold-rgb), .55); color: var(--gold-light);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 14px rgba(var(--gold-rgb), .25);
 }
-.glass-btn.is-primary { --gb-bg: var(--gold); color: #0A0A0A; font-weight: 600; }
+.glass-btn.is-primary { --gb-bg: var(--gold); color: var(--on-gold); font-weight: 600; }
 .glass-btn.is-primary:hover { --gb-bg: var(--gold-light); }
 .glass-btn.is-danger:hover { color: #ff8a80; --gb-bg: rgba(244, 67, 54, .16); }
 .glass-btn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
@@ -517,7 +525,7 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
 .brand-pro {
   display: inline-block; vertical-align: middle;
   font-size: var(--fs-xs); font-weight: 700; line-height: 1;
-  color: var(--gold); background: rgba(232,178,14,.12);
+  color: var(--gold); background: rgba(var(--gold-rgb), .12);
   border: 1px solid var(--gold-border); border-radius: 5px;
   padding: 3px 6px; letter-spacing: .06em; margin-left: 4px;
   position: relative; top: -1px;

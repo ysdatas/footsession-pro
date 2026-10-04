@@ -12,8 +12,8 @@
 const STAFF_ROLES = ['admin', 'coach'];            // travail terrain : séances, vidéos, tableau
 const ALL_STAFF   = ['admin', 'coach', 'prepa'];   // + préparateur physique
 
-/* `fixed` : toujours affichée, pour qu'on ne puisse pas se retirer
-   l'accès aux Paramètres (et donc à la personnalisation du menu). */
+/* Paramètres n'est pas une rubrique : on y va par son nom, en bas du
+   menu (renderUserMenu). */
 const NAV_ITEMS = [
   { key: 'dashboard',   href: 'dashboard.html',      label: 'Accueil',           roles: ALL_STAFF },
   { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: STAFF_ROLES },
@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: STAFF_ROLES },
   { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: ALL_STAFF },
   { key: 'club',        href: 'club.html',           label: 'Mon club',          roles: ['admin'] },
-  { key: 'settings',    href: 'settings.html',       label: 'Paramètres',        roles: ALL_STAFF, fixed: true },
+  { key: 'trash',       href: 'trash.html',          label: 'Corbeille',         roles: ALL_STAFF },
 ];
 
 /* Pages sans entrée de menu : rubrique qu'elles « allument ». */
@@ -42,7 +42,7 @@ function orderedNavItems(role, prefs) {
   const hidden = new Set(prefs?.nav?.hidden || []);
   const rank = (item, i) => { const r = order.indexOf(item.key); return r >= 0 ? r : 1000 + i; };
   return NAV_ITEMS
-    .map((item, i) => ({ ...item, rank: rank(item, i), hidden: !item.fixed && hidden.has(item.key) }))
+    .map((item, i) => ({ ...item, rank: rank(item, i), hidden: hidden.has(item.key) }))
     .filter(item => item.roles.includes(role))
     .sort((a, b) => a.rank - b.rank);
 }
@@ -88,6 +88,17 @@ async function savePrefsPatch(patch) {
   return prefs;
 }
 
+/* Lien de rubrique (menu) : la dernière page vue dans cette rubrique,
+   fiche et onglet compris. Depuis la rubrique elle-même, on remonte
+   à sa page principale (avec ses filtres). */
+window.resolveNavHref = (key) => {
+  const item = NAV_ITEMS.find(i => i.key === key);
+  if (!item) return null;
+  const root = pageOf(item.href);
+  const pages = [root, ...Object.keys(NAV_PARENT).filter(p => NAV_PARENT[p] === key)];
+  return (pages.includes(PAGE) ? lastUrl(root) : latestUrl(pages)) || item.href;
+};
+
 function renderNav(profile) {
   const nav = document.querySelector('#sidebar .nav');
   if (!nav) return;
@@ -101,7 +112,7 @@ function renderNav(profile) {
   const activeKey = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;
   nav.innerHTML = orderedNavItems(profile.role, profile.prefs)
     .filter(item => !item.hidden)
-    .map(item => `<a class="nav-item${item.key === activeKey ? ' active' : ''}" href="${item.href}"${item.key === activeKey ? ' aria-current="page"' : ''}>`
+    .map(item => `<a class="nav-item${item.key === activeKey ? ' active' : ''}" href="${item.href}" data-mem="${item.key}"${item.key === activeKey ? ' aria-current="page"' : ''}>`
       + `<span class="nav-dot"></span>${escapeHtml(item.label)}</a>`)
     .join('');
   renderUserMenu(profile);
@@ -136,79 +147,43 @@ function renderPageKicker(profile) {
   head.insertAdjacentHTML('afterbegin', `<p class="page-kicker">${parts.filter(Boolean).map(escapeHtml).join(' · ')}</p>`);
 }
 
-/* Bloc « moi » en bas du menu : un clic ouvre mon compte, mes réglages
-   et la déconnexion. Le même pour le staff et les joueurs (player-nav.js
-   passe ses propres liens). */
-const USER_MENU_IC = {
-  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
-  lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  menu: '<path d="M4 6h16M4 12h16M4 18h10"/>',
-  board: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/>',
-  club: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
-  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
-  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
-};
-const umIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${USER_MENU_IC[k]}</svg>`;
-
-function staffMenuLinks(profile) {
-  return [
-    ['settings.html#compte', 'user', 'Mon compte'],
-    ['settings.html#mot-de-passe', 'lock', 'Mot de passe'],
-    ['settings.html#menu', 'menu', 'Mon menu'],
-    canEdit(profile.role) && ['settings.html#tableau', 'board', 'Tableau tactique'],
-    profile.role === 'admin' && ['club.html', 'club', 'Mon club'],
-    ['faq.html', 'help', 'Aide (FAQ)'],
-  ].filter(Boolean);
-}
-
-function renderUserMenu(profile, { links = staffMenuLinks(profile), roleLabel, onLogout = logout } = {}) {
+/* Bloc « moi » en bas du menu : nom, fonction, déconnexion. Un clic
+   sur le nom propose un seul lien, Paramètres, où tout est regroupé. */
+function fillUserBlock(name, role) {
   const box = document.querySelector('#sidebar .sidebar-user');
-  if (!box || box.dataset.menu) return;
-  box.dataset.menu = '1';
-  const name = profile.nom || 'Utilisateur';
-  const role = roleLabel || ROLE_LABELS[profile.role] || profile.role || '';
-  const initialsOf = (n) => n.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
-  const avatar = box.querySelector('.avatar'), meta = box.querySelector('.su-meta');
-  if (avatar) avatar.textContent = initialsOf(name);
+  if (!box) return null;
+  const initials = name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+  box.querySelector('.avatar') && (box.querySelector('.avatar').textContent = initials);
   box.querySelector('.su-name') && (box.querySelector('.su-name').textContent = name);
   box.querySelector('.su-role') && (box.querySelector('.su-role').textContent = role.toUpperCase());
+  return box;
+}
 
-  const trigger = el('button', { type: 'button', class: 'su-trigger', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
-    'aria-controls': 'userMenu', title: 'Mon compte et mes réglages' });
-  if (avatar) trigger.append(avatar);
-  if (meta) trigger.append(meta);
+const SETTINGS_IC = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+
+function renderUserMenu(profile) {
+  const box = fillUserBlock(profile.nom || 'Utilisateur', ROLE_LABELS[profile.role] || profile.role || '');
+  if (!box || box.dataset.menu) return;
+  box.dataset.menu = '1';
+  const onSettings = currentPageName() === 'settings';
+  const trigger = el('button', { type: 'button', class: `su-trigger${onSettings ? ' is-current' : ''}`,
+    'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': 'userMenu', title: 'Paramètres' });
+  ['.avatar', '.su-meta'].forEach(sel => { const n = box.querySelector(sel); if (n) trigger.append(n); });
   trigger.insertAdjacentHTML('beforeend', '<svg class="su-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>');
   box.prepend(trigger);
 
-  const email = window.CURRENT_USER?.email || '';
   const menu = el('div', { class: 'user-menu', id: 'userMenu', role: 'menu', hidden: 'hidden' });
-  menu.innerHTML = `
-    <div class="um-head"><strong>${escapeHtml(name)}</strong>
-      <span>${escapeHtml([role, profile.clubs?.nom].filter(Boolean).join(' · '))}</span>
-      ${email ? `<small>${escapeHtml(email)}</small>` : ''}</div>
-    ${links.map(([href, ic, label]) => `<a role="menuitem" href="${href}">${umIc(ic)}${escapeHtml(label)}</a>`).join('')}
-    <button type="button" role="menuitem" class="um-logout">${umIc('logout')}Se déconnecter</button>`;
+  menu.innerHTML = `<a role="menuitem" href="settings.html">${SETTINGS_IC}Paramètres</a>`;
   box.append(menu);
 
   const setOpen = (open) => {
     menu.hidden = !open;
     trigger.setAttribute('aria-expanded', String(open));
-    if (open) menu.querySelector('[role="menuitem"]')?.focus();
+    if (open) menu.querySelector('a').focus();
   };
   trigger.addEventListener('click', (e) => { e.stopPropagation(); setOpen(menu.hidden); });
-  menu.addEventListener('click', (e) => {
-    if (e.target.closest('.um-logout')) { e.preventDefault(); onLogout(); }
-    else if (e.target.closest('a')) setOpen(false);
-  });
   document.addEventListener('click', (e) => { if (!menu.hidden && !box.contains(e.target)) setOpen(false); });
   document.addEventListener('keydown', (e) => {
-    if (menu.hidden) return;
-    if (e.key === 'Escape') { setOpen(false); trigger.focus(); }
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      const items = [...menu.querySelectorAll('[role="menuitem"]')];
-      const i = items.indexOf(document.activeElement);
-      items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
-      e.preventDefault();
-    }
+    if (!menu.hidden && e.key === 'Escape') { setOpen(false); trigger.focus(); }
   });
 }

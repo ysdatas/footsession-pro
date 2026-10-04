@@ -96,24 +96,16 @@ document.getElementById('videoList').addEventListener('click', (e) => {
 
 document.getElementById('tbVideoChip').addEventListener('click', async () => {
   if (!tbLinkedVideo) return;
-  const src = await videoUrl(tbLinkedVideo.storage_path).catch(e => { console.warn('Vidéo liée', e); return null; });
+  let src = null;
+  try { src = await videoUrl(tbLinkedVideo.storage_path); } catch (e) {
+    console.warn('Vidéo liée', e);
+    return toast(`Lecture impossible : ${e.message}`, 'error');
+  }
   if (!src) return toast('Vidéo introuvable dans le stockage.', 'error');
   openLightbox({ title: tbLinkedVideo.titre, text: videoOwner(tbLinkedVideo), items: [{ type: 'video', src }] });
 });
 
-/* ---------- Fiche tactique PDF ---------- */
-const TB_HTML2PDF_URL = 'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js';
-function tbLoadHtml2pdf() {
-  if (window.html2pdf) return Promise.resolve(window.html2pdf);
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = TB_HTML2PDF_URL;
-    script.onload = () => resolve(window.html2pdf);
-    script.onerror = () => reject(new Error('Générateur PDF indisponible (connexion ?)'));
-    document.head.append(script);
-  });
-}
-
+/* ---------- Fiche tactique PDF (mise en page commune : pdf-kit.js) ---------- */
 function openSheet() {
   const title = EXO_ROW?.title || PROC_ROW?.nom || '';
   const goal = PROC_ROW?.objectif || (EXO_ROW?.dosage ? `Dosage : ${EXO_ROW.dosage}` : '');
@@ -147,41 +139,29 @@ async function runSheet() {
     const goal = document.getElementById('sheetGoal').value.trim();
     const text = document.getElementById('sheetText').value.trim();
     const imgs = sheetImages();
-    const club = window.CURRENT_PROFILE?.clubs?.nom || 'LMFC Performance';
-    const para = (t) => escapeHtml(t).replace(/\n/g, '<br>');
-    const sheet = document.createElement('div');
-    sheet.className = 'tb-sheet';
-    sheet.innerHTML = `
-      <header><div class="tb-sheet-eyebrow">${escapeHtml(club)} · Fiche tactique · ${escapeHtml(new Date().toLocaleDateString('fr-FR'))}</div>
-        <h1>${escapeHtml(title)}</h1></header>
-      ${goal ? `<section><h2>Objectif</h2><p>${para(goal)}</p></section>` : ''}
-      ${text ? `<section><h2>Consignes</h2><p>${para(text)}</p></section>` : ''}
-      <section><h2>Schéma${imgs.length > 1 ? ` — ${imgs.length} étapes` : ''}</h2>
-        <div class="tb-sheet-imgs${imgs.length > 1 ? ' is-steps' : ''}">${imgs.map((src, i) => `
-          <figure><img src="${src}" alt="">${imgs.length > 1 ? `<figcaption>Étape ${i + 1}</figcaption>` : ''}</figure>`).join('')}</div>
-      </section>
-      ${tbLinkedVideo ? `<section><h2>Vidéo</h2><p>${escapeHtml(tbLinkedVideo.titre)}${videoOwner(tbLinkedVideo) ? ` — ${escapeHtml(videoOwner(tbLinkedVideo))}` : ''} (à voir sur LMFC Performance)</p></section>` : ''}`;
-    // Feuille hors écran dans un conteneur : html2pdf la clone telle quelle.
-    const holder = el('div', { class: 'tb-sheet-holder', 'aria-hidden': 'true' }, sheet);
-    document.body.append(holder);
-    await Promise.all([...sheet.querySelectorAll('img')].map(img => img.complete ? null
-      : new Promise(r => { img.onload = img.onerror = r; })));
-    const html2pdf = await tbLoadHtml2pdf();
-    const file = `fiche-${title.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tactique'}.pdf`;
-    await html2pdf().set({
-      margin: [10, 10, 12, 10], filename: file,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['figure', 'section'] },
-    }).from(sheet).save();
+    const club = window.CURRENT_PROFILE?.clubs?.nom || 'Le Mans FC';
+    const k = await openPdf({ accent: window.CURRENT_PROFILE?.clubs?.color, runTitle: title, runRight: club });
+    k.cover({
+      kicker: `${club} · Fiche tactique`, title,
+      subtitle: imgs.length > 1 ? `${imgs.length} étapes` : '',
+      facts: [['Édité le', new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })]],
+    });
+    if (goal) { k.section('Objectif', { keep: 12 }); k.text(goal, { size: 9.6 }); k.y += 2; }
+    if (text) { k.section('Consignes', { keep: 12 }); k.text(text, { size: 9.6 }); k.y += 2; }
+    k.section(imgs.length > 1 ? 'Schéma, étape par étape' : 'Schéma', { keep: 60 });
+    if (imgs.length > 1) await k.images(imgs.map((src, i) => ({ src, caption: `Étape ${i + 1}` })), { perRow: 2, maxH: 70 });
+    else await k.images([{ src: imgs[0] }], { perRow: 1, maxH: k.bottom - k.y - 4 });
+    if (tbLinkedVideo) {
+      k.section('Vidéo', { keep: 10 });
+      k.text(`${tbLinkedVideo.titre}${videoOwner(tbLinkedVideo) ? ` — ${videoOwner(tbLinkedVideo)}` : ''} (à voir sur LMFC Performance)`);
+    }
+    k.save(pdfFileName('fiche', title));
     closeModal('sheetModal');
     toast('Fiche tactique téléchargée.', 'success');
   } catch (e) {
     console.error('Fiche tactique non générée', e);
     toast(e.message || 'Génération impossible.', 'error');
   } finally {
-    document.querySelectorAll('.tb-sheet-holder').forEach(n => n.remove());
     btn.disabled = false; btn.textContent = 'Générer le PDF';
   }
 }

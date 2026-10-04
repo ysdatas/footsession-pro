@@ -15,6 +15,10 @@
   "r2_buckets": [
     { "binding": "VIDEOS", "bucket_name": "lmfc-performance", "jurisdiction": "eu" }
   ],
+  // Une variable ajoutée à la main dans le tableau de bord (type « Text »)
+  // n'est pas effacée par le déploiement suivant. VIDEO_URL_SECRET doit
+  // malgré tout être de type « Secret » : chiffré, et conservé quoi qu'il arrive.
+  "keep_vars": true,
   // Valeurs publiques (déjà dans web/assets/js/supabase-client.js). Le secret
   // VIDEO_URL_SECRET, lui, se règle dans Workers > Settings > Variables and Secrets.
   "vars": {

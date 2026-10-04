@@ -6,11 +6,11 @@
   <meta name="theme-color" content="#0A0A0A">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
-  <title>LMFC Performance — Accueil</title>
+  <title>LMFC Performance — Corbeille</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
   <link rel="stylesheet" href="assets/css/layout.css">
-  <link rel="stylesheet" href="assets/css/dashboard.css">
+  <link rel="stylesheet" href="assets/css/trash.css">
   <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
@@ -24,26 +24,30 @@
       <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
     </div>
   </aside>
-  <main class="main home">
-    <section class="home-hero">
-      <img class="home-crest" src="assets/img/lmfc-logo.png" alt="" width="72" height="72">
-      <div class="home-hero-text">
-        <p class="home-kicker" id="homeDate"></p>
-        <h1 id="greeting">Bonjour</h1>
-        <p class="subtitle" id="clubLine">Chargement du club…</p>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Corbeille</h1>
+        <p class="subtitle" id="trashSub">Éléments supprimés : restaurez-les ou supprimez-les pour de bon.</p>
       </div>
-      <div class="home-actions" id="homeActions"></div>
-    </section>
+    </div>
 
-    <section class="home-section" aria-labelledby="homeAttnTitle">
-      <h2 id="homeAttnTitle">À traiter</h2>
-      <div class="home-attn" id="homeAttn"><p class="text-muted">Chargement…</p></div>
-    </section>
+    <div class="trash-toolbar" id="trashToolbar" hidden>
+      <select id="trashType" data-remember aria-label="Type d’élément"><option value="">Tous les éléments</option></select>
+      <div id="trashSelect" data-select-scope="#trashList">
+        <div class="select-all" role="group" aria-label="Sélection">
+          <button type="button" class="btn btn-sm" data-select-all="1">Tout sélectionner</button>
+          <button type="button" class="btn btn-sm" data-select-all="0">Tout désélectionner</button>
+        </div>
+      </div>
+      <div class="trash-bulk">
+        <span class="trash-count" id="trashCount" role="status"></span>
+        <button class="btn btn-sm" type="button" id="trashRestore" disabled>Restaurer</button>
+        <button class="btn btn-sm btn-danger" type="button" id="trashPurge" disabled>Supprimer définitivement</button>
+      </div>
+    </div>
 
-    <section class="home-section" aria-labelledby="homeTilesTitle">
-      <h2 id="homeTilesTitle">Accès rapides</h2>
-      <div class="home-tiles" id="homeTiles"></div>
-    </section>
+    <div class="trash-list" id="trashList"><p class="text-muted">Chargement…</p></div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -51,8 +55,6 @@
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
-  <script src="assets/js/video-status.js"></script>
-  <script src="assets/js/perf-metrics.js"></script>
-  <script src="assets/js/dashboard-page.js"></script>
+  <script src="assets/js/trash-page.js"></script>
 </body>
 </html>

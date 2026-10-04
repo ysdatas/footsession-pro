@@ -760,6 +760,7 @@ const ExcelImport = (() => {
       ${conflicts ? `<div class="xi-alert">${conflicts} fiche${conflicts > 1 ? 's revendiquent' : ' revendique'} la même ligne de l’Excel
         qu’une autre (homonymes ?). Elles sont exclues pour ne pas mélanger les données : précisez le prénom sur les fiches concernées.</div>` : ''}
 
+      <div data-select-scope="#xiBody .xi-table" id="xiSelectMatched">${selectAllHtml()}</div>
       <table class="xi-table">
         <thead><tr><th></th><th>Fiche</th><th>Nom dans l’Excel</th><th>Lignes</th><th>Changements</th></tr></thead>
         <tbody>${matched.map(e => `
@@ -791,10 +792,12 @@ const ExcelImport = (() => {
       ${st.orphans.length ? `<div class="xi-section">
         <h4>Dans l’Excel, sans fiche dans le club</h4>
         <p class="xi-hint">Cochez pour créer la fiche et importer ses données en même temps.</p>
+        <div data-select-scope>${selectAllHtml()}
         ${st.orphans.map(n => `<label class="xi-row xi-check">
           <input type="checkbox" data-create="${h(n)}" ${st.create.has(n) ? 'checked' : ''}>
           <span>${h(n)}</span><small>${h(`fiche « ${[splitExcelName(n).prenom, splitExcelName(n).nom].filter(Boolean).join(' ')} »`)}</small>
         </label>`).join('')}
+        </div>
       </div>` : ''}`;
 
     // Association choisie : la sélection courante est restituée.
@@ -809,6 +812,14 @@ const ExcelImport = (() => {
       b.setAttribute('aria-expanded', String(open));
       b.textContent = open ? 'Masquer' : 'Voir';
     }));
+    // « Tout sélectionner » : les joueurs reconnus, jamais un rapprochement
+    // à confirmer (homonyme, prénom différent) : celui-là se coche à la main.
+    $('xiSelectMatched')?.addEventListener('select-all', (ev) => {
+      ev.preventDefault();
+      if (ev.detail.on) st.entries.filter(x => x.status === 'ok').forEach(x => st.include.add(x.fiche.id));
+      else st.include.clear();
+      render();
+    });
     $('xiBody').querySelectorAll('[data-include]').forEach(cb => cb.addEventListener('change', () => {
       const id = Number(cb.dataset.include);
       cb.checked ? st.include.add(id) : st.include.delete(id);

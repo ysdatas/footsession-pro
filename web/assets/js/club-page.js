@@ -24,7 +24,28 @@ let isAdmin = false;
     const club = myProfile.clubs;
     document.getElementById('clubSub').textContent = club?.nom || 'Club';
     document.getElementById('clubName').value = club?.nom || '';
-    document.getElementById('clubColor').value = club?.color || '#C9A84C';
+    const colorInput = document.getElementById('clubColor');
+    colorInput.value = club?.color || DEFAULT_CLUB_COLOR;
+    // Choisir une couleur l'applique tout de suite à l'interface et
+    // l'enregistre (administrateur) : rien à valider en plus.
+    let colorTimer = null;
+    colorInput.addEventListener('input', () => applyClubColor(colorInput.value));
+    colorInput.addEventListener('change', () => {
+      if (!isAdmin) return;
+      clearTimeout(colorTimer);
+      colorTimer = setTimeout(async () => {
+        const color = colorInput.value;
+        const { error } = await sb.from('clubs').update({ color }).eq('id', myProfile.club_id);
+        if (error) {
+          console.error('Couleur du club : enregistrement refusé', error);
+          applyClubColor(myProfile.clubs?.color);
+          colorInput.value = myProfile.clubs?.color || DEFAULT_CLUB_COLOR;
+          return toast(`Couleur non enregistrée : ${error.message}`, 'error');
+        }
+        if (myProfile.clubs) myProfile.clubs.color = color;
+        toast('Couleur du club enregistrée', 'success');
+      }, 250);
+    });
 
     if (club?.logo_path) {
       const { data } = await sb.storage.from('logos').createSignedUrl(club.logo_path, 3600);
@@ -267,7 +288,7 @@ document.getElementById('teamList').addEventListener('click', async (e) => {
       const { error } = await sb.from('teams').update({ nom }).eq('id', id);
       if (error) throw error;
     } else {
-      if (!confirm(`Supprimer l'équipe « ${team?.nom} » ? Les joueurs et séances ne sont pas supprimés : ils redeviennent « sans équipe ».`)) return;
+      if (!confirm(`Supprimer l'équipe « ${team?.nom} » ? Les joueurs et séances ne sont pas supprimés : ils redeviennent « sans équipe ».${await trashNote()}`)) return;
       const { error } = await sb.from('teams').delete().eq('id', id);
       if (error) throw error;
     }

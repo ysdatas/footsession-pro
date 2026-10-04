@@ -1,8 +1,8 @@
 /* ============================================================
    LMFC Performance — perf-export.js
    Export de la fiche joueur en fichier PDF, généré directement dans le
-   navigateur (html2pdf.js : html2canvas + jsPDF), sans passer par la
-   fenêtre d'impression. Réservé au staff.
+   navigateur (jsPDF, mise en page commune : pdf-kit.js), sans passer
+   par la fenêtre d'impression. Réservé au staff.
 
    Le document est construit à partir des données déjà chargées par
    player-performance-page.js : rien n'est recalculé ni complété, une
@@ -38,60 +38,11 @@ function openExportModal() {
 }
 
 /* ------------------------------------------------------------
-   Construction du document
+   Construction du document (pdf-kit.js : texte vectoriel, sauts de
+   page maîtrisés). Rien n'est recalculé ni complété : une donnée
+   absente reste « — ».
    ------------------------------------------------------------ */
-function exportIdentity() {
-  const age = ageFrom(player.date_naissance);
-  const rows = [
-    ['Poste', player.poste],
-    ['Équipe', typeof teamName === 'function' ? teamName(player.team_id) : null],
-    ['Date de naissance', player.date_naissance ? `${frDate(player.date_naissance)}${age !== null ? ` (${age} ans)` : ''}` : null],
-    ['Pied fort', player.pied_fort],
-    ['Statut', player.statut],
-  ];
-  const photo = document.getElementById('playerPhoto');
-  const photoSrc = photo && !photo.classList.contains('hidden') ? photo.src : '';
-
-  const careerHtml = career.length
-    ? `<table class="ps-table"><thead><tr><th>Club</th><th>Catégorie</th><th>Période</th><th>Durée</th></tr></thead><tbody>
-        ${career.map(c => `<tr>
-          <td><strong>${esc(c.club_name)}</strong></td>
-          <td>${esc(c.categorie || '—')}</td>
-          <td>${c.date_debut ? esc(monthYear(c.date_debut)) : '—'} – ${c.date_fin ? esc(monthYear(c.date_fin)) : 'aujourd’hui'}</td>
-          <td>${esc(careerDuration(c.date_debut, c.date_fin) || '—')}</td>
-        </tr>`).join('')}
-      </tbody></table>`
-    : '<p class="ps-empty">Aucun club renseigné.</p>';
-
-  return `<section class="ps-section ps-identity">
-    ${photoSrc ? `<img class="ps-photo" src="${esc(photoSrc)}" alt="">` : ''}
-    <div>
-      <h2>Identité</h2>
-      <dl class="ps-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v ? esc(v) : '—'}</dd>`).join('')}</dl>
-    </div>
-  </section>
-  <section class="ps-section"><h2>Parcours</h2>${careerHtml}</section>`;
-}
-
-function exportMeasures(fromIdx, toIdx) {
-  const rows = [...measurements]
-    .sort(measurementOrder)
-    .filter(m => { const i = MONTHS.indexOf(m.month_label); return i >= fromIdx && i <= toIdx; });
-  const range = `${MONTHS[fromIdx]} – ${MONTHS[toIdx]}`;
-  if (!rows.length) {
-    return `<section class="ps-section"><h2>Mesures physiques <small>${esc(range)}</small></h2>
-      <p class="ps-empty">Aucune mesure sur cette période.</p></section>`;
-  }
-  return `<section class="ps-section"><h2>Mesures physiques <small>${esc(range)}</small></h2>
-    <table class="ps-table"><thead><tr><th>Mois</th><th>Taille</th><th>Poids</th><th>Masse grasse</th><th>Σ 4 plis</th></tr></thead>
-    <tbody>${rows.map(m => `<tr>
-      <td>${esc(m.month_label)}</td>
-      <td>${m.height_cm != null ? `${fmt(m.height_cm, 0)} cm` : '—'}</td>
-      <td>${m.weight_kg != null ? `${fmt(m.weight_kg, 1)} kg` : '—'}</td>
-      <td>${m.body_fat_pct != null ? `${fmt(m.body_fat_pct, 1)} %` : '—'}</td>
-      <td>${m.skinfold_sum_4_mm != null ? `${fmt(m.skinfold_sum_4_mm, 1)} mm` : '—'}</td>
-    </tr>`).join('')}</tbody></table></section>`;
-}
+const longDate = (iso) => (iso ? new Date(`${String(iso).slice(0, 10)}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
 
 /* Test retenu pour une session : la ligne la plus récente du joueur. */
 function exportTestFor(stageKey) {
@@ -109,205 +60,197 @@ function exportAveragesFor(stageKey) {
   return out;
 }
 
-function exportTests(stageKeys, withCompare, withRadar) {
+async function exportProfile(k, fromIdx, toIdx) {
+  const age = ageFrom(player.date_naissance);
+  const facts = [
+    ['Poste', player.poste],
+    ['Équipe', typeof teamName === 'function' ? teamName(player.team_id) : null],
+    ['Naissance', player.date_naissance ? `${longDate(player.date_naissance)}${age !== null ? ` (${age} ans)` : ''}` : null],
+    ['Pied fort', player.pied_fort],
+    ['Nationalité', player.nationalite],
+    ['Statut', player.statut],
+    ['Fin de contrat', player.contrat_fin ? longDate(player.contrat_fin) : null],
+  ].filter(([, v]) => v);
+  const photo = document.getElementById('playerPhoto');
+  const photoImg = photo && !photo.classList.contains('hidden') ? await pdfImage(photo.src, 600, { square: true }) : null;
+
+  k.section('Profil', { keep: 30 });
+  const y0 = k.y, ph = 30, fx = k.M + (photoImg ? ph + 7 : 0), colW = (k.CW - (fx - k.M)) / 2;
+  if (photoImg) {
+    try { k.doc.addImage(photoImg.data, photoImg.fmt, k.M, y0, ph, ph); } catch (e) { console.warn('Photo non ajoutée', e); }
+  }
+  facts.forEach(([label, value], i) => {
+    const x = fx + (i % 2) * colW, y = y0 + Math.floor(i / 2) * 9.2;
+    k.font(6.4, 'bold', PDF_SOFT); k.write(label.toUpperCase(), x, y, { charSpace: 0.25 });
+    k.font(9.4, 'normal', PDF_TEXT); k.write(k.lines(value, colW - 4, 9.4)[0], x, y + 3.3);
+  });
+  k.y = Math.max(y0 + (photoImg ? ph : 0), y0 + Math.ceil(facts.length / 2) * 9.2) + 6;
+
+  // Chiffres clés : dernière mesure de la période, dernier test des sessions choisies.
+  const inRange = [...measurements].sort(measurementOrder)
+    .filter(m => { const i = MONTHS.indexOf(m.month_label); return i >= fromIdx && i <= toIdx; });
+  const last = (key) => inRange.filter(m => num(m[key]) !== null).at(-1);
+  const lastTest = STAGES.map(s => exportTestFor(s.key)).filter(t => t && num(t.vift_kmh) !== null).at(-1);
+  const kpis = [
+    ['Taille', last('height_cm'), (m) => `${fmt(m.height_cm / 100, 2)} m`],
+    ['Poids', last('weight_kg'), (m) => `${fmt(m.weight_kg, 1)} kg`],
+    ['Masse grasse', last('body_fat_pct'), (m) => `${fmt(m.body_fat_pct, 1)} %`],
+  ].map(([label, m, f]) => ({ label, value: m ? f(m) : '—', sub: m ? m.month_label : 'Pas de mesure' }));
+  kpis.push({ label: '30-15 VIFT', value: lastTest ? `${fmt(lastTest.vift_kmh, 1)} km/h` : '—',
+    sub: lastTest ? STAGES.find(s => s.key === lastTest.stage)?.label : 'Pas de test' });
+  k.kpis(kpis);
+}
+
+function exportCareer(k) {
+  k.section('Parcours');
+  k.table({
+    cols: [{ label: 'Club', w: 1.5, strong: true }, { label: 'Catégorie', w: 1.2 }, { label: 'Période', w: 1.6 }, { label: 'Durée', w: 0.9, align: 'right' }],
+    rows: career.map(c => [c.club_name, c.categorie || '—',
+      `${c.date_debut ? monthYear(c.date_debut) : '—'} – ${c.date_fin ? monthYear(c.date_fin) : 'aujourd’hui'}`,
+      careerDuration(c.date_debut, c.date_fin) || '—']),
+    empty: 'Aucun club renseigné.',
+  });
+}
+
+function exportMeasures(k, fromIdx, toIdx) {
+  const rows = [...measurements].sort(measurementOrder)
+    .filter(m => { const i = MONTHS.indexOf(m.month_label); return i >= fromIdx && i <= toIdx; });
+  k.section('Mesures physiques', { note: `${MONTHS[fromIdx]} – ${MONTHS[toIdx]}` });
+  const v = (x, d, unit) => (x != null ? `${fmt(x, d)} ${unit}` : '—');
+  k.table({
+    cols: [{ label: 'Mois', w: 1.3, strong: true }, { label: 'Taille', align: 'right' }, { label: 'Poids', align: 'right' },
+      { label: 'Masse grasse', w: 1.2, align: 'right' }, { label: 'Somme 4 plis', w: 1.2, align: 'right' }],
+    rows: rows.map(m => [m.month_label, v(m.height_cm, 0, 'cm'), v(m.weight_kg, 1, 'kg'), v(m.body_fat_pct, 1, '%'), v(m.skinfold_sum_4_mm, 1, 'mm')]),
+    empty: 'Aucune mesure sur cette période.',
+  });
+}
+
+function exportTests(k, stageKeys, withTable, withCompare, withRadar) {
   const stagesWithData = STAGES.filter(s => stageKeys.includes(s.key) && exportTestFor(s.key));
   if (!stagesWithData.length) {
-    return `<section class="ps-section"><h2>Tests physiques</h2>
-      <p class="ps-empty">Aucun test sur les sessions choisies.</p></section>`;
+    k.section('Tests physiques');
+    k.text('Aucun test sur les sessions choisies.', { color: PDF_MUTE, style: 'italic' });
+    return;
   }
-  return stagesWithData.map(s => {
+  stagesWithData.forEach(s => {
     const test = exportTestFor(s.key);
     const ref = withCompare ? exportAveragesFor(s.key) : null;
     const hasRef = !!ref && PERF_METRICS.some(m => num(ref[m.key]) !== null);
-
-    const table = `<table class="ps-table"><thead><tr>
-        <th>Test</th><th>Valeur</th>${hasRef ? `<th>${refLabel()}</th><th>Écart</th>` : ''}
-      </tr></thead><tbody>
-      ${PERF_METRICS.map(m => {
-        const v = num(test[m.key]);
-        const r = hasRef ? num(ref[m.key]) : null;
-        const flagged = isImplausible(m.key, v);
-        const d = flagged ? null : perfDelta(m.key, v, r);
+    const radarSize = 70, side = withTable && withRadar;
+    k.section(`Tests physiques — ${s.label}`, { note: test.tested_at ? longDate(test.tested_at) : '', keep: side ? 88 : withRadar ? radarSize + 4 : 40 });
+    const y0 = k.y;
+    let flagged = false;
+    if (withTable) {
+      const rows = PERF_METRICS.map(m => {
+        const val = num(test[m.key]), r = hasRef ? num(ref[m.key]) : null;
+        const bad = isImplausible(m.key, val); flagged ||= bad;
+        const d = bad ? null : perfDelta(m.key, val, r);
         const unit = m.unit ? ` ${m.unit}` : '';
-        return `<tr>
-          <td>${esc(m.label)}</td>
-          <td class="ps-num">${v === null ? '—' : `${fmt(v, m.digits)}${esc(unit)}`}${flagged ? ' ⚠' : ''}</td>
-          ${hasRef ? `<td class="ps-num">${r === null ? '—' : `${fmt(r, m.digits)}${esc(unit)}`}</td>
-            <td class="ps-num ${d === null ? '' : (d >= 0 ? 'ps-up' : 'ps-down')}">${d === null ? '—' : `${d >= 0 ? '+' : '−'}${fmt(Math.abs(d), m.digits)}`}</td>` : ''}
-        </tr>`;
-      }).join('')}
-      </tbody></table>`;
-
-    const radar = withRadar
-      ? `<div class="ps-radar">${pdfSafeSvg(radarSvg(test, hasRef ? ref : null))}
-          <div class="ps-scores">${SCORE_LABELS.map(([k, l]) => {
-            const v = scoreValue(test, k);
-            return `<div><span>${esc(l)}</span><strong>${v === null ? '—' : fmt(v, 1)}</strong></div>`;
-          }).join('')}</div></div>`
-      : '';
-
-    return `<section class="ps-section ps-stage">
-      <h2>Tests physiques — ${esc(s.label)}${test.tested_at ? ` <small>${esc(frDate(test.tested_at))}</small>` : ''}</h2>
-      <div class="ps-stage-grid${withRadar ? '' : ' no-radar'}">${table}${radar}</div>
-      ${hasRef ? `<p class="ps-note">${refLabel()} : joueurs du groupe ayant passé chaque test lors de cette session (à partir de 3), valeurs aberrantes exclues. Écart positif = meilleur que la moyenne.</p>` : ''}
-    </section>`;
-  }).join('');
+        return [m.label, val === null ? '—' : `${fmt(val, m.digits)}${unit}${bad ? ' *' : ''}`,
+          ...(hasRef ? [r === null ? '—' : `${fmt(r, m.digits)}${unit}`,
+            d === null ? '—' : { text: `${d >= 0 ? '+' : '-'}${fmt(Math.abs(d), m.digits)}`, color: d > 0 ? PDF_GOOD : d < 0 ? PDF_BAD : PDF_TEXT, bold: true }] : [])];
+      });
+      k.table({
+        width: side ? k.CW - radarSize - 6 : k.CW,
+        cols: [{ label: 'Test', w: 1.7 }, { label: 'Valeur', align: 'right' }, ...(hasRef ? [{ label: refLabel(), w: 1.1, align: 'right' }, { label: 'Écart', w: 0.8, align: 'right' }] : [])],
+        rows,
+      });
+    }
+    if (withRadar) {
+      const ry = side ? y0 : k.y;
+      if (!side) k.ensure(radarSize);
+      k.radar({
+        x: side ? k.M + k.CW - radarSize : k.M + (k.CW - radarSize) / 2, y: side ? ry : k.y, size: radarSize,
+        axes: SCORE_LABELS.map(([key, label]) => ({ label, value: scoreValue(test, key) })),
+        ref: hasRef ? SCORE_LABELS.map(([key]) => num(ref[key])) : null,
+      });
+      k.y = Math.max(k.y, (side ? ry : k.y) + radarSize + 3);
+    }
+    const notes = [
+      flagged && '* Valeur hors des bornes habituelles : à vérifier.',
+      hasRef && `${refLabel()} : joueurs du groupe ayant passé chaque test lors de cette session (à partir de 3), valeurs aberrantes exclues. Écart positif = meilleur que la moyenne. Profil athlétique sur 10${withRadar ? ' (pointillés : la moyenne)' : ''}.`,
+    ].filter(Boolean);
+    notes.forEach(n => k.text(n, { size: 7.2, color: PDF_MUTE, after: 1 }));
+    k.y += 3;
+  });
 }
 
-function exportNotes(kind, title, withImages) {
+async function exportNotes(k, kind, title, withImages) {
   const list = noteStore.notes.filter(n => n.kind === kind)
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.id - b.id));
-  if (!list.length) return `<section class="ps-section"><h2>${esc(title)}</h2><p class="ps-empty">Aucun élément.</p></section>`;
-  return `<section class="ps-section"><h2>${esc(title)}</h2>
-    ${list.map(n => {
-      const imgs = withImages ? noteStore.media.filter(m => m.note_id === n.id && m.signed_url) : [];
-      return `<article class="ps-note-card">
-        <h3>${esc(n.title)}</h3>
-        ${n.body ? `<p>${esc(n.body).replace(/\n/g, '<br>')}</p>` : ''}
-        ${imgs.length ? `<div class="ps-images">${imgs.map(m => `<figure><img src="${esc(m.signed_url)}" alt=""><figcaption>${esc(m.caption || '')}</figcaption></figure>`).join('')}</div>` : ''}
-      </article>`;
-    }).join('')}
-  </section>`;
+  k.section(title, { keep: 18 });
+  if (!list.length) { k.text(NOTE_KINDS[kind]?.empty || 'Aucun élément.', { color: PDF_MUTE, style: 'italic' }); return; }
+  for (const [i, n] of list.entries()) {
+    const head = (n.title || '').trim();
+    const titleLines = head ? k.lines(head, k.CW - 30, 9.6) : [];
+    k.ensure(titleLines.length * k.lh(9.6) + 10);
+    const y0 = k.y;
+    if (titleLines.length) { k.font(9.6, 'bold', PDF_INK); k.write(titleLines, k.M, k.y); k.y += titleLines.length * k.lh(9.6) + 1.2; }
+    if (hasStatus(kind)) {
+      const st = OBJ_STATUS[objStatusOf(n)];
+      const rgb = objStatusOf(n) === 'achieved' ? PDF_GOOD : objStatusOf(n) === 'missed' ? PDF_BAD : k.ACC;
+      k.pill(st.label, k.M + k.CW, y0 - 0.2, rgb, { right: true });
+    }
+    k.text(n.body, { size: 9, width: k.CW - (head ? 0 : 30), after: 2 });
+    if (withImages) {
+      const imgs = noteStore.media.filter(m => m.note_id === n.id && m.signed_url);
+      if (imgs.length) await k.images(imgs.map(m => ({ src: m.signed_url, caption: m.caption })));
+    }
+    if (i < list.length - 1) { k.y += 1; k.hline(k.M, k.M + k.CW, k.y); k.y += 4; }
+  }
+  k.y += 3;
 }
 
-function buildExportDocument() {
+function exportFileName() {
+  return pdfFileName('fiche', player.prenom, player.nom, localToday());
+}
+
+async function runExport() {
+  if (!isStaff() || !player) return;
   const sections = new Set(exportChecked('exp-sec'));
+  if (!sections.size) return notify('Choisissez au moins une rubrique.', 'error');
   const stageKeys = exportChecked('exp-stage');
   let fromIdx = MONTHS.indexOf(document.getElementById('exp-from').value);
   let toIdx = MONTHS.indexOf(document.getElementById('exp-to').value);
   if (fromIdx > toIdx) [fromIdx, toIdx] = [toIdx, fromIdx];
 
-  const fullName = `${player.prenom || ''} ${player.nom || ''}`.trim();
-  const club = ctxProfile?.clubs?.nom || '';
-  const period = [
-    stageKeys.length === 3 ? 'toutes les sessions' : STAGES.filter(s => stageKeys.includes(s.key)).map(s => s.label).join(', ') || 'aucune session',
-    `mesures ${MONTHS[fromIdx]} – ${MONTHS[toIdx]}`,
-  ].join(' · ');
-
-  const parts = [];
-  if (sections.has('identity')) parts.push(exportIdentity());
-  if (sections.has('measures')) parts.push(exportMeasures(fromIdx, toIdx));
-  if (sections.has('tests') || sections.has('radar')) {
-    parts.push(exportTests(stageKeys, sections.has('compare') && sections.has('tests'), sections.has('radar')));
-  }
-  const withImages = sections.has('images');
-  if (sections.has('strength')) parts.push(exportNotes('strength', 'Points forts', withImages));
-  if (sections.has('improvement')) parts.push(exportNotes('improvement', 'Axes d’amélioration', withImages));
-  if (sections.has('objective')) parts.push(exportNotes('objective', 'Objectifs', withImages));
-
-  return `<header class="ps-header">
-      <div>
-        <div class="ps-eyebrow">${esc(club || 'LMFC Performance')} · Dossier joueur</div>
-        <h1>${esc(fullName || 'Joueur')}</h1>
-        <div class="ps-sub">${esc([player.poste,
-          typeof teamName === 'function' ? teamName(player.team_id) : null].filter(Boolean).join(' · '))}</div>
-      </div>
-      <div class="ps-meta">
-        <div>Exporté le ${esc(new Date().toLocaleDateString('fr-FR'))}</div>
-        <div>${esc(period)}</div>
-      </div>
-    </header>
-    ${parts.join('') || '<p class="ps-empty">Aucune rubrique sélectionnée.</p>'}
-    <footer class="ps-footer">Données issues de LMFC Performance. Une valeur absente de la source est notée « — » ; rien n’est estimé.</footer>`;
-}
-
-/* html2canvas dessine mal les <svg> (taille et styles perdus : radar
-   tronqué, tout noir). Chaque radar est donc converti en image PNG avant
-   la génération, avec ses styles embarqués dans le SVG. */
-const PDF_RADAR_STYLE = `
-  .radar-ring{fill:none;stroke:#999;stroke-opacity:.5}
-  .radar-axis{stroke:#999;stroke-opacity:.5}
-  .radar-label{fill:#222;font:650 12px Inter,Arial,sans-serif}
-  .radar-scale{fill:#999;font:9px Inter,Arial,sans-serif}
-  .radar-area{fill:rgba(200,16,46,.22);stroke:#C8102E;stroke-width:2}
-  .radar-area-dot,.radar-center{fill:#b08a2a}
-  .radar-ref{fill:rgba(120,130,140,.1);stroke:#8a939c;stroke-width:1.4;stroke-dasharray:5 4}
-  .radar-ref-dot{fill:#8a939c}
-  .radar-compare{fill:rgba(74,157,224,.14);stroke:#2f7fc1;stroke-width:1.8}
-  .radar-compare-dot{fill:#2f7fc1}
-  .radar-partial{fill:none}`;
-function pdfSafeSvg(svg) {
-  return svg.replace(/<svg([^>]*)>/,
-    `<svg$1 xmlns="http://www.w3.org/2000/svg" width="${RADAR.W}" height="${RADAR.H}"><style>${PDF_RADAR_STYLE}</style>`);
-}
-
-function svgToImage(svg) {
-  return new Promise((resolve, reject) => {
-    const src = new Image();
-    src.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = RADAR.W * 2; canvas.height = RADAR.H * 2;
-      const g = canvas.getContext('2d');
-      g.fillStyle = '#fff'; g.fillRect(0, 0, canvas.width, canvas.height);
-      g.drawImage(src, 0, 0, canvas.width, canvas.height);
-      resolve(el('img', { src: canvas.toDataURL('image/png'), alt: 'Radar du profil athlétique', style: 'width:100%;display:block' }));
-    };
-    src.onerror = () => reject(new Error('conversion du radar impossible'));
-    src.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg));
-  });
-}
-
-async function rasterizeRadars(root) {
-  for (const svg of root.querySelectorAll('.ps-radar svg')) svg.replaceWith(await svgToImage(svg));
-}
-
-/* html2pdf n'est chargé qu'au premier export : inutile pour un joueur. */
-const HTML2PDF_URL = 'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js';
-function loadHtml2pdf() {
-  if (window.html2pdf) return Promise.resolve(window.html2pdf);
-  return loadHtml2pdf.promise ||= new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = HTML2PDF_URL;
-    script.onload = () => resolve(window.html2pdf);
-    script.onerror = () => { loadHtml2pdf.promise = null; reject(new Error('Générateur PDF indisponible (connexion ?)')); };
-    document.head.append(script);
-  });
-}
-
-/* Attend le chargement des images (photo, notes) avant de générer, sinon
-   elles sortent vides dans le PDF. */
-function waitForImages(root) {
-  const imgs = [...root.querySelectorAll('img')];
-  return Promise.all(imgs.map(img => img.complete ? null
-    : new Promise(res => { img.onload = img.onerror = res; setTimeout(res, 4000); })));
-}
-
-function exportFileName() {
-  const name = normalizeName(`${player.prenom || ''} ${player.nom || ''}`).replace(/ /g, '-') || 'joueur';
-  return `fiche-${name}-${localToday()}.pdf`;
-}
-
-async function runExport() {
-  if (!isStaff() || !player) return;
-  if (!exportChecked('exp-sec').length) return notify('Choisissez au moins une rubrique.', 'error');
-
   const btn = document.getElementById('btnRunExport');
-  btn.disabled = true;
   const label = btn.textContent;
-  btn.textContent = 'Génération…';
-  // Feuille hors écran : html2pdf la clone dans sa propre zone de rendu.
-  const sheet = el('div', { class: 'pdf-sheet', html: buildExportDocument() });
-  const holder = el('div', { style: 'position:fixed;left:-10000px;top:0;', 'aria-hidden': 'true' }, sheet);
-  document.body.append(holder);
+  btn.disabled = true; btn.textContent = 'Génération…';
   try {
-    const html2pdf = await loadHtml2pdf();
-    await rasterizeRadars(sheet);
-    await waitForImages(sheet);
-    await html2pdf().set({
-      margin: [12, 12, 12, 12],
-      filename: exportFileName(),
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['.ps-identity', '.ps-stage', '.ps-note-card', 'tr'] },
-    }).from(sheet).save();
+    const fullName = `${player.prenom || ''} ${player.nom || ''}`.trim() || 'Joueur';
+    const club = ctxProfile?.clubs?.nom || 'Le Mans FC';
+    const team = typeof teamName === 'function' ? teamName(player.team_id) : '';
+    const age = ageFrom(player.date_naissance);
+    const season = latestSeasonOf([...measurements, ...tests]);
+    const k = await openPdf({ accent: ctxProfile?.clubs?.color, runTitle: `${fullName} · Dossier performance`, runRight: club });
+    k.cover({
+      kicker: `${club} · Dossier performance`,
+      title: fullName,
+      subtitle: [player.poste, team, age !== null ? `${age} ans` : null].filter(Boolean).join(' · '),
+      facts: [
+        season && ['Saison', season.replace('-', ' – ')],
+        ['Sessions', stageKeys.length === 3 ? 'Toute la saison' : STAGES.filter(s => stageKeys.includes(s.key)).map(s => s.label).join(', ') || 'Aucune'],
+        ['Édité le', new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })],
+      ].filter(Boolean),
+    });
+    if (sections.has('identity')) { await exportProfile(k, fromIdx, toIdx); exportCareer(k); }
+    if (sections.has('measures')) exportMeasures(k, fromIdx, toIdx);
+    if (sections.has('tests') || sections.has('radar')) {
+      exportTests(k, stageKeys, sections.has('tests'), sections.has('compare') && sections.has('tests'), sections.has('radar'));
+    }
+    const withImages = sections.has('images');
+    if (sections.has('strength')) await exportNotes(k, 'strength', 'Points forts', withImages);
+    if (sections.has('improvement')) await exportNotes(k, 'improvement', 'Axes d’amélioration', withImages);
+    if (sections.has('objective')) await exportNotes(k, 'objective', 'Objectifs', withImages);
+    if (sections.has('prevention')) await exportNotes(k, 'prevention', 'Préventions', withImages);
+    k.save(exportFileName());
     closePerfModal('exportModal');
     notify('PDF généré.', 'success');
   } catch (e) {
     console.error('Export PDF impossible', e);
     notify(`Export PDF impossible : ${e.message}`, 'error');
   } finally {
-    holder.remove();
     btn.disabled = false;
     btn.textContent = label;
   }

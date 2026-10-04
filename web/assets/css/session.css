@@ -18,7 +18,7 @@
 .proc-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .proc-num {
   width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
-  background: var(--gold); color: #0A0A0A; font-weight: 700; font-size: var(--fs-sm);
+  background: var(--gold); color: var(--on-gold); font-weight: 700; font-size: var(--fs-sm);
   display: flex; align-items: center; justify-content: center;
 }
 .proc-name {
@@ -153,7 +153,7 @@
 }
 .lt-group select { padding: 7px 9px; }
 #sortDir { min-width: 34px; }
-#groupToggle.active { border-color: var(--gold); color: var(--gold); background: rgba(232,178,14,.12); }
+#groupToggle.active { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .12); }
 
 /* ---------- Dossiers par semaine ---------- */
 .week-folder {

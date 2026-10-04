@@ -300,11 +300,12 @@ async function setNoteStatus(id, status) {
 
 async function deleteNote(id) {
   const n = noteStore.notes.find(x => x.id === id);
-  if (!noteStore.canEdit || !n || !confirm(`Supprimer « ${noteTitle(n)} »${noteImages(id).length ? ' et ses images' : ''} ? C’est définitif.`)) return;
+  if (!noteStore.canEdit || !n || !confirm(`Supprimer « ${noteTitle(n)} »${noteImages(id).length ? ' et ses images' : ''} ?${await trashNote()}`)) return;
   const files = noteStore.media.filter(m => m.note_id === id).map(m => m.storage_path);
   const { error } = await sb.from('player_performance_notes').delete().eq('id', id);
   if (error) return noteStore.onError(error.message);
-  if (files.length) await sb.storage.from(NOTES_BUCKET).remove(files);
+  // Corbeille : les images restent jusqu'à la suppression définitive.
+  if (files.length && !(await trashReady())) await sb.storage.from(NOTES_BUCKET).remove(files);
   toast('Supprimé.', 'success');
   await loadNotes();
 }
