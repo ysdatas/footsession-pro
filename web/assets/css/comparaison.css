@@ -152,6 +152,7 @@
 .obj-fixed { margin: 0 0 12px; }
 @media (max-width: 720px) {
   .obj-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .obj-row.is-selectable { flex-direction: row; align-items: flex-start; }   /* case, texte, statut sur une ligne */
   .obj-actions { justify-content: flex-start; }
   .obj-new { width: 100%; }
   .obj-new .btn { flex: 1 1 0; justify-content: center; }

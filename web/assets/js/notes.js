@@ -156,7 +156,7 @@ function mountNoteModal() {
     <div class="modal">
       <h3 id="noteModalTitle">Ajouter un point</h3>
       <input id="noteKind" type="hidden"><input id="noteId" type="hidden">
-      <div class="field"><label for="noteTitle">Titre <span class="label-opt">facultatif</span></label><input id="noteTitle" autocomplete="off" placeholder="Ex. Gainage : 3 séances par semaine"></div>
+      <div class="field"><label for="noteTitle">Titre <span class="label-opt">(facultatif)</span></label><input id="noteTitle" autocomplete="off" placeholder="Ex. Gainage : 3 séances par semaine"></div>
       <div class="field"><label for="noteBody">Description / consignes</label><textarea id="noteBody" rows="5"></textarea></div>
       <div class="field" id="noteStatusField"><label for="noteStatus">Statut</label>
         <select id="noteStatus">${Object.entries(OBJ_STATUS).map(([v, s]) => `<option value="${v}">${s.label}</option>`).join('')}</select></div>

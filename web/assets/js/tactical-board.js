@@ -2332,7 +2332,7 @@ async function boot() {
       PROC_SCHEMA = schema || null;
       const { data: proc } = await sb.from('procedures').select('*').eq('id', PROC).maybeSingle();
       PROC_ROW = proc || null;
-      $('#tbContext').textContent = `procédé « ${proc?.nom || '#' + PROC} »`;
+      $('#tbContext').textContent = `Procédé « ${proc?.nom || '#' + PROC} »`;
       if (schema && schema.canvas_json) { deserialize(schema.canvas_json); loaded = true; }
     } catch (e) { /* ignore, on tentera le LocalStorage */ }
   }
@@ -2342,13 +2342,13 @@ async function boot() {
     if (error || !row) toast('Exercice introuvable : le schéma ne pourra pas être enregistré.', 'error');
     else {
       EXO_ROW = row;
-      $('#tbContext').textContent = `schéma de l’exercice « ${row.title} »`;
+      $('#tbContext').textContent = `Schéma de l’exercice « ${row.title} »`;
       if (row.schema_json) { deserialize(row.schema_json); loaded = true; }
     }
   }
   if (DRAFT) {
     const name = new URLSearchParams(location.search).get('name');
-    $('#tbContext').textContent = `brouillon${name ? ` du procédé « ${name} »` : ''} — séance pas encore enregistrée`;
+    $('#tbContext').textContent = `Brouillon${name ? ` du procédé « ${name} »` : ''} — séance pas encore enregistrée`;
   }
   if (!loaded) {
     const ls = localStorage.getItem(LS_KEY);

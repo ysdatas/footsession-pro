@@ -1,5 +1,6 @@
 /* LMFC Performance — faq.css */
-.faq { max-width: 980px; }
+/* Largeur commune des pages ; seules les réponses gardent une longueur de ligne lisible. */
+.faq .faq-a > * { max-width: 85ch; }
 .faq section.card { margin-bottom: 16px; scroll-margin-top: 16px; }
 .faq h2 { font-size: var(--fs-xl); margin: 0 0 10px; }
 .faq h3 { font-size: var(--fs-lg); margin: 14px 0 8px; color: var(--gold); }

@@ -67,17 +67,20 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            physiques, préventions (kind 'prevention'), titre d'objectif facultatif,
                                            photo du joueur (RPC set_player_photo), reprise des anciennes préventions
 24. supabase/lmfc_v5.sql                   corbeille : table trash, copie de chaque suppression (et de ce qui
-                                           part avec elle), trash_restore(), droits trash_right()
+                                           part avec elle, joueur compris), trash_restore(), droits trash_right()
+                                           — à repasser si une version précédente l'a déjà été (rejouable)
 ```
 
 ### `lmfc_v5.sql` — la corbeille
 
-- Un déclencheur garde une copie de chaque ligne supprimée (séances et leurs exercices,
+- Un déclencheur garde une copie de chaque ligne supprimée (joueurs avec toute leur fiche :
+  mesures, tests, vidéos, séquences, objectifs, programme, parcours, présences, accès en attente ;
+  séances et leurs exercices,
   schémas, présences, commentaires ; vidéos et leurs séquences ; objectifs, préventions et
   leurs images ; exercices du programme ; parcours ; modèles ; équipes). Les pages
   suppriment comme avant ; la page **Corbeille** restaure (`trash_restore`, mêmes
-  identifiants, liens remis : joueurs d'une équipe, vidéo d'un exercice) ou supprime pour de bon
-  (fichiers compris).
+  identifiants, liens remis : joueurs d'une équipe, vidéo d'un exercice ; plusieurs passes, pour
+  qu'une ligne revenue avant son parent soit reprise) ou supprime pour de bon (fichiers compris).
 - Droits = ceux de la suppression d'origine (`trash_right`) ; le joueur n'y a pas accès.
 - Tant qu'elle n'est pas passée, rien ne change : une suppression reste définitive (la page le
   dit) et les fichiers partent avec la ligne. Ensuite, vidéos et images restent dans le stockage
@@ -217,6 +220,16 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   rapprochement à confirmer), objectifs pour plusieurs joueurs, menu, compilation vidéo
   (plus « Sélection du joueur »), corbeille.
 - **Corbeille** (`trash.html`) — voir `lmfc_v5.sql`.
+- **Supprimer un joueur** (administrateur, RLS `players_delete`) — fiche → « Modifier » → « Supprimer
+  le joueur », ou *Joueurs* → « Sélectionner » pour plusieurs. Refusé tant que la corbeille n'est pas
+  active : la fiche et tout ce qui en dépend doivent rester récupérables.
+- **Mode sélection** (`bulkBarHtml`, `selCheckHtml`, `app.js`) — cases, compteur « n sur N »,
+  Tout sélectionner (ce qui est affiché) / Tout désélectionner, actions groupées : Joueurs (supprimer),
+  Vidéos (supprimer, télécharger les originaux), Séquences (compiler, supprimer), Objectifs ·
+  Préventions (statut, supprimer).
+- **Gabarit commun** — toutes les pages, staff et joueur, ont la même largeur maximale et les mêmes
+  marges (`--page-max`, `--page-pad-top`, `--page-pad-x` dans `main.css`), contenu aligné contre le
+  menu ; la place de la barre de défilement est réservée (`scrollbar-gutter`).
 - **Séances** — liste, recherche (titre, équipe, principe de jeu, date), export PDF, suppression.
 - **Créer / Modifier une séance** — titre + **principe de jeu** (une fois pour la séance,
   `sessions.principes_jeu` ; les procédés en héritent, un ancien procédé garde le sien :
@@ -453,6 +466,9 @@ code déployé sans sa migration échoue en silence.**
 Les nouvelles vidéos (chemin `r2/{club_id}/{player_id}/…`, 95 Mo au plus) vont sur R2 ;
 les anciennes restent lisibles dans le bucket Supabase `player-videos`. Tout passe par
 `videoUrls` / `uploadVideoFile` / `removeVideoFile` (`web/assets/js/supabase-client.js`).
+`uploadVideoFile` passe par XHR (seul moyen d'avoir l'avancement d'un envoi) : « + Envoyer
+des vidéos » prend plusieurs fichiers d'un coup, envoyés l'un après l'autre avec le
+pourcentage de chacun et du total ; un échec n'arrête pas les suivants (« Réessayer »).
 Droits : lire = pouvoir lire la ligne `player_videos` (RLS) ; envoyer ou supprimer =
 `can_manage_videos()` et le club du chemin est le sien.
 

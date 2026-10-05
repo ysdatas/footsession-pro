@@ -23,7 +23,7 @@ const phCard = ({ href, icon, value, label, detail, tone = '' }) => `
   <a class="home-attn-card${tone ? ` is-${tone}` : ''}" href="${href}">
     <span class="home-attn-ic">${phIc(icon)}</span>
     <span class="home-attn-body">
-      <span class="home-attn-value">${value}</span>
+      ${value != null ? `<span class="home-attn-value">${value}</span>` : ''}
       <strong>${label}</strong>
       ${detail ? `<small>${detail}</small>` : ''}
     </span>
@@ -74,32 +74,32 @@ function renderAttention(videos, seqs, notes, exercises) {
   cards.push(videos.length
     ? phCard({ href: 'mes-videos.html', icon: 'video', tone: fresh.length ? 'urgent' : '',
         value: fresh.length || videos.length,
-        label: fresh.length ? `${plural(fresh.length, 'nouvelle vidéo', 'nouvelles vidéos')} cette semaine` : `${plural(videos.length, 'vidéo')} du staff`,
+        label: fresh.length ? `${plural(fresh.length, 'Nouvelle vidéo', 'Nouvelles vidéos')} cette semaine` : `${plural(videos.length, 'Vidéo')} du staff`,
         detail: `Dernière : ${escapeHtml(videos[0].titre || 'Vidéo')}` })
-    : phCard({ href: 'mes-videos.html', icon: 'video', tone: 'calm', value: '—', label: 'Aucune vidéo pour l’instant',
+    : phCard({ href: 'mes-videos.html', icon: 'video', tone: 'calm', label: 'Aucune vidéo pour l’instant',
         detail: 'Les vidéos de ton staff arriveront ici.' }));
 
   const answered = seqs.filter(s => s.staff_feedback).sort((a, b) => String(b.feedback_at || '').localeCompare(String(a.feedback_at || '')));
   const waiting = seqs.filter(s => s.submitted_at && !s.staff_feedback);
   cards.push(answered.length
     ? phCard({ href: 'mes-videos.html?tab=seqs', icon: 'chat', tone: daysAgo(answered[0].feedback_at || 0) <= 7 ? 'urgent' : '',
-        value: answered.length, label: `${plural(answered.length, 'retour')} du staff`,
+        value: answered.length, label: `${plural(answered.length, 'Retour')} du staff`,
         detail: `« ${escapeHtml(answered[0].staff_feedback.length > 70 ? `${answered[0].staff_feedback.slice(0, 67)}…` : answered[0].staff_feedback)} »` })
-    : phCard({ href: 'mes-videos.html?tab=seqs', icon: 'chat', tone: 'calm', value: waiting.length || '—',
-        label: waiting.length ? `${plural(waiting.length, 'séquence envoyée', 'séquences envoyées')}` : 'Aucun retour pour l’instant',
+    : phCard({ href: 'mes-videos.html?tab=seqs', icon: 'chat', tone: 'calm', value: waiting.length || null,
+        label: waiting.length ? plural(waiting.length, 'Séquence envoyée', 'Séquences envoyées') : 'Aucun retour pour l’instant',
         detail: waiting.length ? 'En attente du retour de ton staff.' : 'Sélectionne tes séquences et envoie-les au staff.' }));
 
   const active = notes.filter(n => (n.kind === 'objective' || n.kind === 'prevention') && (n.status || 'active') === 'active');
   const prev = active.filter(n => n.kind === 'prevention').length;
   cards.push(phCard({ href: 'mon-programme.html', icon: 'target', tone: active.length ? '' : 'calm',
-    value: active.length || '—',
-    label: active.length ? `${plural(active.length, 'objectif')} en cours` : 'Aucun objectif en cours',
+    value: active.length || null,
+    label: active.length ? `${plural(active.length, 'Objectif')} en cours` : 'Aucun objectif en cours',
     detail: active.length ? (prev ? `Dont ${prev} ${plural(prev, 'prévention')}.` : 'Fixés par ton staff.') : 'Tes objectifs et préventions apparaîtront ici.' }));
 
   if (exercises?.length) {
     const todo = exercises.filter(e => !e.done_at).length;
     cards.push(phCard({ href: 'mon-programme.html#exercices', icon: 'check', tone: todo ? '' : 'calm',
-      value: todo || '✓', label: todo ? `${plural(todo, 'exercice')} à faire` : 'Programme à jour',
+      value: todo || null, label: todo ? `${plural(todo, 'Exercice')} à faire` : 'Programme à jour',
       detail: `${exercises.length - todo} fait${exercises.length - todo > 1 ? 's' : ''} sur ${exercises.length}.` }));
   }
   document.getElementById('homeAttn').innerHTML = cards.join('');

@@ -299,3 +299,13 @@ Les 5 exports ont été générés avec peu de données, beaucoup de données, d
 - **La restauration d'une séquence en reprend le contenu.** La date « modifiée le » est recalculée par la base.
 - **La compilation se fabrique dans le navigateur.** Il faut garder l'onglet ouvert, pendant une durée égale à celle des séquences.
 - **Les gestes ont été vérifiés en émulation.** Un essai sur un vrai iPhone reste conseillé après le déploiement.
+
+---
+
+## 6. Passe du 5 octobre — largeur, suppression d'un joueur, sélection multiple
+
+| Retour | Constat | Correction |
+|---|---|---|
+| « Les pages n'ont pas la même largeur. » | Cinq largeurs maximales différentes : accueil 1120 px, FAQ 980, fiche 1240, Performance 1340, espace joueur 960 et 1180 ; le reste à 1280. Espace joueur centré, staff aligné contre le menu. | Un seul gabarit (`--page-max`, `--page-pad-top`, `--page-pad-x`). Mesuré à 1440 et 1920 px : en-tête de 284 à 1394 px (à 1440) sur toutes les pages, staff comme joueur. À 375 px, mêmes marges de 12 px partout. Les réponses de la FAQ gardent une longueur de ligne lisible. |
+| « Je ne peux pas supprimer un joueur. » | La base l'autorise déjà à l'administrateur seul, mais aucun bouton n'existait. Une suppression efface en cascade une quinzaine de tables. | Bouton sur la fiche (« Modifier » → « Supprimer le joueur ») et suppression groupée dans *Joueurs*, après confirmation listant les noms. Le joueur part dans la corbeille avec toute sa fiche et revient complet. Vérifié sur Postgres : vidéo, séquences annotées, vues, mesures, tests, objectifs, programme, parcours, accès en attente. La suppression est refusée tant que la corbeille n'est pas active. |
+| « Je veux agir sur plusieurs vidéos ou préventions d'un coup. » | La sélection n'existait que pour la compilation. | Mode sélection commun : cases, compteur, Tout sélectionner (sur ce qui est affiché) et Tout désélectionner. Actions groupées : vidéos (supprimer, télécharger les originaux), séquences (compiler, supprimer), objectifs et préventions (statut, supprimer), joueurs (supprimer). |

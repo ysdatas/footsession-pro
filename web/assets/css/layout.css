@@ -99,8 +99,8 @@
 .main {
   margin-left: var(--sidebar-w);
   min-height: 100vh;
-  padding: 30px 36px 60px;
-  max-width: 1280px;
+  padding: var(--page-pad-top) var(--page-pad-x) 60px;
+  max-width: var(--page-max);
 }
 
 /* ----- Mobile sidebar ----- */
@@ -131,12 +131,14 @@
   .sidebar.open { transform: none; }
   .sidebar-backdrop.open { display: block; }
   .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
-  .main { margin-left: 0; padding: 70px 18px 50px; }
+  :root { --page-pad-x: 18px; }
+  .main { margin-left: 0; padding: calc(56px + 14px) var(--page-pad-x) 50px; }
 }
 
 @media (max-width: 560px) {
   .page-head { flex-direction: column; }
-  .main { padding: 64px 12px 40px; }
+  :root { --page-pad-x: 12px; }
+  .main { padding: calc(56px + 8px) var(--page-pad-x) 40px; }
 }
 
 /* ----- Sélecteur d'équipe (nav.js) ----- */

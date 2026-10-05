@@ -32,6 +32,7 @@
         <p class="subtitle" id="playersSub">Chargement…</p>
       </div>
       <div class="page-actions">
+        <button class="btn hidden" id="btnSelectPlayers" type="button" aria-pressed="false">Sélectionner</button>
         <button class="btn hidden" id="btnImportExcel" type="button" title="Met à jour tous les joueurs présents dans le fichier">Importer l’Excel</button>
         <button class="btn btn-primary hidden" id="btnAddPlayer" type="button">+ Ajouter</button>
       </div>
@@ -43,6 +44,7 @@
     </div>
 
     <div class="unassigned-bar hidden" id="unassignedBar"></div>
+    <div id="playersBulk"></div>
 
     <div id="gridView"><div class="empty">Chargement…</div></div>
   </main>

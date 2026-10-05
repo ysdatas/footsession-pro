@@ -1,7 +1,6 @@
 /* ============================================================
    LMFC Performance — player.css (fiche joueur)
    ============================================================ */
-.fiche { max-width: 1240px; }
 .back-link { display: inline-block; margin-bottom: 12px; color: var(--text-secondary); font-size: var(--fs-md); }
 .back-link:hover { color: var(--gold); }
 
@@ -41,7 +40,10 @@
 /* Informations : édition */
 .fiche-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 .fiche-form label { display: flex; flex-direction: column; gap: 5px; font-size: var(--fs-xs); color: var(--text-secondary); margin: 0; }
-.fiche-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.fiche-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+/* Action destructive à l'écart des deux autres, à gauche. */
+.fiche-form-actions .fiche-delete { margin-right: auto; }
+@media (max-width: 480px) { .fiche-form-actions .fiche-delete { flex: 1 1 100%; order: 3; margin: 6px 0 0; } }
 
 /* Suivi physique */
 .phys-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }

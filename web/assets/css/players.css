@@ -117,3 +117,12 @@
   .pr-data { min-width: 0; overflow: hidden; }
   .pr-poste { display: inline-block; max-width: 8.5ch; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 }
+
+/* Mode sélection (administrateur) : la case prend la place de la flèche, à gauche. */
+.player-row.is-selectable { grid-template-columns: 22px 36px minmax(0, 1fr) auto; }
+@media (max-width: 560px) {
+  .player-row.is-selectable { grid-template-columns: 22px 32px minmax(0, 1fr) auto; }
+}
+@media (max-width: 560px) {
+  .player-row.is-selectable { grid-template-columns: 22px 32px minmax(92px, 1fr) minmax(0, auto); }
+}

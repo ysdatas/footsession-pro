@@ -33,7 +33,7 @@
       </div>
       <div class="page-actions">
         <a class="btn hidden" id="videoBackLink" href="players.html">← Fiche joueur</a>
-        <button class="btn btn-primary hidden" id="btnNewVideo" type="button">+ Envoyer une vidéo</button>
+        <button class="btn btn-primary hidden" id="btnNewVideo" type="button">+ Envoyer des vidéos</button>
       </div>
     </div>
 
@@ -41,25 +41,26 @@
     <div id="vpView"><div class="empty">Chargement…</div></div>
   </main>
 
-  <!-- Modale : envoi vidéo -->
+  <!-- Modale : envoi de vidéos (une ou plusieurs, avec l'avancement de chacune) -->
   <div class="modal-backdrop" id="videoModal">
-    <div class="modal">
-      <h3>Envoyer une vidéo</h3>
+    <div class="modal modal-upl">
+      <h3>Envoyer des vidéos</h3>
       <div class="field">
-        <label>Joueur destinataire</label>
+        <label for="v-player">Joueur destinataire</label>
         <select id="v-player" required><option value="">— Choisir —</option></select>
       </div>
-      <div class="field"><label>Titre</label><input id="v-titre" required></div>
-      <div class="field"><label>Description (optionnel)</label><textarea id="v-desc" rows="2"></textarea></div>
-      <div class="field"><label>Fichier vidéo (MP4 conseillé)</label><input type="file" id="v-file" accept="video/*" required></div>
-      <p class="text-muted" style="font-size:var(--fs-sm);margin:0;">Vidéo brute : le joueur et vous pourrez ensuite la découper en séquences.</p>
-      <div id="v-progress" class="hidden" style="margin:10px 0;">
-        <div style="height:6px;background:var(--bg-surface);border-radius:999px;overflow:hidden;">
-          <div id="v-progress-bar" style="height:100%;width:30%;background:var(--gold);"></div>
-        </div>
+      <div class="field">
+        <label>Fichiers vidéo (MP4 conseillé)</label>
+        <label class="file-pick"><input type="file" id="v-file" accept="video/*" multiple>
+          <span class="btn btn-sm">+ Choisir des vidéos</span></label>
+        <p class="field-hint">Sélectionnez-en plusieurs d’un coup dans vos fichiers. Le titre de chaque vidéo reprend le nom du fichier : modifiable avant l’envoi.</p>
       </div>
+      <div class="upl-list" id="v-files"></div>
+      <div class="field"><label for="v-desc">Description <span class="label-opt">(facultative, commune aux vidéos)</span></label><textarea id="v-desc" rows="2"></textarea></div>
+      <p class="field-hint">Vidéos brutes : le joueur et vous pourrez ensuite les découper en séquences.</p>
+      <div class="upl-total hidden" id="v-total" role="status" aria-live="polite"></div>
       <div class="modal-actions">
-        <button class="btn" type="button" data-close="videoModal">Annuler</button>
+        <button class="btn" type="button" id="v-cancel">Annuler</button>
         <button class="btn btn-primary" id="v-submit" type="button">Envoyer</button>
       </div>
     </div>

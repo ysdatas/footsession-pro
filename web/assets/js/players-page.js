@@ -12,6 +12,8 @@
 let playersCache = [];
 let myProfile = null;
 let CAN_EDIT_PLAYERS = false;
+/* Mode sélection (administrateur) : plusieurs fiches d'un coup, suppression groupée. */
+const pickPlayers = { on: false, ids: new Set() };
 
 (async () => {
   const ctx = await requireAuth();
@@ -44,6 +46,13 @@ let CAN_EDIT_PLAYERS = false;
       userId: myProfile.id,
       onDone: loadGrid,
     }));
+  }
+
+  // Supprimer des joueurs : administrateur seulement (RLS players_delete).
+  if (myProfile.role === 'admin') {
+    const btn = document.getElementById('btnSelectPlayers');
+    btn.classList.remove('hidden');
+    btn.addEventListener('click', () => setPickPlayers(!pickPlayers.on));
   }
 
   document.getElementById('searchPlayer').addEventListener('input', renderGrid);
@@ -103,7 +112,7 @@ function fillPosteFilter() {
 /* Glisser une carte vers une autre rubrique enregistre la ligne du
    joueur (colonne players.ligne). Sans cette colonne (migration
    player_lines.sql non passée), les cartes ne se déplacent pas. */
-const canDragLines = () => CAN_EDIT_PLAYERS && playersCache.some(p => 'ligne' in p)
+const canDragLines = () => CAN_EDIT_PLAYERS && !pickPlayers.on && playersCache.some(p => 'ligne' in p)
   && matchMedia('(pointer: fine)').matches;   // glisser-déposer à la souris ; au doigt, la ligne se change sur la fiche
 
 /* Dernière taille et dernier poids de chaque joueur, sur sa saison la
@@ -124,6 +133,60 @@ function latestMeasures(rows) {
 }
 const frNum = (v, d) => Number(v).toFixed(d).replace('.', ',');
 
+function setPickPlayers(on) {
+  pickPlayers.on = on; pickPlayers.ids.clear();
+  const btn = document.getElementById('btnSelectPlayers');
+  btn.setAttribute('aria-pressed', String(on));
+  btn.classList.toggle('active', on);
+  renderGrid();
+}
+/* Joueurs affichés (recherche et filtre appliqués) : « Tout sélectionner » porte sur eux. */
+function shownPlayers() {
+  const q = normalizeName(document.getElementById('searchPlayer').value);
+  const poste = document.getElementById('posteFilter').value;
+  return playersCache.filter(p => (!q || normalizeName(fullName(p)).includes(q)) && (!poste || (p.poste || '').trim() === poste));
+}
+function renderPlayersBulk() {
+  const box = document.getElementById('playersBulk');
+  if (!pickPlayers.on) { box.innerHTML = ''; return; }
+  box.innerHTML = bulkBarHtml({ n: pickPlayers.ids.size, total: shownPlayers().length, noun: ['joueur', 'joueurs', false],
+    actions: [{ key: 'delete', label: 'Supprimer', danger: true }] });
+}
+document.getElementById('playersBulk').addEventListener('click', (e) => {
+  const act = e.target.closest('[data-bulk]')?.dataset.bulk;
+  if (act === 'all') shownPlayers().forEach(p => pickPlayers.ids.add(p.id));
+  else if (act === 'none') pickPlayers.ids.clear();
+  else if (act === 'done') return setPickPlayers(false);
+  else if (act === 'delete') return deletePickedPlayers();
+  else return;
+  renderGrid();
+});
+/* Suppression groupée : chaque joueur part dans la corbeille avec toute sa
+   fiche (mesures, tests, vidéos, objectifs, parcours, présences). */
+async function deletePickedPlayers() {
+  const list = playersCache.filter(p => pickPlayers.ids.has(p.id));
+  if (!list.length) return;
+  if (!(await trashReady())) {
+    return toast('Activez d’abord la corbeille (supabase/lmfc_v5.sql) : la suppression d’un joueur doit rester récupérable.', 'error');
+  }
+  const linked = list.filter(p => p.auth_user_id).length;
+  if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} joueurs` : 'ce joueur'} ?\n\n${namesList(list.map(fullName))}\n\n`
+    + 'Chaque fiche part avec tout ce qui la concerne : mesures, tests, vidéos et séquences, objectifs et préventions, programme, parcours, présences.'
+    + (linked ? `\n${linked > 1 ? `${linked} comptes joueurs n’auront` : 'Un compte joueur n’aura'} plus accès à son espace.` : '')
+    + '\n\nRécupérable depuis la Corbeille.')) return;
+  try {
+    const { data, error } = await sb.from('players').delete().in('id', list.map(p => p.id)).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('Suppression réservée à l’administrateur du club.');
+    toast(`${data.length} joueur${data.length > 1 ? 's' : ''} dans la corbeille.`, 'success');
+    pickPlayers.ids.clear();
+    await loadGrid();
+  } catch (e) {
+    console.error('Suppression des joueurs impossible', e);
+    toast(e.message, 'error');
+  }
+}
+
 function playerRow(p) {
   const i = playersCache.indexOf(p);
   const photo = p.photo_url
@@ -136,6 +199,14 @@ function playerRow(p) {
     num(p.weight_kg) !== null ? `<span title="Poids">${frNum(p.weight_kg, 1)} kg</span>` : '',
     p.poste ? `<span class="pr-poste" title="Poste">${escapeHtml(p.poste)}</span>` : '',
   ].filter(Boolean).join('');
+  if (pickPlayers.on) {
+    const on = pickPlayers.ids.has(p.id);
+    return `<div class="player-row is-selectable${on ? ' is-picked' : ''}" data-pick="${p.id}" role="checkbox" aria-checked="${on}" tabindex="0">
+    ${selCheckHtml(on)}${photo}
+    <span class="pr-name"><strong>${escapeHtml(fullName(p))}</strong>${team ? `<small>${escapeHtml(team)}</small>` : ''}</span>
+    <span class="pr-data">${data}</span>
+  </div>`;
+  }
   return `<a class="player-row" href="player.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
     ${photo}
     <span class="pr-name"><strong>${escapeHtml(fullName(p))}</strong>${team ? `<small>${escapeHtml(team)}</small>` : ''}</span>
@@ -145,6 +216,7 @@ function playerRow(p) {
 }
 
 function renderGrid() {
+  renderPlayersBulk();
   const wrap = document.getElementById('gridView');
   if (!playersCache.length) {
     wrap.innerHTML = `<div class="empty">Aucun joueur.${CAN_EDIT_PLAYERS ? '<br>Cliquez sur « Ajouter ».' : ''}</div>`;
@@ -153,8 +225,7 @@ function renderGrid() {
   const q = normalizeName(document.getElementById('searchPlayer').value);
   const poste = document.getElementById('posteFilter').value;
   const filtering = !!(q || poste);
-  const shown = playersCache.filter(p =>
-    (!q || normalizeName(fullName(p)).includes(q)) && (!poste || (p.poste || '').trim() === poste));
+  const shown = shownPlayers();
   if (!shown.length) {
     wrap.innerHTML = '<div class="empty">Aucun joueur ne correspond à cette recherche.</div>';
     return;
@@ -173,6 +244,22 @@ function renderGrid() {
       </section>`;
     }).join('');
 }
+
+/* Mode sélection : un clic (ou Espace / Entrée) coche la ligne. */
+const togglePick = (row) => {
+  const id = Number(row.dataset.pick);
+  if (pickPlayers.ids.has(id)) pickPlayers.ids.delete(id); else pickPlayers.ids.add(id);
+  renderGrid();
+  document.querySelector(`.player-row[data-pick="${id}"]`)?.focus();
+};
+document.getElementById('gridView').addEventListener('click', (e) => {
+  const row = e.target.closest('.player-row[data-pick]');
+  if (row) togglePick(row);
+});
+document.getElementById('gridView').addEventListener('keydown', (e) => {
+  const row = e.target.closest('.player-row[data-pick]');
+  if (row && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); togglePick(row); }
+});
 
 /* ---------- Glisser-déposer entre rubriques ---------- */
 let draggedId = null;

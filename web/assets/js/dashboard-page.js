@@ -23,6 +23,7 @@ const HOME_IC = {
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
   key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
   scale: '<path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0zM19 7l-3 7a4 4 0 0 0 6 0z"/>',
+  trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
 };
 const homeIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${HOME_IC[k] || HOME_IC.plus}</svg>`;
@@ -35,6 +36,7 @@ const HOME_DESC = {
   analytics: 'Bilan des séances',
   faq: 'Mode d’emploi',
   club: 'Accès, équipes, identité du club',
+  trash: 'Restaurer un élément supprimé',
 };
 
 (async () => {
@@ -71,12 +73,12 @@ const HOME_DESC = {
   await renderAttention(profile, can);
 })();
 
-/* Une carte « À traiter » : chiffre ou titre, explication, lien. */
+/* Une carte « À traiter » : chiffre (s'il y en a un), titre, explication, lien. */
 const attnCard = ({ href, icon, value, label, detail, tone = '' }) => `
   <a class="home-attn-card${tone ? ` is-${tone}` : ''}" href="${href}">
     <span class="home-attn-ic">${homeIc(icon)}</span>
     <span class="home-attn-body">
-      <span class="home-attn-value">${value}</span>
+      ${value != null ? `<span class="home-attn-value">${value}</span>` : ''}
       <strong>${label}</strong>
       ${detail ? `<small>${detail}</small>` : ''}
     </span>
@@ -117,7 +119,7 @@ async function renderAttention(profile, can) {
       const toSee = (seqRes.data || []).filter(seqToSee).length;
       cards.push(attnCard({
         href: 'videos.html', icon: 'videos', tone: toSee ? 'urgent' : 'calm',
-        value: toSee || '✓', label: toSee ? `séquence${toSee > 1 ? 's' : ''} à regarder` : 'Aucune vidéo à regarder',
+        value: toSee || null, label: toSee ? `Séquence${toSee > 1 ? 's' : ''} à regarder` : 'Aucune vidéo à regarder',
         detail: toSee ? 'Envoyées par vos joueurs, en attente de votre retour.' : 'Les envois de vos joueurs apparaîtront ici.',
       }));
     }
@@ -131,14 +133,14 @@ async function renderAttention(profile, can) {
         })
         : attnCard({
           href: 'session-edit.html', icon: 'plus', tone: 'calm',
-          value: '—', label: 'Aucune séance prévue', detail: 'Préparer la prochaine séance.',
+          label: 'Aucune séance prévue', detail: 'Préparer la prochaine séance.',
         }));
     }
     if (can('performance')) {
       const n = objRes.count || 0;
       cards.push(attnCard({
         href: 'comparaison.html?tab=objectifs', icon: 'target', tone: n ? '' : 'calm',
-        value: n || '—', label: n ? `objectif${n > 1 ? 's' : ''} et prévention${n > 1 ? 's' : ''} en cours` : 'Aucun objectif en cours',
+        value: n || null, label: n ? `Objectif${n > 1 ? 's' : ''} et prévention${n > 1 ? 's' : ''} en cours` : 'Aucun objectif en cours',
         detail: n ? 'Mettre à jour leur statut, en ajouter.' : 'Fixer des objectifs ou des préventions à un ou plusieurs joueurs.',
       }));
     }
@@ -147,14 +149,14 @@ async function renderAttention(profile, can) {
       const missing = ids.filter(id => !done.has(id)).length;
       cards.push(attnCard({
         href: 'comparaison.html?tab=morpho', icon: 'scale', tone: missing ? '' : 'calm',
-        value: missing || '✓', label: missing ? `joueur${missing > 1 ? 's' : ''} sans mesure en ${month.toLowerCase()}` : `Mesures de ${month.toLowerCase()} à jour`,
+        value: missing || null, label: missing ? `Joueur${missing > 1 ? 's' : ''} sans mesure en ${month.toLowerCase()}` : `Mesures de ${month.toLowerCase()} à jour`,
         detail: missing ? 'Importez l’Excel ou saisissez la mesure sur la fiche Performance.' : 'Tous les joueurs de l’équipe ont leur mesure du mois.',
       }));
     }
     if (profile.role === 'admin' && accessRes.count) {
       cards.push(attnCard({
         href: 'club.html', icon: 'key', tone: 'urgent',
-        value: accessRes.count, label: `accès en attente`, detail: 'Personnes enregistrées qui n’ont pas encore créé leur compte.',
+        value: accessRes.count, label: 'Accès en attente', detail: 'Personnes enregistrées qui n’ont pas encore créé leur compte.',
       }));
     }
     box.innerHTML = cards.join('') || '<p class="text-muted">Rien à signaler.</p>';

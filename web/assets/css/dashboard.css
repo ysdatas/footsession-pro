@@ -62,7 +62,6 @@
    Accueil (dashboard-page.js) : où je suis, ce qui m'attend,
    où aller. Une colonne sur téléphone.
    ============================================================ */
-.home { max-width: 1120px; }
 .home-hero {
   position: relative; overflow: hidden;
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
@@ -124,8 +123,6 @@
 }
 
 /* Accueil du joueur (mon-espace.html) : même signature, ses chiffres. */
-.pv-wrap.home { max-width: 1120px; margin: 0 auto; padding: 28px 24px 60px; }
-@media (max-width: 640px) { .pv-wrap.home { padding: 14px 14px 32px; } }
 .home-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .home-stat {
   display: grid; gap: 2px; padding: 14px 16px; border-radius: var(--radius-md);
@@ -137,3 +134,4 @@
 .home-stat strong { font-size: var(--fs-xl); font-weight: 800; color: var(--text-primary); }
 .home-stat small { font-size: var(--fs-sm); color: var(--text-secondary); }
 @media (max-width: 420px) { .home-stats { grid-template-columns: 1fr 1fr; } }
+.home-attn-body strong::first-letter { text-transform: uppercase; }   /* titre saisi (séance) : majuscule comme les autres cartes */

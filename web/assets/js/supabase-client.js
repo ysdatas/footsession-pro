@@ -56,9 +56,29 @@ async function videoUrls(paths) {
 }
 const videoUrl = async (path) => (await videoUrls([path])).get(path) || null;
 
-const uploadVideoFile = (path, file) => videoApi(`file/${path}`, {
-  method: 'PUT', headers: { 'content-type': file.type || 'video/mp4' }, body: file,
-});
+/* Envoi d'un fichier. XHR plutôt que fetch : seul XHR donne l'avancement
+   de l'envoi (onProgress reçoit 0 → 1). signal : AbortController pour annuler. */
+async function uploadVideoFile(path, file, { onProgress, signal } = {}) {
+  const { data: { session } } = await sb.auth.getSession();
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open('PUT', `/api/videos/file/${path}`);
+    x.setRequestHeader('authorization', `Bearer ${session?.access_token || ''}`);
+    x.setRequestHeader('content-type', file.type || 'video/mp4');
+    if (onProgress) x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    x.onload = () => {
+      let body = {};
+      try { body = JSON.parse(x.responseText); } catch { /* réponse vide */ }
+      if (x.status >= 200 && x.status < 300) resolve(body);
+      else reject(new Error(body.error || `Serveur vidéo indisponible (${x.status}).`));
+    };
+    x.onerror = () => reject(new Error('Connexion interrompue pendant l’envoi.'));
+    x.onabort = () => reject(Object.assign(new Error('Envoi annulé.'), { name: 'AbortError' }));
+    if (signal?.aborted) return x.onabort();
+    signal?.addEventListener('abort', () => x.abort(), { once: true });
+    x.send(file);
+  });
+}
 async function removeVideoFile(path) {
   if (isR2Video(path)) return videoApi(`file/${path}`, { method: 'DELETE' });
   const { error } = await sb.storage.from('player-videos').remove([path]);

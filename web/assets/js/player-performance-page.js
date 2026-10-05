@@ -313,7 +313,7 @@ function squadPanel(m, colspan) {
             title="Hors des bornes attendues (${m.min}–${m.max}${esc(unit)}) : exclue de la moyenne et du classement.">
           <span class="sq-rank">⚠</span>
           <a class="sq-name" href="player-performance.html?id=${e.id}">${esc(e.name)}</a>
-          <span class="sq-bar sq-bar-flag">valeur à vérifier</span>
+          <span class="sq-bar sq-bar-flag">Valeur à vérifier</span>
           <span class="sq-val">${fmt(e.value, m.digits)}${esc(unit)}</span>
         </li>`).join('')}
       </ol>
@@ -623,7 +623,7 @@ function renderCareer() {
       <div class="career-body">
         <strong>${esc(c.club_name)}</strong>
         ${c.categorie ? `<span class="career-cat">${esc(c.categorie)}</span>` : ''}
-        <span class="career-range">${esc(range)}${duration ? ` · ${esc(duration)}` : ''}</span>
+        <span class="career-range">${esc(capFirst(range))}${duration ? ` · ${esc(duration)}` : ''}</span>
         ${c.notes ? `<p class="career-notes">${esc(c.notes)}</p>` : ''}
       </div>
     </li>`;

@@ -9,6 +9,7 @@
 
 const clip = (t, n) => { t = String(t || '').trim(); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t; };
 const TRASH_TYPES = {
+  players:                  { label: 'Joueur',              name: (d) => `${d.prenom || ''} ${d.nom || ''}`.trim() || 'Joueur' },
   sessions:                 { label: 'Séance',              name: (d) => `${d.titre || 'Séance'}${d.date_seance ? ` · ${fmtDate(d.date_seance)}` : ''}` },
   procedures:               { label: 'Exercice de séance',  name: (d) => d.nom || 'Procédé' },
   player_videos:            { label: 'Vidéo',               name: (d) => d.titre || 'Vidéo' },
@@ -27,6 +28,10 @@ const CHILD_WORDS = {
   procedures: ['exercice', 'exercices'], tactical_schemas: ['schéma', 'schémas'], attendance: ['présence', 'présences'],
   session_comments: ['commentaire', 'commentaires'], video_sequences: ['séquence', 'séquences'], video_views: ['visionnage', 'visionnages'],
   player_video_selections: ['sélection', 'sélections'], player_performance_media: ['image', 'images'],
+  player_videos: ['vidéo', 'vidéos'], player_performance_notes: ['objectif ou prévention', 'objectifs et préventions'],
+  player_physical_measurements: ['mesure', 'mesures'], player_physical_tests: ['session de tests', 'sessions de tests'],
+  program_exercises: ['exercice du programme', 'exercices du programme'], player_career: ['club du parcours', 'clubs du parcours'],
+  player_programs: ['ancienne prévention', 'anciennes préventions'], club_access: ['accès en attente', 'accès en attente'],
 };
 
 const trash = { roots: [], kids: new Map(), players: new Map(), people: new Map(), picked: new Set() };
@@ -100,7 +105,7 @@ function render() {
       <span class="trash-main">
         <span class="trash-type">${escapeHtml(typeLabel(r))}</span>
         <strong>${escapeHtml(name)}</strong>
-        <small>${[who, counts.length ? `avec ${counts.join(', ')}` : '', `supprimé le ${when}`, by ? `par ${by}` : ''].filter(Boolean).map(escapeHtml).join(' · ')}</small>
+        <small>${escapeHtml(capFirst([who, counts.length ? `avec ${counts.join(', ')}` : '', `supprimé le ${when}`, by ? `par ${by}` : ''].filter(Boolean).join(' · ')))}</small>
       </span>
       <span class="trash-actions">
         <button class="btn btn-sm" type="button" data-restore="${r.id}">Restaurer</button>
@@ -168,11 +173,13 @@ async function purge(ids) {
     const media = rows.flatMap(r => (r.tbl === 'player_performance_media' ? [r.data.storage_path]
       : r.tbl === 'program_exercises' ? [r.data.image_path, r.data.schema_path] : [])).filter(Boolean);
     const schemas = rows.filter(r => r.tbl === 'tactical_schemas').map(r => r.data.image_path).filter(Boolean);
+    const photos = rows.filter(r => r.tbl === 'players').map(r => r.data.photo_path).filter(Boolean);
     const fileErrors = [];
     await Promise.all([
       ...videos.map(p => removeVideoFile(p).catch(e => fileErrors.push(`${p} : ${e.message}`))),
       media.length && sb.storage.from('player-performance-media').remove(media).then(({ error }) => error && fileErrors.push(error.message)),
       schemas.length && sb.storage.from('schemas').remove(schemas).then(({ error }) => error && fileErrors.push(error.message)),
+      photos.length && sb.storage.from('player-photos').remove(photos).then(({ error }) => error && fileErrors.push(error.message)),
     ]);
     if (fileErrors.length) console.warn('Fichiers non retirés du stockage (orphelins)', fileErrors);
     const { error } = await sb.from('trash').delete().or(`id.in.(${ids.join(',')}),root_id.in.(${ids.join(',')})`);

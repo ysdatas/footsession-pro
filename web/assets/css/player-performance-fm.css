@@ -8,11 +8,6 @@ body.fp-fm-page {
     linear-gradient(180deg, #090d10 0%, #0b0d0f 100%);
 }
 
-.fp-fm-page .main,
-.fp-fm-page main {
-  max-width: 1550px;
-  margin: 0 auto;
-}
 
 .fp-fm-page .page-head {
   position: relative;

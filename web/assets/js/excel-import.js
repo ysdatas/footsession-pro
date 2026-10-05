@@ -732,9 +732,9 @@ const ExcelImport = (() => {
 
     const statusCell = e => ({
       ok: e.changes ? `<span class="xi-badge xi-update">${e.changes} valeur${e.changes > 1 ? 's' : ''}</span>`
-                    : '<span class="xi-badge xi-same">déjà à jour</span>',
-      suggested: `<span class="xi-badge xi-warn">${e.nameClash ? 'prénom différent : à confirmer' : 'rapprochement à confirmer'}</span>`,
-      conflict: '<span class="xi-badge xi-danger">ambigu : exclu</span>',
+                    : '<span class="xi-badge xi-same">Déjà à jour</span>',
+      suggested: `<span class="xi-badge xi-warn">${e.nameClash ? 'Prénom différent : à confirmer' : 'Rapprochement à confirmer'}</span>`,
+      conflict: '<span class="xi-badge xi-danger">Ambigu : exclu</span>',
     })[e.status];
 
     const nLines = e => e.measurements.length + e.tests.length;
@@ -769,8 +769,8 @@ const ExcelImport = (() => {
               ${st.include.has(e.fiche.id) ? 'checked' : ''} ${e.status === 'conflict' ? 'disabled' : ''}></td>
             <td class="xi-name">${h(fullName(e.fiche))}${e.fiche.id === focus ? ' <small>(fiche ouverte)</small>' : ''}</td>
             <td class="xi-src">${h([...new Set(e.data.excelNames)].join(' · ') || e.override || '—')}
-              ${e.data.individualSheet ? `<small>onglet ${h(e.data.individualSheet)}</small>` : ''}</td>
-            <td class="xi-num">${nLines(e)}${e.created ? ` <small>dont ${e.created} nouvelle${e.created > 1 ? 's' : ''}</small>` : ''}</td>
+              ${e.data.individualSheet ? `<small>Onglet ${h(e.data.individualSheet)}</small>` : ''}</td>
+            <td class="xi-num">${nLines(e)}${e.created ? ` <small>Dont ${e.created} nouvelle${e.created > 1 ? 's' : ''}</small>` : ''}</td>
             <td>${statusCell(e)} ${nLines(e) ? `<button class="xi-more" type="button" data-detail="${e.fiche.id}" aria-expanded="false">Voir</button>` : ''}</td>
           </tr>
           ${nLines(e) ? `<tr class="xi-detail hidden" data-detail-row="${e.fiche.id}"><td></td><td colspan="4">${detailHtml(e)}</td></tr>` : ''}`).join('')}

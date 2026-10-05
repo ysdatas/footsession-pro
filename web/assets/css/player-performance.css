@@ -1,5 +1,5 @@
 
-.perf-main{max-width:1320px;margin:0 auto;padding:28px 28px 60px;}
+.perf-main{max-width:var(--page-max);margin:0 auto;padding:var(--page-pad-top) var(--page-pad-x) 60px;}
 .perf-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px;}
 .perf-brand{font-size:var(--fs-lg);font-weight:700;letter-spacing:-.02em;}   /* même logo que partout (main.css) */
 .perf-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -74,7 +74,7 @@
    sans défilement sur un écran 1440×900.
    ============================================================ */
 
-.perf-main{max-width:1560px;padding:22px 22px 48px;}
+.perf-main{max-width:var(--page-max);}
 .perf-topbar{margin-bottom:12px;}
 .perf-hero{padding:14px 20px;margin-bottom:12px;gap:18px;}
 .perf-photo-wrap{width:86px;height:86px;flex:0 0 86px;border-radius:18px;}
@@ -556,8 +556,9 @@ details.table-note p{margin:6px 0 0;line-height:1.55;}
    Intégration à la plateforme : barre latérale visible (staff et
    joueur), en-tête signature, sous-titres des objectifs.
    ============================================================ */
-body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: 1340px; }
-@media (max-width: 980px) { body.app .perf-main { margin: 0; padding-top: 70px; } }
+body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max); padding: var(--page-pad-top) var(--page-pad-x) 60px; }
+@media (max-width: 980px) { body.app .perf-main { margin: 0; padding-top: calc(56px + 14px); } }
+@media (max-width: 560px) { body.app .perf-main { padding-top: calc(56px + 8px); padding-bottom: 40px; } }
 .perf-crumbs { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; min-width: 0; }
 .perf-crumbs .back-link { margin: 0; }
 .perf-hero.hero-surface { background: var(--hero-bg); }

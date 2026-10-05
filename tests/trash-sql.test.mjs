@@ -51,6 +51,10 @@ create table public.video_views (id bigint generated always as identity primary 
 create table public.player_video_selections (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, video_id bigint not null references public.player_videos on delete cascade, unique (player_id, video_id));
 create table public.player_performance_notes (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, kind text, title text);
 create table public.player_performance_media (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, note_id bigint references public.player_performance_notes on delete cascade, storage_path text);
+create table public.player_physical_measurements (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, month_label text, weight_kg numeric);
+create table public.player_physical_tests (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, stage text, vift_kmh numeric);
+create table public.player_programs (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, title text not null);
+create table public.club_access (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, email text, player_id bigint references public.players on delete cascade);
 create table public.program_exercises (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, title text not null, video_id bigint references public.player_videos on delete set null, image_path text);
 `);
 await db.exec(SQL);
@@ -71,6 +75,11 @@ insert into public.player_video_selections (club_id, player_id, video_id) values
 insert into public.player_performance_notes (club_id, player_id, kind, title) values (1, 1, 'objective', null);
 insert into public.player_performance_media (club_id, player_id, note_id, storage_path) values (1, 1, 1, '1/a.jpg'), (1, 1, 1, '1/b.jpg');
 insert into public.program_exercises (club_id, player_id, title, video_id) values (1, 1, 'Gainage', 1);
+insert into public.player_physical_measurements (club_id, player_id, month_label, weight_kg) values (1, 1, 'Août', 72.4), (1, 1, 'Septembre', 72.9);
+insert into public.player_physical_tests (club_id, player_id, stage, vift_kmh) values (1, 1, 'pre', 19.5);
+insert into public.player_career (club_id, player_id, club_name) values (1, 1, 'Stade Lavallois');
+insert into public.player_programs (club_id, player_id, title) values (1, 1, 'Nordic');
+insert into public.club_access (club_id, email, player_id) values (1, 'joueur@example.test', 1);
 `);
 const count = async (t) => Number((await one(`select count(*) n from public.${t}`)).n);
 const trashRoots = async () => (await q(`select id, tbl, row_id from public.trash where root_id is null order by id`)).rows;
@@ -172,7 +181,38 @@ await q(`delete from public.trash`);   // suppression définitive (politique tra
 await q(`reset role`);
 assert.equal(await count('trash'), 0);
 
-// 12. Club supprimé : aucune erreur, rien gardé.
+// 12. Joueur supprimé : UNE entrée dans la corbeille, avec toute sa fiche ;
+//     la restauration remet tout, même ce qui est parti avant son parent.
+await q(`update public.sim set role = 'admin'`);
+await q(`delete from public.trash`);
+// Une vidéo et ses séquences, pour vérifier qu'elles reviennent avec le joueur.
+await q(`insert into public.player_videos (club_id, player_id, titre, storage_path) values (1, 1, 'Retour', 'r2/1/1/2.mp4')`);
+await q(`insert into public.video_sequences (club_id, player_id, video_id, label, drawings) select 1, 1, id, 'But', '[{"t":1}]' from public.player_videos where titre = 'Retour'`);
+await q(`insert into public.video_views (video_id, player_id) select id, 1 from public.player_videos where titre = 'Retour'`);
+const before = {};
+for (const t of ['player_videos', 'video_sequences', 'video_views', 'player_video_selections', 'player_performance_notes',
+  'player_performance_media', 'program_exercises', 'player_physical_measurements', 'player_physical_tests', 'player_career',
+  'player_programs', 'club_access']) before[t] = await count(t);
+await q(`delete from public.players where id = 1`);
+roots = await trashRoots();
+assert.deepEqual(roots.map(r => r.tbl), ['players'], 'un joueur = une seule entrée');
+for (const t of Object.keys(before)) assert.equal(await count(t), 0, `${t} parti avec le joueur`);
+assert.equal(await count('players'), 1);
+await one(`select public.trash_restore($1)`, [[roots[0].id]]);
+for (const [t, n] of Object.entries(before)) assert.equal(await count(t), n, `${t} revenu`);
+assert.deepEqual((await one(`select drawings from public.video_sequences where label = 'But'`)).drawings, [{ t: 1 }]);
+assert.equal(await count('trash'), 0);
+// Suppression d'un joueur refusée au coach (trash_right = administrateur) : la corbeille ne la lui montre pas.
+await q(`delete from public.players where id = 1`);
+await q(`update public.sim set role = 'coach'`);
+await q(`set role authenticated`);
+assert.equal((await q(`select * from public.trash where tbl = 'players'`)).rows.length, 0, 'coach : joueur supprimé invisible');
+await q(`reset role`);
+await q(`update public.sim set role = 'admin'`);
+await one(`select public.trash_restore(array(select id from public.trash where root_id is null))`);
+assert.equal(await count('players'), 2);
+
+// 13. Club supprimé : aucune erreur, rien gardé.
 await q(`delete from public.clubs where id = 1`);
 assert.equal(await count('trash'), 0);
-console.log('trash-sql : OK (12 scénarios)');
+console.log('trash-sql : OK (13 scénarios)');

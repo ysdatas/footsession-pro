@@ -319,7 +319,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved }) {
     btn.disabled = true; btn.textContent = 'Envoi…';
     const path = `r2/${myProfile.club_id}/${player.id}/${Date.now()}.${compileExt(mime)}`;
     try {
-      await uploadVideoFile(path, st.blob);
+      await uploadVideoFile(path, st.blob, { onProgress: (p) => { btn.textContent = p >= 1 ? 'Finalisation…' : `Envoi… ${Math.floor(p * 100)} %`; } });
       const labels = ids.map(id => byId(id).label || 'Séquence');
       const { error } = await sb.from('player_videos').insert({
         club_id: myProfile.club_id, player_id: player.id, storage_path: path,

@@ -48,11 +48,12 @@ function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
 
 document.addEventListener('click', (e) => {
-  if (e.target.classList?.contains('modal-backdrop')) e.target.classList.remove('open');
+  // data-busy : une opération en cours (un envoi) garde la fenêtre ouverte.
+  if (e.target.classList?.contains('modal-backdrop') && !e.target.hasAttribute('data-busy')) e.target.classList.remove('open');
   if (e.target.dataset?.close) closeModal(e.target.dataset.close);
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') $$('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+  if (e.key === 'Escape') $$('.modal-backdrop.open:not([data-busy])').forEach(m => m.classList.remove('open'));
 });
 
 /* ---------- Format ---------- */
@@ -61,6 +62,8 @@ const fmtDate = (d) => {
   const date = new Date(d + 'T00:00:00');
   return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 };
+/* Majuscule initiale (« juil. 2024 » → « Juil. 2024 »). */
+const capFirst = (s) => { const t = String(s ?? ''); return t.charAt(0).toUpperCase() + t.slice(1); };
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -342,3 +345,31 @@ document.addEventListener('click', (e) => {
     .filter(c => !c.disabled && c.checked !== on && !c.closest('.select-all, .hidden, [hidden]') && c.getClientRects().length)
     .forEach(c => { c.checked = on; c.dispatchEvent(new Event('change', { bubbles: true })); });
 });
+
+/* ---------- Mode sélection : cases, compteur, actions groupées ----------
+   Une liste passe en mode sélection (« Sélectionner ») : chaque ligne
+   porte une case (selCheckHtml), la barre ci-dessous donne le compteur,
+   Tout sélectionner / Tout désélectionner et les actions groupées.
+   La page garde sa sélection et écoute les clics [data-bulk] :
+   « all », « none », « done » ou la clé d'une action. noun : [singulier,
+   pluriel, féminin ?] — « 3 vidéos sélectionnées sur 12 ». */
+function bulkBarHtml({ n, total, noun = ['élément', 'éléments', false], actions = [], extra = '' }) {
+  const [one, many, fem] = noun;
+  const picked = `sélectionné${fem ? 'e' : ''}${n > 1 ? 's' : ''}`;
+  return `<div class="bulk-bar" role="toolbar" aria-label="Sélection multiple">
+    <span class="bulk-count" role="status"><strong>${n}</strong> ${n > 1 ? many : one} ${picked} sur ${total}</span>
+    <span class="select-all">
+      <button type="button" class="btn btn-sm" data-bulk="all"${n >= total ? ' disabled' : ''}>Tout sélectionner</button>
+      <button type="button" class="btn btn-sm" data-bulk="none"${n ? '' : ' disabled'}>Tout désélectionner</button>${extra}
+    </span>
+    <span class="bulk-actions">${actions.map(a => `<button type="button" class="btn btn-sm${a.danger ? ' btn-danger' : a.primary ? ' btn-primary' : ''}" data-bulk="${a.key}"${n ? '' : ' disabled'}>${escapeHtml(a.label)}</button>`).join('')}
+      <button type="button" class="btn btn-sm" data-bulk="done">Terminer</button>
+    </span>
+  </div>`;
+}
+const selCheckHtml = (on) => `<span class="sel-check${on ? ' on' : ''}" aria-hidden="true"></span>`;
+/* Confirmation d'une action sur plusieurs éléments : les premiers noms, puis « et N autres ». */
+function namesList(names, max = 5) {
+  const shown = names.slice(0, max).map(n => `• ${n}`).join('\n');
+  return names.length > max ? `${shown}\n… et ${names.length - max} autre${names.length - max > 1 ? 's' : ''}` : shown;
+}

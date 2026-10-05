@@ -22,6 +22,8 @@ const OBJ_KINDS = ['objective', 'prevention'];
 const objBoard = {
   loaded: false, rows: [], media: new Map(), status: 'all', kind: 'all', player: null, editId: null,
   draft: { existing: [], pending: [] },
+  pick: { on: false, ids: new Set() },   // mode sélection : statut ou suppression groupés
+  shown: [],                             // lignes affichées (filtres appliqués) : « Tout sélectionner » porte sur elles
 };
 
 async function loadObjectives() {
@@ -67,6 +69,11 @@ function renderObjectivesTab() {
   shown.forEach(r => byPlayer.set(r.player_id, [...(byPlayer.get(r.player_id) || []), r]));
   const groups = [...byPlayer.entries()].sort((a, b) => playerName(objPlayer(a[0])).localeCompare(playerName(objPlayer(b[0])), 'fr'));
   const filteredPlayer = objBoard.player && objPlayer(objBoard.player);
+  objBoard.shown = shown;
+  const pick = objBoard.pick;
+  [...pick.ids].forEach(id => { if (!shown.some(r => r.id === id)) pick.ids.delete(id); });   // un filtre retire de la sélection ce qu'il cache
+  const pickNoun = objBoard.kind === 'prevention' ? ['prévention', 'préventions', true]
+    : objBoard.kind === 'objective' ? ['objectif', 'objectifs', false] : ['élément', 'éléments', false];
 
   return `
   <div class="obj-head">
@@ -79,10 +86,14 @@ function renderObjectivesTab() {
       </div>
     </div>
     <div class="obj-new">
+      ${shown.length ? `<button class="btn" type="button" data-obj-pick aria-pressed="${pick.on}">Sélectionner</button>` : ''}
       <button class="btn btn-primary" type="button" data-obj-new data-kind="objective">+ Objectif</button>
       <button class="btn" type="button" data-obj-new data-kind="prevention">+ Prévention</button>
     </div>
   </div>
+  ${pick.on ? bulkBarHtml({ n: pick.ids.size, total: shown.length, noun: pickNoun, actions: [
+    ...Object.entries(OBJ_STATUS).map(([k, st]) => ({ key: `status:${k}`, label: st.label })),
+    { key: 'delete', label: 'Supprimer', danger: true }] }) : ''}
   ${groups.length ? groups.map(([pid, list]) => {
     const p = objPlayer(pid);
     return `<section class="obj-group">
@@ -97,6 +108,18 @@ function renderObjectivesTab() {
         const imgs = (objBoard.media.get(r.id) || []).length;
         const title = noteTitle(r);
         const body = r.title?.trim() ? r.body : (r.body || '').trim().split('\n').slice(1).join(' ');
+        if (pick.on) {
+          const on = pick.ids.has(r.id);
+          return `<article class="obj-row obj-${objStatusKey(r)} is-selectable${on ? ' is-picked' : ''}" data-obj-toggle="${r.id}" role="checkbox" aria-checked="${on}" tabindex="0">
+          ${selCheckHtml(on)}
+          <div class="obj-main">
+            <span class="badge ${NOTE_KINDS[r.kind]?.cls || 'badge-gold'}">${objKindLabel(r.kind)}</span>
+            <strong>${esc(title)}</strong>
+            ${body ? `<p>${esc(body.length > 160 ? `${body.slice(0, 157)}…` : body)}</p>` : ''}
+          </div>
+          <span class="obj-status ${OBJ_STATUS[objStatusKey(r)].cls}">${OBJ_STATUS[objStatusKey(r)].label}</span>
+        </article>`;
+        }
         return `<article class="obj-row obj-${objStatusKey(r)}">
           <div class="obj-main">
             <span class="badge ${NOTE_KINDS[r.kind]?.cls || 'badge-gold'}">${objKindLabel(r.kind)}</span>
@@ -142,7 +165,7 @@ function mountObjectiveModal() {
         <small class="field-hint" id="objPickedHint">Cochez au moins un joueur.</small>
       </div>
       <p class="obj-fixed hidden" id="objFixedPlayer"></p>
-      <div class="field"><label for="objTitle">Titre <span class="label-opt">facultatif</span></label><input id="objTitle" autocomplete="off" placeholder="Ex. VMA : passer de 17 à 18 km/h"></div>
+      <div class="field"><label for="objTitle">Titre <span class="label-opt">(facultatif)</span></label><input id="objTitle" autocomplete="off" placeholder="Ex. VMA : passer de 17 à 18 km/h"></div>
       <div class="field"><label for="objBody">Description / consignes</label><textarea id="objBody" rows="4" placeholder="Échéance, moyens, exercices…"></textarea></div>
       <div class="field"><label for="objStatus">Statut</label>
         <select id="objStatus">${Object.entries(OBJ_STATUS).map(([v, s]) => `<option value="${v}">${s.label}</option>`).join('')}</select></div>
@@ -384,10 +407,64 @@ async function setObjectiveStatus(id, status) {
   toast(`${objKindLabel(r.kind)} : ${OBJ_STATUS[status].label.toLowerCase()}.`, 'success');
 }
 
+/* ---------- Actions groupées ---------- */
+async function setPickedStatus(status) {
+  const ids = [...objBoard.pick.ids];
+  if (!ids.length || !OBJ_STATUS[status]) return;
+  const { error } = await sb.from('player_performance_notes').update({ status }).in('id', ids);
+  if (error) { console.error('Statuts non enregistrés', error); return toast(error.message, 'error'); }
+  objBoard.rows.forEach(r => { if (objBoard.pick.ids.has(r.id)) r.status = status; });
+  render();
+  toast(`${ids.length} élément${ids.length > 1 ? 's' : ''} : ${OBJ_STATUS[status].label.toLowerCase()}.`, 'success');
+}
+async function deletePicked() {
+  const list = objBoard.rows.filter(r => objBoard.pick.ids.has(r.id));
+  if (!list.length) return;
+  const files = list.flatMap(r => (objBoard.media.get(r.id) || []).map(m => m.storage_path));
+  if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} éléments` : 'cet élément'}${files.length ? ' et leurs images' : ''} ?\n\n`
+    + `${namesList(list.map(r => `${objKindLabel(r.kind)} · ${noteTitle(r)} (${playerName(objPlayer(r.player_id))})`))}${await trashNote()}`)) return;
+  try {
+    const { error } = await sb.from('player_performance_notes').delete().in('id', list.map(r => r.id));
+    if (error) throw error;
+    if (files.length && !(await trashReady())) {   // corbeille : images gardées
+      const { error: sErr } = await sb.storage.from(NOTES_BUCKET).remove(files);
+      if (sErr) console.warn('Images supprimées des fiches mais pas du stockage', sErr);
+    }
+    const gone = new Set(list.map(r => r.id));
+    objBoard.rows = objBoard.rows.filter(r => !gone.has(r.id));
+    gone.forEach(id => objBoard.media.delete(id));
+    objBoard.pick.ids.clear();
+    render();
+    toast(`${list.length} élément${list.length > 1 ? 's supprimés' : ' supprimé'}.`, 'success');
+  } catch (e) {
+    console.error('Suppression groupée impossible', e);
+    toast(e.message, 'error');
+  }
+}
+function toggleObjPick(id) {
+  const ids = objBoard.pick.ids;
+  if (ids.has(id)) ids.delete(id); else ids.add(id);
+  render();
+  document.querySelector(`[data-obj-toggle="${id}"]`)?.focus();
+}
+
 function bindObjectivesTab() {
   const box = document.getElementById('cmpContent');
+  box.addEventListener('keydown', (e) => {
+    const row = e.target.closest?.('[data-obj-toggle]');
+    if (cmpTab === 'objectifs' && row && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); toggleObjPick(Number(row.dataset.objToggle)); }
+  });
   box.addEventListener('click', (e) => {
     if (cmpTab !== 'objectifs') return;
+    if (e.target.closest('[data-obj-pick]')) { objBoard.pick.on = !objBoard.pick.on; objBoard.pick.ids.clear(); return render(); }
+    const row = e.target.closest('[data-obj-toggle]');
+    if (row) return toggleObjPick(Number(row.dataset.objToggle));
+    const bulk = e.target.closest('[data-bulk]')?.dataset.bulk;
+    if (bulk === 'all') { objBoard.shown.forEach(r => objBoard.pick.ids.add(r.id)); return render(); }
+    if (bulk === 'none') { objBoard.pick.ids.clear(); return render(); }
+    if (bulk === 'done') { objBoard.pick.on = false; objBoard.pick.ids.clear(); return render(); }
+    if (bulk === 'delete') return deletePicked();
+    if (bulk?.startsWith('status:')) return setPickedStatus(bulk.slice(7));
     const f = e.target.closest('[data-obj-filter]');
     if (f) { objBoard.status = f.dataset.objFilter; return render(); }
     const k = e.target.closest('[data-obj-kind]');

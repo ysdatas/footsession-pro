@@ -7,8 +7,9 @@
    qu'une ligne disparaisse, un déclencheur en garde une copie
    (public.trash), avec tout ce qui part avec elle en cascade
    (une séance emporte ses exercices et leurs schémas, une vidéo
-   ses séquences, un objectif ses images…). Les pages continuent
-   de supprimer comme avant : rien d'autre ne change pour elles.
+   ses séquences, un objectif ses images, un joueur toute sa fiche :
+   mesures, tests, vidéos, objectifs, parcours, présences…). Les
+   pages continuent de supprimer comme avant.
 
    Corbeille (page « Corbeille ») :
      - restaurer : trash_restore(ids), l'élément et ses lignes
@@ -16,7 +17,7 @@
      - supprimer définitivement : delete sur trash (les fichiers,
        vidéos et images, sont retirés par la page au même moment).
    Droits : ceux de la suppression d'origine (trash_right) :
-     équipes                                → administrateur
+     joueurs, équipes                       → administrateur
      séances, exercices, modèles, parcours  → admin, coach (can_edit)
      vidéos, séquences                      → admin, coach (can_manage_videos)
      objectifs, préventions, programme      → admin, coach, préparateur (can_manage_plans)
@@ -45,6 +46,7 @@ create or replace function public.trash_right(p_tbl text)
 returns boolean language sql security definer stable set search_path = public as $$
   select case p_tbl
     when 'teams'                    then public.is_club_admin()
+    when 'players'                  then public.is_club_admin()
     when 'sessions'                 then public.can_edit()
     when 'procedures'               then public.can_edit()
     when 'exercise_templates'       then public.can_edit()
@@ -73,26 +75,35 @@ grant select, delete on public.trash to authenticated;
 /* Copie d'une ligne au moment de sa suppression.
    Arguments du déclencheur : mode ('root' : peut être supprimée
    seule et apparaît dans la corbeille ; 'child' : seulement quand
-   elle part avec son parent), table parente, colonne vers le parent.
-   pg_trigger_depth() > 1 : suppression en cascade. */
+   elle part avec un parent), parents possibles « table:colonne »
+   séparés par « | » (une séquence part avec sa vidéo OU avec son
+   joueur). pg_trigger_depth() > 1 : suppression en cascade. */
 create or replace function public.trash_capture()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_mode     text  := tg_argv[0];
-  v_parent   text  := nullif(tg_argv[1], '');
-  v_fk       text  := nullif(tg_argv[2], '');
+  v_parents  text  := coalesce(tg_argv[1], '');
+  v_spec     text;
+  v_parent   text;
+  v_fk       text;
   v_row      jsonb := to_jsonb(old);
   v_root_id  bigint;
   v_root_tbl text;
   v_club     bigint;
   v_extra    jsonb;
 begin
-  if pg_trigger_depth() > 1 and v_parent is not null and v_row ? v_fk then
-    select coalesce(t.root_id, t.id), t.root_tbl, t.club_id
-      into v_root_id, v_root_tbl, v_club
-      from public.trash t
-     where t.batch = txid_current() and t.tbl = v_parent and t.row_id = (v_row->>v_fk)::bigint
-     order by t.id desc limit 1;
+  if pg_trigger_depth() > 1 and v_parents <> '' then
+    foreach v_spec in array string_to_array(v_parents, '|') loop
+      v_parent := split_part(v_spec, ':', 1);
+      v_fk := split_part(v_spec, ':', 2);
+      continue when not (v_row ? v_fk) or v_row->>v_fk is null;
+      select coalesce(t.root_id, t.id), t.root_tbl, t.club_id
+        into v_root_id, v_root_tbl, v_club
+        from public.trash t
+       where t.batch = txid_current() and t.tbl = v_parent and t.row_id = (v_row->>v_fk)::bigint
+       order by t.id desc limit 1;
+      exit when v_root_id is not null;
+    end loop;
   end if;
   if v_root_id is null and v_mode <> 'root' then
     return old;   -- ligne annexe retirée seule (image enlevée d'un objectif, vue…)
@@ -125,88 +136,104 @@ do $$
 declare t record;
 begin
   for t in select * from (values
-      -- table,                     mode,    parent,                     colonne
-      ('teams',                     'root',  '',                         ''),
-      ('sessions',                  'root',  '',                         ''),
-      ('procedures',                'root',  'sessions',                 'session_id'),
-      ('tactical_schemas',          'child', 'procedures',               'procedure_id'),
-      ('attendance',                'child', 'sessions',                 'session_id'),
-      ('session_comments',          'child', 'sessions',                 'session_id'),
-      ('exercise_templates',        'root',  '',                         ''),
-      ('player_career',             'root',  '',                         ''),
-      ('player_videos',             'root',  '',                         ''),
-      ('video_sequences',           'root',  'player_videos',            'video_id'),
-      ('video_views',               'child', 'player_videos',            'video_id'),
-      ('player_video_selections',   'child', 'player_videos',            'video_id'),
-      ('player_performance_notes',  'root',  '',                         ''),
-      ('player_performance_media',  'child', 'player_performance_notes', 'note_id'),
-      ('program_exercises',         'root',  '',                         '')
-    ) as v(tbl, mode, parent, fk)
+      -- table,                        mode,    parents possibles (table:colonne | …)
+      ('teams',                        'root',  ''),
+      ('players',                      'root',  ''),
+      ('sessions',                     'root',  ''),
+      ('procedures',                   'root',  'sessions:session_id'),
+      ('tactical_schemas',             'child', 'procedures:procedure_id'),
+      ('attendance',                   'child', 'sessions:session_id|players:player_id'),
+      ('session_comments',             'child', 'sessions:session_id'),
+      ('exercise_templates',           'root',  ''),
+      ('player_career',                'root',  'players:player_id'),
+      ('player_videos',                'root',  'players:player_id'),
+      ('video_sequences',              'root',  'player_videos:video_id|players:player_id'),
+      ('video_views',                  'child', 'player_videos:video_id|players:player_id'),
+      ('player_video_selections',      'child', 'player_videos:video_id|players:player_id'),
+      ('player_performance_notes',     'root',  'players:player_id'),
+      ('player_performance_media',     'child', 'player_performance_notes:note_id|players:player_id'),
+      ('program_exercises',            'root',  'players:player_id'),
+      ('player_physical_measurements', 'child', 'players:player_id'),
+      ('player_physical_tests',        'child', 'players:player_id'),
+      ('player_programs',              'child', 'players:player_id'),
+      ('club_access',                  'child', 'players:player_id')
+    ) as v(tbl, mode, parents)
   loop
     if to_regclass('public.' || t.tbl) is null then continue; end if;   -- table d'une migration non passée
     execute format('drop trigger if exists trash_capture on public.%I', t.tbl);
-    execute format('create trigger trash_capture before delete on public.%I for each row execute function public.trash_capture(%L, %L, %L)',
-                   t.tbl, t.mode, t.parent, t.fk);
+    execute format('create trigger trash_capture before delete on public.%I for each row execute function public.trash_capture(%L, %L)',
+                   t.tbl, t.mode, t.parents);
   end loop;
 end $$;
 
 /* Restaure des éléments de la corbeille (identifiants des lignes
-   racines) avec toutes leurs lignes liées, dans l'ordre de leur
-   suppression : le parent avant ses enfants. Renvoie le nombre
-   d'éléments restaurés. */
+   racines) avec toutes leurs lignes liées. Plusieurs passes : une
+   ligne dont le parent n'est pas encore revenu (une séquence avant sa
+   vidéo, lors de la suppression d'un joueur) est reprise au tour
+   suivant. Renvoie le nombre d'éléments restaurés. */
 create or replace function public.trash_restore(p_ids bigint[])
 returns integer language plpgsql security definer set search_path = public as $$
 declare
-  r      record;
-  v_club bigint := public.my_club_id();
-  v_done integer := 0;
+  r          record;
+  v_club     bigint := public.my_club_id();
+  v_done     integer := 0;
+  v_pending  bigint[];
+  v_next     bigint[];
+  v_progress boolean;
 begin
   if v_club is null then raise exception 'Connexion requise.'; end if;
-  for r in
-    select t.* from public.trash t
-     where (t.id = any(p_ids) or t.root_id = any(p_ids))
-       and t.club_id = v_club and public.trash_right(t.root_tbl)
-     order by t.id
+  select coalesce(array_agg(t.id order by t.id), '{}') into v_pending
+    from public.trash t
+   where (t.id = any(p_ids) or t.root_id = any(p_ids))
+     and t.club_id = v_club and public.trash_right(t.root_tbl);
   loop
-    if r.tbl not in ('teams', 'sessions', 'procedures', 'tactical_schemas', 'attendance', 'session_comments',
-                     'exercise_templates', 'player_career', 'player_videos', 'video_sequences', 'video_views',
-                     'player_video_selections', 'player_performance_notes', 'player_performance_media',
-                     'program_exercises') then
-      raise exception 'Élément non restaurable (%).', r.tbl;
-    end if;
-    begin
-      execute format('insert into public.%I overriding system value select * from jsonb_populate_record(null::public.%I, $1)',
-                     r.tbl, r.tbl) using r.data;
-    exception
-      when unique_violation then
-        if r.root_id is null then
-          raise exception 'Restauration impossible : un élément identique existe déjà (même nom ?). Renommez-le, puis réessayez.';
+    v_next := '{}'; v_progress := false;
+    for r in select t.* from public.trash t where t.id = any(v_pending) order by t.id loop
+      if r.tbl not in ('teams', 'players', 'sessions', 'procedures', 'tactical_schemas', 'attendance', 'session_comments',
+                       'exercise_templates', 'player_career', 'player_videos', 'video_sequences', 'video_views',
+                       'player_video_selections', 'player_performance_notes', 'player_performance_media',
+                       'program_exercises', 'player_physical_measurements', 'player_physical_tests',
+                       'player_programs', 'club_access') then
+        raise exception 'Élément non restaurable (%).', r.tbl;
+      end if;
+      begin
+        execute format('insert into public.%I overriding system value select * from jsonb_populate_record(null::public.%I, $1)',
+                       r.tbl, r.tbl) using r.data;
+        v_progress := true;
+        if r.root_id is null then v_done := v_done + 1; end if;
+        -- Liens remis à zéro par la suppression : rétablis s'ils sont encore vides.
+        if r.tbl = 'teams' and r.extra is not null then
+          update public.players  set team_id = r.row_id
+           where club_id = v_club and team_id is null and id in (select (jsonb_array_elements_text(r.extra->'players'))::bigint);
+          update public.sessions set team_id = r.row_id
+           where club_id = v_club and team_id is null and id in (select (jsonb_array_elements_text(r.extra->'sessions'))::bigint);
+        elsif r.tbl = 'player_videos' and r.extra is not null then
+          update public.program_exercises set video_id = r.row_id
+           where club_id = v_club and video_id is null
+             and id in (select (jsonb_array_elements_text(r.extra->'program_exercises'))::bigint);
+          update public.tactical_schemas set video_id = r.row_id
+           where video_id is null
+             and id in (select (jsonb_array_elements_text(coalesce(r.extra->'tactical_schemas', '[]')))::bigint)
+             and exists (select 1 from public.procedures pr join public.sessions s on s.id = pr.session_id
+                          where pr.id = tactical_schemas.procedure_id and s.club_id = v_club);
         end if;
-        -- ligne liée déjà présente : rien à faire
-      when foreign_key_violation then
-        if r.root_id is null then
-          raise exception 'Restauration impossible : ce qui contenait cet élément (joueur, séance, vidéo) n''existe plus. Restaurez-le d''abord.';
-        end if;
-        -- ligne liée dont l'autre bout a disparu depuis (ex. un joueur supprimé) : on la laisse
-    end;
-    if r.root_id is null then v_done := v_done + 1; end if;
-    -- Liens remis à zéro par la suppression : rétablis s'ils sont encore vides.
-    if r.tbl = 'teams' and r.extra is not null then
-      update public.players  set team_id = r.row_id
-       where club_id = v_club and team_id is null and id in (select (jsonb_array_elements_text(r.extra->'players'))::bigint);
-      update public.sessions set team_id = r.row_id
-       where club_id = v_club and team_id is null and id in (select (jsonb_array_elements_text(r.extra->'sessions'))::bigint);
-    elsif r.tbl = 'player_videos' and r.extra is not null then
-      update public.program_exercises set video_id = r.row_id
-       where club_id = v_club and video_id is null
-         and id in (select (jsonb_array_elements_text(r.extra->'program_exercises'))::bigint);
-      update public.tactical_schemas set video_id = r.row_id
-       where video_id is null
-         and id in (select (jsonb_array_elements_text(coalesce(r.extra->'tactical_schemas', '[]')))::bigint)
-         and exists (select 1 from public.procedures pr join public.sessions s on s.id = pr.session_id
-                      where pr.id = tactical_schemas.procedure_id and s.club_id = v_club);
-    end if;
+      exception
+        when unique_violation then
+          if r.root_id is null then
+            raise exception 'Restauration impossible : un élément identique existe déjà (même nom ?). Renommez-le, puis réessayez.';
+          end if;
+          v_progress := true;   -- ligne liée déjà présente : rien à faire
+        when foreign_key_violation then
+          v_next := v_next || r.id;   -- son parent revient peut-être au tour suivant
+      end;
+    end loop;
+    exit when cardinality(v_next) = 0 or not v_progress;
+    v_pending := v_next;
   end loop;
+  if exists (select 1 from public.trash t where t.id = any(v_next) and t.root_id is null) then
+    raise exception 'Restauration impossible : ce qui contenait cet élément (joueur, séance, vidéo) n''existe plus. Restaurez-le d''abord.';
+  end if;
+  -- Lignes liées dont l'autre bout a disparu depuis (ex. une séance supprimée pour de bon) : abandonnées.
   delete from public.trash t
    where (t.id = any(p_ids) or t.root_id = any(p_ids))
      and t.club_id = v_club and public.trash_right(t.root_tbl);

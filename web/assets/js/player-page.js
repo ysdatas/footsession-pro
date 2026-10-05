@@ -150,6 +150,32 @@ function availableFields() {
     && (k !== 'team_id' || (window.CLUB_TEAMS || []).length));
 }
 
+/* Suppression d'un joueur : sa fiche et tout ce qui en dépend (mesures,
+   tests, vidéos, séquences, objectifs, programme, parcours, présences)
+   partent ensemble dans la corbeille et reviennent ensemble. Sans la
+   corbeille (lmfc_v5.sql non passée), on refuse : ce serait définitif. */
+async function deletePlayer() {
+  const name = `${fichePlayer.prenom || ''} ${fichePlayer.nom || ''}`.trim() || 'ce joueur';
+  if (!(await trashReady())) {
+    return toast('Activez d’abord la corbeille (supabase/lmfc_v5.sql) : la suppression d’un joueur doit rester récupérable.', 'error');
+  }
+  const account = fichePlayer.auth_user_id ? '\nSon compte joueur n’aura plus accès à son espace.' : '';
+  if (!confirm(`Supprimer ${name} ?\n\nSa fiche part avec tout ce qui la concerne : mesures, tests, vidéos et séquences, objectifs et préventions, programme, parcours, présences.${account}\n\nRécupérable depuis la Corbeille.`)) return;
+  const btn = document.getElementById('btnDeletePlayer');
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.from('players').delete().eq('id', playerId).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('Suppression réservée à l’administrateur du club.');
+    toast(`${name} est dans la corbeille.`, 'success');
+    setTimeout(() => { location.href = lastUrl('players') || 'players.html'; }, 600);
+  } catch (e) {
+    console.error('Suppression du joueur impossible', e);
+    toast(e.message, 'error');
+    btn.disabled = false;
+  }
+}
+
 function setupInfo() {
   const form = document.getElementById('infoForm');
   const keys = availableFields().map(([k]) => k);
@@ -163,6 +189,12 @@ function setupInfo() {
   }
   if (!canEdit(ficheProfile.role)) return;
 
+  // Supprimer un joueur : administrateur seulement (RLS players_delete).
+  if (ficheProfile.role === 'admin') {
+    const del = document.getElementById('btnDeletePlayer');
+    del.classList.remove('hidden');
+    del.addEventListener('click', deletePlayer);
+  }
   const edit = document.getElementById('btnEditInfo');
   edit.classList.remove('hidden');
   edit.addEventListener('click', () => {
