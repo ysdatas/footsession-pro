@@ -19,14 +19,15 @@ async function requireAuth(opts = {}) {
 
   let { data: profile, error } = await sb
     .from('profiles')
-    .select('id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code, saison_start)')
+    .select('id, nom, role, club_id, team_id, prefs, clubs(nom, color, logo_path, join_code, saison_start)')
     .eq('id', session.user.id)
     .single();
 
   /* Replis successifs : une migration pas encore passée ne doit jamais
-     empêcher la connexion. On retire d'abord saison_start, puis prefs.
-     Le dernier jeu de colonnes est celui du schéma d'origine. */
+     empêcher la connexion. On retire d'abord team_id, puis saison_start,
+     puis prefs. Le dernier jeu de colonnes est celui du schéma d'origine. */
   const FALLBACKS = [
+    'id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code, saison_start)',
     'id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code)',
     'id, nom, role, club_id, clubs(nom, color, logo_path, join_code)',
   ];

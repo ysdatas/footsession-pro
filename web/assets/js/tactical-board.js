@@ -924,7 +924,7 @@ canvas.addEventListener('pointermove', (e) => {
   if ((drag.mode === 'move-group' || drag.mode === 'handle') && !drag.moving
       && (drag.mode === 'handle' || Math.hypot(p.x - drag.ox, p.y - drag.oy) * k > 4)) {
     drag.moving = true;
-    canvas.parentElement.classList.add('is-dragging');
+    canvas.parentElement.classList.add('is-moving');
   }
   if (drag.mode === 'move-group') {
     const dx = p.x - drag.ox, dy = p.y - drag.oy;
@@ -964,7 +964,7 @@ canvas.addEventListener('pointermove', (e) => {
 
 canvas.addEventListener('pointerup', () => {
   hideSizeTag();
-  canvas.parentElement.classList.remove('is-dragging');
+  canvas.parentElement.classList.remove('is-moving');
   if (!drag) return;
   if (drag.mode === 'create-box') {
     const it = drag.it;
@@ -1558,7 +1558,7 @@ function startPinch() {
   if (!g) { drag = null; render(); return false; }
   if (!drag || drag.mode !== 'move-group') pushHistory();
   drag = null; hideSizeTag();
-  canvas.parentElement.classList.remove('is-dragging');
+  canvas.parentElement.classList.remove('is-moving');
   pinch = { ...g, d0: Math.max(12, touchDist()) };
   selBarFrozen = true;
   syncSelBar(); render();

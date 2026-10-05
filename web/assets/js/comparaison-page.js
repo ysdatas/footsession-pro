@@ -93,7 +93,7 @@ async function loadData() {
   // Équipe choisie dans le menu : effectif, moyennes et classements
   // ne mélangent jamais deux équipes.
   let rosterQuery = sb.from('players').select('id, nom, prenom, numero, poste').order('nom');
-  rosterQuery = byTeam(rosterQuery);
+  rosterQuery = byPlayerTeam(rosterQuery);
   const [rRes, tRes, mRes] = await Promise.all([
     rosterQuery,
     sb.from('player_physical_tests').select('*'),

@@ -128,7 +128,7 @@
       <section class="pf-panel" id="pfPanel-performance" data-pf-panel="performance" role="tabpanel" aria-labelledby="pfTab-performance">
         <div class="dash-grid perf-grid-main">
           <!-- Radar -->
-          <section class="card fp-fm-radar-card">
+          <section class="card fp-fm-radar-card" data-vis="radar">
             <div class="section-head">
               <div>
                 <h2>Profil athlétique</h2>
@@ -149,7 +149,7 @@
           </section>
 
           <!-- Tests physiques -->
-          <section class="card fp-fm-tests-card">
+          <section class="card fp-fm-tests-card" data-vis="tests">
             <div class="section-head">
               <div>
                 <h2>Tests physiques</h2>
@@ -161,7 +161,7 @@
           </section>
         </div>
 
-        <section class="card fp-fm-history-card">
+        <section class="card fp-fm-history-card" data-vis="suivi">
           <div class="section-head">
             <div>
               <h2>Suivi physique</h2>
@@ -197,8 +197,8 @@
         <label>Prénom<input id="pe-prenom" type="text" autocomplete="off"></label>
         <label>Nom<input id="pe-nom" type="text" autocomplete="off"></label>
         <label>Poste<input id="pe-poste" type="text" list="posteList" placeholder="Ex : Milieu central"></label>
-        <label class="hidden" id="pe-ligne-field">Ligne<select id="pe-ligne"><option value="">Selon le poste</option><option value="gardien">Gardien</option><option value="defenseur">Défenseur</option><option value="milieu">Milieu</option><option value="attaquant">Attaquant</option></select></label>
-        <label class="hidden" id="pe-team-field">Équipe<select id="pe-team"><option value="">Sans équipe</option></select></label>
+        <label class="hidden" id="pe-team-field">Équipe principale<select id="pe-team"><option value="">Sans équipe</option></select></label>
+        <div class="span-2 hidden" id="pe-other-field"><span class="field-label">Joue aussi en</span><div class="pe-other-teams" id="pe-other-teams"></div></div>
         <label>Date de naissance<input id="pe-naissance" type="date"></label>
         <label>Pied fort<select id="pe-pied">
           <option value="">—</option><option>Droit</option><option>Gauche</option><option>Les deux</option>
@@ -407,6 +407,7 @@
   <script src="assets/js/video-ink.js"></script>
   <script src="assets/js/video-workspace.js"></script>
   <script src="assets/js/video-compile.js"></script>
+  <script src="assets/js/video-fastcompile.js"></script>
   <script src="assets/js/player-videos.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>

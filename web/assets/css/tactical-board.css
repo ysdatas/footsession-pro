@@ -234,10 +234,12 @@
 }
 
 /* Pendant qu'on déplace un élément : ses réglages s'effacent, les barres
-   s'estompent, le terrain est libre. Ils reviennent au relâchement. */
+   s'estompent, le terrain est libre. Ils reviennent au relâchement.
+   Classe is-moving, pas is-dragging : celle-ci (main.css, cartes qu'on
+   trie) grossissait la scène et remplaçait l'herbe par du gris. */
 .tb-selbar, .tb-float { transition: opacity 120ms ease, scale 120ms ease, transform 90ms linear; }
-.tb-stage.is-dragging .tb-selbar, .tb-stage.is-dragging .tb-palette { opacity: 0; scale: .96; pointer-events: none; }
-.tb-stage.is-dragging .tb-float { opacity: .3; pointer-events: none; }
+.tb-stage.is-moving .tb-selbar, .tb-stage.is-moving .tb-palette { opacity: 0; scale: .96; pointer-events: none; }
+.tb-stage.is-moving .tb-float { opacity: .3; pointer-events: none; }
 
 /* ---------- Repères pendant le cadrage ---------- */
 .tb-screenhint {

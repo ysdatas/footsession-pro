@@ -142,9 +142,9 @@ function mountTeamSelect() {
    séance, plus ceux déjà marqués présents (knownIds). */
 async function playersForSession(knownIds = new Set()) {
   const { data, error } = await sb.from('players')
-    .select(`id, nom, prenom, numero, poste${hasTeams() ? ', team_id' : ''}`).order('nom');
+    .select(`id, nom, prenom, numero, poste${hasTeams() ? ', team_id, other_team_ids' : ''}`).order('nom');
   if (error) throw error;
-  return (data || []).filter(p => !sessionTeamId || p.team_id === sessionTeamId || p.team_id == null || knownIds.has(p.id));
+  return (data || []).filter(p => playerInTeam(p, sessionTeamId) || knownIds.has(p.id));
 }
 
 /* ---------- Commentaires & partage (cellule) ---------- */

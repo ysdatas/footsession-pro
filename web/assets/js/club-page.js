@@ -105,7 +105,8 @@ const playerName = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim() || 'Joueur';
 async function loadMembers() {
   const list = document.getElementById('memberList');
   const [{ data: members, error }, { data: players, error: rosterError }, access] = await Promise.all([
-    sb.from('profiles').select('id, nom, role').eq('club_id', myProfile.club_id).order('nom'),
+    // select('*') : team_id n'existe qu'après lmfc_v7.sql.
+    sb.from('profiles').select('*').eq('club_id', myProfile.club_id).order('nom'),
     sb.from('players').select('id, nom, prenom, auth_user_id').eq('club_id', myProfile.club_id).order('nom'),
     isAdmin ? sb.from('club_access').select('*').is('claimed_at', null).order('created_at', { ascending: false }) : { data: [] },
   ]);
@@ -119,10 +120,19 @@ async function loadMembers() {
 
   if (isAdmin) renderAccess(pending);
 
+  const teams = window.CLUB_TEAMS || [];
   list.innerHTML = (members || []).map(m => {
     const linked = roster.find(p => p.auth_user_id === m.id);
-    const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée') : (ROLE_LABELS[m.role] || m.role);
+    const team = teams.find(t => t.id === m.team_id);
+    const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée')
+      : [ROLE_LABELS[m.role] || m.role, team && escapeHtml(team.nom)].filter(Boolean).join(' · ');
     const self = m.id === myProfile.id;
+    // Coach, préparateur : rattachés à une équipe, ils ne voient qu'elle.
+    const teamSelect = 'team_id' in m && teams.length && !['joueur', 'admin'].includes(m.role)
+      ? `<select class="team-select" aria-label="Équipe du compte" title="Équipe que ce compte voit et gère">
+          <option value="">Toutes les équipes</option>
+          ${teams.map(t => `<option value="${t.id}" ${t.id === m.team_id ? 'selected' : ''}>${escapeHtml(t.nom)}</option>`).join('')}
+        </select>` : '';
     const controls = isAdmin && !self
       ? `<div class="member-controls" data-id="${m.id}">
           <select class="role-select" aria-label="Fonction">
@@ -133,6 +143,7 @@ async function loadMembers() {
             ${roster.filter(p => !p.auth_user_id || p.auth_user_id === m.id).map(p =>
               `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtml(playerName(p))}</option>`).join('')}
           </select>
+          ${teamSelect}
           <button type="button" class="btn btn-sm btn-danger" data-remove>Retirer</button>
         </div>`
       : `<span class="badge badge-gold">${self ? 'Vous · ' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
@@ -194,6 +205,12 @@ document.getElementById('pendingList').addEventListener('click', async (e) => {
 document.getElementById('memberList').addEventListener('change', async (e) => {
   const box = e.target.closest('.member-controls'); if (!box) return;
   const profileId = box.dataset.id;
+  if (e.target.matches('.team-select')) {
+    const { error } = await sb.from('profiles').update({ team_id: Number(e.target.value) || null }).eq('id', profileId);
+    if (error) { console.error('Équipe du compte non enregistrée', error); toast(error.message, 'error'); }
+    else toast(e.target.value ? 'Compte rattaché à l’équipe' : 'Le compte voit toutes les équipes', 'success');
+    return loadMembers();
+  }
   const role = box.querySelector('.role-select').value;
   const linkSel = box.querySelector('.player-link-select');
   linkSel.classList.toggle('hidden', role !== 'joueur');

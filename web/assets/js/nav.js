@@ -5,7 +5,9 @@
        redirigées vers le tableau de bord) ;
      - ordre et rubriques masquées choisis par chaque utilisateur
        (profiles.prefs.nav, réglable dans Paramètres) ;
-     - sélecteur d'équipe (profiles.prefs.team_id).
+     - équipe de travail : celle du compte s'il est rattaché à une équipe
+       (profiles.team_id, réglé par l'administrateur), sinon celle choisie
+       dans le sélecteur (profiles.prefs.team_id).
    Appelé par requireAuth() une fois le profil chargé.
    ============================================================ */
 
@@ -58,10 +60,9 @@ function navGuard(profile) {
   return false;
 }
 
-/* Équipe de travail choisie, ou null (= toutes les équipes). */
+/* Équipe de travail, ou null (= toutes les équipes). */
 function currentTeamId() {
-  const id = Number(window.CURRENT_PROFILE?.prefs?.team_id);
-  return (window.CLUB_TEAMS || []).some(t => t.id === id) ? id : null;
+  return teamIdOf(window.CURRENT_PROFILE, window.CLUB_TEAMS || []);
 }
 function currentTeam() {
   return (window.CLUB_TEAMS || []).find(t => t.id === currentTeamId()) || null;
@@ -72,6 +73,12 @@ function currentTeam() {
 function byTeam(query, teamId = currentTeamId()) {
   return teamId ? query.or(`team_id.eq.${teamId},team_id.is.null`) : query;
 }
+/* Même filtre pour les joueurs, qui peuvent jouer dans plusieurs équipes
+   (players.other_team_ids, lmfc_v7.sql). */
+function byPlayerTeam(query, teamId = currentTeamId()) {
+  return teamId ? query.or(`team_id.eq.${teamId},team_id.is.null,other_team_ids.cs.{${teamId}}`) : query;
+}
+const playerInTeam = (p, teamId) => !teamId || p.team_id === teamId || p.team_id == null || (p.other_team_ids || []).includes(teamId);
 function teamName(id) {
   return (window.CLUB_TEAMS || []).find(t => t.id === id)?.nom || '';
 }
@@ -100,9 +107,11 @@ window.resolveNavHref = (key) => {
 };
 
 /* Équipe de travail d'un profil donné (le profil gardé en mémoire n'est
-   pas encore window.CURRENT_PROFILE au premier dessin du menu). */
+   pas encore window.CURRENT_PROFILE au premier dessin du menu) : celle
+   du compte d'abord, imposée, puis celle qu'il a choisie. */
+const fixedTeamOf = (profile, teams) => teams.find(t => t.id === Number(profile?.team_id)) || null;
 const teamIdOf = (profile, teams) => {
-  const id = Number(profile?.prefs?.team_id);
+  const id = fixedTeamOf(profile, teams)?.id || Number(profile?.prefs?.team_id);
   return teams.some(t => t.id === id) ? id : null;
 };
 
@@ -133,14 +142,21 @@ function renderNav(profile, teams = window.CLUB_TEAMS || []) {
   if (profile === window.CURRENT_PROFILE || window.CURRENT_PROFILE?.id === profile.id) saveNavCache(profile, teams);
 }
 
-/* Sélecteur d'équipe, au-dessus du menu ; recréé seulement s'il change. */
+/* Sélecteur d'équipe, au-dessus du menu ; recréé seulement s'il change.
+   Compte rattaché à une équipe : son nom, sans choix possible. */
 function renderTeamSwitch(nav, profile, teams) {
-  const current = teamIdOf(profile, teams);
+  const current = teamIdOf(profile, teams), fixed = fixedTeamOf(profile, teams);
+  const sig = JSON.stringify([teams, current, !!fixed]);
   const old = document.getElementById('teamSwitch');
-  if (old && old.dataset.sig === JSON.stringify([teams, current])) return;
+  if (old && old.dataset.sig === sig) return;
   old?.remove();
   if (!teams.length) return;
-  const wrap = el('label', { class: 'team-switch', id: 'teamSwitch', 'data-sig': JSON.stringify([teams, current]) }, el('span', {}, 'Équipe'));
+  if (fixed) {
+    nav.before(el('div', { class: 'team-switch', id: 'teamSwitch', 'data-sig': sig }, el('span', {}, 'Équipe'),
+      el('strong', { class: 'team-fixed', title: 'Équipe de votre compte (réglée par l’administrateur du club)' }, fixed.nom)));
+    return;
+  }
+  const wrap = el('label', { class: 'team-switch', id: 'teamSwitch', 'data-sig': sig }, el('span', {}, 'Équipe'));
   const select = el('select', { 'aria-label': 'Équipe de travail' },
     el('option', { value: '' }, 'Toutes les équipes'),
     teams.map(t => el('option', { value: t.id, selected: t.id === current ? 'selected' : null }, t.nom)));
@@ -180,7 +196,7 @@ const NAV_CACHE = 'lmfc-nav-cache';
 function saveNavCache(profile, teams) {
   try {
     localStorage.setItem(NAV_CACHE, JSON.stringify({
-      profile: { id: profile.id, nom: profile.nom, role: profile.role,
+      profile: { id: profile.id, nom: profile.nom, role: profile.role, team_id: profile.team_id ?? null,
         prefs: { nav: profile.prefs?.nav, team_id: profile.prefs?.team_id ?? null }, clubs: { nom: profile.clubs?.nom } },
       teams: (teams || []).map(t => ({ id: t.id, nom: t.nom })),
     }));

@@ -6,10 +6,12 @@
 
    Comment : l'habillage n'est pas dans le fichier vidéo, il est
    enregistré à part (video_sequences.drawings) et dessiné par-dessus
-   à la lecture. Pour l'incruster, la page rejoue chaque séquence dans
-   un <canvas> (image + annotations, paintInk de video-ink.js) et
-   enregistre ce canvas avec le son (MediaRecorder). Aucun serveur :
-   la génération dure le temps des séquences, onglet au premier plan.
+   à la lecture. Pour l'incruster, chaque image passe par un <canvas>
+   (image + annotations, paintInk de video-ink.js). Aucun serveur :
+     - génération rapide (video-fastcompile.js) : le fichier est décodé
+       et réencodé directement, en quelques secondes ;
+     - sinon, temps réel : la page rejoue chaque séquence et enregistre
+       le canvas avec le son (MediaRecorder), onglet au premier plan.
 
    Fichiers : par défaut la compilation est seulement téléchargée,
    rien n'est stocké. « Ajouter aux vidéos du joueur » la range sur
@@ -64,8 +66,24 @@ function crestImage() {
 }
 
 /* Rend la compilation. items : [{ seq, src }] dans l'ordre voulu.
-   opts : { titles, ink, playerName, canvas, onProgress, isCancelled } → Blob. */
+   opts : { titles, ink, playerName, canvas, onProgress, onStatus, isCancelled } → Blob.
+   Rapide si le navigateur et les vidéos s'y prêtent, sinon temps réel. */
 async function renderCompilation(items, opts) {
+  if (typeof fastCompile === 'function') {
+    try {
+      const blob = await fastCompile(items, opts);
+      if (blob) return blob;
+    } catch (e) {
+      if (opts.isCancelled?.()) throw e;
+      console.warn('Génération rapide interrompue : passage en temps réel', e);
+    }
+  }
+  opts.onStatus?.('Génération en direct : gardez cet onglet ouvert et au premier plan.');
+  opts.onProgress?.(0);
+  return renderRealtime(items, opts);
+}
+
+async function renderRealtime(items, opts) {
   const mime = compileMime();
   if (!mime) throw new Error('Ce navigateur ne sait pas enregistrer de vidéo : utilisez Chrome, Edge ou Safari à jour.');
   const host = el('div', { class: 'vc-hidden', 'aria-hidden': 'true' });
@@ -199,6 +217,8 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
   document.getElementById('vcModal')?.remove();
   const name = `${player.prenom || ''} ${player.nom || ''}`.trim() || 'Joueur';
   const mime = compileMime();
+  const fast = typeof fastSupported === 'function' && fastSupported();
+  const canRender = !!mime || fast;
   const st = { order: seqs.map(s => s.id), running: false, cancel: false, blob: null, url: null };
   const byId = (id) => seqs.find(s => s.id === id);
   /* Fichier d'origine : tel qu'envoyé, sans réencodage ni copie dans le
@@ -222,16 +242,16 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
         <label><input type="checkbox" id="vcTitles" checked> Carton de titre avant chaque séquence</label>
       </div>
       <p class="vc-time" id="vcTime"></p>
-      ${mime ? '' : '<p class="text-danger">Ce navigateur ne sait pas enregistrer de vidéo : ouvrez cette page dans Chrome, Edge ou Safari à jour.</p>'}
+      ${canRender ? '' : '<p class="text-danger">Ce navigateur ne sait pas enregistrer de vidéo : ouvrez cette page dans Chrome, Edge ou Safari à jour.</p>'}
       <div class="vc-stage hidden" id="vcStage">
         <canvas id="vcCanvas"></canvas>
         <div class="vc-bar"><span id="vcBar"></span></div>
-        <p class="text-muted vc-note" id="vcNote">Génération en direct : gardez cet onglet ouvert et au premier plan.</p>
+        <p class="text-muted vc-note" id="vcNote"></p>
       </div>
       <div class="vc-done hidden" id="vcDone"></div>
       <div class="modal-actions">
         <button class="btn" type="button" id="vcClose">Fermer</button>
-        <button class="btn btn-primary" type="button" id="vcGo" ${mime ? '' : 'disabled'}>Générer la compilation</button>
+        <button class="btn btn-primary" type="button" id="vcGo" ${canRender ? '' : 'disabled'}>Générer la compilation</button>
       </div>
     </div>
   </div>`);
@@ -258,8 +278,9 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
     $c('#vcOrig').classList.toggle('hidden', !sources.some(v => origUrl(seqs.find(s => s.video_id === v))));
     loadThumbs($c('#vcList'));
     const secs = Math.round(compileDuration(st.order.map(id => ({ seq: byId(id) })), opts()));
-    $c('#vcTime').textContent = `${st.order.length} séquence${st.order.length > 1 ? 's' : ''} · environ ${fmtDur(secs)} de vidéo (et autant de temps de génération).`;
-    $c('#vcGo').disabled = !mime || !st.order.length || st.running;
+    $c('#vcTime').textContent = `${st.order.length} séquence${st.order.length > 1 ? 's' : ''} · environ ${fmtDur(secs)} de vidéo`
+      + (fast ? ', générée en quelques secondes.' : ' (et autant de temps de génération).');
+    $c('#vcGo').disabled = !canRender || !st.order.length || st.running;
   };
   makeSortable($c('#vcList'), { onChange: () => { st.order = [...$c('#vcList').children].map(li => Number(li.dataset.id)); renderList(); } });
   renderList();
@@ -274,7 +295,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
   $c('#vcClose').addEventListener('click', close);
   document.getElementById('vcModal').addEventListener('click', (e) => { if (e.target.id === 'vcModal') close(); });
 
-  const fileName = (ids) => `${ids.length > 1 ? 'compilation' : 'sequence'}-${name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.${compileExt(mime)}`;
+  const fileName = (ids, type) => `${ids.length > 1 ? 'compilation' : 'sequence'}-${name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.${compileExt(type)}`;
   async function generate(ids) {
     if (st.running || !ids.length) return;
     st.running = true; st.cancel = false;
@@ -289,13 +310,14 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
       const blob = await renderCompilation(items, {
         ...opts(), playerName: name, canvas: $c('#vcCanvas'),
         onProgress: (p) => { $c('#vcBar').style.width = `${Math.round(p * 100)}%`; },
+        onStatus: (text) => { $c('#vcNote').textContent = text; },
         isCancelled: () => st.cancel,
       });
-      st.blob = new File([blob], fileName(ids), { type: blob.type });
+      st.blob = new File([blob], fileName(ids, blob.type), { type: blob.type });
       st.url = URL.createObjectURL(st.blob);
       const mb = st.blob.size / 1048576;
       $c('#vcDone').innerHTML = `
-        <p><strong>${ids.length > 1 ? 'Compilation prête' : 'Séquence prête'}</strong> · ${mb.toFixed(1).replace('.', ',')} Mo · ${escapeHtml(compileExt(mime).toUpperCase())}</p>
+        <p><strong>${ids.length > 1 ? 'Compilation prête' : 'Séquence prête'}</strong> · ${mb.toFixed(1).replace('.', ',')} Mo · ${escapeHtml(compileExt(st.blob.type).toUpperCase())}</p>
         <div class="vc-done-actions">
           <a class="btn btn-primary" href="${st.url}" download="${escapeHtml(st.blob.name)}">Télécharger</a>
           ${ids.length > 1 && canManageVideos(profile.role) ? `<button class="btn" type="button" id="vcSave" ${st.blob.size > VIDEO_MAX_BYTES ? 'disabled title="Trop volumineuse pour être ajoutée"' : ''}>Ajouter aux vidéos de ${escapeHtml(name)}</button>` : ''}
@@ -317,7 +339,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
   async function saveToPlayer(ids) {
     const btn = $c('#vcSave'); if (!btn || !st.blob) return;
     btn.disabled = true; btn.textContent = 'Envoi…';
-    const path = `r2/${profile.club_id}/${player.id}/${Date.now()}.${compileExt(mime)}`;
+    const path = `r2/${profile.club_id}/${player.id}/${Date.now()}.${compileExt(st.blob.type)}`;
     try {
       await uploadVideoFile(path, st.blob, { onProgress: (p) => { btn.textContent = p >= 1 ? 'Finalisation…' : `Envoi… ${Math.floor(p * 100)} %`; } });
       const labels = ids.map(id => byId(id).label || 'Séquence');

@@ -60,6 +60,21 @@ window.CURRENT_PROFILE.prefs.team_id = 5;
 assert.equal(run('currentTeamId()'), 5);
 window.CURRENT_PROFILE.prefs.team_id = 99;
 assert.equal(run('currentTeamId()'), null, 'équipe supprimée = toutes les équipes');
+// Compte rattaché à une équipe (Mon club → Membres) : elle s'impose au choix du menu.
+window.CURRENT_PROFILE.team_id = 3;
+window.CURRENT_PROFILE.prefs.team_id = 5;
+assert.equal(run('currentTeamId()'), 3, 'équipe du compte prioritaire');
+window.CURRENT_PROFILE.team_id = 99;
+assert.equal(run('currentTeamId()'), 5, 'équipe du compte supprimée : retour au choix du menu');
+delete window.CURRENT_PROFILE.team_id;
+// Joueurs : équipe principale, autres équipes, ou sans équipe.
+const calls = [];
+run('byPlayerTeam')({ or: (f) => { calls.push(f); return 'filtré'; } }, 3);
+assert.equal(calls[0], 'team_id.eq.3,team_id.is.null,other_team_ids.cs.{3}');
+const inTeam = (p) => run('playerInTeam')(p, 3);
+assert.ok(inTeam({ team_id: 5, other_team_ids: [3] }), 'U19 qui joue aussi en N2');
+assert.ok(inTeam({ team_id: null }), 'sans équipe : partout');
+assert.ok(!inTeam({ team_id: 5, other_team_ids: [] }), 'U19 seulement');
 
 // Corbeille : tout le staff (chacun n'y voit que ce qu'il pouvait supprimer, RLS).
 for (const r of ['admin', 'coach', 'prepa']) assert.ok(keys(r, {}).includes('trash'), `${r} : Corbeille`);

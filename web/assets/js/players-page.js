@@ -74,7 +74,7 @@ async function loadGrid() {
   try {
     // select('*') : team_id et ligne n'existent qu'après leurs migrations ;
     // une liste explicite ferait échouer la page tant qu'elles manquent.
-    const { data: players, error } = await byTeam(sb.from('players').select('*').order('nom'));
+    const { data: players, error } = await byPlayerTeam(sb.from('players').select('*').order('nom'));
     if (error) throw error;
 
     const ids = players.map(p => p.id);
@@ -193,7 +193,7 @@ function playerRow(p) {
     ? `<img class="pr-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy" draggable="false">`
     : `<span class="pr-avatar ${avatarClass(i)}">${escapeHtml(playerInitials(p))}</span>`;
   // L'équipe n'est rappelée que lorsque toutes les équipes sont affichées.
-  const team = !currentTeamId() && 'team_id' in p ? teamName(p.team_id) : '';
+  const team = !currentTeamId() && 'team_id' in p ? [p.team_id, ...(p.other_team_ids || [])].map(teamName).filter(Boolean).join(' / ') : '';
   const data = [
     num(p.height_cm) !== null ? `<span title="Taille">${frNum(p.height_cm / 100, 2)} m</span>` : '',
     num(p.weight_kg) !== null ? `<span title="Poids">${frNum(p.weight_kg, 1)} kg</span>` : '',

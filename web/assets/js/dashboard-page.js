@@ -88,7 +88,7 @@ async function renderAttention(profile, can) {
   const box = document.getElementById('homeAttn');
   const today = new Date().toISOString().slice(0, 10);
   try {
-    const { data: players, error: pErr } = await byTeam(sb.from('players').select('id'));
+    const { data: players, error: pErr } = await byPlayerTeam(sb.from('players').select('id'));
     if (pErr) throw pErr;
     const ids = (players || []).map(p => p.id);
     const none = Promise.resolve({ data: [], count: 0 });

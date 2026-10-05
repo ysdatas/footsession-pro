@@ -428,10 +428,16 @@ const TREND_SERIES = [
   { key: 'body_fat_pct', label: 'Masse grasse', unit: '%',  cls: 'fat',    digits: 1 },
 ];
 
-function trendChartSvg(rows) {
+/* W = largeur réelle du bloc, en pixels : le graphique est dessiné à
+   l'échelle 1, les textes gardent leur taille quelle que soit la largeur
+   (une largeur fixe agrandie à l'écran les faisait énormes). */
+const SHORT_MONTHS = { Janvier: 'Janv.', Février: 'Févr.', Juillet: 'Juil.', Septembre: 'Sept.', Octobre: 'Oct.', Novembre: 'Nov.', Décembre: 'Déc.' };
+const shortMonth = (m) => SHORT_MONTHS[m] || m || '';
+
+function trendChartSvg(rows, W) {
   const series = TREND_SERIES.filter(s => rows.some(r => num(r[s.key]) !== null));
-  if (!series.length) return '';
-  const W = 620, padL = 92, padR = 28, bandH = 78, gap = 18, padT = 16, axisH = 24;
+  if (!series.length || !W) return '';
+  const padL = 124, padR = 28, bandH = 78, gap = 18, padT = 16, axisH = 24;
   const H = padT + series.length * bandH + (series.length - 1) * gap + axisH;
   const innerW = W - padL - padR;
   const x = i => padL + (rows.length === 1 ? innerW / 2 : (i * innerW) / (rows.length - 1));
@@ -460,31 +466,36 @@ function trendChartSvg(rows) {
     });
   });
   rows.forEach((r, i) => {
-    svg += `<text x="${x(i)}" y="${H - 6}" class="trend-tick" text-anchor="middle">${esc((r.month_label || '').slice(0, 4))}</text>`;
+    svg += `<text x="${x(i)}" y="${H - 6}" class="trend-tick" text-anchor="middle">${esc(shortMonth(r.month_label))}</text>`;
   });
   return svg + '</svg>';
 }
 
+let trendWidth = 0, trendObserver = null;
+function drawTrend() {
+  const chart = document.getElementById('trendChart');
+  if (!chart) return;
+  // Redessiné quand sa largeur change (fenêtre, onglet Performance ouvert).
+  if (!trendObserver && typeof ResizeObserver === 'function') {
+    trendObserver = new ResizeObserver(() => { if (Math.round(chart.clientWidth) !== trendWidth) drawTrend(); });
+    trendObserver.observe(chart);
+  }
+  trendWidth = Math.round(chart.clientWidth);
+  chart.innerHTML = measurements.length ? trendChartSvg(orderedMeasurements(), trendWidth) : '';
+}
+
 function renderMeasurements() {
   const wrap = document.getElementById('measurementHistory');
-  const chart = document.getElementById('trendChart');
-
   renderHeroMetrics();
 
+  drawTrend();
   if (!measurements.length) {
-    if (chart) chart.innerHTML = '';
     wrap.innerHTML = `<div class="empty">Aucune mesure enregistrée.</div>`;
     return;
   }
 
   const ordered = orderedMeasurements();
-
-  const rows = ordered;
   const showHeight = isStaff();
-
-  if (chart) {
-    chart.innerHTML = trendChartSvg(rows);
-  }
 
   wrap.innerHTML = `<div class="measurement-table">
     <div class="measurement-row header${showHeight ? '' : ' no-height'}"><span>Mois</span>${showHeight ? '<span>Taille</span>' : ''}<span>Poids</span><span>MG</span></div>
@@ -536,9 +547,9 @@ function renderIdentity() {
   document.title = `LMFC Performance — ${ctxProfile?.role === 'joueur' ? 'Ma performance' : fullName || 'Joueur'}`;
   document.getElementById('playerInitials').textContent = initials(player);
 
-  document.getElementById('playerMeta').textContent =
-    [player.poste, typeof teamName === 'function' ? teamName(player.team_id) : null]
-      .filter(Boolean).join(' · ');
+  const teams = typeof teamName === 'function'
+    ? [player.team_id, ...(player.other_team_ids || [])].map(teamName).filter(Boolean).join(' / ') : null;
+  document.getElementById('playerMeta').textContent = [player.poste, teams].filter(Boolean).join(' · ');
 
   const age = ageFrom(player.date_naissance);
   const facts = [
@@ -556,14 +567,14 @@ function renderIdentity() {
     return;
   }
   clubBox.classList.remove('hidden');
-  const clubInitials = (club?.nom || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+  // Même structure que Taille / Poids / Masse grasse (libellé, valeur,
+  // ligne du bas) : les valeurs des quatre tuiles tombent à la même hauteur.
   clubBox.innerHTML = `<span>Club</span>
-    <div class="perf-club-row">
-      ${clubLogoUrl
-        ? `<img class="perf-club-logo" src="${esc(clubLogoUrl)}" alt="">`
-        : `<div class="perf-club-logo perf-club-initials" style="${club?.color ? `border-color:${esc(club.color)}` : ''}">${esc(clubInitials)}</div>`}
-      <strong>${esc(club.nom)}</strong>
-    </div>`;
+    <strong class="perf-club-row">
+      ${clubLogoUrl ? `<img class="perf-club-logo" src="${esc(clubLogoUrl)}" alt="">` : ''}
+      <em class="perf-club-name" title="${esc(club.nom)}">${esc(club.nom)}</em>
+    </strong>
+    <small></small>`;
 }
 
 async function loadClubLogo() {
@@ -882,7 +893,8 @@ async function loadPage() {
       { message: `Aucune fiche lisible pour l'id ${playerId}. Si tu es joueur, vérifie que ton compte est bien associé à une fiche (policy players_read_self).` });
   }
   player = p;
-  if (ctxProfile.role === 'joueur') setPlayerShellUser(player);
+  if (ctxProfile.role === 'joueur') { setPlayerShellUser(player); applyPlayerVisibility(); }
+  else setupVisibilityToggles();
 
   // Staff : programme terrain (points forts, axes, exercices) dans l'onglet Fiche.
   // Le joueur a sa page « Objectifs & préventions » pour ça.
@@ -947,9 +959,7 @@ function openPlayerEdit() {
   set('pe-naissance', player.date_naissance ? String(player.date_naissance).slice(0, 10) : '');
   set('pe-pied', player.pied_fort);
   set('pe-statut', player.statut);
-  const hasLigne = 'ligne' in player, teams = window.CLUB_TEAMS || [];
-  document.getElementById('pe-ligne-field').classList.toggle('hidden', !hasLigne);
-  if (hasLigne) set('pe-ligne', player.ligne);
+  const teams = window.CLUB_TEAMS || [];
   const hasTeam = 'team_id' in player && teams.length > 0;
   document.getElementById('pe-team-field').classList.toggle('hidden', !hasTeam);
   if (hasTeam) {
@@ -957,12 +967,30 @@ function openPlayerEdit() {
       + teams.map(t => `<option value="${t.id}">${esc(t.nom)}</option>`).join('');
     set('pe-team', player.team_id);
   }
+  // Plusieurs équipes (lmfc_v7.sql) : l'équipe principale compte pour les
+  // moyennes « équipe » ; les autres le font apparaître dans leurs listes.
+  const hasOther = hasTeam && 'other_team_ids' in player && teams.length > 1;
+  document.getElementById('pe-other-field').classList.toggle('hidden', !hasOther);
+  if (hasOther) {
+    document.getElementById('pe-other-teams').innerHTML = teams.map(t => `<label class="check"><input type="checkbox" value="${t.id}"${
+      (player.other_team_ids || []).includes(t.id) ? ' checked' : ''}> ${esc(t.nom)}</label>`).join('');
+    syncOtherTeams();
+  }
   // Supprimer un joueur : administrateur seulement (RLS players_delete).
   document.getElementById('btnDeletePlayer').classList.toggle('hidden', ctxProfile?.role !== 'admin');
   // Sans la migration, ces champs ne peuvent pas être enregistrés.
   ['pe-naissance','pe-pied','pe-statut']
     .forEach(id => { document.getElementById(id).disabled = identityMissing; });
   openPerfModal('playerEditModal');
+}
+
+/* L'équipe principale ne se coche pas aussi en « autre équipe ». */
+function syncOtherTeams() {
+  const main = Number(document.getElementById('pe-team').value) || null;
+  document.querySelectorAll('#pe-other-teams input').forEach(b => {
+    b.disabled = Number(b.value) === main;
+    if (b.disabled) b.checked = false;
+  });
 }
 
 async function savePlayerEdit() {
@@ -983,8 +1011,10 @@ async function savePlayerEdit() {
       statut: val('pe-statut') || null,
     });
   }
-  if ('ligne' in player) body.ligne = val('pe-ligne') || null;
   if (!document.getElementById('pe-team-field').classList.contains('hidden')) body.team_id = Number(val('pe-team')) || null;
+  if (!document.getElementById('pe-other-field').classList.contains('hidden')) {
+    body.other_team_ids = [...document.querySelectorAll('#pe-other-teams input:checked')].map(b => Number(b.value));
+  }
 
   const { error } = await sb.from('players').update(body).eq('id', player.id);
   if (error) return notify(error.message, 'error');
@@ -1181,6 +1211,7 @@ document.getElementById('m-date').addEventListener('change',e=>{
 });
 document.getElementById('btnEditPlayer').addEventListener('click',openPlayerEdit);
 document.getElementById('btnSavePlayer').addEventListener('click',savePlayerEdit);
+document.getElementById('pe-team').addEventListener('change', syncOtherTeams);
 document.getElementById('btnDeletePlayer').addEventListener('click',deletePlayer);
 document.getElementById('btnAddStrength').addEventListener('click',()=>openNoteModal('strength'));
 document.getElementById('btnAddImprovement').addEventListener('click',()=>openNoteModal('improvement'));
@@ -1198,6 +1229,42 @@ document.getElementById('btnImportExcel').addEventListener('click',()=>ExcelImpo
   focusPlayerId: player.id,
   onDone: reloadData,
 }));
+
+/* ---------- Ce que voit le joueur ----------
+   Le staff masque une rubrique de la page Performance dans l'espace du
+   joueur (players.hidden_sections, lmfc_v7.sql) : la toile seule, par
+   exemple. Masquage d'affichage : ce sont ses propres données. */
+function applyPlayerVisibility() {
+  const hidden = player.hidden_sections || [];
+  document.querySelectorAll('[data-vis]').forEach(c => c.classList.toggle('hidden', hidden.includes(c.dataset.vis)));
+  document.querySelectorAll('.perf-hero-metrics .perf-metric:not(.perf-club)')
+    .forEach(m => m.classList.toggle('hidden', hidden.includes('suivi')));
+}
+function setupVisibilityToggles() {
+  if (!canEditPlans || !('hidden_sections' in player)) return;   // migration lmfc_v7 pas encore passée
+  document.querySelectorAll('[data-vis]').forEach(card => {
+    const box = el('input', { type: 'checkbox', role: 'switch' });
+    const text = el('span');
+    const sync = () => {
+      const shown = !(player.hidden_sections || []).includes(card.dataset.vis);
+      box.checked = shown;
+      text.textContent = shown ? 'Visible par le joueur' : 'Masqué pour le joueur';
+      card.classList.toggle('is-masked', !shown);
+    };
+    box.addEventListener('change', async () => {
+      const keys = new Set(player.hidden_sections || []);
+      if (box.checked) keys.delete(card.dataset.vis); else keys.add(card.dataset.vis);
+      box.disabled = true;
+      const { error } = await sb.rpc('set_player_hidden_sections', { p_player_ids: [player.id], p_sections: [...keys] });
+      box.disabled = false;
+      if (error) { console.error('Visibilité non enregistrée', error); notify(error.message, 'error'); return sync(); }
+      player.hidden_sections = [...keys];
+      sync();
+    });
+    card.querySelector('.section-head > div').append(el('label', { class: 'vis-toggle' }, box, text));
+    sync();
+  });
+}
 
 /* ---------- Onglets (staff) : Fiche · Performance · Vidéos ----------
    Le contenu change sur place ; ?tab= garde l'onglet au rechargement

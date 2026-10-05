@@ -176,7 +176,7 @@
 .trend-chart{margin-bottom:12px;}
 .trend-chart svg{width:100%;height:auto;display:block;color:#cfd4db;}
 .trend-grid{stroke:currentColor;opacity:.10;}
-.trend-tick{font-size:9.5px;fill:currentColor;opacity:.55;}
+.trend-tick{font-size:11px;fill:currentColor;opacity:.55;}
 .trend-tick-right{text-anchor:start;}
 .trend-line{stroke-width:2;fill:none;stroke-linecap:round;}
 .trend-line.weight,.trend-dot.weight{stroke:#4a9de0;}
@@ -332,16 +332,14 @@
   width:46px;height:46px;flex:0 0 46px;border-radius:50%;object-fit:cover;
   background:#0f1215;border:1px solid rgba(255,255,255,.1);
 }
-.perf-club-initials{
-  display:grid;place-items:center;font-size:var(--fs-sm);font-weight:800;
-  color:var(--gold);border:2px solid rgba(var(--gold-rgb), .5);
-}
 .perf-club-text{display:grid;gap:1px;min-width:0;}
 .perf-club-text strong{font-size:var(--fs-lg);overflow-wrap:anywhere;}
 .perf-club-text span{font-size:var(--fs-sm);color:var(--text-muted,#9da4ae);}
 
 .perf-hero-metrics{min-width:0;grid-template-columns:repeat(3,minmax(96px,1fr));}
 .perf-metric small{display:block;margin-top:2px;font-size:var(--fs-xs);color:var(--text-muted,#9da4ae);min-height:1em;}
+/* Ligne du bas vide (club, mois inconnu) : même hauteur, valeurs alignées. */
+.perf-metric small:empty::before{content:"\00a0";}
 
 @media (max-width:1200px){
   .perf-hero{grid-template-columns:1fr 1fr;}
@@ -473,10 +471,10 @@
 .score-vs { display: block; font-style: normal; font-size: var(--fs-xs); font-weight: 650; color: #4a9de0; margin-top: 1px; }
 .fp-fm-page .measurement-row.no-height { grid-template-columns: 1.1fr repeat(2, 1fr); }
 .measurement-row.no-height { grid-template-columns: 1.2fr 1fr 1fr; }
-.trend-name{font-size:12px;font-weight:700;}
+.trend-name{font-size:13px;font-weight:700;}
 .trend-name.weight{fill:#4a9de0;}
 .trend-name.fat{fill:#e06aa8;}
-.trend-value{font-size:10.5px;font-weight:650;fill:currentColor;}
+.trend-value{font-size:12px;font-weight:650;fill:currentColor;}
 .trend-dot.weight{fill:#4a9de0;}
 .trend-dot.fat{fill:#e06aa8;}
 .squad-hint{font-size:var(--fs-xs);color:var(--text-muted,#9da4ae);margin-top:3px;font-weight:400;}
@@ -507,9 +505,12 @@
 .perf-metric{display:flex;flex-direction:column;justify-content:space-between;min-height:94px;padding:14px;}
 .perf-metric.perf-club{display:flex;flex-direction:column;align-items:stretch;gap:0;padding:14px;}
 .perf-metric.perf-club.hidden{display:none;}
-.perf-club-row{display:flex;align-items:center;gap:9px;min-width:0;}
-.perf-club-row strong{font-size:var(--fs-lg);line-height:1.2;overflow-wrap:anywhere;}
-.perf-club-row .perf-club-logo{width:34px;height:34px;flex:0 0 34px;}
+/* Valeur du club : logo tel quel (PNG détouré, ni rond ni cadre) et nom
+   sur une ligne, centrés sur la hauteur des valeurs voisines. */
+.perf-metric > strong{line-height:1.2;}
+.perf-club-row{display:flex;align-items:center;gap:8px;min-width:0;height:1.2em;}
+.perf-club-row .perf-club-logo{width:1.2em;height:1.2em;flex:0 0 1.2em;border:0;border-radius:0;background:none;object-fit:contain;}
+.perf-club-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-size:var(--fs-lg);}
 @media (max-width:1200px){
   .perf-hero{grid-template-columns:1fr;}
   .perf-hero-metrics{grid-column:auto;}
@@ -534,7 +535,6 @@ button.perf-photo-wrap.is-editable:hover{border-color:var(--gold);}
    casse lettre par lettre). */
 @media (min-width:900px){ .perf-grid-bottom{grid-template-columns:repeat(2,minmax(0,1fr));} }
 .perf-grid-bottom .note-grid{flex:1 1 auto;min-height:0;overflow-y:auto;max-height:440px;align-content:start;padding-right:4px;grid-template-columns:1fr;}
-.note-card-head h3{flex:1;min-width:0;}
 .section-head .btn{white-space:nowrap;flex-shrink:0;}
 
 /* Tableau des tests sur téléphone : l'unité suit la valeur, la colonne
@@ -584,11 +584,38 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .pf-tabs [aria-selected="true"]{background:var(--bg-hover);color:var(--gold);}
 .pf-panel[hidden]{display:none;}
 .pf-panel > .card,.pf-panel > .dash-grid{margin:0 0 16px;}
-.pf-fiche-top{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:16px;}
+.pf-tabs [role="tab"]:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;}
+/* Fiche : le parcours en frise horizontale, puis chaque bloc sur toute la largeur. */
+.pf-fiche-top{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-bottom:16px;}
 .pf-fiche-top > .card{margin:0;}
 .pf-fiche-top .note-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));}
-@media (max-width:900px){ .pf-fiche-top{grid-template-columns:minmax(0,1fr);} }
+.pf-career #careerList{max-height:none;overflow:visible;}
+.pf-career .career-list{display:flex;gap:0;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px;}
+.pf-career .career-item{flex:0 0 auto;width:clamp(170px,22%,260px);grid-template-columns:minmax(0,1fr);align-content:start;gap:8px;padding:6px 16px 8px 6px;scroll-snap-align:start;}
+/* Trait horizontal d'un club au suivant, derrière les points. */
+.pf-career .career-item:not(:last-child)::before{left:12px;right:-8px;top:15px;bottom:auto;width:auto;height:1px;}
+.pf-career .career-dot{margin:5px 0 0 2px;}
 /* Compte joueur (Ma performance) : pas d'onglets ; la performance d'abord,
    puis parcours et objectifs. Le programme terrain a sa propre page. */
 .pa-body .pf-panels{display:flex;flex-direction:column;}
 .pa-body .pf-panel[data-pf-panel="fiche"]{order:2;}
+
+/* Ce que voit le joueur : interrupteur sous le titre de chaque bloc
+   (staff). Un bloc masqué reste lisible pour le staff, en retrait. */
+.vis-toggle{display:inline-flex;align-items:center;gap:8px;margin:8px 0 0;font-size:var(--fs-xs);font-weight:600;color:var(--text-secondary);cursor:pointer;text-transform:none;letter-spacing:0;}
+.vis-toggle input[type="checkbox"]{appearance:none;-webkit-appearance:none;position:relative;width:30px;height:18px;flex:0 0 30px;margin:0;border-radius:9px;
+  background:rgba(255,255,255,.16);cursor:pointer;transition:background var(--dur-micro, .15s) ease;}
+.vis-toggle input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform var(--dur-micro, .15s) ease;}
+.vis-toggle input:checked{background:var(--gold);}
+.vis-toggle input:checked::after{transform:translateX(12px);}
+@media (pointer:coarse){   /* au doigt : plus grand, comme les autres cases */
+  .vis-toggle input[type="checkbox"]{width:42px;height:24px;flex-basis:42px;border-radius:12px;}
+  .vis-toggle input::after{width:20px;height:20px;}
+  .vis-toggle input:checked::after{transform:translateX(18px);}
+}
+.vis-toggle input:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.vis-toggle input:disabled{opacity:.5;}
+.card.is-masked{border-style:dashed;}
+.card.is-masked .vis-toggle{color:var(--text-muted,#9da4ae);}
+.pe-other-teams{display:flex;flex-wrap:wrap;gap:0 18px;}
+.pe-other-teams .check{display:flex;color:var(--text-primary);}

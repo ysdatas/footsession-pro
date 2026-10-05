@@ -65,7 +65,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     [window.PLAYER_CLUB || 'Le Mans FC', player.poste, teamRes.data?.nom].filter(Boolean).join(' · ');
 
   renderAttention(vRes.data || [], sRes.data || [], nRes.data || [], eRes.error ? null : (eRes.data || []));
-  renderStats(mRes.data || [], tRes.data || []);
+  renderStats(mRes.data || [], tRes.data || [], player.hidden_sections || []);
 })();
 
 function renderAttention(videos, seqs, notes, exercises) {
@@ -105,7 +105,8 @@ function renderAttention(videos, seqs, notes, exercises) {
   document.getElementById('homeAttn').innerHTML = cards.join('');
 }
 
-function renderStats(measures, tests) {
+/* hidden : rubriques que le staff a masquées à ce joueur (Performance). */
+function renderStats(measures, tests, hidden) {
   const season = latestSeasonOf(measures);
   const scoped = measures.filter(m => !season || m.season_key === season)
     .sort((a, b) => (MONTHS.indexOf(a.month_label) - MONTHS.indexOf(b.month_label)) || String(a.measured_at || '').localeCompare(String(b.measured_at || '')));
@@ -113,12 +114,14 @@ function renderStats(measures, tests) {
   const fmt = (v, d) => Number(v).toFixed(d).replace('.', ',');
   const lastTest = [...tests].sort((a, b) => String(a.tested_at || '').localeCompare(String(b.tested_at || ''))).at(-1);
   const stageLabel = (k) => STAGES.find(s => s.key === k)?.label || k;
+  const suivi = !hidden.includes('suivi');
   const stats = [
-    ['Poids', last('weight_kg'), (r) => `${fmt(r.weight_kg, 1)} kg`, (r) => r.month_label],
-    ['Masse grasse', last('body_fat_pct'), (r) => `${fmt(r.body_fat_pct, 1)} %`, (r) => r.month_label],
-    ['Taille', last('height_cm'), (r) => `${fmt(r.height_cm / 100, 2)} m`, (r) => r.month_label],
-    ['Derniers tests', lastTest, (r) => stageLabel(r.stage), (r) => r.season_key],
-  ];
+    suivi && ['Poids', last('weight_kg'), (r) => `${fmt(r.weight_kg, 1)} kg`, (r) => r.month_label],
+    suivi && ['Masse grasse', last('body_fat_pct'), (r) => `${fmt(r.body_fat_pct, 1)} %`, (r) => r.month_label],
+    suivi && ['Taille', last('height_cm'), (r) => `${fmt(r.height_cm / 100, 2)} m`, (r) => r.month_label],
+    !hidden.includes('tests') && ['Derniers tests', lastTest, (r) => stageLabel(r.stage), (r) => r.season_key],
+  ].filter(Boolean);
+  document.getElementById('homeStats').closest('section').hidden = !stats.length;
   document.getElementById('homeStats').innerHTML = stats.some(([, r]) => r)
     ? stats.map(([label, r, val, when]) => `<a class="home-stat" href="player-performance.html">
         <span>${label}</span><strong>${r ? escapeHtml(val(r)) : '—'}</strong><small>${r ? escapeHtml(when(r) || '') : 'Pas encore mesuré'}</small></a>`).join('')

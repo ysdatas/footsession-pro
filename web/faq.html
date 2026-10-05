@@ -43,6 +43,11 @@
       </ol><p class="text-muted">Plus aucun code à transmettre. Un membre peut être changé de fonction ou retiré du club dans la liste des membres.</p></div>
     </details>
     <details class="faq-q">
+      <summary>Comment rattacher un coach ou un préparateur à une équipe ?</summary>
+      <div class="faq-a"><p><em>Mon club</em> → <em>Membres du club</em> : à côté de sa fonction, choisissez son équipe (N2, U19…). Il ne voit alors que les joueurs et les séances de cette équipe, et le menu affiche son équipe sans choix possible. Les séances de l’équipe sont partagées par tout son staff. « Toutes les équipes » lui rend tout le club.</p>
+        <p>Un joueur peut jouer dans plusieurs équipes : sur sa fiche, « Modifier » → <em>Équipe principale</em> (celle de ses moyennes) et <em>Joue aussi en</em>. Il apparaît alors dans chacune ; son compte joueur suit sa fiche.</p></div>
+    </details>
+    <details class="faq-q">
       <summary>L’e-mail de confirmation n’arrive pas : que faire ?</summary>
       <div class="faq-a"><p>Regardez d’abord dans les spams. Sur la page de connexion, « Renvoyer l’e-mail de confirmation » apparaît après l’inscription, et aussi quand une connexion échoue parce que l’adresse n’est pas encore confirmée (un renvoi par minute).</p>
         <p>Si personne ne reçoit rien, l’envoi d’e-mails du site n’est pas encore configuré : l’administrateur technique doit brancher un service d’envoi dans Supabase (voir le README, « E-mails de confirmation »).</p></div>
@@ -58,6 +63,7 @@
     <details class="faq-q">
       <summary>Comment est organisée la fiche d’un joueur ? Comment en faire un PDF ?</summary>
       <div class="faq-a"><p>Une seule page, trois onglets sous l’en-tête du joueur : <em>Fiche</em> (parcours, objectifs et préventions, programme terrain), <em>Performance</em> (radar, tests, suivi physique) et <em>Vidéos</em> (ses vidéos et séquences). Le contenu change sur place ; l’onglet reste choisi si vous rechargez la page. Le parcours se modifie directement dans l’onglet Fiche.</p>
+        <p>Ce que voit le joueur : sous le titre de chaque bloc de l’onglet <em>Performance</em>, l’interrupteur « Visible par le joueur ». Éteint, le bloc disparaît de son espace (par exemple, ne lui montrer que la toile) ; vous le voyez toujours, en pointillés.</p>
         <p>« Générer le PDF » (en haut) : cochez ou décochez chaque rubrique, dont les points forts et axes avec leur description et leurs exercices, et « Tous les exercices du programme ». Les vidéos ne peuvent pas être dans un PDF : leur titre y rappelle où les regarder.</p></div>
     </details>
     <details class="faq-q">
@@ -95,7 +101,7 @@
     <details class="faq-q">
       <summary>Comment réunir plusieurs séquences en une seule vidéo ?</summary>
       <div class="faq-a"><p><em>Vidéos joueurs</em> → un joueur (ou l’onglet Vidéos de sa fiche) → « Sélectionner des séquences ». Touchez les séquences dans l’ordre voulu, ou d’un geste : « Tout sélectionner », « Sélection du joueur » (celles qu’il a choisies), « Tout désélectionner ». Puis « Compiler » : réordonnez-les en les glissant, puis « Générer la compilation ». Les annotations et les arrêts sur image sont incrustés dans la vidéo (option), avec un carton de titre avant chaque séquence (option).</p>
-      <p>La vidéo se fabrique en direct dans le navigateur : elle dure le temps des séquences, gardez l’onglet ouvert et au premier plan. Elle est ensuite <strong>téléchargée</strong> (rien n’est stocké). « Ajouter aux vidéos du joueur » la range dans son espace : lui seul et le staff la voient. « Séquence » sur une ligne donne une séquence seule, habillage compris ; « Vidéo d’origine » télécharge le fichier source tel qu’il a été envoyé, sans copie dans le stockage.</p></div>
+      <p>La vidéo se fabrique dans le navigateur, en quelques secondes : pas besoin de regarder les séquences défiler, vous pouvez même changer d’onglet. Sur un navigateur ancien, ou si une vidéo ne s’y prête pas, elle se fabrique en direct (le temps des séquences, onglet au premier plan) : le message sous la barre l’indique. Elle est ensuite <strong>téléchargée</strong> (rien n’est stocké). « Ajouter aux vidéos du joueur » la range dans son espace : lui seul et le staff la voient. « Séquence » sur une ligne donne une séquence seule, habillage compris ; « Vidéo d’origine » télécharge le fichier source tel qu’il a été envoyé, sans copie dans le stockage.</p></div>
     </details>
     <details class="faq-q">
       <summary>Où mettre le travail physique, où mettre le travail terrain ?</summary>

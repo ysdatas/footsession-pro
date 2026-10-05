@@ -72,7 +72,22 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 25. supabase/lmfc_v6.sql                   programme terrain par point : video_id et exercise_ids sur
                                            player_performance_notes (sans clé étrangère : la corbeille
                                            restaure les liens), contrôle guard_note_links (rejouable)
+26. supabase/lmfc_v7.sql                   SÉCURITÉ : un compte ne change plus lui-même son rôle, son club ni
+                                           son équipe (garde guard_profile_membership_changes corrigée) ;
+                                           équipe d'un compte (profiles.team_id), joueur dans plusieurs
+                                           équipes (players.other_team_ids), rubriques masquées au joueur
+                                           (players.hidden_sections, RPC set_player_hidden_sections) (rejouable)
 ```
+
+### `lmfc_v7.sql` — garde des profils
+
+La garde `guard_profile_membership_changes` était `SECURITY DEFINER` : à l'intérieur,
+`current_user` valait son propriétaire, jamais `authenticated`, et la condition qui
+bloque une mise à jour directe ne s'appliquait pas. N'importe quel compte connecté
+pouvait se donner `role = 'admin'` et le `club_id` de son choix. Elle tourne désormais avec
+les droits de l'appelant (`SECURITY INVOKER`) : depuis le site, rôle, club et équipe restent
+inchangés ; les fonctions du serveur (`create_club`, `claim_club_access`,
+`club_set_member_role`…) gardent la main. Test : `tests/teams-sql.test.mjs`.
 
 ### `lmfc_v5.sql` — la corbeille
 
@@ -147,6 +162,16 @@ Club → équipe → joueurs / séances. L'admin crée les équipes dans **Mon c
 sélecteur en haut du menu (`profiles.prefs.team_id`) filtre Joueurs, Séances,
 Performance, Vidéos et le tableau de bord. Les notes /10 et les moyennes
 sont calculées au sein de l'équipe du joueur.
+
+- **Compte rattaché à une équipe** (`profiles.team_id`, `lmfc_v7.sql`) : dans **Mon club →
+  Membres**, l'admin choisit l'équipe d'un coach ou d'un préparateur (« Toutes les équipes »
+  par défaut). Le menu affiche alors cette équipe sans choix possible, et le compte ne voit
+  que ses joueurs et ses séances ; les séances de l'équipe sont partagées par tout son staff.
+  Filtre d'affichage : la RLS reste celle du club.
+- **Joueur dans plusieurs équipes** : `players.team_id` est l'équipe principale (moyennes
+  « équipe »), `players.other_team_ids` les autres (« Joue aussi en », fenêtre **Modifier**).
+  Le joueur apparaît dans les listes de chacune (`byPlayerTeam`, `playerInTeam`, `nav.js`) ;
+  son compte joueur suit sa fiche.
 
 ### Accès : adresse e-mail + fonction (+ fiche joueur)
 
@@ -258,10 +283,15 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   déduite du poste, ou choisie en glissant la ligne, à la souris), recherche, filtre par poste.
 - **Fiche joueur** (`player-performance.html?id=…`, staff) — une seule page, trois onglets sans
   changer de page (`?tab=fiche|performance|videos`, gardé au rechargement) sous l'en-tête (photo,
-  identité, taille, poids, masse grasse, « Modifier » : identité, ligne, équipe, suppression
-  pour l'admin) :
-  - **Fiche** : parcours (modifiable sur place), **Objectifs & préventions**, **Programme terrain** ;
-  - **Performance** : radar /10 (comparaison à un 2e joueur), tests, suivi physique ;
+  identité, club, taille, poids, masse grasse, « Modifier » : identité, équipe principale et
+  autres équipes, suppression pour l'admin) :
+  - **Fiche** : parcours en frise horizontale (modifiable sur place), puis **Objectifs &
+    préventions** et **Programme terrain**, chacun sur toute la largeur ;
+  - **Performance** : radar /10 (comparaison à un 2e joueur), tests, suivi physique (graphique
+    dessiné à sa largeur réelle). Sous le titre de chaque bloc, l'interrupteur **Visible par le
+    joueur** (admin, coach, prépa) : masqué, le bloc disparaît de son espace (Ma performance et
+    les chiffres de son accueil), par exemple pour ne lui montrer que la toile
+    (`players.hidden_sections`, `lmfc_v7.sql`) ;
   - **Vidéos** (admin, coach) : les vidéos du joueur (`player-videos.js`, comme dans Vidéos joueurs).
   **Générer le PDF** : cases à cocher par rubrique (identité, mesures, tests, radar, points avec
   description, titre de la vidéo et exercices, objectifs, préventions, tous les exercices,
@@ -322,9 +352,15 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     L'habillage n'est pas dans le fichier source (il est dans `drawings`) : la page rejoue
     chaque séquence dans un `<canvas>` — image, annotations dessinées par `paintInk`
     (`video-ink.js`, le même code qu'à l'écran), arrêts sur image, carton de titre — et
-    l'enregistre avec le son (`MediaRecorder` : MP4 sur Chrome / Safari, WebM sinon). Durée de
-    génération = durée de la vidéo, onglet au premier plan. Le fichier est téléchargé, rien
-    n'est stocké ; « Ajouter aux vidéos du joueur » l'envoie sur R2 dans le dossier de CE joueur.
+    l'enregistre avec le son (`MediaRecorder` : MP4 sur Chrome / Safari, WebM sinon).
+    **Génération rapide** (`video-fastcompile.js`) quand le navigateur le permet : chaque fichier
+    (95 Mo au plus) est lu d'un bloc par mp4box.js, ses images décodées et réencodées
+    (WebCodecs), le son décodé puis réencodé (AAC), mp4-muxer écrit le MP4 — quelques secondes
+    au lieu de la durée de la vidéo, même onglet en arrière-plan ; vidéos de téléphone tournées
+    comme à l'écran. Bibliothèques chargées à la demande, versions figées avec empreinte SRI.
+    Sinon (codec ou son illisible, navigateur ancien) : le temps réel, onglet au premier plan.
+    Le fichier est téléchargé, rien n'est stocké ; « Ajouter aux vidéos du joueur » l'envoie
+    sur R2 dans le dossier de CE joueur.
 - **Mes vidéos** (joueur) — deux rubriques : **Vidéos** (sources) et **Mes séquences**
   (filtres Toutes · Brouillons · Envoyées), une carte avec miniature par contenu.
 - **Espace joueur** — la même coque que le staff (`player-nav.js` + `layout.css`) : barre

@@ -41,7 +41,7 @@ let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton r
     }));
   }
 
-  const { data: players, error: playersError } = await byTeam(sb.from('players').select('id, nom, prenom, club_id, auth_user_id').order('nom'));
+  const { data: players, error: playersError } = await byPlayerTeam(sb.from('players').select('id, nom, prenom, club_id, auth_user_id').order('nom'));
   if (playersError) console.error('Joueurs illisibles', playersError);
   playersCache = players || [];
 
