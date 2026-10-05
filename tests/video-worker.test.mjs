@@ -22,7 +22,9 @@ const VIDEOS = {
     }
     const start = !range ? 0 : 'suffix' in range ? o.data.length - range.suffix : range.offset;
     const end = range?.length ? start + range.length : o.data.length;
-    return { ...meta(o), range, body: new Blob([o.data.slice(start, end)]).stream() };
+    // Comme en production : obj.range porte des clés vides (offset, length, suffix
+    // à undefined), ce qui donnait « bytes NaN-NaN » avant le calcul par l'en-tête.
+    return { ...meta(o), range: range && { offset: undefined, length: undefined, suffix: undefined }, body: new Blob([o.data.slice(start, end)]).stream() };
   },
   async put(key, body, opts) { store.set(key, { data: new Uint8Array(await new Response(body).arrayBuffer()), type: opts.httpMetadata.contentType }); },
   async delete(key) { store.delete(key); },
@@ -107,6 +109,10 @@ assert.equal(await r.text(), '456789');
 r = await call('GET', url, { headers: { range: 'bytes=-3' } });
 assert.equal(r.headers.get('content-range'), 'bytes 7-9/10');
 assert.equal(await r.text(), '789');
+r = await call('GET', url, { headers: { range: 'bytes=8-500' } });   // fin au-delà du fichier : bornée
+assert.equal(r.headers.get('content-range'), 'bytes 8-9/10');
+assert.equal(r.headers.get('content-length'), '2');
+assert.equal(await r.text(), '89');
 assert.equal((await call('GET', url, { headers: { range: 'bytes=50-60' } })).status, 416, 'plage hors du fichier');
 r = await call('GET', `${url}&dl=1&n=VS Nantes/../x`);   // vidéo d'origine (compilation)
 assert.equal(r.headers.get('content-disposition'), 'attachment; filename="VS-Nantes-..-x.mp4"', 'nom nettoyé, pas de chemin');
@@ -114,6 +120,14 @@ assert.equal(await r.text(), '0123456789');
 r = await call('HEAD', url);
 assert.equal(r.status, 200);
 assert.equal(r.headers.get('content-length'), '10');
+
+// .mov d'iPhone (video/quicktime) : annoncé video/mp4, que Firefox accepte aussi.
+const M = 'r2/7/12/1700000003.mov';
+assert.equal((await put(M, 'staff7', bytes, 'video/quicktime')).status, 201);
+r = await call('GET', (await urlsOf('joueur12', [M]))[M], { headers: { range: 'bytes=0-' } });
+assert.equal(r.headers.get('content-type'), 'video/mp4');
+assert.equal(r.headers.get('content-range'), 'bytes 0-9/10');
+assert.equal(await r.text(), '0123456789');
 
 const [, e, s] = url.match(/e=(\d+)&s=(.+)$/);
 assert.equal((await call('GET', url.replace(/s=.+$/, 's=AAAA'))).status, 403, 'signature falsifiée');

@@ -120,7 +120,9 @@ async function read(request, env, key, url) {
   const h = new Headers();
   obj.writeHttpMetadata(h);
   // Jamais servi comme une page : seule une vidéo sort de ce bucket.
-  if (!/^video\//.test(h.get('content-type') || '')) h.set('content-type', 'video/mp4');
+  // .mov (iPhone, Mac) annoncé en MP4 : même structure, et Firefox refuse video/quicktime.
+  const type = h.get('content-type') || '';
+  if (!/^video\//.test(type) || type === 'video/quicktime') h.set('content-type', 'video/mp4');
   h.set('x-content-type-options', 'nosniff');
   h.set('etag', obj.httpEtag);
   h.set('accept-ranges', 'bytes');
@@ -130,16 +132,25 @@ async function read(request, env, key, url) {
     const name = (url.searchParams.get('n') || 'video').replace(/[^\w.-]+/g, '-').slice(0, 80);
     h.set('content-disposition', `attachment; filename="${name}.${key.split('.').pop()}"`);
   }
-  if (ranged && obj.range) {
-    const r = obj.range;
-    const offset = 'suffix' in r ? obj.size - r.suffix : (r.offset ?? 0);
-    const length = 'suffix' in r ? r.suffix : (r.length ?? obj.size - offset);
-    h.set('content-range', `bytes ${offset}-${offset + length - 1}/${obj.size}`);
-    h.set('content-length', String(length));
+  // Plage recalculée depuis l'en-tête et la taille : la forme de obj.range
+  // n'est pas la même partout (en production elle donnait « bytes NaN-NaN »).
+  const span = ranged && byteSpan(request.headers.get('range'), obj.size);
+  if (span) {
+    h.set('content-range', `bytes ${span.start}-${span.end}/${obj.size}`);
+    h.set('content-length', String(span.end - span.start + 1));
     return new Response(obj.body, { status: 206, headers: h });
   }
   h.set('content-length', String(obj.size));
   return new Response(request.method === 'HEAD' ? null : obj.body, { headers: h });
+}
+
+/* « bytes=a-b », « bytes=a- », « bytes=-n » → { start, end } inclus, comme R2. */
+function byteSpan(header, size) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec((header || '').trim());
+  if (!m || (m[1] === '' && m[2] === '')) return null;
+  const start = m[1] === '' ? Math.max(0, size - Number(m[2])) : Number(m[1]);
+  const end = m[1] === '' || m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+  return start <= end ? { start, end } : null;
 }
 
 /* ---------- Envoi et suppression : staff vidéo du club ---------- */
