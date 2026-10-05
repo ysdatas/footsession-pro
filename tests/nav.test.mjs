@@ -10,8 +10,11 @@ const window = {
   location: { pathname: '/club', replace: (url) => { redirected = url; } },
   CLUB_TEAMS: [{ id: 3, nom: 'N2' }, { id: 5, nom: 'U19' }],
   CURRENT_PROFILE: { prefs: {} },
+  addEventListener: () => {},
 };
-const ctx = vm.createContext({ window, console, Number, Set, Map });
+// Page déjà chargée, sans menu : le dessin depuis la mémoire (renderNavFromCache) n'a rien à faire.
+const document = { readyState: 'complete', querySelector: () => null };
+const ctx = vm.createContext({ window, document, console, Number, Set, Map, JSON });
 vm.runInContext(readFileSync('web/assets/js/nav.js', 'utf8'), ctx);
 const run = (code) => vm.runInContext(code, ctx);
 const keys = (role, prefs) => run(`orderedNavItems(${JSON.stringify(role)}, ${JSON.stringify(prefs)})`)

@@ -77,7 +77,7 @@ async function requireAuth(opts = {}) {
       .select('id, nom, sort_order').order('sort_order').order('nom');
     if (teamsError) console.warn('Équipes indisponibles (migration roles_teams_preventions.sql non passée ?) :', teamsError.message);
     window.CLUB_TEAMS = teams || [];
-    renderNav(profile);
+    renderNav(profile);   // et le garde pour le dessiner tout de suite à la page suivante (nav.js)
   }
   return { user: session.user, profile };
 }
@@ -98,6 +98,7 @@ async function claimClubAccess() {
 
 async function logout() {
   if (typeof clearNavMemory === 'function') clearNavMemory();
+  if (typeof clearNavCache === 'function') clearNavCache();
   await sb.auth.signOut();
   window.location.href = 'index.html';
 }

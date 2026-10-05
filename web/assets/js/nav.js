@@ -99,7 +99,14 @@ window.resolveNavHref = (key) => {
   return (pages.includes(PAGE) ? lastUrl(root) : latestUrl(pages)) || item.href;
 };
 
-function renderNav(profile) {
+/* Équipe de travail d'un profil donné (le profil gardé en mémoire n'est
+   pas encore window.CURRENT_PROFILE au premier dessin du menu). */
+const teamIdOf = (profile, teams) => {
+  const id = Number(profile?.prefs?.team_id);
+  return teams.some(t => t.id === id) ? id : null;
+};
+
+function renderNav(profile, teams = window.CLUB_TEAMS || []) {
   const nav = document.querySelector('#sidebar .nav');
   if (!nav) return;
   // Téléphone : le menu est replié, le logo reste visible dans la barre du
@@ -110,19 +117,30 @@ function renderNav(profile) {
   }
   const page = currentPageName();
   const activeKey = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;
-  nav.innerHTML = orderedNavItems(profile.role, profile.prefs)
+  const html = orderedNavItems(profile.role, profile.prefs)
     .filter(item => !item.hidden)
     .map(item => `<a class="nav-item${item.key === activeKey ? ' active' : ''}" href="${item.href}" data-mem="${item.key}"${item.key === activeKey ? ' aria-current="page"' : ''}>`
       + `<span class="nav-dot"></span>${escapeHtml(item.label)}</a>`)
     .join('');
+  // Redessiné seulement s'il a changé : le second passage (profil frais)
+  // ne doit ni clignoter ni perdre la position de défilement.
+  const changed = nav.innerHTML !== html;
+  if (changed) nav.innerHTML = html;
+  renderTeamSwitch(nav, profile, teams);
   renderUserMenu(profile);
-  renderPageKicker(profile);
+  if (changed) restoreNavScroll(nav);   // après l'équipe et le bloc « moi », qui réduisent la hauteur du menu
+  renderPageKicker(profile, teams);
+  if (profile === window.CURRENT_PROFILE || window.CURRENT_PROFILE?.id === profile.id) saveNavCache(profile, teams);
+}
 
-  document.getElementById('teamSwitch')?.remove();
-  const teams = window.CLUB_TEAMS || [];
+/* Sélecteur d'équipe, au-dessus du menu ; recréé seulement s'il change. */
+function renderTeamSwitch(nav, profile, teams) {
+  const current = teamIdOf(profile, teams);
+  const old = document.getElementById('teamSwitch');
+  if (old && old.dataset.sig === JSON.stringify([teams, current])) return;
+  old?.remove();
   if (!teams.length) return;
-  const current = currentTeamId();
-  const wrap = el('label', { class: 'team-switch', id: 'teamSwitch' }, el('span', {}, 'Équipe'));
+  const wrap = el('label', { class: 'team-switch', id: 'teamSwitch', 'data-sig': JSON.stringify([teams, current]) }, el('span', {}, 'Équipe'));
   const select = el('select', { 'aria-label': 'Équipe de travail' },
     el('option', { value: '' }, 'Toutes les équipes'),
     teams.map(t => el('option', { value: t.id, selected: t.id === current ? 'selected' : null }, t.nom)));
@@ -130,6 +148,7 @@ function renderNav(profile) {
     select.disabled = true;
     try {
       await savePrefsPatch({ team_id: select.value ? Number(select.value) : null });
+      saveNavCache(window.CURRENT_PROFILE, teams);
       window.location.reload();
     } catch (e) { select.disabled = false; toast(e.message, 'error'); }
   });
@@ -139,13 +158,61 @@ function renderNav(profile) {
 
 /* Où suis-je ? Club et équipe de travail, au-dessus du titre de chaque
    page (même ligne que la date de l'accueil). */
-function renderPageKicker(profile) {
+function renderPageKicker(profile, teams = window.CLUB_TEAMS || []) {
   const head = document.querySelector('.page-head > div:first-child');
-  if (!head || head.querySelector('.page-kicker')) return;
-  const team = currentTeam();
-  const parts = [profile.clubs?.nom || 'Le Mans FC', team ? team.nom : ((window.CLUB_TEAMS || []).length ? 'Toutes les équipes' : null)];
-  head.insertAdjacentHTML('afterbegin', `<p class="page-kicker">${parts.filter(Boolean).map(escapeHtml).join(' · ')}</p>`);
+  if (!head) return;
+  const team = teams.find(t => t.id === teamIdOf(profile, teams));
+  const parts = [profile.clubs?.nom || 'Le Mans FC', team ? team.nom : (teams.length ? 'Toutes les équipes' : null)];
+  const text = parts.filter(Boolean).join(' · ');
+  const kicker = head.querySelector('.page-kicker');
+  if (kicker) { if (kicker.textContent !== text) kicker.textContent = text; return; }
+  head.insertAdjacentHTML('afterbegin', `<p class="page-kicker">${escapeHtml(text)}</p>`);
 }
+
+/* ---------- Menu instantané ----------
+   Le menu dépend du profil (rôle, ordre choisi, équipes), lu sur le
+   réseau : à chaque page il apparaissait après coup, et l'équipe et la
+   ligne « club · équipe » poussaient la page vers le bas. On garde ce
+   qu'il faut pour le dessiner dès la fin du chargement de la page
+   (localStorage, même compte seulement) ; requireAuth le redessine avec
+   le profil frais, sans rien changer à l'écran si rien n'a changé. */
+const NAV_CACHE = 'lmfc-nav-cache';
+function saveNavCache(profile, teams) {
+  try {
+    localStorage.setItem(NAV_CACHE, JSON.stringify({
+      profile: { id: profile.id, nom: profile.nom, role: profile.role,
+        prefs: { nav: profile.prefs?.nav, team_id: profile.prefs?.team_id ?? null }, clubs: { nom: profile.clubs?.nom } },
+      teams: (teams || []).map(t => ({ id: t.id, nom: t.nom })),
+    }));
+  } catch { /* stockage indisponible : le menu attendra le réseau */ }
+}
+const clearNavCache = () => { try { localStorage.removeItem(NAV_CACHE); } catch { /* idem */ } };
+function renderNavFromCache() {
+  if (window.CURRENT_PROFILE || !document.querySelector('#sidebar .nav')) return;
+  try {
+    const c = JSON.parse(localStorage.getItem(NAV_CACHE) || 'null');
+    const uid = JSON.parse(localStorage.getItem('footsession-auth') || 'null')?.user?.id;
+    if (!c?.profile || c.profile.role === 'joueur' || !uid || c.profile.id !== uid) return;
+    renderNav(c.profile, c.teams || []);
+  } catch (e) { console.warn('Menu en mémoire illisible', e); }
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderNavFromCache);
+else renderNavFromCache();
+
+/* La liste du menu garde sa position d'une page à l'autre ; la rubrique
+   active reste visible quand le menu défile (petit écran). */
+const NAV_SCROLL = 'lmfc-nav-scroll';
+function restoreNavScroll(nav) {
+  try { nav.scrollTop = Number(sessionStorage.getItem(NAV_SCROLL)) || 0; } catch { /* stockage indisponible */ }
+  const a = nav.querySelector('.active');
+  if (a && (a.offsetTop < nav.scrollTop || a.offsetTop + a.offsetHeight > nav.scrollTop + nav.clientHeight)) {
+    nav.scrollTop = a.offsetTop - (nav.clientHeight - a.offsetHeight) / 2;
+  }
+}
+window.addEventListener('pagehide', () => {
+  const nav = document.querySelector('#sidebar .nav');
+  try { if (nav) sessionStorage.setItem(NAV_SCROLL, String(Math.round(nav.scrollTop))); } catch { /* idem */ }
+});
 
 /* Bloc « moi » en bas du menu : nom, fonction, déconnexion. Un clic
    sur le nom propose un seul lien, Paramètres, où tout est regroupé. */

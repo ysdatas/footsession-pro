@@ -23,7 +23,10 @@
 .brand-logo { max-height: 34px; max-width: 150px; display: block; margin-bottom: 4px; }
 .brand-clubname { font-size: var(--fs-lg); font-weight: 700; display: block; }
 
-.nav { display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0; overflow-y: auto; }
+.nav { position: relative; display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* Barre de défilement du menu : discrète, visible seulement au survol. */
+.nav { scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color .2s; }
+.nav:hover, .nav:focus-within { scrollbar-color: rgba(255,255,255,.18) transparent; }
 .nav-item {
   display: flex; align-items: center; gap: 11px;
   padding: 10px 12px; border-radius: var(--radius-md);
@@ -127,9 +130,11 @@
     font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.02em;
   }
   .sidebar-toggle { top: 7px; left: 12px; }
-  .sidebar { transform: translateX(-100%); transition: transform .25s ease; }
+  .sidebar { transform: translateX(-100%); transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
   .sidebar.open { transform: none; }
-  .sidebar-backdrop.open { display: block; }
+  /* Fond sombre en fondu, en même temps que le menu glisse. */
+  .sidebar-backdrop { display: block; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .28s ease, visibility .28s; }
+  .sidebar-backdrop.open { opacity: 1; visibility: visible; pointer-events: auto; }
   .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
   :root { --page-pad-x: 18px; }
   .main { margin-left: 0; padding: calc(56px + 14px) var(--page-pad-x) 50px; }
@@ -188,3 +193,4 @@
   .sidebar { padding-top: 66px; width: min(var(--sidebar-w), 86vw); }
   .sidebar.open { box-shadow: 20px 0 50px rgba(0,0,0,.5); }
 }
+@media (prefers-reduced-motion: reduce) { .sidebar, .sidebar-backdrop { transition: none; } }

@@ -218,6 +218,12 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   onglet), avec ses champs `data-remember` (recherche, filtres), les questions ouvertes de la FAQ
   et la position dans la page ; les liens `data-back` (« ← Joueurs ») retrouvent la liste telle
   qu'on l'a laissée. `sessionStorage`, vidé à la déconnexion et à la connexion.
+- **Menu instantané** (`nav.js`) — le menu, l'équipe, le bloc « moi » et la ligne « club ·
+  équipe » sont dessinés dès la fin du chargement de la page à partir du dernier profil connu
+  (`localStorage` `lmfc-nav-cache`, même compte seulement, vidé à la déconnexion), puis
+  redessinés avec le profil frais seulement s'ils ont changé : plus d'apparition après coup ni
+  de page qui saute. La liste garde sa position d'une page à l'autre, la rubrique active reste
+  visible ; sur téléphone, le menu glisse et le fond s'assombrit en fondu.
 - **Sélection multiple** — « Tout sélectionner / Tout désélectionner » (`selectAllHtml`,
   `[data-select-scope]`, `app.js`) : export PDF, import Excel (joueurs reconnus seulement, jamais un
   rapprochement à confirmer), objectifs pour plusieurs joueurs, menu, compilation vidéo
