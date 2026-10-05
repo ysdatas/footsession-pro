@@ -114,12 +114,13 @@ function renderStats(measures, tests, hidden) {
   const fmt = (v, d) => Number(v).toFixed(d).replace('.', ',');
   const lastTest = [...tests].sort((a, b) => String(a.tested_at || '').localeCompare(String(b.tested_at || ''))).at(-1);
   const stageLabel = (k) => STAGES.find(s => s.key === k)?.label || k;
-  const suivi = !hidden.includes('suivi');
+  const measure = (k) => !hidden.includes('suivi') && !hidden.includes(`mesure:${k}`);
+  const anyTest = !hidden.includes('tests') && PLAYER_METRICS.some(m => !hidden.includes(`test:${m.key}`));
   const stats = [
-    suivi && ['Poids', last('weight_kg'), (r) => `${fmt(r.weight_kg, 1)} kg`, (r) => r.month_label],
-    suivi && ['Masse grasse', last('body_fat_pct'), (r) => `${fmt(r.body_fat_pct, 1)} %`, (r) => r.month_label],
-    suivi && ['Taille', last('height_cm'), (r) => `${fmt(r.height_cm / 100, 2)} m`, (r) => r.month_label],
-    !hidden.includes('tests') && ['Derniers tests', lastTest, (r) => stageLabel(r.stage), (r) => r.season_key],
+    measure('weight_kg') && ['Poids', last('weight_kg'), (r) => `${fmt(r.weight_kg, 1)} kg`, (r) => r.month_label],
+    measure('body_fat_pct') && ['Masse grasse', last('body_fat_pct'), (r) => `${fmt(r.body_fat_pct, 1)} %`, (r) => r.month_label],
+    measure('height_cm') && ['Taille', last('height_cm'), (r) => `${fmt(r.height_cm / 100, 2)} m`, (r) => r.month_label],
+    anyTest && ['Derniers tests', lastTest, (r) => stageLabel(r.stage), (r) => r.season_key],
   ].filter(Boolean);
   document.getElementById('homeStats').closest('section').hidden = !stats.length;
   document.getElementById('homeStats').innerHTML = stats.some(([, r]) => r)

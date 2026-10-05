@@ -25,10 +25,14 @@
 .member-row:last-child { border-bottom: none; }
 .member-name { flex: 1; min-width: 160px; font-weight: 500; }
 .member-name small { display: block; color: var(--text-secondary); font-weight: 400; font-size: var(--fs-sm); margin-top: 2px; }
-.member-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.member-controls select { width: auto; max-width: 240px; min-width: 140px; padding: 6px 8px; height: 34px; }
+/* Trois colonnes fixes, identiques d'un membre à l'autre : fonction,
+   équipe (ou fiche du joueur), bouton. Un administrateur n'a pas
+   d'équipe : sa deuxième colonne reste vide, le bouton reste aligné. */
+.member-controls { display: grid; grid-template-columns: 210px 210px 96px; gap: 8px; align-items: center; }
+.member-controls select { width: 100%; min-width: 0; max-width: none; height: 38px; padding: 6px 10px; }
+.member-controls [data-remove] { grid-column: 3; }
+.member-controls .btn, .access-list .member-row .btn { min-width: 96px; height: 38px; justify-content: center; }
 .member-controls .hidden { display: none; }
-@media (max-width: 640px) {
-  .member-controls { width: 100%; }
-  .member-controls select { flex: 1 1 100%; max-width: none; }
+@media (max-width: 760px) {
+  .member-controls { width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 96px; }
 }

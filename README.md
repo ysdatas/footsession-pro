@@ -77,6 +77,8 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            équipe d'un compte (profiles.team_id), joueur dans plusieurs
                                            équipes (players.other_team_ids), rubriques masquées au joueur
                                            (players.hidden_sections, RPC set_player_hidden_sections) (rejouable)
+27. supabase/lmfc_v8.sql                   ce que voit le joueur en détail : hidden_sections accepte aussi un
+                                           test ('test:sprint10_sec') ou une mesure ('mesure:weight_kg') (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -290,13 +292,15 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   - **Performance** : radar /10 (comparaison à un 2e joueur), tests, suivi physique (graphique
     dessiné à sa largeur réelle). Sous le titre de chaque bloc, l'interrupteur **Visible par le
     joueur** (admin, coach, prépa) : masqué, le bloc disparaît de son espace (Ma performance et
-    les chiffres de son accueil), par exemple pour ne lui montrer que la toile
-    (`players.hidden_sections`, `lmfc_v7.sql`) ;
+    les chiffres de son accueil), par exemple pour ne lui montrer que la toile. Pour les tests et
+    le suivi physique, une pastille par élément affine : juste les sprints, juste le 505, la
+    taille et le poids sans la masse grasse… (`players.hidden_sections`, `lmfc_v7.sql` et
+    `lmfc_v8.sql`) ;
   - **Vidéos** (admin, coach) : les vidéos du joueur (`player-videos.js`, comme dans Vidéos joueurs).
   **Générer le PDF** : cases à cocher par rubrique (identité, mesures, tests, radar, points avec
   description, titre de la vidéo et exercices, objectifs, préventions, tous les exercices,
   images). `player.html` renvoie ici (anciens liens). Côté joueur, la même page est « Ma
-  performance », sans onglets. Pas de présences dans la rubrique Joueurs (elles restent dans
+  performance », sans onglets ni parcours ; objectifs et préventions côte à côte. Pas de présences dans la rubrique Joueurs (elles restent dans
   chaque séance et dans le Bilan).
 - **Programme terrain** (onglet Fiche) — chaque **point fort** ou **axe d'amélioration** : sa
   **vidéo** à gauche (une vidéo du joueur, ou importée depuis la fenêtre du point, avec son

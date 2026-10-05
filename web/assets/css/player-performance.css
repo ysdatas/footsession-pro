@@ -469,8 +469,6 @@
 .radar-compare-dot { fill: #4a9de0; }
 .legend-compare { background: #4a9de0; }
 .score-vs { display: block; font-style: normal; font-size: var(--fs-xs); font-weight: 650; color: #4a9de0; margin-top: 1px; }
-.fp-fm-page .measurement-row.no-height { grid-template-columns: 1.1fr repeat(2, 1fr); }
-.measurement-row.no-height { grid-template-columns: 1.2fr 1fr 1fr; }
 .trend-name{font-size:13px;font-weight:700;}
 .trend-name.weight{fill:#4a9de0;}
 .trend-name.fat{fill:#e06aa8;}
@@ -589,6 +587,9 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .pf-fiche-top{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-bottom:16px;}
 .pf-fiche-top > .card{margin:0;}
 .pf-fiche-top .note-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));}
+/* Objectifs | Préventions, côte à côte dès que la place le permet. */
+.pf-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px 20px;}
+.pf-plans > div{min-width:0;}
 .pf-career #careerList{max-height:none;overflow:visible;}
 .pf-career .career-list{display:flex;gap:0;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px;}
 .pf-career .career-item{flex:0 0 auto;width:clamp(170px,22%,260px);grid-template-columns:minmax(0,1fr);align-content:start;gap:8px;padding:6px 16px 8px 6px;scroll-snap-align:start;}
@@ -616,6 +617,16 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .vis-toggle input:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
 .vis-toggle input:disabled{opacity:.5;}
 .card.is-masked{border-style:dashed;}
+/* Détail : une pastille par test ou par mesure ; barrée = masquée au joueur. */
+.vis-items{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.vis-chip{min-height:30px;padding:4px 11px;border-radius:999px;border:1px solid var(--border);background:transparent;
+  color:var(--text-muted,#9da4ae);font:600 var(--fs-xs)/1.2 var(--font-main);cursor:pointer;
+  text-decoration:line-through;text-decoration-color:rgba(255,255,255,.35);}
+.vis-chip[aria-pressed="true"]{border-color:var(--gold-border);background:rgba(var(--gold-rgb),.12);color:var(--gold);text-decoration:none;}
+.vis-chip:hover:not(:disabled){border-color:var(--gold);}
+.vis-chip:disabled{opacity:.45;cursor:default;}
+.vis-chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+@media (pointer:coarse){ .vis-chip{min-height:38px;padding:6px 13px;} }
 .card.is-masked .vis-toggle{color:var(--text-muted,#9da4ae);}
 .pe-other-teams{display:flex;flex-wrap:wrap;gap:0 18px;}
 .pe-other-teams .check{display:flex;color:var(--text-primary);}

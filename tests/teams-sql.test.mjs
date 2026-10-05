@@ -1,4 +1,4 @@
-/* Profils, équipes et visibilité (supabase/lmfc_v7.sql) sur un vrai
+/* Profils, équipes et visibilité (supabase/lmfc_v7.sql, lmfc_v8.sql) sur un vrai
    Postgres (PGlite, WASM) : schéma réduit, rôles simulés, requêtes
    faites comme depuis le site (rôle « authenticated », RLS active).
    Lancement : npm i --no-save @electric-sql/pglite && node tests/teams-sql.test.mjs
@@ -12,6 +12,7 @@ try { ({ PGlite } = await import('@electric-sql/pglite')); } catch {
   process.exit(0);
 }
 const SQL_V7 = readFileSync(new URL('../supabase/lmfc_v7.sql', import.meta.url), 'utf8');
+const SQL_V8 = readFileSync(new URL('../supabase/lmfc_v8.sql', import.meta.url), 'utf8');
 
 const ADMIN = '00000000-0000-0000-0000-000000000001';
 const COACH = '00000000-0000-0000-0000-000000000002';
@@ -103,4 +104,14 @@ assert.deepEqual((await one(`select hidden_sections from public.players where id
 await assert.rejects(as(JOUEUR, () => db.query(`select public.set_player_hidden_sections('{1}', '{}')`)), /Réservé/, 'refusé au joueur');
 await assert.rejects(as(ADMIN, () => db.query(`select public.set_player_hidden_sections('{1}', '{photo}')`)), /hidden_sections_check/, 'rubrique inconnue refusée');
 
-console.log('teams-sql : OK (5 scénarios)');
+// 6) lmfc_v8 : un test ou une mesure précis, en plus des blocs entiers.
+await db.exec(SQL_V8);
+await db.exec(SQL_V8);   // rejouable
+await as(COACH, () => db.query(`select public.set_player_hidden_sections('{1}', '{test:five05_left_sec,mesure:weight_kg,radar}')`));
+assert.deepEqual((await one(`select hidden_sections from public.players where id = 1`)).hidden_sections,
+  ['mesure:weight_kg', 'radar', 'test:five05_left_sec'], 'un test et une mesure masqués');
+for (const bad of ['{photo}', '{"test:x; drop"}', '{test:}']) {
+  await assert.rejects(as(ADMIN, () => db.query(`select public.set_player_hidden_sections('{1}', $1)`, [bad])), /hidden_sections_check/, `refusé : ${bad}`);
+}
+
+console.log('teams-sql : OK (6 scénarios)');

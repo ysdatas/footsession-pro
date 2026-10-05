@@ -41,8 +41,13 @@ const isStaff = () => PERF_STAFF_ROLES.includes(ctxProfile?.role);
 
 /* Indicateurs internes au staff : jamais montrés au joueur (et jamais
    renvoyés par my_physical_tests() côté base). */
-const STAFF_ONLY_METRICS = ['five05_asymmetry_pct', 'core_ratio'];
-const visibleTestRows = () => isStaff() ? PERF_METRICS : PERF_METRICS.filter(m => !STAFF_ONLY_METRICS.includes(m.key));
+/* Ce que voit le joueur (players.hidden_sections, lmfc_v7/v8) : un bloc
+   entier ('radar', 'tests', 'suivi') ou un élément précis
+   ('test:sprint10_sec', 'mesure:weight_kg'). Le staff voit tout. */
+const MEASURE_ITEMS = [['height_cm', 'Taille'], ['weight_kg', 'Poids'], ['body_fat_pct', 'Masse grasse']];
+const hiddenForPlayer = (key) => ctxProfile?.role === 'joueur' && (player?.hidden_sections || []).includes(key);
+const measureShown = (k) => !hiddenForPlayer('suivi') && !hiddenForPlayer(`mesure:${k}`);
+const visibleTestRows = () => isStaff() ? PERF_METRICS : PLAYER_METRICS.filter(m => !hiddenForPlayer(`test:${m.key}`));
 
 /* Référence : l'équipe du joueur quand il en a une, sinon le club. */
 const refLabel = () => (player?.team_id ? 'Moyenne équipe' : 'Moyenne club');
@@ -435,7 +440,7 @@ const SHORT_MONTHS = { Janvier: 'Janv.', Février: 'Févr.', Juillet: 'Juil.', S
 const shortMonth = (m) => SHORT_MONTHS[m] || m || '';
 
 function trendChartSvg(rows, W) {
-  const series = TREND_SERIES.filter(s => rows.some(r => num(r[s.key]) !== null));
+  const series = TREND_SERIES.filter(s => measureShown(s.key) && rows.some(r => num(r[s.key]) !== null));
   if (!series.length || !W) return '';
   const padL = 124, padR = 28, bandH = 78, gap = 18, padT = 16, axisH = 24;
   const H = padT + series.length * bandH + (series.length - 1) * gap + axisH;
@@ -495,15 +500,16 @@ function renderMeasurements() {
   }
 
   const ordered = orderedMeasurements();
-  const showHeight = isStaff();
+  // La taille n'est dans le tableau que pour le staff (le joueur la voit en tête de page).
+  const cols = [['height_cm', 'Taille', 0, 'cm'], ['weight_kg', 'Poids', 1, 'kg'], ['body_fat_pct', 'MG', 1, '%']]
+    .filter(([k]) => (k !== 'height_cm' || isStaff()) && measureShown(k));
+  const grid = `style="grid-template-columns:1.2fr repeat(${cols.length}, 1fr)"`;
 
   wrap.innerHTML = `<div class="measurement-table">
-    <div class="measurement-row header${showHeight ? '' : ' no-height'}"><span>Mois</span>${showHeight ? '<span>Taille</span>' : ''}<span>Poids</span><span>MG</span></div>
-    ${ordered.map(m => `<div class="measurement-row${showHeight ? '' : ' no-height'}">
+    <div class="measurement-row header" ${grid}><span>Mois</span>${cols.map(([, label]) => `<span>${label}</span>`).join('')}</div>
+    ${ordered.map(m => `<div class="measurement-row" ${grid}>
       <span>${esc(m.month_label || '—')}</span>
-      ${showHeight ? `<span>${m.height_cm != null ? `${fmt(m.height_cm,0)} cm` : '—'}</span>` : ''}
-      <span>${m.weight_kg != null ? `${fmt(m.weight_kg,1)} kg` : '—'}</span>
-      <span>${m.body_fat_pct != null ? `${fmt(m.body_fat_pct,1)} %` : '—'}</span>
+      ${cols.map(([k, , d, u]) => `<span>${m[k] != null ? `${fmt(m[k], d)} ${u}` : '—'}</span>`).join('')}
     </div>`).join('')}
   </div>`;
 }
@@ -868,6 +874,7 @@ async function loadPage() {
     // Même coque que sur toutes les pages du joueur (barre latérale, onglets).
     document.querySelector('.perf-topbar').classList.add('hidden');   // ni retour ni actions staff
     document.getElementById('pfPanel-videos').hidden = true;           // ses vidéos : page « Mes vidéos »
+    document.querySelector('.pf-career').classList.add('hidden');      // le parcours est une information du staff
     renderPlayerShell();
   } else {
     document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });
@@ -1235,33 +1242,56 @@ document.getElementById('btnImportExcel').addEventListener('click',()=>ExcelImpo
    joueur (players.hidden_sections, lmfc_v7.sql) : la toile seule, par
    exemple. Masquage d'affichage : ce sont ses propres données. */
 function applyPlayerVisibility() {
-  const hidden = player.hidden_sections || [];
-  document.querySelectorAll('[data-vis]').forEach(c => c.classList.toggle('hidden', hidden.includes(c.dataset.vis)));
-  document.querySelectorAll('.perf-hero-metrics .perf-metric:not(.perf-club)')
-    .forEach(m => m.classList.toggle('hidden', hidden.includes('suivi')));
+  const emptied = { tests: !visibleTestRows().length, suivi: !MEASURE_ITEMS.some(([k]) => measureShown(k)) };
+  document.querySelectorAll('[data-vis]').forEach(c => c.classList.toggle('hidden', hiddenForPlayer(c.dataset.vis) || !!emptied[c.dataset.vis]));
+  Object.entries({ metricHeight: 'height_cm', metricWeight: 'weight_kg', metricBodyFat: 'body_fat_pct' })
+    .forEach(([id, k]) => document.getElementById(id).closest('.perf-metric').classList.toggle('hidden', !measureShown(k)));
 }
+/* Staff : sous le titre de chaque bloc, l'interrupteur du bloc entier ;
+   pour les tests et le suivi, le détail élément par élément (juste les
+   sprints, juste le 505, tout…). */
+const VIS_ITEMS = {
+  tests: () => PLAYER_METRICS.map(m => [`test:${m.key}`, m.label]),
+  suivi: () => MEASURE_ITEMS.map(([k, label]) => [`mesure:${k}`, label]),
+};
 function setupVisibilityToggles() {
   if (!canEditPlans || !('hidden_sections' in player)) return;   // migration lmfc_v7 pas encore passée
+  const syncs = [];
+  const save = async (keys) => {
+    const { error } = await sb.rpc('set_player_hidden_sections', { p_player_ids: [player.id], p_sections: [...keys] });
+    if (error) {
+      console.error('Visibilité non enregistrée', error);
+      notify(/hidden_sections_check/.test(error.message) ? 'Base à mettre à jour : exécutez supabase/lmfc_v8.sql.' : error.message, 'error');
+    } else player.hidden_sections = [...keys].sort();
+    syncs.forEach(f => f());
+  };
+  const toggle = (key) => {
+    const keys = new Set(player.hidden_sections || []);
+    if (keys.has(key)) keys.delete(key); else keys.add(key);
+    return save(keys);
+  };
   document.querySelectorAll('[data-vis]').forEach(card => {
+    const section = card.dataset.vis, items = VIS_ITEMS[section]?.() || [];
     const box = el('input', { type: 'checkbox', role: 'switch' });
     const text = el('span');
+    const chips = items.map(([key, label]) => el('button', { type: 'button', class: 'vis-chip', 'data-key': key }, label));
+    const detail = items.length ? el('div', { class: 'vis-items', role: 'group', 'aria-label': 'Détail visible par le joueur' }, ...chips) : null;
     const sync = () => {
-      const shown = !(player.hidden_sections || []).includes(card.dataset.vis);
+      const hidden = player.hidden_sections || [], shown = !hidden.includes(section);
       box.checked = shown;
       text.textContent = shown ? 'Visible par le joueur' : 'Masqué pour le joueur';
       card.classList.toggle('is-masked', !shown);
+      chips.forEach(c => {
+        const on = shown && !hidden.includes(c.dataset.key);
+        c.setAttribute('aria-pressed', String(on));
+        c.disabled = !shown;
+        c.title = on ? 'Visible par le joueur : cliquer pour masquer' : 'Masqué pour le joueur';
+      });
     };
-    box.addEventListener('change', async () => {
-      const keys = new Set(player.hidden_sections || []);
-      if (box.checked) keys.delete(card.dataset.vis); else keys.add(card.dataset.vis);
-      box.disabled = true;
-      const { error } = await sb.rpc('set_player_hidden_sections', { p_player_ids: [player.id], p_sections: [...keys] });
-      box.disabled = false;
-      if (error) { console.error('Visibilité non enregistrée', error); notify(error.message, 'error'); return sync(); }
-      player.hidden_sections = [...keys];
-      sync();
-    });
-    card.querySelector('.section-head > div').append(el('label', { class: 'vis-toggle' }, box, text));
+    syncs.push(sync);
+    box.addEventListener('change', () => { box.disabled = true; toggle(section).finally(() => { box.disabled = false; }); });
+    chips.forEach(c => c.addEventListener('click', () => toggle(c.dataset.key)));
+    card.querySelector('.section-head > div').append(el('label', { class: 'vis-toggle' }, box, text), ...(detail ? [detail] : []));
     sync();
   });
 }

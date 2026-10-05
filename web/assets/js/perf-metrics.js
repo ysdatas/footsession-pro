@@ -33,6 +33,11 @@ const MORPHO_METRICS = [
   { key: 'body_fat_pct', label: 'Masse grasse', unit: '%',  digits: 1, better: null, min: 2,   max: 40 },
 ];
 
+/* Indicateurs internes au staff : jamais montrés au joueur. Les autres
+   tests, le staff peut les lui masquer un par un (hidden_sections). */
+const STAFF_ONLY_METRICS = ['five05_asymmetry_pct', 'core_ratio'];
+const PLAYER_METRICS = PERF_METRICS.filter(m => !STAFF_ONLY_METRICS.includes(m.key));
+
 const PERF_METRIC_BY_KEY = Object.fromEntries(
   [...PERF_METRICS, ...MORPHO_METRICS].map(m => [m.key, m])
 );
