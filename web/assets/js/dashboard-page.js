@@ -119,7 +119,7 @@ async function renderAttention(profile, can) {
       const toSee = (seqRes.data || []).filter(seqToSee).length;
       cards.push(attnCard({
         href: 'videos.html', icon: 'videos', tone: toSee ? 'urgent' : 'calm',
-        value: toSee || null, label: toSee ? `Séquence${toSee > 1 ? 's' : ''} à regarder` : 'Aucune vidéo à regarder',
+        value: toSee || null, label: toSee ? `Séquence${toSee > 1 ? 's' : ''} à traiter` : 'Aucune séquence à traiter',
         detail: toSee ? 'Envoyées par vos joueurs, en attente de votre retour.' : 'Les envois de vos joueurs apparaîtront ici.',
       }));
     }

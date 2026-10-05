@@ -246,7 +246,7 @@ function renderTests() {
   const body = sortRows(shown, sortKey).map(r => `
     <tr>
       <td class="p-name">
-        <a href="player-performance.html?id=${r.player.id}">${esc(playerName(r.player))}</a>
+        <a href="player-performance.html?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a>
         ${r.player.numero != null ? `<span class="p-num">#${r.player.numero}</span>` : ''}
       </td>
       ${PERF_METRICS.map(m => valueCell(m.key, r.values[m.key], ranks[m.key][r.player.id], total)).join('')}
@@ -303,7 +303,7 @@ function renderEvolution() {
       ? '<td class="v-empty">—</td>'
       : `<td class="v ${p >= 0 ? 'gain' : 'loss'}">${p >= 0 ? '↗ +' : '↘ −'}${fmtVal(Math.abs(p), m.digits)}</td>`;
     return `<tr>
-      <td class="p-name"><a href="player-performance.html?id=${r.player.id}">${esc(playerName(r.player))}</a></td>
+      <td class="p-name"><a href="player-performance.html?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a></td>
       ${cells}${prog}
     </tr>`;
   }).join('');
@@ -343,7 +343,7 @@ function renderMorpho() {
 
   const body = sortRows(rows, sortKey).map(r => `
     <tr>
-      <td class="p-name"><a href="player-performance.html?id=${r.player.id}">${esc(playerName(r.player))}</a></td>
+      <td class="p-name"><a href="player-performance.html?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a></td>
       ${MORPHO_METRICS.map(m => valueCell(m.key, r.values[m.key], null, 0)).join('')}
       <td class="v-month">${esc(r.latestMonth || '—')}</td>
       ${monthsUsed.map(mo => {

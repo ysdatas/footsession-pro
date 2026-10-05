@@ -33,6 +33,31 @@ async function initProgramEditor(player, profile) {
 async function reloadProgram() {
   prog.exercises = await loadProgram(prog.player.id);
   renderProgramList(document.getElementById('programBox'), prog.exercises, { staff: true });
+  if (typeof renderNoteLists === 'function') renderNoteLists();   // titres des Exo dans les points
+}
+
+/* Point du programme (point fort, axe) qui contient l'exercice. */
+const programPoints = () => (typeof noteStore === 'undefined' || !noteStore.links ? []
+  : noteStore.notes.filter(n => n.kind === 'strength' || n.kind === 'improvement'));
+const pointOfExercise = (id) => programPoints().find(n => (n.exercise_ids || []).map(Number).includes(id));
+
+/* Change le point de l'exercice : retiré de l'ancien, ajouté à la fin des Exo
+   du nouveau. Un exercice peut servir à plusieurs points : les autres ne
+   bougent pas. */
+async function linkExerciseToPoint(exId, noteId, oldNoteId) {
+  const changes = programPoints().map(n => {
+    const ids = (n.exercise_ids || []).map(Number);
+    const has = ids.includes(exId);
+    if (n.id === noteId && !has) return [n, [...ids, exId]];
+    if (n.id === oldNoteId && n.id !== noteId && has) return [n, ids.filter(x => x !== exId)];
+    return null;
+  }).filter(Boolean);
+  for (const [n, ids] of changes) {
+    const keep = ids.filter(x => (prog.exercises || []).some(e => e.id === x) || x === exId);
+    const { error } = await sb.from('player_performance_notes').update({ exercise_ids: keep }).eq('id', n.id);
+    if (error) throw error;
+    n.exercise_ids = keep;
+  }
 }
 
 async function openExercise(id) {
@@ -57,7 +82,7 @@ async function openExercise(id) {
 }
 
 /* ---------- Fenêtre d'édition ---------- */
-function openExerciseModal(id) {
+function openExerciseModal(id, noteId = null) {
   const e = id ? prog.exercises.find(x => x.id === id) : null;
   prog.editing = e;
   prog.removeImage = false;
@@ -68,6 +93,13 @@ function openExerciseModal(id) {
   form.video_id.innerHTML = '<option value="">Aucune</option>' + prog.videos.map(v =>
     `<option value="${v.id}">${progEsc(v.titre || 'Vidéo')} — ${progEsc(new Date(v.created_at).toLocaleDateString('fr-FR'))}</option>`).join('');
   form.video_id.value = e?.video_id || '';
+  // Point du programme : visible dès qu'il y a des points (lmfc_v6.sql passée).
+  const points = programPoints();
+  form.note_id.closest('label').classList.toggle('hidden', !points.length);
+  form.note_id.innerHTML = '<option value="">Aucun</option>' + [['strength', 'Point fort'], ['improvement', 'Axe']].map(([k, label]) =>
+    points.filter(n => n.kind === k).map(n => `<option value="${n.id}">${label} · ${progEsc(noteTitle(n))}</option>`).join('')).join('');
+  form.note_id.value = String(noteId || (e && pointOfExercise(e.id)?.id) || '');
+  form.note_id.dataset.initial = e ? String((pointOfExercise(e.id)?.id) || '') : '';
   // Séances déjà utilisées pour ce joueur, proposées à la saisie.
   document.getElementById('seanceList').innerHTML = [...new Set((prog.exercises || []).map(x => x.seance).filter(Boolean))]
     .map(sv => `<option value="${progEsc(sv)}">`).join('');
@@ -143,6 +175,9 @@ async function saveExercise({ keepOpen = false } = {}) {
     const { error } = await sb.from('program_exercises').update(body).eq('id', id);
     if (error) throw error;
     if (toRemove.length) await sb.storage.from(PROGRAM_BUCKET).remove(toRemove);
+    if (programPoints().length && form.note_id.value !== form.note_id.dataset.initial) {
+      await linkExerciseToPoint(id, Number(form.note_id.value) || null, Number(form.note_id.dataset.initial) || null);
+    }
     if (!keepOpen) { closeModal('programModal'); toast('Exercice enregistré', 'success'); }
     await reloadProgram();
     prog.editing = prog.exercises.find(x => x.id === id) || prog.editing;

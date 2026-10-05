@@ -37,42 +37,9 @@
       </div>
     </div>
 
-    <!-- Rempli par videos-page.js : « À voir » et joueurs, ou un joueur et ses rubriques -->
+    <!-- Rempli par videos-page.js : « À traiter » et joueurs, ou les vidéos d'un joueur (player-videos.js) -->
     <div id="vpView"><div class="empty">Chargement…</div></div>
   </main>
-
-  <!-- Modale : envoi de vidéos (une ou plusieurs, avec l'avancement de chacune) -->
-  <div class="modal-backdrop" id="videoModal">
-    <div class="modal modal-upl">
-      <h3>Envoyer des vidéos</h3>
-      <div class="field">
-        <label for="v-player">Joueur destinataire</label>
-        <select id="v-player" required><option value="">— Choisir —</option></select>
-      </div>
-      <div class="field">
-        <label>Fichiers vidéo (MP4 conseillé)</label>
-        <label class="file-pick"><input type="file" id="v-file" accept="video/*" multiple>
-          <span class="btn btn-sm">+ Choisir des vidéos</span></label>
-        <p class="field-hint">Sélectionnez-en plusieurs d’un coup dans vos fichiers. Le titre de chaque vidéo reprend le nom du fichier : modifiable avant l’envoi.</p>
-      </div>
-      <div class="upl-list" id="v-files"></div>
-      <div class="field"><label for="v-desc">Description <span class="label-opt">(facultative, commune aux vidéos)</span></label><textarea id="v-desc" rows="2"></textarea></div>
-      <p class="field-hint">Vidéos brutes : le joueur et vous pourrez ensuite les découper en séquences.</p>
-      <div class="upl-total hidden" id="v-total" role="status" aria-live="polite"></div>
-      <div class="modal-actions">
-        <button class="btn" type="button" id="v-cancel">Annuler</button>
-        <button class="btn btn-primary" id="v-submit" type="button">Envoyer</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Poste de travail d'une vidéo (séquences, annotations, retour) -->
-  <div class="modal-backdrop" id="wsModal">
-    <div class="modal modal-xl">
-      <div class="ws-head"><span class="ws-who" id="wsTitle">Joueur</span><button class="btn btn-sm" type="button" data-close="wsModal">Fermer</button></div>
-      <div id="wsRoot"></div>
-    </div>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
@@ -84,6 +51,7 @@
   <script src="assets/js/video-ink.js"></script>
   <script src="assets/js/video-workspace.js"></script>
   <script src="assets/js/video-compile.js"></script>
+  <script src="assets/js/player-videos.js"></script>
   <script src="assets/js/videos-page.js"></script>
 </body>
 </html>

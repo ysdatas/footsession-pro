@@ -28,7 +28,7 @@ const NAV_ITEMS = [
 ];
 
 /* Pages sans entrée de menu : rubrique qu'elles « allument ». */
-const NAV_PARENT = { 'player': 'players', 'player-performance': 'performance', 'session-edit': 'sessions' };
+const NAV_PARENT = { 'player': 'players', 'player-performance': 'players', 'session-edit': 'sessions' };
 
 function currentPageName() {
   return (window.location.pathname.split('/').pop() || '').replace(/\.html$/i, '') || 'index';

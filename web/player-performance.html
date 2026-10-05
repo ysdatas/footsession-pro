@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0A0A0A">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
-  <title>Performance joueur — LMFC Performance</title>
+  <title>LMFC Performance — Joueur</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css">
@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="assets/css/player-performance-fm.css">
   <link rel="stylesheet" href="assets/css/player-performance.css">
   <link rel="stylesheet" href="assets/css/excel-import.css">
+  <link rel="stylesheet" href="assets/css/player.css">
+  <link rel="stylesheet" href="assets/css/videos.css">
   <script src="assets/js/theme.js"></script>
 </head>
 <body class="app fp-fm-page">
@@ -51,7 +53,7 @@
         </button>
         <div class="perf-identity-text">
           <div class="eyebrow-row">
-            <span class="eyebrow hero-kicker" id="perfKicker">Dossier performance</span>
+            <span class="eyebrow hero-kicker" id="perfKicker">Fiche joueur</span>
             <button class="btn btn-sm btn-ghost hidden perf-staff-only" id="btnEditPlayer" type="button">Modifier</button>
           </div>
           <h1 id="playerName">Chargement…</h1>
@@ -68,79 +70,113 @@
       </div>
     </section>
 
-    <!-- Rangée haute : parcours + radar + tests -->
-    <div class="fp-fm-shell">
-      <aside class="fp-fm-sidebar" id="perfSidebar">
-        <div class="fp-fm-side-block career-block">
-          <div class="fp-fm-side-title side-title-row">
-            <span>Parcours</span>
-            <button class="btn btn-sm hidden perf-staff-only" id="btnAddCareer" type="button">+ Ajouter</button>
-          </div>
-          <div id="careerList"></div>
+    <!-- Onglets du staff : la fiche, la performance et les vidéos du joueur, sans changer de page -->
+    <nav class="pf-tabs hidden" id="pfTabs" role="tablist" aria-label="Rubriques du joueur">
+      <button type="button" role="tab" id="pfTab-fiche" data-pf-tab="fiche" aria-controls="pfPanel-fiche">Fiche</button>
+      <button type="button" role="tab" id="pfTab-performance" data-pf-tab="performance" aria-controls="pfPanel-performance">Performance</button>
+      <button type="button" role="tab" id="pfTab-videos" data-pf-tab="videos" aria-controls="pfPanel-videos" class="hidden">Vidéos</button>
+    </nav>
+
+    <div class="pf-panels">
+      <!-- Fiche : parcours, objectifs et préventions, programme terrain -->
+      <section class="pf-panel" id="pfPanel-fiche" data-pf-panel="fiche" role="tabpanel" aria-labelledby="pfTab-fiche">
+        <div class="pf-fiche-top">
+          <section class="card pf-career">
+            <div class="section-head">
+              <div><h2>Parcours</h2></div>
+              <button class="btn btn-sm hidden perf-staff-only" id="btnAddCareer" type="button">+ Ajouter</button>
+            </div>
+            <div id="careerList"></div>
+          </section>
+          <section class="card">
+            <div class="section-head">
+              <div><h2>Objectifs &amp; préventions</h2><p class="text-muted">Avec leur statut et leurs images. Cliquer pour agrandir.</p></div>
+              <div class="perf-plan-actions">
+                <button class="btn btn-sm hidden perf-plans-only" id="btnAddObjective" type="button">+ Objectif</button>
+                <button class="btn btn-sm hidden perf-plans-only" id="btnAddPrevention" type="button">+ Prévention</button>
+              </div>
+            </div>
+            <h3 class="perf-sub">Objectifs</h3>
+            <div id="objectiveList" class="note-grid"></div>
+            <h3 class="perf-sub">Préventions</h3>
+            <div id="preventionList" class="note-grid"></div>
+          </section>
         </div>
-      </aside>
 
-      <div class="dash-grid perf-grid-main">
-        <!-- Radar -->
-        <section class="card fp-fm-radar-card">
+        <section class="card pf-program hidden" id="programCard">
           <div class="section-head">
-            <div>
-              <h2>Profil athlétique</h2>
-              <p class="text-muted">Radar /10 issu des tests physiques importés ou saisis.</p>
+            <div><h2>Programme terrain</h2><p class="text-muted">Chaque point : sa vidéo, la description du staff et ses exercices. Visible par le joueur dans « Objectifs &amp; préventions ».</p></div>
+          </div>
+          <div class="terrain-cols">
+            <div class="terrain-block">
+              <div class="terrain-block-head"><h4>Points forts</h4><button class="btn btn-sm hidden perf-plans-only" id="btnAddStrength" type="button">+ Ajouter</button></div>
+              <div id="strengthList" class="note-grid"></div>
             </div>
-            <div class="radar-controls">
-              <select id="stageSelect" class="stage-select" aria-label="Session de tests">
-                <option value="pre">Pré-saison</option>
-                <option value="mid">Mi-saison</option>
-                <option value="end">Fin de saison</option>
-              </select>
-              <select id="compareSelect" class="stage-select hidden" aria-label="Comparer avec un autre joueur"></select>
+            <div class="terrain-block">
+              <div class="terrain-block-head"><h4>Axes d’amélioration</h4><button class="btn btn-sm hidden perf-plans-only" id="btnAddImprovement" type="button">+ Ajouter</button></div>
+              <div id="improvementList" class="note-grid"></div>
             </div>
           </div>
-          <div class="radar-legend" id="radarLegend"></div>
-          <div id="radarWrap" class="radar-wrap"></div>
-          <div id="scoreCards" class="score-cards"></div>
+          <div class="terrain-block">
+            <div class="terrain-block-head"><h4>Tous les exercices</h4><button class="btn btn-sm btn-primary hidden" id="btnAddExercise" type="button">+ Exercice</button></div>
+            <div id="programBox"><p class="text-muted">Chargement…</p></div>
+          </div>
         </section>
-
-        <!-- Tests physiques -->
-        <section class="card fp-fm-tests-card">
-          <div class="section-head">
-            <div>
-              <h2>Tests physiques</h2>
-              <p class="text-muted" id="testsSubtitle">Valeurs du joueur, comparées à la moyenne de son groupe sur la même session.</p>
-            </div>
-            <button class="btn btn-sm hidden perf-editor-only" id="btnAddTests" type="button">+ Tests</button>
-          </div>
-          <div id="testSummary" class="test-summary"></div>
-        </section>
-      </div>
-    </div>
-
-    <!-- Rangée basse : suivi physique + objectifs physiques -->
-    <div class="perf-grid-bottom">
-      <section class="card fp-fm-history-card">
-        <div class="section-head">
-          <div>
-            <h2>Suivi physique</h2>
-            <p class="text-muted">Historique des mesures du préparateur.</p>
-          </div>
-          <button class="btn btn-sm hidden perf-editor-only" id="btnAddMeasurement" type="button">+ Mesure</button>
-        </div>
-        <div id="trendChart" class="trend-chart"></div>
-        <div id="measurementHistory"></div>
       </section>
-      <section class="card">
-        <div class="section-head">
-          <div><h2>Objectifs &amp; préventions</h2><p class="text-muted">Avec leur statut et leurs images. Cliquer pour agrandir.</p></div>
-          <div class="perf-plan-actions">
-            <button class="btn btn-sm hidden perf-plans-only" id="btnAddObjective" type="button">+ Objectif</button>
-            <button class="btn btn-sm hidden perf-plans-only" id="btnAddPrevention" type="button">+ Prévention</button>
-          </div>
+
+      <!-- Performance : radar, tests, suivi physique -->
+      <section class="pf-panel" id="pfPanel-performance" data-pf-panel="performance" role="tabpanel" aria-labelledby="pfTab-performance">
+        <div class="dash-grid perf-grid-main">
+          <!-- Radar -->
+          <section class="card fp-fm-radar-card">
+            <div class="section-head">
+              <div>
+                <h2>Profil athlétique</h2>
+                <p class="text-muted">Radar /10 issu des tests physiques importés ou saisis.</p>
+              </div>
+              <div class="radar-controls">
+                <select id="stageSelect" class="stage-select" aria-label="Session de tests">
+                  <option value="pre">Pré-saison</option>
+                  <option value="mid">Mi-saison</option>
+                  <option value="end">Fin de saison</option>
+                </select>
+                <select id="compareSelect" class="stage-select hidden" aria-label="Comparer avec un autre joueur"></select>
+              </div>
+            </div>
+            <div class="radar-legend" id="radarLegend"></div>
+            <div id="radarWrap" class="radar-wrap"></div>
+            <div id="scoreCards" class="score-cards"></div>
+          </section>
+
+          <!-- Tests physiques -->
+          <section class="card fp-fm-tests-card">
+            <div class="section-head">
+              <div>
+                <h2>Tests physiques</h2>
+                <p class="text-muted" id="testsSubtitle">Valeurs du joueur, comparées à la moyenne de son groupe sur la même session.</p>
+              </div>
+              <button class="btn btn-sm hidden perf-editor-only" id="btnAddTests" type="button">+ Tests</button>
+            </div>
+            <div id="testSummary" class="test-summary"></div>
+          </section>
         </div>
-        <h3 class="perf-sub">Objectifs</h3>
-        <div id="objectiveList" class="note-grid"></div>
-        <h3 class="perf-sub">Préventions</h3>
-        <div id="preventionList" class="note-grid"></div>
+
+        <section class="card fp-fm-history-card">
+          <div class="section-head">
+            <div>
+              <h2>Suivi physique</h2>
+              <p class="text-muted">Historique des mesures du préparateur.</p>
+            </div>
+            <button class="btn btn-sm hidden perf-editor-only" id="btnAddMeasurement" type="button">+ Mesure</button>
+          </div>
+          <div id="trendChart" class="trend-chart"></div>
+          <div id="measurementHistory"></div>
+        </section>
+      </section>
+
+      <!-- Vidéos : celles du joueur, rangées par vidéo (player-videos.js) -->
+      <section class="pf-panel" id="pfPanel-videos" data-pf-panel="videos" role="tabpanel" aria-labelledby="pfTab-videos">
+        <div id="pfVideos"><p class="text-muted">Chargement…</p></div>
       </section>
     </div>
 
@@ -161,6 +197,8 @@
         <label>Prénom<input id="pe-prenom" type="text" autocomplete="off"></label>
         <label>Nom<input id="pe-nom" type="text" autocomplete="off"></label>
         <label>Poste<input id="pe-poste" type="text" list="posteList" placeholder="Ex : Milieu central"></label>
+        <label class="hidden" id="pe-ligne-field">Ligne<select id="pe-ligne"><option value="">Selon le poste</option><option value="gardien">Gardien</option><option value="defenseur">Défenseur</option><option value="milieu">Milieu</option><option value="attaquant">Attaquant</option></select></label>
+        <label class="hidden" id="pe-team-field">Équipe<select id="pe-team"><option value="">Sans équipe</option></select></label>
         <label>Date de naissance<input id="pe-naissance" type="date"></label>
         <label>Pied fort<select id="pe-pied">
           <option value="">—</option><option>Droit</option><option>Gauche</option><option>Les deux</option>
@@ -179,8 +217,43 @@
         <option value="Fédéral"></option><option value="Amateur"></option><option value="Formation"></option>
       </datalist>
       <div class="modal-actions">
+        <button class="btn btn-danger hidden" id="btnDeletePlayer" type="button">Supprimer le joueur</button>
+        <span style="flex:1"></span>
         <button class="btn" data-close="playerEditModal" type="button">Annuler</button>
         <button class="btn btn-primary" id="btnSavePlayer" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exercice du programme terrain -->
+  <div class="modal-backdrop" id="programModal">
+    <div class="modal modal-wide">
+      <h3 id="programModalTitle">Nouvel exercice</h3>
+      <form id="programForm" class="fiche-form prog-form" onsubmit="return false">
+        <label>Séance<input name="seance" list="seanceList" placeholder="Ex. Séance 1 — Renforcement" autocomplete="off"></label>
+        <label>Titre<input name="title" required placeholder="Ex. Gainage latéral" autocomplete="off"></label>
+        <label class="span-all">Consignes<textarea name="instructions" rows="4" placeholder="Placement, points techniques, erreurs à éviter…"></textarea></label>
+        <label>Dosage<input name="dosage" placeholder="Ex. 3 × 10, récup 1 min" autocomplete="off"></label>
+        <label>Vidéo (déjà sur la plateforme)<select name="video_id"><option value="">Aucune</option></select></label>
+        <label class="span-all hidden">Point du programme<select name="note_id"><option value="">Aucun</option></select></label>
+        <div class="prog-edit-block">
+          <span class="prog-edit-label">Image de l’exercice</span>
+          <div class="prog-preview" id="progImagePreview"></div>
+          <input type="file" name="image" accept="image/jpeg,image/png,image/webp">
+          <input name="image_caption" placeholder="Légende / annotation (facultatif)" autocomplete="off">
+        </div>
+        <div class="prog-edit-block">
+          <span class="prog-edit-label">Schéma (tableau tactique)</span>
+          <div class="prog-preview" id="progSchemaPreview"></div>
+          <button class="btn btn-sm" type="button" id="btnProgSchema">Dessiner le schéma</button>
+        </div>
+      </form>
+      <datalist id="seanceList"></datalist>
+      <div class="modal-actions">
+        <button class="btn btn-danger hidden" id="btnProgDelete" type="button">Supprimer</button>
+        <span style="flex:1"></span>
+        <button class="btn" type="button" data-close="programModal">Annuler</button>
+        <button class="btn btn-primary" id="btnProgSave" type="button">Enregistrer</button>
       </div>
     </div>
   </div>
@@ -257,7 +330,7 @@
   <div class="modal-backdrop" id="exportModal">
     <div class="modal modal-wide">
       <h3>Exporter la fiche</h3>
-      <p class="text-muted modal-lead">Le fichier PDF est généré et téléchargé directement.</p>
+      <p class="text-muted modal-lead">Cochez ce que vous voulez dans le PDF, généré et téléchargé directement. Les vidéos n’y figurent pas : leur titre rappelle où les regarder.</p>
 
       <div class="export-block">
         <div class="export-title">Période</div>
@@ -300,11 +373,12 @@
           <label class="check"><input type="checkbox" name="exp-sec" value="tests" checked> Tests physiques</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="compare" checked> Comparaison à la moyenne du groupe</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="radar" checked> Profil athlétique /10</label>
-          <label class="check"><input type="checkbox" name="exp-sec" value="strength" checked> Points forts</label>
-          <label class="check"><input type="checkbox" name="exp-sec" value="improvement" checked> Axes d’amélioration</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="strength" checked> Points forts (description, vidéo, exercices)</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="improvement" checked> Axes d’amélioration (description, vidéo, exercices)</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="objective" checked> Objectifs</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="prevention" checked> Préventions</label>
-          <label class="check"><input type="checkbox" name="exp-sec" value="images"> Images</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="exercises" checked> Tous les exercices du programme</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="images"> Images (exercices, schémas, objectifs)</label>
         </div>
       </div>
 
@@ -325,7 +399,15 @@
   <script src="assets/js/perf-metrics.js"></script>
   <script src="assets/js/lightbox.js"></script>
   <script src="assets/js/player-nav.js"></script>
+  <script src="assets/js/program.js"></script>
+  <script src="assets/js/program-editor.js"></script>
   <script src="assets/js/notes.js"></script>
+  <script src="assets/js/video-status.js"></script>
+  <script src="assets/js/video-timeline.js"></script>
+  <script src="assets/js/video-ink.js"></script>
+  <script src="assets/js/video-workspace.js"></script>
+  <script src="assets/js/video-compile.js"></script>
+  <script src="assets/js/player-videos.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/pdf-kit.js"></script>

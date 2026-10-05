@@ -98,7 +98,7 @@ function renderObjectivesTab() {
     const p = objPlayer(pid);
     return `<section class="obj-group">
       <div class="obj-group-head">
-        <a href="player.html?id=${pid}" class="obj-player">${esc(playerName(p))}${p.poste ? ` <span>${esc(p.poste)}</span>` : ''}</a>
+        <a href="player-performance.html?id=${pid}" class="obj-player">${esc(playerName(p))}${p.poste ? ` <span>${esc(p.poste)}</span>` : ''}</a>
         <span class="obj-group-add">
           <button class="btn btn-sm" type="button" data-obj-new="${pid}" data-kind="objective">+ Objectif</button>
           <button class="btn btn-sm" type="button" data-obj-new="${pid}" data-kind="prevention">+ Prévention</button>

@@ -196,7 +196,43 @@ async function exportNotes(k, kind, title, withImages) {
       const imgs = noteStore.media.filter(m => m.note_id === n.id && m.signed_url);
       if (imgs.length) await k.images(imgs.map(m => ({ src: m.signed_url, caption: m.caption })));
     }
+    // Programme terrain : la vidéo (son titre : elle se regarde sur la plateforme) et les exercices du point.
+    if (isPoint(kind)) {
+      const v = pointVideo(n);
+      if (v) k.text(`Vidéo : ${v.titre || 'Vidéo'} (à regarder sur la plateforme)`, { size: 8.4, color: PDF_MUTE, style: 'italic', after: 2 });
+      for (const [j, e] of pointExercises(n).entries()) await exportExercise(k, e, `Exo ${j + 1}`, withImages);
+    }
     if (i < list.length - 1) { k.y += 1; k.hline(k.M, k.M + k.CW, k.y); k.y += 4; }
+  }
+  k.y += 3;
+}
+
+/* Un exercice : titre (et son rang dans le point), dosage, consignes,
+   image et schéma si les images sont demandées. */
+async function exportExercise(k, e, label, withImages) {
+  const head = `${label ? `${label} — ` : ''}${e.title}${e.done_at ? ' (fait)' : ''}`;
+  const lines = k.lines(head, k.CW - 6, 9.2);
+  k.ensure(lines.length * k.lh(9.2) + 8);
+  k.font(9.2, 'bold', PDF_INK); k.write(lines, k.M + 4, k.y); k.y += lines.length * k.lh(9.2) + 1;
+  if (e.dosage) k.text(`Dosage : ${e.dosage}`, { size: 8.6, color: PDF_MUTE, width: k.CW - 4, after: 1 });
+  if (e.instructions) k.text(e.instructions, { size: 8.8, width: k.CW - 4, after: 1.5 });
+  if (withImages) {
+    const imgs = [e.image_url && { src: e.image_url, caption: e.image_caption || '' }, e.schema_url && { src: e.schema_url, caption: 'Schéma' }].filter(Boolean);
+    if (imgs.length) await k.images(imgs);
+  }
+  k.y += 2;
+}
+
+/* Tous les exercices du programme, par séance. */
+async function exportProgram(k, withImages) {
+  const list = (typeof prog !== 'undefined' && prog.exercises) || [];
+  k.section('Exercices du programme', { keep: 18 });
+  if (!list.length) { k.text('Aucun exercice.', { color: PDF_MUTE, style: 'italic' }); return; }
+  const groups = new Map();
+  list.forEach(e => { const g = (e.seance || '').trim() || 'Exercices'; groups.set(g, [...(groups.get(g) || []), e]); });
+  for (const [name, exs] of groups) {
+    if (groups.size > 1 || name !== 'Exercices') k.text(name, { size: 9.6, style: 'bold', color: k.ACC, after: 1.5 });
+    for (const e of exs) await exportExercise(k, e, '', withImages);
   }
   k.y += 3;
 }
@@ -244,6 +280,7 @@ async function runExport() {
     if (sections.has('improvement')) await exportNotes(k, 'improvement', 'Axes d’amélioration', withImages);
     if (sections.has('objective')) await exportNotes(k, 'objective', 'Objectifs', withImages);
     if (sections.has('prevention')) await exportNotes(k, 'prevention', 'Préventions', withImages);
+    if (sections.has('exercises')) await exportProgram(k, withImages);
     k.save(exportFileName());
     closePerfModal('exportModal');
     notify('PDF généré.', 'success');

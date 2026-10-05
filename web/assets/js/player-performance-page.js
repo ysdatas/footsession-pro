@@ -1,5 +1,16 @@
 /* LMFC Performance — player-performance-page.js
-   Dossier individuel performance + radar + import Excel + médias. */
+   La page d'un joueur.
+   - Staff : la fiche unique, en trois onglets sans changer de page
+     (?tab=fiche|performance|videos) :
+       Fiche        parcours (modifiable sur place), objectifs et
+                    préventions, programme terrain (points : vidéo,
+                    description, exercices) ;
+       Performance  radar, tests, suivi physique ;
+       Vidéos       les vidéos du joueur et leurs séquences
+                    (player-videos.js, admin et coach).
+     player.html renvoie ici.
+   - Joueur (« Ma performance ») : performance, parcours, objectifs,
+     sans onglets. */
 
 let ctxProfile = null;
 let player = null;
@@ -36,10 +47,6 @@ const visibleTestRows = () => isStaff() ? PERF_METRICS : PERF_METRICS.filter(m =
 /* Référence : l'équipe du joueur quand il en a une, sinon le club. */
 const refLabel = () => (player?.team_id ? 'Moyenne équipe' : 'Moyenne club');
 
-/* Colonnes d'identité ajoutées par supabase/player_profile_career.sql. */
-const PLAYER_BASE_COLS = 'id, nom, prenom, numero, poste, club_id, auth_user_id, photo_path';
-const PLAYER_TEAM_COL = 'team_id';
-const PLAYER_IDENTITY_COLS = 'date_naissance, nationalite, pied_fort, statut, contrat_fin';
 
 const SCORE_LABELS = [
   ['profile_start', 'Démarrage'],
@@ -526,6 +533,7 @@ function renderIdentity() {
   if (!player) return;
   const fullName = `${player.prenom || ''} ${player.nom || ''}`.trim();
   document.getElementById('playerName').textContent = fullName || 'Joueur';
+  document.title = `LMFC Performance — ${ctxProfile?.role === 'joueur' ? 'Ma performance' : fullName || 'Joueur'}`;
   document.getElementById('playerInitials').textContent = initials(player);
 
   document.getElementById('playerMeta').textContent =
@@ -839,7 +847,7 @@ async function loadPage() {
   document.getElementById('perfRoleLabel').textContent = ctxProfile.role === 'joueur' ? 'Espace joueur'
     : canEditPerformance ? 'Dossier individuel' : 'Dossier individuel · consultation (données physiques : préparateur)';
   document.getElementById('perfKicker').textContent = ctxProfile.role === 'joueur'
-    ? 'Ma performance' : 'Dossier performance';
+    ? 'Ma performance' : 'Fiche joueur';
   document.querySelectorAll('.perf-editor-only').forEach(el => el.classList.toggle('hidden', !canEditPerformance));
   document.querySelectorAll('.perf-plans-only').forEach(el => el.classList.toggle('hidden', !canEditPlans));
   document.querySelectorAll('.perf-staff-only').forEach(el => el.classList.toggle('hidden', !isStaff()));
@@ -848,11 +856,14 @@ async function loadPage() {
   if (ctxProfile.role === 'joueur') {
     // Même coque que sur toutes les pages du joueur (barre latérale, onglets).
     document.querySelector('.perf-topbar').classList.add('hidden');   // ni retour ni actions staff
+    document.getElementById('pfPanel-videos').hidden = true;           // ses vidéos : page « Mes vidéos »
     renderPlayerShell();
   } else {
     document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });
-    back.href = `player.html?id=${playerId}`;
-    back.textContent = '← Fiche joueur';
+    back.href = 'players.html';
+    back.dataset.back = '';   // retour à la liste telle qu'on l'a laissée (app.js)
+    back.textContent = '← Joueurs';
+    setupTabs();
   }
   const canPhoto = canChangePlayerPhoto(ctxProfile.role);
   const avatar = document.getElementById('playerAvatar');
@@ -861,18 +872,10 @@ async function loadPage() {
 
   // Les colonnes d'identité n'existent qu'après player_profile_career.sql :
   // leur absence ne doit pas empêcher d'ouvrir la fiche.
-  let { data: p, error } = await sb.from('players')
-    .select(`${PLAYER_BASE_COLS}, ${PLAYER_IDENTITY_COLS}, ${PLAYER_TEAM_COL}`)
-    .eq('id', playerId).maybeSingle();
-  identityMissing = false;
-  if (error) {
-    ({ data: p, error } = await sb.from('players')
-      .select(`${PLAYER_BASE_COLS}, ${PLAYER_IDENTITY_COLS}`).eq('id', playerId).maybeSingle());
-  }
-  if (error) {
-    identityMissing = true;
-    ({ data: p, error } = await sb.from('players').select(PLAYER_BASE_COLS).eq('id', playerId).maybeSingle());
-  }
+  // select('*') : les colonnes d'identité, de ligne et d'équipe n'existent
+  // qu'après leurs migrations ; une liste explicite ferait échouer la page.
+  let { data: p, error } = await sb.from('players').select('*').eq('id', playerId).maybeSingle();
+  identityMissing = !!p && !('date_naissance' in p);
   if (error) return showLoadError('lecture de la fiche joueur', error);
   if (!p) {
     return showLoadError('lecture de la fiche joueur',
@@ -881,13 +884,24 @@ async function loadPage() {
   player = p;
   if (ctxProfile.role === 'joueur') setPlayerShellUser(player);
 
+  // Staff : programme terrain (points forts, axes, exercices) dans l'onglet Fiche.
+  // Le joueur a sa page « Objectifs & préventions » pour ça.
+  const staffProgram = isStaff();
+  document.getElementById('programCard').classList.toggle('hidden', !staffProgram);
+  const lists = { objective: 'objectiveList', prevention: 'preventionList',
+    ...(staffProgram ? { strength: 'strengthList', improvement: 'improvementList' } : {}) };
   const [[mRes, tRes], notesError] = await Promise.all([
     fetchPhysical(),
-    // Page Performance : les objectifs (développement physique). Points forts
-    // et axes d'amélioration vivent dans le Programme terrain.
-    initNotes({ player, canEdit: canEditPlans, userId: ctxProfile.id,
-      lists: { objective: 'objectiveList', prevention: 'preventionList' }, onError: (m) => notify(m, 'error') }),
+    initNotes({ player, canEdit: canEditPlans, userId: ctxProfile.id, lists, onError: (m) => notify(m, 'error'),
+      canUploadVideo: canManageVideos(ctxProfile.role),
+      program: staffProgram ? {
+        exercises: () => prog.exercises || [],
+        open: openExercise,
+        add: (noteId) => openExerciseModal(null, noteId),
+      } : null }),
+    staffProgram ? initProgramEditor(player, ctxProfile) : null,
   ]);
+  if (staffProgram) renderNoteLists();   // les Exo des points, une fois les exercices chargés
   // Chaque erreur est affichée : des données absentes et un accès refusé
   // produisaient tous les deux une page vide, sans moyen de les distinguer.
   const dataErrors = [
@@ -933,6 +947,18 @@ function openPlayerEdit() {
   set('pe-naissance', player.date_naissance ? String(player.date_naissance).slice(0, 10) : '');
   set('pe-pied', player.pied_fort);
   set('pe-statut', player.statut);
+  const hasLigne = 'ligne' in player, teams = window.CLUB_TEAMS || [];
+  document.getElementById('pe-ligne-field').classList.toggle('hidden', !hasLigne);
+  if (hasLigne) set('pe-ligne', player.ligne);
+  const hasTeam = 'team_id' in player && teams.length > 0;
+  document.getElementById('pe-team-field').classList.toggle('hidden', !hasTeam);
+  if (hasTeam) {
+    document.getElementById('pe-team').innerHTML = '<option value="">Sans équipe</option>'
+      + teams.map(t => `<option value="${t.id}">${esc(t.nom)}</option>`).join('');
+    set('pe-team', player.team_id);
+  }
+  // Supprimer un joueur : administrateur seulement (RLS players_delete).
+  document.getElementById('btnDeletePlayer').classList.toggle('hidden', ctxProfile?.role !== 'admin');
   // Sans la migration, ces champs ne peuvent pas être enregistrés.
   ['pe-naissance','pe-pied','pe-statut']
     .forEach(id => { document.getElementById(id).disabled = identityMissing; });
@@ -957,6 +983,8 @@ async function savePlayerEdit() {
       statut: val('pe-statut') || null,
     });
   }
+  if ('ligne' in player) body.ligne = val('pe-ligne') || null;
+  if (!document.getElementById('pe-team-field').classList.contains('hidden')) body.team_id = Number(val('pe-team')) || null;
 
   const { error } = await sb.from('players').update(body).eq('id', player.id);
   if (error) return notify(error.message, 'error');
@@ -1153,6 +1181,9 @@ document.getElementById('m-date').addEventListener('change',e=>{
 });
 document.getElementById('btnEditPlayer').addEventListener('click',openPlayerEdit);
 document.getElementById('btnSavePlayer').addEventListener('click',savePlayerEdit);
+document.getElementById('btnDeletePlayer').addEventListener('click',deletePlayer);
+document.getElementById('btnAddStrength').addEventListener('click',()=>openNoteModal('strength'));
+document.getElementById('btnAddImprovement').addEventListener('click',()=>openNoteModal('improvement'));
 document.getElementById('btnSaveMeasurement').addEventListener('click',saveMeasurement);
 document.getElementById('btnSaveTest').addEventListener('click',saveTest);
 document.getElementById('btnAddObjective').addEventListener('click',()=>openNoteModal('objective'));
@@ -1167,5 +1198,77 @@ document.getElementById('btnImportExcel').addEventListener('click',()=>ExcelImpo
   focusPlayerId: player.id,
   onDone: reloadData,
 }));
+
+/* ---------- Onglets (staff) : Fiche · Performance · Vidéos ----------
+   Le contenu change sur place ; ?tab= garde l'onglet au rechargement
+   et au retour arrière. Les vidéos ne se chargent qu'à la première
+   ouverture de leur onglet. */
+const PF_TABS = ['fiche', 'performance', 'videos'];
+let pfVideosMounted = false;
+function setupTabs() {
+  const nav = document.getElementById('pfTabs');
+  nav.classList.remove('hidden');
+  document.getElementById('pfTab-videos').classList.toggle('hidden', !canManageVideos(ctxProfile.role));
+  nav.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-pf-tab]');
+    if (t) showTab(t.dataset.pfTab, true);
+  });
+  nav.addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const tabs = [...nav.querySelectorAll('[role="tab"]:not(.hidden)')];
+    const i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+    next.focus(); showTab(next.dataset.pfTab, true);
+  });
+  const asked = new URLSearchParams(location.search).get('tab');
+  showTab(asked, false);
+}
+function showTab(tab, remember) {
+  const allowed = PF_TABS.filter(k => k !== 'videos' || canManageVideos(ctxProfile.role));
+  if (!allowed.includes(tab)) tab = 'fiche';
+  document.querySelectorAll('[data-pf-tab]').forEach(b => {
+    const on = b.dataset.pfTab === tab;
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+  });
+  document.querySelectorAll('[data-pf-panel]').forEach(p => { p.hidden = p.dataset.pfPanel !== tab; });
+  if (remember) {
+    const u = new URL(location.href);
+    u.searchParams.set('tab', tab);
+    history.replaceState(history.state, '', u);
+  }
+  if (tab === 'videos' && !pfVideosMounted && player) {
+    pfVideosMounted = true;
+    mountPlayerVideos(document.getElementById('pfVideos'), { player, profile: ctxProfile });
+  }
+  if (tab === 'performance') renderRadar();   // tailles justes une fois l'onglet visible
+}
+
+/* Suppression d'un joueur : sa fiche et tout ce qui en dépend partent
+   ensemble dans la corbeille et reviennent ensemble. Sans la corbeille
+   (lmfc_v5.sql non passée), on refuse : ce serait définitif. */
+async function deletePlayer() {
+  if (ctxProfile?.role !== 'admin' || !player) return;
+  const name = `${player.prenom || ''} ${player.nom || ''}`.trim() || 'ce joueur';
+  if (!(await trashReady())) {
+    return notify('Activez d’abord la corbeille (supabase/lmfc_v5.sql) : la suppression d’un joueur doit rester récupérable.', 'error');
+  }
+  const account = player.auth_user_id ? '\nSon compte joueur n’aura plus accès à son espace.' : '';
+  if (!confirm(`Supprimer ${name} ?\n\nSa fiche part avec tout ce qui la concerne : mesures, tests, vidéos et séquences, objectifs et préventions, programme, parcours, présences.${account}\n\nRécupérable depuis la Corbeille.`)) return;
+  const btn = document.getElementById('btnDeletePlayer');
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.from('players').delete().eq('id', player.id).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('Suppression réservée à l’administrateur du club.');
+    toast(`${name} est dans la corbeille.`, 'success');
+    setTimeout(() => { location.href = 'players.html'; }, 600);
+  } catch (e) {
+    console.error('Suppression du joueur impossible', e);
+    notify(e.message, 'error');
+    btn.disabled = false;
+  }
+}
 
 loadPage().catch(e => console.error('player-performance:', e));

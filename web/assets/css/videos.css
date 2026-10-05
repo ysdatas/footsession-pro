@@ -544,3 +544,63 @@ body.pa-body:has(.vw.is-annotating) { padding-bottom: env(safe-area-inset-bottom
   .upl-bar { grid-row: 3; }
 }
 .file-pick:has(input:disabled) { pointer-events: none; opacity: .5; }
+
+/* ============================================================
+   Vidéos d'un joueur, rangées par vidéo (player-videos.js)
+   ============================================================ */
+.pvx-flow { margin: 0 0 18px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); }
+.pvx-flow summary { cursor: pointer; font-weight: 600; color: var(--gold); min-height: 28px; display: flex; align-items: center; }
+.pvx-flow ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0 6px; padding: 0; list-style: none; counter-reset: pvx; }
+.pvx-flow li { counter-increment: pvx; position: relative; padding: 10px 10px 10px 42px; border-radius: var(--radius-md); background: var(--bg-surface); font-size: var(--fs-sm); line-height: 1.4; color: var(--text-secondary); }
+.pvx-flow li::before {
+  content: counter(pvx); position: absolute; left: 10px; top: 10px; display: grid; place-items: center; width: 22px; height: 22px;
+  border-radius: 50%; background: rgba(var(--gold-rgb), .16); color: var(--gold); font-weight: 800; font-size: var(--fs-xs);
+}
+.pvx-flow li strong { display: block; color: var(--text-primary); }
+.pvx-flow p { margin: 4px 0 2px; font-size: var(--fs-sm); color: var(--text-secondary); }
+@media (max-width: 860px) { .pvx-flow ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .pvx-flow ol { grid-template-columns: minmax(0, 1fr); } }
+.pvx-lead { margin: -4px 0 10px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.pvx-head h2 { flex: 1 1 auto; }
+.pvx-count { font-size: var(--fs-sm); font-weight: 600; color: var(--text-secondary); }
+.pvx-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.pvx-videos { display: grid; gap: 12px; }
+.pvx-video { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); overflow: hidden; }
+.pvx-video.is-picked { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.pvx-video-head { display: flex; align-items: stretch; }
+.pvx-video-open {
+  position: relative; display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0; padding: 12px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.pvx-video-open:hover strong { color: var(--gold); }
+.pvx-video-open .vthumb { width: 132px; }
+.pvx-video.is-picked .vp-pick { background: var(--gold); border-color: var(--gold); }
+.pvx-video-body { display: grid; gap: 3px; min-width: 0; }
+.pvx-video-body strong { font-size: var(--fs-md); overflow-wrap: anywhere; }
+.pvx-seqs { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; padding: 0 12px 12px; }
+.pvx-seqs.is-todo { padding: 0; }
+.pvx-video .pvx-seqs { border-top: 1px solid var(--border); padding-top: 12px; background: rgba(255,255,255,.015); }
+.pvx-noseq { grid-column: 1 / -1; margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+.pvx-seq {
+  position: relative; display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 8px; text-align: left;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary);
+  font: inherit; cursor: pointer;
+}
+.pvx-seq:hover { border-color: var(--gold-border); }
+.pvx-seq.is-picked { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.pvx-seq.is-picked .vp-pick { background: var(--gold); border-color: var(--gold); }
+.pvx-seq .vthumb { width: 92px; }
+.pvx-seq-body { display: grid; gap: 3px; min-width: 0; }
+.pvx-seq-top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.pvx-seq-top strong { font-size: var(--fs-sm); overflow-wrap: anywhere; margin-right: 2px; }
+.pvx-seq-meta { font-size: var(--fs-xs); color: var(--text-secondary); }
+.pvx-seq em { font-size: var(--fs-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+.pvx-who { padding: 2px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 700; }
+.pvx-who.is-player { background: rgba(var(--gold-rgb), .14); color: var(--gold); }
+.pvx-who.is-staff { background: rgba(255,255,255,.08); color: var(--text-secondary); }
+@media (max-width: 560px) {
+  .pvx-video-open .vthumb { width: 104px; }
+  .pvx-seqs { grid-template-columns: minmax(0, 1fr); }
+  .pvx-tools { width: 100%; }
+  .pvx-tools .btn { flex: 1 1 auto; justify-content: center; }
+}

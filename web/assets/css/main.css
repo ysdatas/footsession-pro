@@ -643,3 +643,45 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
   input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; flex: 0 0 22px; }
   .attendance-head { min-height: 44px; }
 }
+
+/* ---------- Programme terrain : un point = vidéo | description, puis ses exercices ---------- */
+.point-card { cursor: default; }
+.point-main { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 4px; }
+.point-main.no-video { grid-template-columns: minmax(0, 1fr); }
+.point-video { display: grid; gap: 6px; min-width: 0; }
+.point-video video { width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; background: #000; display: block; }
+.point-video-off { display: grid; place-items: center; aspect-ratio: 16 / 9; border-radius: 12px; background: var(--bg-surface); color: var(--text-secondary); font-size: var(--fs-sm); }
+.point-video-title { font-size: var(--fs-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+.point-desc { min-width: 0; }
+.point-desc p { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
+.point-desc .media-grid { margin-top: 10px; }
+.point-exos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.point-exo {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; max-width: 100%; padding: 6px 16px 6px 6px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--bg-surface); color: var(--text-primary);
+  font: 500 var(--fs-sm)/1.2 var(--font-main); cursor: pointer; text-align: left;
+}
+.point-exo:hover { border-color: var(--gold-border); }
+.point-exo-n { flex: 0 0 auto; padding: 6px 10px; border-radius: 999px; background: rgba(var(--gold-rgb), .14); color: var(--gold); font-weight: 700; font-size: var(--fs-xs); }
+.point-exo-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.point-exo.is-done .point-exo-n { background: rgba(76, 175, 80, .16); color: var(--success); }
+.point-exo-done { color: var(--success); font-weight: 700; }
+.point-exo-add { padding: 6px 16px; border-style: dashed; color: var(--text-secondary); }
+@media (max-width: 640px) { .point-main { grid-template-columns: minmax(0, 1fr); } }
+
+/* Fenêtre d'un point : vidéo et exercices liés */
+.note-video-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.note-video-row select { flex: 1 1 220px; min-width: 0; }
+#noteVideoBar { height: 4px; margin-top: 8px; border-radius: 999px; background: var(--bg-surface); overflow: hidden; }
+#noteVideoBar > span { display: block; height: 100%; background: var(--gold); transition: width .2s linear; }
+.note-exos-pick { display: grid; gap: 6px; max-height: 240px; overflow-y: auto; }
+.nep-item {
+  display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: center; gap: 2px 10px; min-height: 44px; padding: 6px 10px 6px 6px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg-surface); color: var(--text-primary);
+  font: 500 var(--fs-sm)/1.3 var(--font-main); text-align: left; cursor: pointer;
+}
+.nep-item.is-on { border-color: var(--gold-border); background: rgba(var(--gold-rgb), .08); }
+.nep-rank { grid-row: span 2; display: grid; place-items: center; height: 32px; border-radius: 8px; background: var(--bg-card); color: var(--text-secondary); font-weight: 700; font-size: var(--fs-xs); }
+.nep-item.is-on .nep-rank { background: rgba(var(--gold-rgb), .18); color: var(--gold); }
+.nep-title { overflow-wrap: anywhere; }
+.nep-meta { font-size: var(--fs-xs); color: var(--text-secondary); }

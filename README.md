@@ -69,6 +69,9 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 24. supabase/lmfc_v5.sql                   corbeille : table trash, copie de chaque suppression (et de ce qui
                                            part avec elle, joueur compris), trash_restore(), droits trash_right()
                                            — à repasser si une version précédente l'a déjà été (rejouable)
+25. supabase/lmfc_v6.sql                   programme terrain par point : video_id et exercise_ids sur
+                                           player_performance_notes (sans clé étrangère : la corbeille
+                                           restaure les liens), contrôle guard_note_links (rejouable)
 ```
 
 ### `lmfc_v5.sql` — la corbeille
@@ -247,20 +250,26 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne
   déduite du poste, ou choisie en glissant la ligne, à la souris), recherche, filtre par poste.
-- **Fiche joueur** (`player.html`) — l'essentiel **à côté du nom** : taille — poids — poste, puis
-  équipe, ligne, âge, pied, statut sur une ligne discrète ; « Modifier » ouvre la fiche en fenêtre.
-  Photo (clic sur l'avatar), derniers relevés, parcours, **Objectifs & préventions** (statut,
-  modifier, supprimer ✕ sur place), **Programme terrain** ; accès Performance / Vidéos. Pas de
-  présences dans la rubrique Joueurs (elles restent dans chaque séance et dans le Bilan).
-- **Programme terrain** (fiche joueur) — développement footballistique : points forts, axes
-  d'amélioration, exercices regroupés par séance (consignes, dosage, image légendée, schéma
-  dessiné dans le tableau tactique via `tactical-board.html?exercise=ID`, vidéo déjà sur la
-  plateforme). Le joueur le consulte dans **Objectifs & préventions** (`mon-programme.html`),
-  marque un exercice « fait » et laisse un ressenti (RPC `mark_program_exercise`).
-- **Performance** (`player-performance.html`) — dans la plateforme (barre latérale du staff ou
-  du joueur) : photo (clic sur l'avatar), mesures, tests, radar /10 (comparaison à un 2e joueur
-  pour le staff), **Objectifs & préventions**, parcours, **Générer le PDF** (fichier direct,
-  `pdf-kit.js`). Le coach consulte ; l'admin et le prépa saisissent et importent.
+- **Fiche joueur** (`player-performance.html?id=…`, staff) — une seule page, trois onglets sans
+  changer de page (`?tab=fiche|performance|videos`, gardé au rechargement) sous l'en-tête (photo,
+  identité, taille, poids, masse grasse, « Modifier » : identité, ligne, équipe, suppression
+  pour l'admin) :
+  - **Fiche** : parcours (modifiable sur place), **Objectifs & préventions**, **Programme terrain** ;
+  - **Performance** : radar /10 (comparaison à un 2e joueur), tests, suivi physique ;
+  - **Vidéos** (admin, coach) : les vidéos du joueur (`player-videos.js`, comme dans Vidéos joueurs).
+  **Générer le PDF** : cases à cocher par rubrique (identité, mesures, tests, radar, points avec
+  description, titre de la vidéo et exercices, objectifs, préventions, tous les exercices,
+  images). `player.html` renvoie ici (anciens liens). Côté joueur, la même page est « Ma
+  performance », sans onglets. Pas de présences dans la rubrique Joueurs (elles restent dans
+  chaque séance et dans le Bilan).
+- **Programme terrain** (onglet Fiche) — chaque **point fort** ou **axe d'amélioration** : sa
+  **vidéo** à gauche (une vidéo du joueur, ou importée depuis la fenêtre du point, avec son
+  pourcentage), la **description du staff** à droite, ses **exercices** dessous (Exo 1, Exo 2…,
+  dans l'ordre choisi ; « + Exo » crée un exercice déjà rattaché). Tous les exercices restent
+  listés par séance (consignes, dosage, image légendée, schéma dessiné dans le tableau tactique
+  via `tactical-board.html?exercise=ID`). Le joueur voit la même chose dans **Objectifs &
+  préventions** (`mon-programme.html`), marque un exercice « fait » et laisse un ressenti (RPC
+  `mark_program_exercise`). Liens : `lmfc_v6.sql`.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques,
   **Objectifs · Préventions** (`objectives-board.js`, `?tab=objectifs&player=…&new=1`) : tous les
   objectifs et préventions de l'effectif par joueur, filtres par type et par statut, ajout pour un
@@ -273,10 +282,14 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   au clavier : menu (Paramètres → Mon menu, enregistré au lâcher), équipes (Mon club,
   `teams.sort_order`), séquences d'une compilation.
 - **FAQ** (`faq.html`) — questions cliquables : prise en main, puis données et calculs.
-- **Vidéos** (`videos.html`, staff) — organisation progressive : d'abord **À voir** (séquences
+- **Vidéos** (`videos.html`, staff) — organisation progressive : d'abord **À traiter** (séquences
   envoyées par les joueurs, pas encore commentées) puis les **joueurs**, une ligne chacun
-  (« 2 vidéos · 3 séquences » + « 1 à voir »). Un joueur ouvre ses rubriques **À voir ·
-  Séquences · Vidéos** (`?player=…&tab=…`, le retour du téléphone remonte d'un niveau).
+  (« 2 vidéos · 3 séquences » + « 1 à traiter »). Un joueur (`?player=…`, le retour du téléphone
+  remonte d'un niveau ; même affichage que l'onglet Vidéos de la fiche, `player-videos.js`) :
+  « Comment ça marche ? » (le circuit en 4 étapes), **À traiter**, puis chaque **vidéo envoyée**
+  avec, sous elle, ses séquences marquées **Joueur** ou **Staff** (`created_by`) et, pour celles
+  du joueur, leur statut. Sélection de séquences (compiler, supprimer) ou de vidéos (supprimer,
+  télécharger les originaux).
 - **Vidéo source et séquences** — deux écrans qui ne se mélangent pas (`video-workspace.js`) :
   - **Vidéo source** : la vidéo envoyée, jamais modifiée. « Sélectionner une portion » ouvre
     le mode sélection (`video-timeline.js` : poignées début / fin de 44 px, durée, ▶ relire,
@@ -293,7 +306,7 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     stockée dans `drawings` : `{ t, d, freeze, shapes }` ;
   - **Envoi** (`video-send.js`) : contenu (miniature, titre, durée), destinataire, message
     facultatif (l'analyse du joueur), puis une confirmation (destinataire, date, statut) ;
-  - **Statuts** (`video-status.js`), un seul badge : Brouillon, Envoyé (« À voir » côté staff),
+  - **Statuts** (`video-status.js`), un seul badge : Brouillon, Envoyé (« À traiter » côté staff),
     Vu, Retour, Modifié (changée depuis l'envoi). Le trigger `guard_video_sequence` date
     lui-même l'envoi, la lecture et les modifications (jamais l'horloge du téléphone) ;
   - le retour du téléphone passe d'un écran à l'autre (history) ; une annotation non

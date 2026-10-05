@@ -195,7 +195,7 @@ function drawCaption(ctx, W, H, text) {
 }
 
 /* ---------- Fenêtre : ordre, options, génération, téléchargement ---------- */
-function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved }) {
+function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
   document.getElementById('vcModal')?.remove();
   const name = `${player.prenom || ''} ${player.nom || ''}`.trim() || 'Joueur';
   const mime = compileMime();
@@ -298,7 +298,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved }) {
         <p><strong>${ids.length > 1 ? 'Compilation prête' : 'Séquence prête'}</strong> · ${mb.toFixed(1).replace('.', ',')} Mo · ${escapeHtml(compileExt(mime).toUpperCase())}</p>
         <div class="vc-done-actions">
           <a class="btn btn-primary" href="${st.url}" download="${escapeHtml(st.blob.name)}">Télécharger</a>
-          ${ids.length > 1 && canManageVideos(myProfile.role) ? `<button class="btn" type="button" id="vcSave" ${st.blob.size > VIDEO_MAX_BYTES ? 'disabled title="Trop volumineuse pour être ajoutée"' : ''}>Ajouter aux vidéos de ${escapeHtml(name)}</button>` : ''}
+          ${ids.length > 1 && canManageVideos(profile.role) ? `<button class="btn" type="button" id="vcSave" ${st.blob.size > VIDEO_MAX_BYTES ? 'disabled title="Trop volumineuse pour être ajoutée"' : ''}>Ajouter aux vidéos de ${escapeHtml(name)}</button>` : ''}
         </div>
         <small class="text-muted">Téléchargée seulement, rien n’est stocké. « Ajouter aux vidéos » la range dans l’espace de ce joueur : lui seul et le staff la voient.</small>`;
       $c('#vcDone').classList.remove('hidden');
@@ -317,12 +317,12 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved }) {
   async function saveToPlayer(ids) {
     const btn = $c('#vcSave'); if (!btn || !st.blob) return;
     btn.disabled = true; btn.textContent = 'Envoi…';
-    const path = `r2/${myProfile.club_id}/${player.id}/${Date.now()}.${compileExt(mime)}`;
+    const path = `r2/${profile.club_id}/${player.id}/${Date.now()}.${compileExt(mime)}`;
     try {
       await uploadVideoFile(path, st.blob, { onProgress: (p) => { btn.textContent = p >= 1 ? 'Finalisation…' : `Envoi… ${Math.floor(p * 100)} %`; } });
       const labels = ids.map(id => byId(id).label || 'Séquence');
       const { error } = await sb.from('player_videos').insert({
-        club_id: myProfile.club_id, player_id: player.id, storage_path: path,
+        club_id: profile.club_id, player_id: player.id, storage_path: path,
         titre: `Compilation — ${new Date().toLocaleDateString('fr-FR')}`,
         description: `Séquences : ${labels.join(' · ')}`.slice(0, 900),
       });

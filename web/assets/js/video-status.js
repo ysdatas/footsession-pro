@@ -4,7 +4,7 @@
      vidéo source → séquence (une nouvelle vidéo, portion de la source)
                   → habillage → envoi au staff.
    Statut d'une séquence (un seul badge, jamais cumulé) :
-     Brouillon → Envoyé (« À voir » pour le staff) → Vu → Retour
+     Brouillon → Envoyé (« À traiter » pour le staff) → Vu → Retour
                   ↘ Modifié : changée depuis l'envoi, à renvoyer.
    « Vu » et « Modifié » demandent supabase/video_status.sql.
    Contient aussi les miniatures (l'image de la source au début
@@ -24,7 +24,7 @@ const hasWork = (s) => (s.drawings || []).length > 0 || !!(s.player_note || '').
 
 const SEQ_STATUS = {
   draft:    { label: 'Brouillon', staff: 'Brouillon', cls: 'is-draft',    hint: 'Pas encore envoyée au staff' },
-  sent:     { label: 'Envoyé',    staff: 'À voir',    cls: 'is-sent',     hint: 'Envoyée, pas encore ouverte par le staff' },
+  sent:     { label: 'Envoyé',    staff: 'À traiter', cls: 'is-sent',     hint: 'Envoyée, pas encore ouverte par le staff' },
   seen:     { label: 'Vu',        staff: 'Vu',        cls: 'is-seen',     hint: 'Ouverte par le staff' },
   answered: { label: 'Retour',    staff: 'Répondu',   cls: 'is-answered', hint: 'Le staff a répondu' },
   modified: { label: 'Modifié',   staff: 'Modifié',   cls: 'is-modified', hint: 'Modifiée depuis l’envoi : à renvoyer' },

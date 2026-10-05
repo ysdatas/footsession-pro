@@ -12,6 +12,7 @@ try { ({ PGlite } = await import('@electric-sql/pglite')); } catch {
   process.exit(0);
 }
 const SQL = readFileSync(new URL('../supabase/lmfc_v5.sql', import.meta.url), 'utf8');
+const SQL_V6 = readFileSync(new URL('../supabase/lmfc_v6.sql', import.meta.url), 'utf8');
 
 const db = new PGlite();
 const q = (s, p) => db.query(s, p);
@@ -212,7 +213,34 @@ await q(`update public.sim set role = 'admin'`);
 await one(`select public.trash_restore(array(select id from public.trash where root_id is null))`);
 assert.equal(await count('players'), 2);
 
-// 13. Club supprimé : aucune erreur, rien gardé.
+// 13. lmfc_v6 : un point (programme terrain) porte sa vidéo et ses exercices.
+await db.exec(SQL_V6);
+await db.exec(SQL_V6);   // rejouable
+const vid1 = (await one(`insert into public.player_videos (club_id, player_id, titre, storage_path) values (1, 1, 'Appuis', 'r2/1/1/9.mp4') returning id`)).id;
+const vid2 = (await one(`insert into public.player_videos (club_id, player_id, titre, storage_path) values (1, 2, 'Autre', 'r2/1/2/9.mp4') returning id`)).id;
+const ex1 = (await one(`insert into public.program_exercises (club_id, player_id, title) values (1, 1, 'Échelle') returning id`)).id;
+const ex2 = (await one(`insert into public.program_exercises (club_id, player_id, title) values (1, 1, 'Haies basses') returning id`)).id;
+const exOther = (await one(`insert into public.program_exercises (club_id, player_id, title) values (1, 2, 'Autre') returning id`)).id;
+const pt = (await one(`insert into public.player_performance_notes (club_id, player_id, kind, title, video_id, exercise_ids)
+  values (1, 1, 'strength', 'Appuis', $1, $2) returning id`, [vid1, [ex2, ex1]])).id;
+await assert.rejects(q(`update public.player_performance_notes set video_id = $1 where id = $2`, [vid2, pt]), /pas à ce joueur/, 'vidéo d’un autre joueur refusée');
+await assert.rejects(q(`update public.player_performance_notes set exercise_ids = $1 where id = $2`, [[ex1, exOther], pt]), /pas à ce joueur/, 'exercice d’un autre joueur refusé');
+await q(`update public.player_performance_notes set exercise_ids = $1 where id = $2`, [[ex2, ex1, 999999], pt]);   // introuvable : accepté
+await q(`update public.player_performance_notes set exercise_ids = $1 where id = $2`, [[ex2, ex1], pt]);
+await q(`delete from public.trash`);
+//     exercice supprimé puis restauré : il retrouve sa place (même identifiant)
+await q(`delete from public.program_exercises where id = $1`, [ex1]);
+await one(`select public.trash_restore(array(select id from public.trash where root_id is null))`);
+assert.deepEqual((await one(`select exercise_ids from public.player_performance_notes where id = $1`, [pt])).exercise_ids.map(Number), [ex2, ex1]);
+//     joueur supprimé puis restauré : le point revient avec ses liens, sans erreur
+await q(`delete from public.players where id = 1`);
+await one(`select public.trash_restore(array(select id from public.trash where root_id is null))`);
+const back = await one(`select video_id, exercise_ids from public.player_performance_notes where id = $1`, [pt]);
+assert.equal(Number(back.video_id), Number(vid1));
+assert.deepEqual(back.exercise_ids.map(Number), [ex2, ex1]);
+assert.equal(await count('trash'), 0);
+
+// 14. Club supprimé : aucune erreur, rien gardé.
 await q(`delete from public.clubs where id = 1`);
 assert.equal(await count('trash'), 0);
-console.log('trash-sql : OK (13 scénarios)');
+console.log('trash-sql : OK (14 scénarios)');

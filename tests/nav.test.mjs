@@ -45,7 +45,7 @@ assert.equal(redirected, 'dashboard.html');
 redirected = null;
 assert.equal(run(`navGuard({ role: 'admin' })`), true);
 assert.equal(redirected, null);
-// La fiche Performance d'un joueur dépend de la rubrique Performance : le prépa y a accès.
+// La fiche d'un joueur (player-performance) dépend de la rubrique Joueurs : le prépa y a accès.
 window.location.pathname = '/player-performance';
 assert.equal(run(`navGuard({ role: 'prepa' })`), true);
 window.location.pathname = '/videos';
@@ -71,14 +71,15 @@ Object.assign(ctx, {
   latestUrl: (pages) => pages.map(p => mem[p]).filter(Boolean).sort((a, b) => b.t - a.t)[0]?.u || null,
 });
 const href = (k) => window.resolveNavHref(k);
-assert.equal(href('performance'), 'comparaison.html', 'rien de vu : page de la rubrique');
-mem.comparaison = { u: 'comparaison.html?tab=evolution', t: 1 };
-mem['player-performance'] = { u: 'player-performance.html?id=12', t: 2 };
-assert.equal(href('performance'), 'player-performance.html?id=12', 'depuis la FAQ : la fiche laissée');
+assert.equal(href('players'), 'players.html', 'rien de vu : page de la rubrique');
+mem.players = { u: 'players.html?q=al', t: 1 };
+mem['player-performance'] = { u: 'player-performance.html?id=12&tab=performance', t: 2 };
+assert.equal(href('players'), 'player-performance.html?id=12&tab=performance', 'depuis la FAQ : la fiche laissée, onglet compris');
 ctx.PAGE = 'player-performance';
-assert.equal(href('performance'), 'comparaison.html?tab=evolution', 'depuis la rubrique : sa page principale, onglet compris');
+assert.equal(href('players'), 'players.html?q=al', 'depuis la fiche : la liste telle qu’on l’a laissée');
 ctx.PAGE = 'faq';
-assert.equal(href('players'), 'players.html');
+mem.comparaison = { u: 'comparaison.html?tab=evolution', t: 3 };
+assert.equal(href('performance'), 'comparaison.html?tab=evolution', 'Performance : sa page, onglet compris');
 assert.equal(href('inconnue'), null);
 
 console.log('nav.test.mjs : OK');

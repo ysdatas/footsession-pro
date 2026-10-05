@@ -76,13 +76,16 @@
     bindProgramCards(box, openExercise);
     [exercises] = await Promise.all([
       loadProgram(player.id),
-      initNotes({ player, canEdit: false, lists: { objective: 'objectiveList', prevention: 'preventionList', strength: 'strengthList', improvement: 'improvementList' } }),
+      // Points forts et axes : leur vidéo et leurs exercices (Exo 1, Exo 2…), qui s'ouvrent ici.
+      initNotes({ player, canEdit: false, lists: { objective: 'objectiveList', prevention: 'preventionList', strength: 'strengthList', improvement: 'improvementList' },
+        program: { exercises: () => exercises || [], open: openExercise } }),
     ]);
     render();
   })();
 
   function render() {
     renderProgramList(document.getElementById('programBox'), exercises);
+    renderNoteLists();   // les Exo des points (fait / pas fait)
     const n = (exercises || []).length, done = (exercises || []).filter(e => e.done_at).length;
     document.getElementById('progSub').textContent = n
       ? `· ${done} fait${done > 1 ? 's' : ''} sur ${n} · touche un exercice pour l’ouvrir en grand` : '';

@@ -566,3 +566,29 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .perf-plan-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .perf-sub { margin: 14px 0 8px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
 .perf-sub:first-of-type { margin-top: 4px; }
+
+/* ============================================================
+   Fiche joueur unique (staff) : onglets Fiche · Performance · Vidéos.
+   Même allure que les onglets des vidéos (.vp-tabs).
+   ============================================================ */
+.pf-tabs{
+  display:flex;gap:4px;padding:4px;margin:0 0 16px;overflow-x:auto;scrollbar-width:none;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+}
+.pf-tabs::-webkit-scrollbar{display:none;}
+.pf-tabs [role="tab"]{
+  flex:1 0 auto;min-height:44px;padding:0 18px;border:0;border-radius:10px;background:none;
+  color:var(--text-secondary);font:600 var(--fs-md)/1 var(--font-main);white-space:nowrap;cursor:pointer;
+}
+.pf-tabs [role="tab"]:hover{color:var(--text-primary);}
+.pf-tabs [aria-selected="true"]{background:var(--bg-hover);color:var(--gold);}
+.pf-panel[hidden]{display:none;}
+.pf-panel > .card,.pf-panel > .dash-grid{margin:0 0 16px;}
+.pf-fiche-top{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:16px;}
+.pf-fiche-top > .card{margin:0;}
+.pf-fiche-top .note-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));}
+@media (max-width:900px){ .pf-fiche-top{grid-template-columns:minmax(0,1fr);} }
+/* Compte joueur (Ma performance) : pas d'onglets ; la performance d'abord,
+   puis parcours et objectifs. Le programme terrain a sa propre page. */
+.pa-body .pf-panels{display:flex;flex-direction:column;}
+.pa-body .pf-panel[data-pf-panel="fiche"]{order:2;}

@@ -13,6 +13,9 @@
    Atteint, Non atteint), modifiable d'un geste sur sa carte
    (lmfc_v3.sql). Le titre est facultatif (lmfc_v4.sql) : sans titre,
    la carte reprend le début de la description.
+   Un point fort ou un axe d'amélioration porte aussi une vidéo du
+   joueur et ses exercices (lmfc_v6.sql : video_id, exercise_ids) :
+   vidéo à gauche, description à droite, Exo 1, Exo 2… dessous.
    ============================================================ */
 
 const NOTE_KINDS = {
@@ -23,6 +26,8 @@ const NOTE_KINDS = {
 };
 /* Objectifs et préventions ont un statut ; points forts et axes, non. */
 const hasStatus = (kind) => kind === 'objective' || kind === 'prevention';
+/* Points du programme terrain : vidéo et exercices liés. */
+const isPoint = (kind) => kind === 'strength' || kind === 'improvement';
 /* Titre affiché : le titre, sinon le début de la description, sinon le type. */
 function noteTitle(n) {
   const t = (n.title || '').trim();
@@ -50,9 +55,18 @@ const noteStore = {
   player: null, canEdit: false, userId: null,
   lists: {},            // { kind: id de l'élément qui affiche la liste }
   notes: [], media: [],
-  draft: { existing: [], pending: [] },
+  draft: { existing: [], pending: [], video: null, exos: [] },
   onError: (msg) => toast(msg, 'error'),
+  // Programme terrain : { exercises: () => [...], open: (id) => … } fourni par la page.
+  program: null,
+  videos: [], videoUrls: new Map(),   // vidéos du joueur (points) et leurs liens de lecture
+  links: false,                       // colonnes video_id / exercise_ids présentes (lmfc_v6.sql)
+  canUploadVideo: false,
 };
+const noteExercises = () => noteStore.program?.exercises?.() || [];
+/* Exercices d'un point, dans l'ordre choisi ; un exercice supprimé est ignoré. */
+const pointExercises = (n) => (n.exercise_ids || []).map(id => noteExercises().find(e => e.id === Number(id))).filter(Boolean);
+const pointVideo = (n) => (n.video_id ? noteStore.videos.find(v => v.id === Number(n.video_id)) : null);
 
 const noteImages = (id) => noteStore.media.filter(m => m.note_id === id && m.signed_url)
   .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id);
@@ -67,10 +81,17 @@ async function initNotes(opts) {
 
 async function loadNotes() {
   const p = noteStore.player;
-  const [nRes, mRes] = await Promise.all([
+  const withPoints = Object.keys(noteStore.lists).some(isPoint);
+  const [nRes, mRes, vRes, linkRes] = await Promise.all([
     sb.from('player_performance_notes').select('*').eq('player_id', p.id).order('sort_order').order('id'),
     sb.from('player_performance_media').select('*').eq('player_id', p.id).order('sort_order').order('id'),
+    withPoints ? sb.from('player_videos').select('id, titre, storage_path, created_at').eq('player_id', p.id).order('created_at', { ascending: false }) : { data: [] },
+    withPoints ? sb.from('player_performance_notes').select('video_id, exercise_ids').limit(1) : { error: true },
   ]);
+  if (vRes.error) console.warn('Vidéos du joueur illisibles', vRes.error);
+  noteStore.videos = vRes.data || [];
+  noteStore.links = !linkRes.error;   // sans lmfc_v6.sql : pas de vidéo ni d'exercices liés
+  await signPointVideos(nRes.data || []);
   if (nRes.error) console.error('Points du joueur illisibles', nRes.error);
   if (mRes.error) console.error('Images des points illisibles', mRes.error);
   noteStore.notes = nRes.data || [];
@@ -83,12 +104,58 @@ async function loadNotes() {
   return nRes.error || mRes.error || null;
 }
 
+/* Liens de lecture des vidéos montrées dans les points. */
+async function signPointVideos(notes) {
+  const paths = [...new Set(notes.map(pointVideo).filter(Boolean).map(v => v.storage_path))]
+    .filter(path => !noteStore.videoUrls.has(path));
+  if (!paths.length) return;
+  try {
+    const urls = await videoUrls(paths);
+    urls.forEach((u, path) => noteStore.videoUrls.set(path, u));
+  } catch (e) { console.warn('Vidéos des points illisibles', e); }
+}
+
+/* Carte d'un point : vidéo | description, puis ses exercices. */
+function pointCard(n) {
+  const title = noteTitle(n), imgs = noteImages(n.id), v = pointVideo(n);
+  const body = n.title?.trim() ? n.body : (n.body || '').trim().split('\n').slice(1).join('\n');
+  const url = v && noteStore.videoUrls.get(v.storage_path);
+  const exos = pointExercises(n);
+  const addExo = noteStore.canEdit && noteStore.links && noteStore.program?.add;
+  return `<article class="note-card point-card" data-note-open="${n.id}" tabindex="0" aria-label="${escapeHtml(title)}">
+    <div class="note-card-head">
+      <h3>${escapeHtml(title)}</h3>
+      ${noteStore.canEdit ? `<div class="note-card-actions">
+        <button class="btn btn-sm" type="button" data-note-edit="${n.id}">Modifier</button>
+        <button class="btn btn-sm btn-danger" type="button" data-note-delete="${n.id}" aria-label="Supprimer « ${escapeHtml(title)} »" title="Supprimer">✕</button></div>` : ''}
+    </div>
+    <div class="point-main${v ? '' : ' no-video'}">
+      ${v ? `<div class="point-video">${url
+        ? `<video controls playsinline preload="metadata" src="${escapeHtml(url)}#t=0.1" title="${escapeHtml(v.titre || 'Vidéo')}"></video>`
+        : '<span class="point-video-off">Vidéo indisponible</span>'}
+        <span class="point-video-title">${escapeHtml(v.titre || 'Vidéo')}</span></div>` : ''}
+      <div class="point-desc">
+        ${body ? `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>` : (v || exos.length ? '' : '<p class="text-muted">Pas de description.</p>')}
+        ${imgs.length ? `<div class="media-grid">${imgs.map((m, i) => `<figure data-img-index="${i}"><img src="${escapeHtml(m.signed_url)}" alt="${escapeHtml(m.caption || title)}" loading="lazy">${m.caption ? `<figcaption>${escapeHtml(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
+      </div>
+    </div>
+    ${exos.length || addExo ? `<div class="point-exos">${exos.map((e, i) => `
+      <button class="point-exo${e.done_at ? ' is-done' : ''}" type="button" data-exo-open="${e.id}">
+        <span class="point-exo-n">Exo ${i + 1}</span><span class="point-exo-t">${escapeHtml(e.title)}</span>${e.done_at ? '<span class="point-exo-done" aria-label="fait">✓</span>' : ''}
+      </button>`).join('')}${addExo ? `<button class="point-exo point-exo-add" type="button" data-exo-add="${n.id}">+ Exo</button>` : ''}</div>` : ''}
+  </article>`;
+}
+
 function renderNoteLists() {
   for (const [kind, listId] of Object.entries(noteStore.lists)) {
     const box = document.getElementById(listId);
     if (!box) continue;
     const k = NOTE_KINDS[kind];
     const list = noteStore.notes.filter(n => n.kind === kind);
+    if (isPoint(kind)) {
+      box.innerHTML = list.length ? list.map(pointCard).join('') : `<div class="empty">${k.empty}</div>`;
+      continue;
+    }
     box.innerHTML = list.length ? list.map(n => {
       const imgs = noteImages(n.id);
       const title = noteTitle(n);
@@ -113,10 +180,14 @@ function renderNoteLists() {
 function openNote(id, start = 0) {
   const n = noteStore.notes.find(x => x.id === id);
   if (!n) return;
+  const v = pointVideo(n), url = v && noteStore.videoUrls.get(v.storage_path);
   const box = openLightbox({
     title: noteTitle(n),
-    text: n.body || '',
-    items: noteImages(id).map(m => ({ type: 'image', src: m.signed_url, caption: m.caption || '' })),
+    text: [n.body || '', ...pointExercises(n).map((e, i) => `Exo ${i + 1} : ${e.title}${e.dosage ? ` (${e.dosage})` : ''}`)].filter(Boolean).join('\n'),
+    items: [
+      ...noteImages(id).map(m => ({ type: 'image', src: m.signed_url, caption: m.caption || '' })),
+      ...(url ? [{ type: 'video', src: url, caption: v.titre || 'Vidéo' }] : []),
+    ],
     start,
     footer: noteStore.canEdit ? '<button class="btn btn-sm" type="button" data-lb-edit>Modifier</button>' : '',
   });
@@ -129,6 +200,11 @@ function bindNoteList(kind, listId) {
   list.dataset.notesBound = '1';
   list.addEventListener('click', e => {
     if (e.target.closest('[data-note-status]')) return;   // la liste du statut ne doit pas ouvrir la carte
+    const addExo = e.target.closest('[data-exo-add]');
+    if (addExo) return noteStore.program?.add?.(Number(addExo.dataset.exoAdd));
+    const exo = e.target.closest('[data-exo-open]');
+    if (exo) return noteStore.program?.open?.(Number(exo.dataset.exoOpen));
+    if (e.target.closest('.point-video')) return;           // la vidéo se lit sur place
     const edit = e.target.closest('[data-note-edit]');
     if (edit) return openNoteModal(null, Number(edit.dataset.noteEdit));
     const del = e.target.closest('[data-note-delete]');
@@ -160,8 +236,24 @@ function mountNoteModal() {
       <div class="field"><label for="noteBody">Description / consignes</label><textarea id="noteBody" rows="5"></textarea></div>
       <div class="field" id="noteStatusField"><label for="noteStatus">Statut</label>
         <select id="noteStatus">${Object.entries(OBJ_STATUS).map(([v, s]) => `<option value="${v}">${s.label}</option>`).join('')}</select></div>
+      <div class="field point-only" id="noteVideoField">
+        <label for="noteVideo">Vidéo <span class="label-opt">(facultatif)</span></label>
+        <div class="note-video-row">
+          <select id="noteVideo"></select>
+          <label class="file-pick hidden" id="noteVideoPick"><input id="noteVideoFile" type="file" accept="video/*">
+            <span class="btn btn-sm">+ Importer une vidéo</span></label>
+        </div>
+        <div class="hidden" id="noteVideoBar"><span style="width:0%"></span></div>
+        <small class="field-hint" id="noteVideoHint">Une vidéo du joueur (Vidéos joueurs), ou une nouvelle : elle rejoint aussi ses vidéos.</small>
+      </div>
+      <div class="field point-only" id="noteExoField">
+        <label>Exercices <span class="label-opt">(dans l’ordre : Exo 1, Exo 2…)</span></label>
+        <div id="noteExos" class="note-exos-pick"></div>
+        <small class="field-hint">Touchez les exercices dans l’ordre voulu. Pour en créer un : « + Exercice » dans le Programme terrain.</small>
+      </div>
+      <p class="field-hint point-only hidden" id="noteLinksMissing">Vidéo et exercices liés : passez d’abord supabase/lmfc_v6.sql dans Supabase.</p>
       <div class="field">
-        <label>Images / exercices</label>
+        <label>Images</label>
         <div id="noteImages" class="note-images-edit"></div>
         <label class="file-pick"><input id="noteFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple>
           <span class="btn btn-sm">+ Ajouter des images (PNG, JPG)</span></label>
@@ -195,6 +287,74 @@ function mountNoteModal() {
     renderNoteImages();
   });
   document.getElementById('btnSaveNote').addEventListener('click', saveNote);
+  document.getElementById('noteVideo').addEventListener('change', e => { noteStore.draft.video = Number(e.target.value) || null; });
+  document.getElementById('noteExos').addEventListener('click', e => {
+    const b = e.target.closest('[data-exo-pick]'); if (!b) return;
+    const id = Number(b.dataset.exoPick), d = noteStore.draft;
+    d.exos = d.exos.includes(id) ? d.exos.filter(x => x !== id) : [...d.exos, id];
+    renderNoteExos();
+  });
+  document.getElementById('noteVideoFile').addEventListener('change', e => {
+    const file = e.target.files[0]; e.target.value = '';
+    if (file) uploadPointVideo(file);
+  });
+}
+
+function renderNoteVideos() {
+  const sel = document.getElementById('noteVideo');
+  sel.innerHTML = '<option value="">Aucune vidéo</option>' + noteStore.videos.map(v =>
+    `<option value="${v.id}">${escapeHtml(v.titre || 'Vidéo')} · ${new Date(v.created_at).toLocaleDateString('fr-FR')}</option>`).join('');
+  sel.value = noteStore.draft.video ? String(noteStore.draft.video) : '';
+}
+function renderNoteExos() {
+  const d = noteStore.draft, list = noteExercises();
+  document.getElementById('noteExos').innerHTML = list.length ? list.map(e => {
+    const rank = d.exos.indexOf(e.id) + 1;
+    return `<button type="button" class="nep-item${rank ? ' is-on' : ''}" data-exo-pick="${e.id}" aria-pressed="${!!rank}">
+      <span class="nep-rank" aria-hidden="true">${rank ? `Exo ${rank}` : '+'}</span>
+      <span class="nep-title">${escapeHtml(e.title)}</span>
+      ${e.seance ? `<span class="nep-meta">${escapeHtml(e.seance)}</span>` : ''}
+    </button>`;
+  }).join('') : '<p class="text-muted">Aucun exercice pour ce joueur pour l’instant.</p>';
+}
+
+/* Vidéo importée depuis la fenêtre d'un point : envoyée comme toute vidéo
+   du joueur (R2, avec son pourcentage), puis choisie pour ce point. */
+async function uploadPointVideo(file) {
+  const p = noteStore.player;
+  if (file.size > VIDEO_MAX_BYTES) return noteStore.onError(`Vidéo trop volumineuse : ${Math.round(VIDEO_MAX_BYTES / 1048576)} Mo au maximum.`);
+  const bar = document.getElementById('noteVideoBar'), hint = document.getElementById('noteVideoHint');
+  const save = document.getElementById('btnSaveNote');
+  const ext = (/\.([a-z0-9]{1,8})$/i.exec(file.name)?.[1] || 'mp4').toLowerCase();
+  const path = `r2/${p.club_id}/${p.id}/${Date.now()}.${ext}`;
+  const titre = (file.name.replace(/\.[^.]+$/, '').replace(/[_\s]+/g, ' ').trim() || 'Vidéo');
+  save.disabled = true; bar.classList.remove('hidden');
+  const show = (pct) => {
+    bar.firstElementChild.style.width = `${Math.round(pct * 100)}%`;
+    hint.textContent = pct >= 1 ? 'Finalisation…' : `Envoi de « ${file.name} » : ${Math.floor(pct * 100)} %`;
+  };
+  show(0);
+  try {
+    await uploadVideoFile(path, file, { onProgress: show });
+    const { data: v, error } = await sb.from('player_videos').insert({
+      club_id: p.club_id, player_id: p.id, storage_path: path, titre: titre.charAt(0).toUpperCase() + titre.slice(1),
+    }).select('id, titre, storage_path, created_at').single();
+    if (error) {
+      await removeVideoFile(path).catch(err => console.warn('Fichier orphelin', path, err));
+      throw error;
+    }
+    noteStore.videos.unshift(v);
+    noteStore.draft.video = v.id;
+    renderNoteVideos();
+    hint.textContent = `« ${v.titre} » envoyée et choisie pour ce point.`;
+  } catch (e) {
+    console.error('Vidéo du point non envoyée', e);
+    hint.textContent = 'Une vidéo du joueur (Vidéos joueurs), ou une nouvelle : elle rejoint aussi ses vidéos.';
+    noteStore.onError(e.message || 'Envoi de la vidéo impossible.');
+  } finally {
+    save.disabled = false;
+    bar.classList.add('hidden');
+  }
 }
 
 function openNoteModal(kind, id = null) {
@@ -212,7 +372,14 @@ function openNoteModal(kind, id = null) {
   noteStore.draft = {
     existing: n ? noteImages(n.id).map(m => ({ id: m.id, path: m.storage_path, url: m.signed_url, caption: m.caption || '', removed: false })) : [],
     pending: [],
+    video: n && pointVideo(n) ? Number(n.video_id) : null,
+    exos: n ? pointExercises(n).map(e => e.id) : [],
   };
+  const point = isPoint(kind);
+  document.querySelectorAll('#noteModal .point-only').forEach(el => el.classList.toggle('hidden', !point
+    || (el.id === 'noteLinksMissing') === noteStore.links));
+  document.getElementById('noteVideoPick').classList.toggle('hidden', !noteStore.canUploadVideo);
+  if (point && noteStore.links) { renderNoteVideos(); renderNoteExos(); }
   renderNoteImages();
   openModal('noteModal');
   setTimeout(() => document.getElementById('noteTitle').focus(), 50);
@@ -236,8 +403,14 @@ async function saveNote() {
   const title = document.getElementById('noteTitle').value.trim();
   const body = document.getElementById('noteBody').value.trim() || null;
   const extra = hasStatus(kind) ? { status: document.getElementById('noteStatus').value } : {};
+  if (isPoint(kind) && noteStore.links) {
+    // Seuls les exercices encore présents sont gardés (un exercice supprimé disparaît du point).
+    Object.assign(extra, { video_id: d.video || null, exercise_ids: d.exos.filter(x => noteExercises().some(e => e.id === x)) });
+  }
   const keptImages = d.existing.filter(m => !m.removed).length + d.pending.length;
-  if (!title && !body && !keptImages) return noteStore.onError('Écrivez un titre ou une description, ou ajoutez une image.');
+  if (!title && !body && !keptImages && !extra.video_id && !extra.exercise_ids?.length) {
+    return noteStore.onError('Écrivez un titre ou une description, ou ajoutez une image.');
+  }
   const btn = document.getElementById('btnSaveNote'); btn.disabled = true;
   try {
     let noteId = id;

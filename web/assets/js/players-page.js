@@ -3,7 +3,7 @@
    Effectif en lignes compactes : le nom à gauche, taille — poids —
    poste à droite (dernière mesure connue, rien d'inventé). Recherche
    par nom, filtre par poste, ajout d'un joueur. Un clic ouvre la
-   fiche joueur (player.html), point d'entrée vers Performance et
+   fiche joueur (player-performance.html), point d'entrée vers Performance et
    Vidéos. Les présences se consultent sur la fiche.
    Les données sont scopées au club via RLS, et à l'équipe choisie
    dans le menu (nav.js).
@@ -207,7 +207,7 @@ function playerRow(p) {
     <span class="pr-data">${data}</span>
   </div>`;
   }
-  return `<a class="player-row" href="player.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
+  return `<a class="player-row" href="player-performance.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
     ${photo}
     <span class="pr-name"><strong>${escapeHtml(fullName(p))}</strong>${team ? `<small>${escapeHtml(team)}</small>` : ''}</span>
     <span class="pr-data">${data}</span>
@@ -356,6 +356,6 @@ async function savePlayer() {
     if (error) throw error;
     closeModal('playerModal');
     toast('Joueur ajouté', 'success');
-    window.location.href = `player.html?id=${data.id}`;
+    window.location.href = `player-performance.html?id=${data.id}`;
   } catch (e) { toast(e.message, 'error'); }
 }
