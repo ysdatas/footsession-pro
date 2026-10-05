@@ -472,6 +472,32 @@ pourcentage de chacun et du total ; un échec n'arrête pas les suivants (« Ré
 Droits : lire = pouvoir lire la ligne `player_videos` (RLS) ; envoyer ou supprimer =
 `can_manage_videos()` et le club du chemin est le sien.
 
+### E-mails de confirmation (une seule fois)
+
+L'inscription exige une adresse confirmée (c'est ce qui empêche de prendre l'accès d'un
+joueur en s'inscrivant avec son adresse : ne pas désactiver « Confirm email »). Le service
+d'envoi intégré de Supabase n'écrit qu'aux membres de l'équipe du projet Supabase, à
+quelques e-mails par heure : les joueurs ne reçoivent rien. Il faut un SMTP à soi :
+
+1. **Resend** (gratuit jusqu'à 100 e-mails par jour) : ajouter le domaine
+   `lmfcperformance.com`, valider les enregistrements DNS (Cloudflare : « Auto configure »),
+   créer une clé API (envoi seul).
+2. **Supabase → Authentication → Emails → SMTP Settings** : activer le SMTP personnalisé.
+   Hôte `smtp.resend.com`, port `465`, utilisateur `resend`, mot de passe = la clé API
+   (jamais dans le dépôt), expéditeur `no-reply@lmfcperformance.com`, nom `LMFC Performance`.
+3. **Authentication → URL Configuration** : Site URL `https://lmfcperformance.com`,
+   Redirect URLs `https://lmfcperformance.com/**` (le lien de l'e-mail ramène sur `index.html`).
+4. **Emails → Templates → Confirm signup** : coller `supabase/email-confirmation.html`
+   (e-mail en français aux couleurs du club).
+
+Variante en place aujourd'hui : SMTP Gmail (`smtp.gmail.com`, port `465`, identifiant et
+expéditeur = l'adresse Gmail, mot de passe = un **mot de passe d'application** Google) ;
+environ 500 e-mails par jour, l'expéditeur visible est l'adresse Gmail. Passer à Resend
+plus tard ne touche pas au code.
+
+`index.html` affiche « Renvoyer l'e-mail de confirmation » après l'inscription et quand
+une connexion échoue sur une adresse non confirmée.
+
 ---
 
 ## 🔒 Sécurité

@@ -27,6 +27,7 @@
 
     <div id="authError" class="auth-error hidden"></div>
     <div id="authOk" class="auth-ok hidden"></div>
+    <button type="button" class="btn btn-sm auth-resend hidden" id="resendBtn">Renvoyer l’e-mail de confirmation</button>
 
     <!-- Formulaire connexion -->
     <form id="loginForm">
@@ -78,9 +79,44 @@
     const sub = document.getElementById('authSub');
     let mode = 'login';
 
+    const resendBtn = document.getElementById('resendBtn');
+    // Le lien de confirmation ramène toujours ici (à autoriser dans Supabase :
+    // Authentication → URL Configuration → Redirect URLs).
+    const AUTH_REDIRECT = `${location.origin}/`;
+    let resendTo = '';
+
     function showError(msg) { errBox.textContent = msg; errBox.classList.remove('hidden'); okBox.classList.add('hidden'); }
     function showOk(msg) { okBox.textContent = msg; okBox.classList.remove('hidden'); errBox.classList.add('hidden'); }
-    function clearMsgs() { errBox.classList.add('hidden'); okBox.classList.add('hidden'); }
+    function clearMsgs() { errBox.classList.add('hidden'); okBox.classList.add('hidden'); resendBtn.classList.add('hidden'); }
+    function offerResend(email) { resendTo = email; resendBtn.classList.remove('hidden'); }
+
+    /* Erreurs Supabase Auth → message compréhensible. */
+    function authMessage(error, fallback) {
+      const code = error?.code || '';
+      if (code === 'email_not_confirmed' || /not confirmed/i.test(error?.message || ''))
+        return 'Adresse e-mail pas encore confirmée : ouvrez le lien reçu par e-mail (regardez aussi dans les spams).';
+      if (code === 'over_email_send_rate_limit' || /rate limit/i.test(error?.message || ''))
+        return 'Trop d’e-mails envoyés en peu de temps. Réessayez un peu plus tard.';
+      if (code === 'user_already_exists') return 'Un compte existe déjà avec cette adresse : connectez-vous.';
+      if (code === 'weak_password') return 'Mot de passe trop faible : 6 caractères au moins.';
+      if (code === 'email_address_invalid') return 'Adresse e-mail invalide.';
+      return fallback;
+    }
+
+    resendBtn.addEventListener('click', async () => {
+      if (!resendTo) return;
+      resendBtn.disabled = true;
+      const { error } = await sb.auth.resend({ type: 'signup', email: resendTo, options: { emailRedirectTo: AUTH_REDIRECT } });
+      if (error) {
+        console.error('Renvoi de la confirmation', error);
+        showError(authMessage(error, error.message || 'Renvoi impossible.'));
+        resendBtn.classList.remove('hidden');
+      } else {
+        showOk(`E-mail de confirmation renvoyé à ${resendTo}. Regardez aussi dans les spams.`);
+        resendBtn.classList.remove('hidden');
+      }
+      setTimeout(() => { resendBtn.disabled = false; }, 60000);   // Supabase : un renvoi par minute
+    });
 
     toggleLink.addEventListener('click', (e) => {
       e.preventDefault();
@@ -99,7 +135,12 @@
       const email = document.getElementById('l-email').value.trim();
       const password = document.getElementById('l-password').value;
       const { error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) return showError('Identifiants incorrects ou compte inexistant.');
+      if (error) {
+        const msg = authMessage(error, 'Identifiants incorrects ou compte inexistant.');
+        showError(msg);
+        if (error.code === 'email_not_confirmed' || /not confirmed/i.test(error.message || '')) offerResend(email);
+        return;
+      }
       try { sessionStorage.removeItem('lmfc-nav'); } catch { /* mémoire de navigation (app.js) */ }
       await goHome();
     });
@@ -110,10 +151,14 @@
       const nom = document.getElementById('s-nom').value.trim();
       const email = document.getElementById('s-email').value.trim();
       const password = document.getElementById('s-password').value;
-      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nom } } });
-      if (error) return showError(error.message || 'Inscription impossible.');
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nom }, emailRedirectTo: AUTH_REDIRECT } });
+      if (error) {
+        console.error('Inscription', error);
+        return showError(authMessage(error, error.message || 'Inscription impossible.'));
+      }
       if (data.session) { await goHome(); return; }
-      showOk('Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.');
+      showOk(`Compte créé ! Un e-mail de confirmation vient d’être envoyé à ${email} : ouvrez le lien qu’il contient, puis connectez-vous. Rien reçu ? Regardez dans les spams.`);
+      offerResend(email);
     });
 
     /* Une seule page de connexion pour tout le monde : l'accès enregistré

@@ -98,3 +98,5 @@ body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre
 .auth-foot a { color: var(--gold); }
 
 .auth-hint { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.45; margin: -4px 0 14px; }
+.auth-resend { display: flex; width: 100%; justify-content: center; margin: -4px 0 16px; }
+.auth-resend.hidden { display: none; }

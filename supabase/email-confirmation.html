@@ -1,0 +1,20 @@
+<!-- Modèle Supabase : Authentication → Emails → Templates → « Confirm signup ».
+     Sujet : Confirmez votre compte LMFC Performance
+     Coller ce qui suit dans « Message body ». -->
+<div style="margin:0;padding:32px 16px;background:#0A0A0A;font-family:Inter,Arial,sans-serif;color:#F2F2F2;">
+  <div style="max-width:480px;margin:0 auto;background:#161616;border:1px solid #3a3220;border-radius:14px;padding:28px 24px;">
+    <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#E8B10E;">LMFC Performance</p>
+    <h1 style="margin:0 0 16px;font-size:22px;color:#FFFFFF;">Confirmez votre adresse e-mail</h1>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#CFCFCF;">
+      Bonjour, votre compte a bien été créé. Cliquez sur le bouton ci-dessous pour confirmer votre adresse :
+      votre accès (staff ou joueur) sera activé à la connexion.
+    </p>
+    <p style="margin:0 0 24px;">
+      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 22px;border-radius:10px;background:#E8B10E;color:#111111;font-weight:700;font-size:15px;text-decoration:none;">Confirmer mon compte</a>
+    </p>
+    <p style="margin:0;font-size:13px;line-height:1.5;color:#9A9A9A;">
+      Vous n’êtes pas à l’origine de cette inscription ? Ignorez simplement cet e-mail.
+    </p>
+  </div>
+  <p style="margin:16px 0 0;text-align:center;font-size:12px;color:#777777;">Le Mans FC · Tous acteurs pour réussir</p>
+</div>
