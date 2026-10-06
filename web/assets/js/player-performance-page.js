@@ -907,7 +907,7 @@ async function loadPage() {
   // Le joueur a sa page « Objectifs & préventions » pour ça.
   const staffProgram = isStaff();
   document.getElementById('programCard').classList.toggle('hidden', !staffProgram);
-  const lists = { objective: 'objectiveList', prevention: 'preventionList',
+  const lists = { prevention: 'preventionList',
     ...(staffProgram ? { strength: 'strengthList', improvement: 'improvementList' } : {}) };
   const [[mRes, tRes], notesError] = await Promise.all([
     fetchPhysical(),
@@ -926,7 +926,7 @@ async function loadPage() {
   const dataErrors = [
     ['mesures physiques', mRes.error],
     ['tests physiques', tRes.error],
-    ['objectifs', notesError],
+    ['préventions', notesError],
   ].filter(([, e]) => e);
   if (dataErrors.length) {
     showDataWarning(dataErrors);
@@ -1224,7 +1224,6 @@ document.getElementById('btnAddStrength').addEventListener('click',()=>openNoteM
 document.getElementById('btnAddImprovement').addEventListener('click',()=>openNoteModal('improvement'));
 document.getElementById('btnSaveMeasurement').addEventListener('click',saveMeasurement);
 document.getElementById('btnSaveTest').addEventListener('click',saveTest);
-document.getElementById('btnAddObjective').addEventListener('click',()=>openNoteModal('objective'));
 document.getElementById('btnAddPrevention').addEventListener('click',()=>openNoteModal('prevention'));
 // Photo : un clic sur l'avatar (initiales ou photo) pour l'ajouter ou la changer.
 document.getElementById('playerAvatar').addEventListener('click',()=>{ if (canChangePlayerPhoto(ctxProfile?.role)) document.getElementById('photoFile').click(); });

@@ -192,8 +192,10 @@ async function exportNotes(k, kind, title, withImages) {
       k.pill(st.label, k.M + k.CW, y0 - 0.2, rgb, { right: true });
     }
     k.text(n.body, { size: 9, width: k.CW - (head ? 0 : 30), after: 2 });
+    const docs = noteMedia(n.id).filter(isPdfMedia);
+    if (docs.length) k.text(`PDF joint : ${docs.map(m => m.caption || 'document').join(', ')} (à ouvrir sur la plateforme)`, { size: 8.4, color: PDF_MUTE, style: 'italic', after: 2 });
     if (withImages) {
-      const imgs = noteStore.media.filter(m => m.note_id === n.id && m.signed_url);
+      const imgs = noteImages(n.id);
       if (imgs.length) await k.images(imgs.map(m => ({ src: m.signed_url, caption: m.caption })));
     }
     // Programme terrain : la vidéo (son titre : elle se regarde sur la plateforme) et les exercices du point.
@@ -278,7 +280,6 @@ async function runExport() {
     const withImages = sections.has('images');
     if (sections.has('strength')) await exportNotes(k, 'strength', 'Points forts', withImages);
     if (sections.has('improvement')) await exportNotes(k, 'improvement', 'Axes d’amélioration', withImages);
-    if (sections.has('objective')) await exportNotes(k, 'objective', 'Objectifs', withImages);
     if (sections.has('prevention')) await exportNotes(k, 'prevention', 'Préventions', withImages);
     if (sections.has('exercises')) await exportProgram(k, withImages);
     k.save(exportFileName());

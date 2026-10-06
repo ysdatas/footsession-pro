@@ -6,7 +6,7 @@
      - points forts, axes       → Programme terrain (fiche joueur
        d'amélioration              côté staff, « Mon programme
                                    terrain » côté joueur).
-   Chaque point : titre, consignes, images légendées ; un clic
+   Chaque point : titre, consignes, images légendées et PDF ; un clic
    l'ouvre en grand (lightbox.js). Le staff ajoute, modifie,
    supprime ; le joueur consulte (la RLS refuse le reste).
    Un objectif ou une prévention a en plus un statut (En cours,
@@ -37,6 +37,15 @@ function noteTitle(n) {
   return NOTE_KINDS[n.kind]?.badge || 'Point';
 }
 const NOTES_BUCKET = 'player-performance-media';
+/* Pièces jointes d'un point : images ou PDF, même table et même dossier ;
+   un PDF se reconnaît à son extension (aucune migration). */
+const NOTE_FILE_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf,.pdf';
+const isPdfMedia = (x) => x?.type === 'application/pdf' || /\.pdf$/i.test(x?.storage_path || x?.path || x?.name || '');
+function noteFileError(file) {
+  if (!isPdfMedia(file) && !/^image\//.test(file.type)) return `« ${file.name} » n’est ni une image ni un PDF.`;
+  if (file.size > 20 * 1024 * 1024) return `« ${file.name} » dépasse 20 Mo.`;
+  return '';
+}
 const OBJ_STATUS = {
   active:   { label: 'En cours',    cls: 'is-active' },
   achieved: { label: 'Atteint',     cls: 'is-done' },
@@ -68,8 +77,20 @@ const noteExercises = () => noteStore.program?.exercises?.() || [];
 const pointExercises = (n) => (n.exercise_ids || []).map(id => noteExercises().find(e => e.id === Number(id))).filter(Boolean);
 const pointVideo = (n) => (n.video_id ? noteStore.videos.find(v => v.id === Number(n.video_id)) : null);
 
-const noteImages = (id) => noteStore.media.filter(m => m.note_id === id && m.signed_url)
+const noteMedia = (id) => noteStore.media.filter(m => m.note_id === id && m.signed_url)
   .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id);
+const noteImages = (id) => noteMedia(id).filter(m => !isPdfMedia(m));
+/* PDF d'un point : un lien chacun, ouvert dans un nouvel onglet (lecteur du navigateur). */
+const noteDocsHtml = (id) => {
+  const docs = noteMedia(id).filter(isPdfMedia);
+  return docs.length ? `<div class="note-docs">${docs.map(m => `<a class="note-doc" href="${escapeHtml(m.signed_url)}" target="_blank" rel="noopener">${escapeHtml(m.caption || 'Document PDF')}</a>`).join('')}</div>` : '';
+};
+/* Ligne d'un fichier dans une fenêtre d'édition : aperçu (ou « PDF »), légende, retrait. */
+const noteFileRow = (f, key, i) => `<div class="nie-row${f.removed ? ' is-removed' : ''}">
+    ${f.pdf ? '<span class="nie-doc">PDF</span>' : `<img src="${escapeHtml(f.url)}" alt="">`}
+    <input type="text" data-caption="${key}:${i}" value="${escapeHtml(f.caption)}" placeholder="${f.pdf ? 'Nom du document' : 'Légende / annotation (facultatif)'}" ${f.removed ? 'disabled' : ''}>
+    <button class="btn btn-sm" type="button" data-img-toggle="${key}:${i}">${key === 'pending' ? 'Retirer' : (f.removed ? 'Garder' : 'Retirer')}</button>
+  </div>`;
 
 /* opts : { player, canEdit, userId, lists: { kind: elementId }, onError } */
 async function initNotes(opts) {
@@ -137,6 +158,7 @@ function pointCard(n) {
       <div class="point-desc">
         ${body ? `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>` : (v || exos.length ? '' : '<p class="text-muted">Pas de description.</p>')}
         ${imgs.length ? `<div class="media-grid">${imgs.map((m, i) => `<figure data-img-index="${i}"><img src="${escapeHtml(m.signed_url)}" alt="${escapeHtml(m.caption || title)}" loading="lazy">${m.caption ? `<figcaption>${escapeHtml(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
+        ${noteDocsHtml(n.id)}
       </div>
     </div>
     ${exos.length || addExo ? `<div class="point-exos">${exos.map((e, i) => `
@@ -171,6 +193,7 @@ function renderNoteLists() {
         </div>
         ${body ? `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>` : ''}
         ${imgs.length ? `<div class="media-grid">${imgs.map((m, i) => `<figure data-img-index="${i}"><img src="${escapeHtml(m.signed_url)}" alt="${escapeHtml(m.caption || title)}" loading="lazy">${m.caption ? `<figcaption>${escapeHtml(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
+        ${noteDocsHtml(n.id)}
       </article>`;
     }).join('') : `<div class="empty">${k.empty}</div>`;
   }
@@ -189,7 +212,7 @@ function openNote(id, start = 0) {
       ...(url ? [{ type: 'video', src: url, caption: v.titre || 'Vidéo' }] : []),
     ],
     start,
-    footer: noteStore.canEdit ? '<button class="btn btn-sm" type="button" data-lb-edit>Modifier</button>' : '',
+    footer: noteDocsHtml(id) + (noteStore.canEdit ? '<button class="btn btn-sm" type="button" data-lb-edit>Modifier</button>' : ''),
   });
   box.querySelector('[data-lb-edit]')?.addEventListener('click', () => { closeLightbox(); openNoteModal(null, id); });
 }
@@ -200,6 +223,7 @@ function bindNoteList(kind, listId) {
   list.dataset.notesBound = '1';
   list.addEventListener('click', e => {
     if (e.target.closest('[data-note-status]')) return;   // la liste du statut ne doit pas ouvrir la carte
+    if (e.target.closest('a[href]')) return;               // un PDF s'ouvre dans son onglet
     const addExo = e.target.closest('[data-exo-add]');
     if (addExo) return noteStore.program?.add?.(Number(addExo.dataset.exoAdd));
     const exo = e.target.closest('[data-exo-open]');
@@ -253,11 +277,11 @@ function mountNoteModal() {
       </div>
       <p class="field-hint point-only hidden" id="noteLinksMissing">Vidéo et exercices liés : passez d’abord supabase/lmfc_v6.sql dans Supabase.</p>
       <div class="field">
-        <label>Images</label>
+        <label>Images et PDF</label>
         <div id="noteImages" class="note-images-edit"></div>
-        <label class="file-pick"><input id="noteFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple>
-          <span class="btn btn-sm">+ Ajouter des images (PNG, JPG)</span></label>
-        <small class="field-hint">Elles s’affichent tout de suite ici ; chaque image peut avoir sa légende.</small>
+        <label class="file-pick"><input id="noteFiles" type="file" accept="${NOTE_FILE_ACCEPT}" multiple>
+          <span class="btn btn-sm">+ Ajouter des images ou un PDF</span></label>
+        <small class="field-hint">Ils s’affichent tout de suite ici ; chaque image a sa légende, chaque PDF son nom.</small>
       </div>
       <div class="modal-actions">
         <button class="btn" data-close="noteModal" type="button">Annuler</button>
@@ -280,8 +304,10 @@ function mountNoteModal() {
   });
   document.getElementById('noteFiles').addEventListener('change', e => {
     for (const file of e.target.files) {
-      if (file.size > 5 * 1024 * 1024) { noteStore.onError(`« ${file.name} » dépasse 5 Mo.`); continue; }
-      noteStore.draft.pending.push({ file, url: URL.createObjectURL(file), caption: '' });
+      const err = noteFileError(file);
+      if (err) { noteStore.onError(err); continue; }
+      const pdf = isPdfMedia(file);
+      noteStore.draft.pending.push({ file, pdf, url: URL.createObjectURL(file), caption: pdf ? file.name.replace(/\.pdf$/i, '') : '' });
     }
     e.target.value = '';
     renderNoteImages();
@@ -370,7 +396,7 @@ function openNoteModal(kind, id = null) {
   document.getElementById('noteStatus').value = n ? objStatusOf(n) : 'active';
   noteStore.draft.pending.forEach(p => URL.revokeObjectURL(p.url));
   noteStore.draft = {
-    existing: n ? noteImages(n.id).map(m => ({ id: m.id, path: m.storage_path, url: m.signed_url, caption: m.caption || '', removed: false })) : [],
+    existing: n ? noteMedia(n.id).map(m => ({ id: m.id, path: m.storage_path, url: m.signed_url, pdf: isPdfMedia(m), caption: m.caption || '', removed: false })) : [],
     pending: [],
     video: n && pointVideo(n) ? Number(n.video_id) : null,
     exos: n ? pointExercises(n).map(e => e.id) : [],
@@ -386,14 +412,9 @@ function openNoteModal(kind, id = null) {
 }
 
 function renderNoteImages() {
-  const row = (img, key, i) => `<div class="nie-row${img.removed ? ' is-removed' : ''}">
-      <img src="${escapeHtml(img.url)}" alt="">
-      <input type="text" data-caption="${key}:${i}" value="${escapeHtml(img.caption)}" placeholder="Légende / annotation (facultatif)" ${img.removed ? 'disabled' : ''}>
-      <button class="btn btn-sm" type="button" data-img-toggle="${key}:${i}">${key === 'pending' ? 'Retirer' : (img.removed ? 'Garder' : 'Retirer')}</button>
-    </div>`;
   const d = noteStore.draft;
-  document.getElementById('noteImages').innerHTML = d.existing.map((img, i) => row(img, 'existing', i)).join('')
-    + d.pending.map((img, i) => row(img, 'pending', i)).join('');
+  document.getElementById('noteImages').innerHTML = d.existing.map((f, i) => noteFileRow(f, 'existing', i)).join('')
+    + d.pending.map((f, i) => noteFileRow(f, 'pending', i)).join('');
 }
 
 async function saveNote() {
@@ -409,7 +430,7 @@ async function saveNote() {
   }
   const keptImages = d.existing.filter(m => !m.removed).length + d.pending.length;
   if (!title && !body && !keptImages && !extra.video_id && !extra.exercise_ids?.length) {
-    return noteStore.onError('Écrivez un titre ou une description, ou ajoutez une image.');
+    return noteStore.onError('Écrivez un titre ou une description, ou ajoutez une image ou un PDF.');
   }
   const btn = document.getElementById('btnSaveNote'); btn.disabled = true;
   try {
@@ -440,11 +461,10 @@ async function saveNote() {
     }
     let order = Math.max(-1, ...noteStore.media.filter(m => m.note_id === noteId).map(m => m.sort_order || 0));
     for (const [index, pend] of d.pending.entries()) {
-      const file = await shrinkImage(pend.file);
-      const ext = file.type === 'image/png' ? 'png' : 'jpg';
+      const { file, ext, type } = await prepareNoteFile(pend.file);
       const path = `${p.club_id}/${p.id}/${noteId}/${Date.now()}-${index}.${ext}`;
-      const up = await sb.storage.from(NOTES_BUCKET).upload(path, file, { contentType: file.type || 'image/jpeg' });
-      if (up.error) { noteStore.onError(`Une image n’a pas été envoyée : ${up.error.message}`); continue; }
+      const up = await sb.storage.from(NOTES_BUCKET).upload(path, file, { contentType: type });
+      if (up.error) { noteStore.onError(`« ${pend.file.name} » n’a pas été envoyé : ${up.error.message}`); continue; }
       const { error } = await sb.from('player_performance_media').insert({
         club_id: p.club_id, player_id: p.id, note_id: noteId,
         storage_path: path, caption: pend.caption.trim() || null, sort_order: ++order, created_by: noteStore.userId,
@@ -481,6 +501,13 @@ async function deleteNote(id) {
   if (files.length && !(await trashReady())) await sb.storage.from(NOTES_BUCKET).remove(files);
   toast('Supprimé.', 'success');
   await loadNotes();
+}
+
+/* Fichier prêt à l'envoi : un PDF part tel quel, une image est réduite. */
+async function prepareNoteFile(file) {
+  if (isPdfMedia(file)) return { file, ext: 'pdf', type: 'application/pdf' };
+  const img = await shrinkImage(file);
+  return { file: img, ext: img.type === 'image/png' ? 'png' : 'jpg', type: img.type || 'image/jpeg' };
 }
 
 /* Image envoyée : réduite à 1600 px de côté (une photo de téléphone

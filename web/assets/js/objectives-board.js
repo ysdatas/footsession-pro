@@ -5,7 +5,7 @@
    fiche joueur.
      - « + Objectif » / « + Prévention » : un ou plusieurs joueurs
        cochés, un titre (facultatif), une description, un statut, des
-       images (PNG, JPG) affichées tout de suite. Une ligne
+       images (PNG, JPG) ou PDF affichés tout de suite. Une ligne
        player_performance_notes par joueur, et ses propres copies
        d'images dans SON dossier (la RLS du stockage lit par joueur).
      - Chaque ligne : statut modifiable sur place, Modifier, Supprimer
@@ -105,7 +105,7 @@ function renderObjectivesTab() {
         </span>
       </div>
       <div class="obj-list">${list.map(r => {
-        const imgs = (objBoard.media.get(r.id) || []).length;
+        const files = (objBoard.media.get(r.id) || []).length;
         const title = noteTitle(r);
         const body = r.title?.trim() ? r.body : (r.body || '').trim().split('\n').slice(1).join(' ');
         if (pick.on) {
@@ -125,7 +125,7 @@ function renderObjectivesTab() {
             <span class="badge ${NOTE_KINDS[r.kind]?.cls || 'badge-gold'}">${objKindLabel(r.kind)}</span>
             <strong>${esc(title)}</strong>
             ${body ? `<p>${esc(body.length > 160 ? `${body.slice(0, 157)}…` : body)}</p>` : ''}
-            <span class="obj-meta">Créé le ${esc(new Date(r.created_at).toLocaleDateString('fr-FR'))}${imgs ? ` · ${imgs} image${imgs > 1 ? 's' : ''}` : ''}</span>
+            <span class="obj-meta">Créé le ${esc(new Date(r.created_at).toLocaleDateString('fr-FR'))}${files ? ` · ${files} fichier${files > 1 ? 's' : ''}` : ''}</span>
           </div>
           <div class="obj-actions">
             ${objStatusControl(r, true)}
@@ -170,10 +170,10 @@ function mountObjectiveModal() {
       <div class="field"><label for="objStatus">Statut</label>
         <select id="objStatus">${Object.entries(OBJ_STATUS).map(([v, s]) => `<option value="${v}">${s.label}</option>`).join('')}</select></div>
       <div class="field">
-        <span class="field-label">Images</span>
+        <span class="field-label">Images et PDF</span>
         <div id="objImages" class="note-images-edit"></div>
-        <label class="file-pick"><input id="objFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple>
-          <span class="btn btn-sm">+ Ajouter des images (PNG, JPG)</span></label>
+        <label class="file-pick"><input id="objFiles" type="file" accept="${NOTE_FILE_ACCEPT}" multiple>
+          <span class="btn btn-sm">+ Ajouter des images ou un PDF</span></label>
         <small class="field-hint" id="objImagesHint">Elles s’affichent tout de suite ici et seront visibles par le joueur.</small>
       </div>
       <div class="modal-actions">
@@ -211,9 +211,10 @@ function mountObjectiveModal() {
   });
   document.getElementById('objFiles').addEventListener('change', (e) => {
     for (const file of e.target.files) {
-      if (!/^image\//.test(file.type)) { toast(`« ${file.name} » n’est pas une image.`, 'error'); continue; }
-      if (file.size > 15 * 1024 * 1024) { toast(`« ${file.name} » dépasse 15 Mo.`, 'error'); continue; }
-      objBoard.draft.pending.push({ file, url: URL.createObjectURL(file), caption: '' });
+      const err = noteFileError(file);
+      if (err) { toast(err, 'error'); continue; }
+      const pdf = isPdfMedia(file);
+      objBoard.draft.pending.push({ file, pdf, url: URL.createObjectURL(file), caption: pdf ? file.name.replace(/\.pdf$/i, '') : '' });
     }
     e.target.value = '';
     renderObjImages();
@@ -245,14 +246,9 @@ function syncPicked() {
     : 'Elles s’affichent tout de suite ici et seront visibles par le joueur.';
 }
 function renderObjImages() {
-  const row = (img, key, i) => `<div class="nie-row${img.removed ? ' is-removed' : ''}">
-      <img src="${esc(img.url)}" alt="">
-      <input type="text" data-caption="${key}:${i}" value="${esc(img.caption)}" placeholder="Légende (facultatif)" ${img.removed ? 'disabled' : ''}>
-      <button class="btn btn-sm" type="button" data-img-toggle="${key}:${i}">${key === 'pending' ? 'Retirer' : (img.removed ? 'Garder' : 'Retirer')}</button>
-    </div>`;
   const d = objBoard.draft;
-  document.getElementById('objImages').innerHTML = d.existing.map((img, i) => row(img, 'existing', i)).join('')
-    + d.pending.map((img, i) => row(img, 'pending', i)).join('');
+  document.getElementById('objImages').innerHTML = d.existing.map((f, i) => noteFileRow(f, 'existing', i)).join('')
+    + d.pending.map((f, i) => noteFileRow(f, 'pending', i)).join('');
 }
 
 async function openObjectiveModal(editId = null, presetPlayer = null, kind = 'objective') {
@@ -287,7 +283,7 @@ async function openObjectiveModal(editId = null, presetPlayer = null, kind = 'ob
     if (!media.length) return;
     const { data: signed } = await sb.storage.from(NOTES_BUCKET).createSignedUrls(media.map(m => m.storage_path), 3600);
     if (objBoard.editId !== r.id) return;
-    objBoard.draft.existing = media.map((m, i) => ({ id: m.id, path: m.storage_path, url: signed?.[i]?.signedUrl || '', caption: m.caption || '', removed: false }));
+    objBoard.draft.existing = media.map((m, i) => ({ id: m.id, path: m.storage_path, url: signed?.[i]?.signedUrl || '', pdf: isPdfMedia(m), caption: m.caption || '', removed: false }));
     renderObjImages();
   }
 }
@@ -295,23 +291,22 @@ async function openObjectiveModal(editId = null, presetPlayer = null, kind = 'ob
 /* Envoie les images en attente sur chaque point créé : une copie par
    joueur, dans {club}/{joueur}/{point}/… (lecture : ce joueur et le staff). */
 async function uploadObjImages(notes) {
-  const files = await Promise.all(objBoard.draft.pending.map(p => shrinkImage(p.file)));
+  const files = await Promise.all(objBoard.draft.pending.map(p => prepareNoteFile(p.file)));
   let failed = 0;
   for (const note of notes) {
     let order = Math.max(-1, ...(objBoard.media.get(note.id) || []).map(m => m.sort_order || 0));
-    for (const [i, file] of files.entries()) {
-      const ext = file.type === 'image/png' ? 'png' : 'jpg';
+    for (const [i, { file, ext, type }] of files.entries()) {
       const path = `${myProfile.club_id}/${note.player_id}/${note.id}/${Date.now()}-${i}.${ext}`;
-      const up = await sb.storage.from(NOTES_BUCKET).upload(path, file, { contentType: file.type || 'image/jpeg' });
-      if (up.error) { console.error('Image non envoyée', up.error); failed++; continue; }
+      const up = await sb.storage.from(NOTES_BUCKET).upload(path, file, { contentType: type });
+      if (up.error) { console.error('Fichier non envoyé', up.error); failed++; continue; }
       const { error } = await sb.from('player_performance_media').insert({
         club_id: myProfile.club_id, player_id: note.player_id, note_id: note.id, storage_path: path,
         caption: objBoard.draft.pending[i].caption.trim() || null, sort_order: ++order, created_by: myProfile.id,
       });
-      if (error) { console.error('Image non rattachée', error); await sb.storage.from(NOTES_BUCKET).remove([path]); failed++; }
+      if (error) { console.error('Fichier non rattaché', error); await sb.storage.from(NOTES_BUCKET).remove([path]); failed++; }
     }
   }
-  if (failed) toast(`${failed} image${failed > 1 ? 's' : ''} non enregistrée${failed > 1 ? 's' : ''}.`, 'error');
+  if (failed) toast(`${failed} fichier${failed > 1 ? 's' : ''} non enregistré${failed > 1 ? 's' : ''}.`, 'error');
 }
 
 async function saveObjective(again) {
@@ -321,7 +316,7 @@ async function saveObjective(again) {
   const status = document.getElementById('objStatus').value;
   const d = objBoard.draft;
   const keptImages = d.existing.filter(m => !m.removed).length + d.pending.length;
-  if (!title && !body && !keptImages) return toast('Écrivez un titre ou une description, ou ajoutez une image.', 'error');
+  if (!title && !body && !keptImages) return toast('Écrivez un titre ou une description, ou ajoutez une image ou un PDF.', 'error');
   const btns = ['objSave', 'objSaveMore'].map(id => document.getElementById(id));
   btns.forEach(b => { b.disabled = true; });
   try {

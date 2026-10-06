@@ -287,8 +287,9 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   changer de page (`?tab=fiche|performance|videos`, gardé au rechargement) sous l'en-tête (photo,
   identité, club, taille, poids, masse grasse, « Modifier » : identité, équipe principale et
   autres équipes, suppression pour l'admin) :
-  - **Fiche** : parcours en frise horizontale (modifiable sur place), puis **Objectifs &
-    préventions** et **Programme terrain**, chacun sur toute la largeur ;
+  - **Fiche** : parcours en frise horizontale (modifiable sur place), puis **Préventions** et
+    **Programme terrain**, chacun sur toute la largeur. Pas de liste d'objectifs sur la fiche :
+    ils figurent dans le document (PDF) joint par le staff ;
   - **Performance** : radar /10 (comparaison à un 2e joueur), tests, suivi physique (graphique
     dessiné à sa largeur réelle). Sous le titre de chaque bloc, l'interrupteur **Visible par le
     joueur** (admin, coach, prépa) : masqué, le bloc disparaît de son espace (Ma performance et
@@ -298,9 +299,9 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     `lmfc_v8.sql`) ;
   - **Vidéos** (admin, coach) : les vidéos du joueur (`player-videos.js`, comme dans Vidéos joueurs).
   **Générer le PDF** : cases à cocher par rubrique (identité, mesures, tests, radar, points avec
-  description, titre de la vidéo et exercices, objectifs, préventions, tous les exercices,
-  images). `player.html` renvoie ici (anciens liens). Côté joueur, la même page est « Ma
-  performance », sans onglets ni parcours ; objectifs et préventions côte à côte. Pas de présences dans la rubrique Joueurs (elles restent dans
+  description, titre de la vidéo et exercices, préventions avec le nom de leurs PDF, tous les
+  exercices, images). `player.html` renvoie ici (anciens liens). Côté joueur, la même page est « Ma
+  performance », sans onglets ni parcours. Pas de présences dans la rubrique Joueurs (elles restent dans
   chaque séance et dans le Bilan).
 - **Programme terrain** (onglet Fiche) — chaque **point fort** ou **axe d'amélioration** : sa
   **vidéo** à gauche (une vidéo du joueur, ou importée depuis la fenêtre du point, avec son
@@ -375,7 +376,9 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   **Objectifs & préventions** (`mon-programme.html`) : objectifs et préventions avec statut et
   images, puis programme terrain, en lecture seule.
 - **Points** (objectifs, préventions, points forts, axes) — `notes.js` : un clic ouvre le point
-  en grand (images, légendes, consignes) ; « Modifier » ajoute, légende ou retire des images ;
+  en grand (images, légendes, consignes) ; « Modifier » ajoute, légende ou retire des images et
+  des **PDF** (20 Mo au plus, même table `player_performance_media`, reconnus à leur extension,
+  aucune migration) : chaque PDF devient un lien qui s'ouvre dans un nouvel onglet ;
   sans titre, la carte reprend le début de la description.
 - **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
   e-mail, membres.
@@ -437,6 +440,11 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   suit le pion quand il bouge ou grandit. Un pion en image (maillot) peut pivoter.
 - **Étapes** : « + Étape » crée l'étape suivante ; cliquer une pastille (1, 2, 3…)
   l'affiche, et chaque déplacement y est enregistré. « ▶ Lire » part de l'étape 1.
+  Chaque étape garde ses éléments : flèches, traits et tracés n'appartiennent qu'à leur
+  étape ; pions, matériel, zones et textes passent aux étapes suivantes et y bougent
+  librement ; supprimer retire l'élément de l'étape affichée et des suivantes. Entre deux
+  étapes, ce qui apparaît ou disparaît le fait en fondu (`STEP_ONLY`, `isVisible`,
+  `tactical-board.js`).
 - **Fiche tactique (PDF)** : titre, objectif, consignes (pré-remplis depuis le procédé ou
   l'exercice), une image par étape et la vidéo liée.
 - **Vidéo liée** : associer une vidéo déjà sur la plateforme au procédé ou à l'exercice,

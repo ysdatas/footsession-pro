@@ -78,7 +78,7 @@
     </nav>
 
     <div class="pf-panels">
-      <!-- Fiche : parcours, objectifs et préventions, programme terrain -->
+      <!-- Fiche : parcours, préventions, programme terrain -->
       <section class="pf-panel" id="pfPanel-fiche" data-pf-panel="fiche" role="tabpanel" aria-labelledby="pfTab-fiche">
         <div class="pf-fiche-top">
           <section class="card pf-career">
@@ -90,16 +90,10 @@
           </section>
           <section class="card">
             <div class="section-head">
-              <div><h2>Objectifs &amp; préventions</h2><p class="text-muted">Avec leur statut et leurs images. Cliquer pour agrandir.</p></div>
-              <div class="perf-plan-actions">
-                <button class="btn btn-sm hidden perf-plans-only" id="btnAddObjective" type="button">+ Objectif</button>
-                <button class="btn btn-sm hidden perf-plans-only" id="btnAddPrevention" type="button">+ Prévention</button>
-              </div>
+              <div><h2>Préventions</h2><p class="text-muted">Avec leur statut, leurs images et leurs PDF. Cliquer pour agrandir.</p></div>
+              <button class="btn btn-sm hidden perf-plans-only" id="btnAddPrevention" type="button">+ Prévention</button>
             </div>
-            <div class="pf-plans">
-              <div><h3 class="perf-sub">Objectifs</h3><div id="objectiveList" class="note-grid"></div></div>
-              <div><h3 class="perf-sub">Préventions</h3><div id="preventionList" class="note-grid"></div></div>
-            </div>
+            <div id="preventionList" class="note-grid"></div>
           </section>
         </div>
 
@@ -375,10 +369,9 @@
           <label class="check"><input type="checkbox" name="exp-sec" value="radar" checked> Profil athlétique /10</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="strength" checked> Points forts (description, vidéo, exercices)</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="improvement" checked> Axes d’amélioration (description, vidéo, exercices)</label>
-          <label class="check"><input type="checkbox" name="exp-sec" value="objective" checked> Objectifs</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="prevention" checked> Préventions</label>
           <label class="check"><input type="checkbox" name="exp-sec" value="exercises" checked> Tous les exercices du programme</label>
-          <label class="check"><input type="checkbox" name="exp-sec" value="images"> Images (exercices, schémas, objectifs)</label>
+          <label class="check"><input type="checkbox" name="exp-sec" value="images"> Images (exercices, schémas, préventions)</label>
         </div>
       </div>
 

@@ -487,6 +487,14 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
 .nie-row img { width: 64px; height: 48px; object-fit: cover; border-radius: 6px; }
 .nie-row input[type="text"] { width: 100%; }
 .nie-row.is-removed { opacity: .4; }
+/* PDF joint : pastille dans la fenêtre d'édition, lien sur la carte. */
+.nie-doc { display: grid; place-items: center; width: 64px; height: 48px; border-radius: 6px; background: rgba(229, 72, 77, .14); color: #ff8a8e; font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; }
+.note-docs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.note-doc { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary, inherit); font-size: var(--fs-sm, 13px); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.note-doc::before { content: "PDF"; flex: none; padding: 1px 5px; border-radius: 4px; background: rgba(229, 72, 77, .16); color: #ff8a8e; font-size: 10px; font-weight: 800; letter-spacing: .06em; }
+.note-doc:hover { border-color: var(--gold, #c9a227); }
+.note-doc:focus-visible { outline: 2px solid var(--gold, #c9a227); outline-offset: 2px; }
+.lb-footer .note-docs { margin: 0; flex: 1 1 100%; }
 
 /* ============================================================
    Liquid Glass — surfaces flottantes posées sur un canvas

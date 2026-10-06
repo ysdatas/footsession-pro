@@ -561,9 +561,6 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .perf-crumbs .back-link { margin: 0; }
 .perf-hero.hero-surface { background: var(--hero-bg); }
 .perf-hero .hero-kicker { font-size: var(--fs-xs); }
-.perf-plan-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.perf-sub { margin: 14px 0 8px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
-.perf-sub:first-of-type { margin-top: 4px; }
 
 /* ============================================================
    Fiche joueur unique (staff) : onglets Fiche · Performance · Vidéos.
@@ -587,9 +584,6 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .pf-fiche-top{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-bottom:16px;}
 .pf-fiche-top > .card{margin:0;}
 .pf-fiche-top .note-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));}
-/* Objectifs | Préventions, côte à côte dès que la place le permet. */
-.pf-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px 20px;}
-.pf-plans > div{min-width:0;}
 .pf-career #careerList{max-height:none;overflow:visible;}
 .pf-career .career-list{display:flex;gap:0;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px;}
 .pf-career .career-item{flex:0 0 auto;width:clamp(170px,22%,260px);grid-template-columns:minmax(0,1fr);align-content:start;gap:8px;padding:6px 16px 8px 6px;scroll-snap-align:start;}

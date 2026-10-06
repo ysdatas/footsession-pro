@@ -27,6 +27,7 @@ const state = {
   speed: 1,                                         // vitesse de lecture
   railTeam: 'player', fixedNum: null,               // barre des numéros 1 à 11
   curStep: null,     // index de l'étape affichée et modifiée (null = pas d'étapes)
+  fade: null,        // transition entre étapes : opacité (id → 0..1) de ce qui apparaît ou s'efface
   playing: false,    // animation ou enregistrement en cours : terrain non modifiable
   // Cadrage d'export (mode « Screen ») : {x, y, w, h} en coordonnées paysage, ou null = plein terrain.
   screen: null,
@@ -280,7 +281,13 @@ function render() {
   applyBaseTransform();
   ctx.clearRect(-5, -5, LW + 10, LH + 10);
   drawPitch();
-  for (const it of state.items) withRotation(it, () => drawItem(it));
+  const known = stepIds();
+  for (const it of state.items) {
+    const a = state.fade?.get(it.id) ?? (isVisible(it, known) ? 1 : 0);
+    if (a <= 0) continue;
+    if (a >= 1) { withRotation(it, () => drawItem(it)); continue; }
+    ctx.save(); ctx.globalAlpha = a; withRotation(it, () => drawItem(it)); ctx.restore();
+  }
   if (CAN_EDIT && state.tool === 'select' && !state.playing) drawSelection();
   if (state.selIds.length) positionSelBar();
   if (state.tool !== 'view') drawScreenFrame();   // masqué pendant l'export
@@ -709,8 +716,10 @@ function handleBounds(it) {
 /* `pad` élargit la prise (unités du terrain) : au doigt, un pion de
    quelques pixels à l'écran doit rester facile à attraper. */
 function hitItem(p, pad = 0) {
+  const known = stepIds();
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
+    if (!isVisible(it, known)) continue;
     if (it.type === 'arrow' || it.type === 'line') { if (distSeg(p, it) < 9 + pad) return it; continue; }
     if (it.type === 'path') {
       const lp0 = localPoint(p, it), q = (i) => ({ x: it.x + it.pts[i][0], y: it.y + it.pts[i][1] });
@@ -988,7 +997,7 @@ canvas.addEventListener('pointerup', () => {
     const rx = Math.min(drag.x0, drag.x1), ry = Math.min(drag.y0, drag.y1);
     const rw = Math.abs(drag.x1 - drag.x0), rh = Math.abs(drag.y1 - drag.y0);
     if (rw > 4 || rh > 4) {                    // sélectionne tout élément qui intersecte le rectangle
-      state.selIds = state.items.filter(it => {
+      state.selIds = visibleItems().filter(it => {
         const b = itemBounds(it);
         return b.x < rx + rw && b.x + b.w > rx && b.y < ry + rh && b.y + b.h > ry;
       }).map(it => it.id);
@@ -1117,8 +1126,7 @@ $('#tbmBack').addEventListener('click', () => {
 $('#tbmDelete').addEventListener('click', () => {
   const it = menuTarget; if (!it) return;
   pushHistory();
-  state.items = state.items.filter(x => x.id !== it.id);
-  state.selIds = state.selIds.filter(id => id !== it.id);
+  removeItems([it.id]);
   hideMenu(); syncSelBar(); commit();
 });
 document.addEventListener('pointerdown', () => hideMenu());
@@ -1723,8 +1731,7 @@ $('#tbImgMenu').addEventListener('click', (e) => {
 
 $('#selDelete').addEventListener('click', () => {
   const sels = selectedItems(); if (!sels.length) return;
-  pushHistory(); const ids = sels.map(s => s.id);
-  state.items = state.items.filter(x => !ids.includes(x.id));
+  pushHistory(); removeItems(sels.map(s => s.id));
   state.selIds = []; syncSelBar(); commit();
 });
 
@@ -1808,15 +1815,38 @@ function importLogo(e) {
 
 /* ============================================================
    ÉTAPES ANIMÉES
-   Chaque étape mémorise la position de tous les éléments. L'étape
+   Chaque étape mémorise ses éléments et leur position. L'étape
    affichée (pastille active) est celle que l'on modifie : chaque
    déplacement y est enregistré automatiquement. « Lire » part de
    l'étape 1 et enchaîne jusqu'à la dernière.
+   Présence par étape :
+     - flèches, traits et tracés appartiennent à leur étape ;
+     - pions, matériel, zones et textes passent aux étapes suivantes
+       (« + Étape », ou créés dans une étape) et peuvent y bouger ;
+     - supprimer retire l'élément de l'étape affichée et des suivantes.
+   Un élément jamais enregistré dans une étape (il vient d'être créé)
+   est visible ; il rejoint l'étape affichée au prochain enregistrement.
    ============================================================ */
 const POS_KEYS = ['x', 'y', 'x1', 'y1', 'x2', 'y2', 'mx', 'my'];
+const STEP_ONLY = ['arrow', 'line', 'path'];
+/* Identifiants présents dans au moins une étape, tous clips confondus. */
+function stepIds() { return new Set(state.clips.flatMap(c => c.steps.flatMap(s => Object.keys(s)))); }
+function isVisible(it, known = stepIds()) {
+  const snap = state.curStep !== null ? state.steps[state.curStep] : null;
+  return !snap || it.id in snap || !known.has(String(it.id));
+}
+function visibleItems() { const known = stepIds(); return state.items.filter(it => isVisible(it, known)); }
+function removeItems(ids) {
+  const gone = (id) => ids.includes(id);
+  if (state.curStep === null) state.clips.forEach(c => c.steps.forEach(s => ids.forEach(id => { delete s[id]; })));
+  else for (let i = state.curStep; i < state.steps.length; i++) ids.forEach(id => { delete state.steps[i][id]; });
+  const known = stepIds();   // encore dans une étape précédente (ou un autre clip) : gardé, masqué ici
+  state.items = state.items.filter(x => !gone(x.id) || (state.curStep !== null && known.has(String(x.id))));
+  state.selIds = state.selIds.filter(id => !gone(id));
+}
 function snapshot() {
   const s = {};
-  for (const it of state.items) {
+  for (const it of visibleItems()) {
     const o = {};
     for (const k of POS_KEYS) if (typeof it[k] === 'number') o[k] = it[k];
     s[it.id] = o;
@@ -1836,7 +1866,14 @@ function applySnapshot(snap) {
   }
 }
 function recordStep() {
-  if (state.curStep !== null && state.steps[state.curStep]) state.steps[state.curStep] = snapshot();
+  if (state.curStep === null || !state.steps[state.curStep]) return;
+  const known = stepIds(), snap = snapshot();
+  // Pion, matériel, zone ou texte créé dans cette étape : il reste aux suivantes.
+  for (const it of state.items) {
+    if (known.has(String(it.id)) || !(it.id in snap) || STEP_ONLY.includes(it.type)) continue;
+    for (let i = state.curStep + 1; i < state.steps.length; i++) state.steps[i][it.id] = { ...snap[it.id] };
+  }
+  state.steps[state.curStep] = snap;
 }
 function newStep() {
   if (state.playing) return;
@@ -1844,11 +1881,14 @@ function newStep() {
   if (!state.steps.length) { state.steps = [snapshot()]; state.curStep = 0; }
   else recordStep();
   const at = (state.curStep ?? state.steps.length - 1) + 1;
-  state.steps.splice(at, 0, snapshot());
+  const next = snapshot();   // la même étape, sans ses flèches, traits et tracés
+  state.items.forEach(it => { if (STEP_ONLY.includes(it.type)) delete next[it.id]; });
+  state.steps.splice(at, 0, next);
   state.curStep = at;
-  renderSteps(); scheduleSave();
+  state.selIds = []; syncSelBar();
+  renderSteps(); render(); scheduleSave();
   // Explication une seule fois ; ensuite la pastille qui s'allume suffit.
-  if (at === 1) toast('Étape 1 = position de départ. Déplacez les éléments pour l’étape 2.', 'success');
+  if (at === 1) toast('Étape 2 : déplacez pions et matériel, tracez ses flèches. Celles de l’étape 1 restent à l’étape 1.', 'success');
   const pill = document.querySelector(`.tb-step[data-step="${at}"]`);
   pill?.classList.add('is-new');
 }
@@ -2064,9 +2104,15 @@ async function exportVideo() {
 /* Transition entre deux étapes : easeInOutCubic, coudes compris. */
 function tween(from, to, dur, done) {
   const t0 = performance.now();
+  // Ce qui n'est que d'un côté apparaît ou s'efface en fondu, à sa place.
+  const leaving = Object.keys(from).filter(id => !(id in to)).map(Number);
+  const coming = Object.keys(to).filter(id => !(id in from)).map(Number);
+  for (const it of state.items) if (coming.includes(it.id)) for (const key of POS_KEYS) if (typeof to[it.id][key] === 'number') it[key] = to[it.id][key];
   const frame = (now) => {
     const k = Math.min(1, (now - t0) / dur);
     const e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    state.fade = k < 1 && (leaving.length || coming.length)
+      ? new Map([...leaving.map(id => [id, 1 - e]), ...coming.map(id => [id, e])]) : null;
     for (const it of state.items) {
       const a = from[it.id], b = to[it.id]; if (!a || !b) continue;
       for (const key of POS_KEYS) {
@@ -2200,11 +2246,12 @@ async function exportAllSteps() {
   recordStep();
   const keep = state.curStep;
   for (let i = 0; i < state.steps.length; i++) {
-    applySnapshot(state.steps[i]);
+    state.curStep = i; applySnapshot(state.steps[i]);
     const a = document.createElement('a');
     a.href = exportClean(); a.download = `schema-tactique-etape-${i + 1}.png`; a.click();
     await new Promise(r => setTimeout(r, 300));
   }
+  state.curStep = keep;
   if (keep !== null) applySnapshot(state.steps[keep]);
   render();
   toast(`${state.steps.length} images exportées`, 'success');
