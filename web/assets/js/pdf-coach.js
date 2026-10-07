@@ -5,9 +5,10 @@
    Un procédé par QUART de page A4 paysage, soit 4 procédés par
    feuille — au-delà, on passe en recto verso (8 procédés = 2 pages).
    Le schéma occupe l'essentiel du quart ; le texte se limite au
-   nom, à la structure des séquences et à l'objectif. En page 1,
-   sous le bandeau : le principe de jeu de la séance et les équipes
-   (chasubles) en colonnes compactes.
+   nom, à la structure des séquences, aux équipes du procédé (couleur
+   et joueurs), à son staff et à l'objectif. En page 1, sous le
+   bandeau : le principe de jeu de la séance (et, pour une ancienne
+   séance, ses chasubles en colonnes compactes).
 
    Exposé : window.generateCoachPDF(sessionId)
    ============================================================ */
@@ -24,7 +25,9 @@ window.generateCoachPDF = async function (sessionId) {
   if (!loaded) return;
   const { s, procedures, attendance } = loaded;
   const principe = sessionPrinciple(s, procedures);
-  const teams = sessionTeams(s, attendance);
+  // Ancienne séance : chasubles de toute la séance, en tête. Sinon, dans chaque procédé.
+  const perProc = procedures.some(p => Array.isArray(p.equipes) && p.equipes.length);
+  const teams = perProc ? [] : sessionTeams(s.equipes, attendance);
 
   const { INK, LIGHT, LINE, PANEL, DARK, MUT, imgSize, hexRgb, ACCENT } = window.PDF_THEME;
   const str = (t) => (typeof pdfStr === 'function' ? pdfStr(t) : String(t ?? ''));
@@ -57,6 +60,7 @@ window.generateCoachPDF = async function (sessionId) {
       `${procedures.length} procédé${procedures.length > 1 ? 's' : ''}`,
       `travail ${fmtMin(sessionWorkMin(procedures))}'`,
       `total ${fmtMin(sessionTotalMin(procedures))}'`,
+      s.filmee ? 'séance filmée' : null,
     ].filter(Boolean).join('   ·   ');
     doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
     doc.text(str(infos), W - M - 3, M + h / 2, { align: 'right', baseline: 'middle' });
@@ -177,6 +181,29 @@ window.generateCoachPDF = async function (sessionId) {
         const ml = doc.splitTextToSize(meta.toUpperCase(), tw);
         doc.text(ml, tx, cy, { baseline: 'top' });
         cy += ml.length * 2.9 + 1.6;
+      }
+      // Équipes du procédé : carré de couleur, nom, joueurs.
+      if (perProc) {
+        doc.setFontSize(6.2);
+        sessionTeams(procTeamsOf(p, s, procedures), attendance).forEach(t => {
+          const tl = doc.splitTextToSize(str(`${t.nom} : ${t.names.map(n => n.replace(/ #\d+$/, '')).join(' • ')}`), tw - 3.2);
+          if (cy + tl.length * 2.6 > ty + th - 3) return;
+          doc.setFillColor(...(hexRgb(t.couleur) || [120, 120, 120])); doc.rect(tx, cy + 0.4, 2, 2, 'F');
+          doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal');
+          doc.text(tl, tx + 3.2, cy, { baseline: 'top' });
+          cy += tl.length * 2.6 + 0.8;
+        });
+      }
+      // Staff du procédé (et « filmé »).
+      const staff = (Array.isArray(p.staff) ? p.staff : []).filter(m => (m.nom || '').trim())
+        .map(m => `${m.nom.trim()}${(m.role || '').trim() ? ` (${m.role.trim()})` : ''}`).join(' · ');
+      const filmed = procIsFilmed(p, s);
+      const staffTxt = staff ? `Staff : ${staff}${filmed ? ' · filmé' : ''}` : (filmed ? 'Procédé filmé' : '');
+      if (staffTxt) {
+        doc.setTextColor(...MUT); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.2);
+        const sl = doc.splitTextToSize(str(staffTxt), tw);
+        doc.text(sl, tx, cy, { baseline: 'top' });
+        cy += sl.length * 2.6 + 1.2;
       }
       // Ancien procédé avec son propre principe : il le garde. Sinon l'objectif.
       const own = (p.principes_jeu || '').trim();

@@ -192,50 +192,56 @@ async function exportNotes(k, kind, title, withImages) {
       k.pill(st.label, k.M + k.CW, y0 - 0.2, rgb, { right: true });
     }
     k.text(n.body, { size: 9, width: k.CW - (head ? 0 : 30), after: 2 });
-    const docs = noteMedia(n.id).filter(isPdfMedia);
-    if (docs.length) k.text(`PDF joint : ${docs.map(m => m.caption || 'document').join(', ')} (à ouvrir sur la plateforme)`, { size: 8.4, color: PDF_MUTE, style: 'italic', after: 2 });
     if (withImages) {
       const imgs = noteImages(n.id);
       if (imgs.length) await k.images(imgs.map(m => ({ src: m.signed_url, caption: m.caption })));
+    }
+    // PDF joints : reproduits page par page, juste après le point.
+    for (const d of noteMedia(n.id).filter(isPdfMedia)) {
+      const name = d.caption || 'PDF joint';
+      k.text(`PDF joint : ${name} (pages suivantes)`, { size: 8.4, color: PDF_MUTE, style: 'italic', after: 2 });
+      if (!(await k.pdfPages(d.signed_url, name))) k.text('Illisible ici : à ouvrir sur la plateforme.', { size: 8.4, color: PDF_MUTE, after: 2 });
     }
     // Programme terrain : la vidéo (son titre : elle se regarde sur la plateforme) et les exercices du point.
     if (isPoint(kind)) {
       const v = pointVideo(n);
       if (v) k.text(`Vidéo : ${v.titre || 'Vidéo'} (à regarder sur la plateforme)`, { size: 8.4, color: PDF_MUTE, style: 'italic', after: 2 });
-      for (const [j, e] of pointExercises(n).entries()) await exportExercise(k, e, `Exo ${j + 1}`, withImages);
+      for (const [j, e] of pointExercises(n).entries()) await exportExercise(k, e, `Exo ${j + 1}`);
     }
-    if (i < list.length - 1) { k.y += 1; k.hline(k.M, k.M + k.CW, k.y); k.y += 4; }
+    if (i < list.length - 1) { k.ensure(6); k.y += 1; k.hline(k.M, k.M + k.CW, k.y); k.y += 4; }
   }
   k.y += 3;
 }
 
-/* Un exercice : titre (et son rang dans le point), dosage, consignes,
-   image et schéma si les images sont demandées. */
-async function exportExercise(k, e, label, withImages) {
+/* Un exercice, bloc à part : bandeau titre (et son rang), séance, dosage,
+   consignes, puis son image et son schéma côte à côte. Le bloc commence
+   sur une nouvelle page s'il n'y tient pas. */
+async function exportExercise(k, e, label) {
   const head = `${label ? `${label} — ` : ''}${e.title}${e.done_at ? ' (fait)' : ''}`;
-  const lines = k.lines(head, k.CW - 6, 9.2);
-  k.ensure(lines.length * k.lh(9.2) + 8);
-  k.font(9.2, 'bold', PDF_INK); k.write(lines, k.M + 4, k.y); k.y += lines.length * k.lh(9.2) + 1;
-  if (e.dosage) k.text(`Dosage : ${e.dosage}`, { size: 8.6, color: PDF_MUTE, width: k.CW - 4, after: 1 });
-  if (e.instructions) k.text(e.instructions, { size: 8.8, width: k.CW - 4, after: 1.5 });
-  if (withImages) {
-    const imgs = [e.image_url && { src: e.image_url, caption: e.image_caption || '' }, e.schema_url && { src: e.schema_url, caption: 'Schéma' }].filter(Boolean);
-    if (imgs.length) await k.images(imgs);
-  }
-  k.y += 2;
+  const lines = k.lines(head, k.CW - 8, 9.8), hh = lines.length * k.lh(9.8) + 4;
+  const meta = [e.seance && `Séance : ${e.seance}`, e.dosage && `Dosage : ${e.dosage}`].filter(Boolean).join(' · ');
+  const imgs = [e.image_url && { src: e.image_url, caption: e.image_caption || 'Image' }, e.schema_url && { src: e.schema_url, caption: 'Schéma' }].filter(Boolean);
+  const textH = (meta ? k.lines(meta, k.CW - 4, 8.6).length * k.lh(8.6) : 0) + (e.instructions ? k.lines(e.instructions, k.CW - 4, 8.8).length * k.lh(8.8) : 0);
+  k.ensure(Math.min(hh + textH + (imgs.length ? 72 : 0) + 6, 200));
+  k.fill(k.M, k.y, k.CW, hh, PDF_PANEL, 1.2);
+  k.fill(k.M, k.y, 1.4, hh, k.ACC);
+  k.font(9.8, 'bold', PDF_INK); k.write(lines, k.M + 4, k.y + 2);
+  k.y += hh + 2.5;
+  if (meta) k.text(meta, { size: 8.6, color: PDF_MUTE, x: k.M + 2, width: k.CW - 4, after: 1.2 });
+  if (e.instructions) k.text(e.instructions, { size: 8.8, x: k.M + 2, width: k.CW - 4, after: 2 });
+  if (imgs.length) await k.images(imgs);
+  k.y += 5;
 }
 
-/* Tous les exercices du programme, par séance. */
-async function exportProgram(k, withImages) {
+/* Tous les exercices du programme : Exercice 1, 2, 3…, chacun à part. */
+async function exportProgram(k) {
   const list = (typeof prog !== 'undefined' && prog.exercises) || [];
   k.section('Exercices du programme', { keep: 18 });
   if (!list.length) { k.text('Aucun exercice.', { color: PDF_MUTE, style: 'italic' }); return; }
   const groups = new Map();
   list.forEach(e => { const g = (e.seance || '').trim() || 'Exercices'; groups.set(g, [...(groups.get(g) || []), e]); });
-  for (const [name, exs] of groups) {
-    if (groups.size > 1 || name !== 'Exercices') k.text(name, { size: 9.6, style: 'bold', color: k.ACC, after: 1.5 });
-    for (const e of exs) await exportExercise(k, e, '', withImages);
-  }
+  let n = 0;
+  for (const exs of groups.values()) for (const e of exs) await exportExercise(k, e, `Exercice ${++n}`);
   k.y += 3;
 }
 
@@ -281,8 +287,8 @@ async function runExport() {
     if (sections.has('strength')) await exportNotes(k, 'strength', 'Points forts', withImages);
     if (sections.has('improvement')) await exportNotes(k, 'improvement', 'Axes d’amélioration', withImages);
     if (sections.has('prevention')) await exportNotes(k, 'prevention', 'Préventions', withImages);
-    if (sections.has('exercises')) await exportProgram(k, withImages);
-    k.save(exportFileName());
+    if (sections.has('exercises')) await exportProgram(k);
+    await k.save(exportFileName());
     closePerfModal('exportModal');
     notify('PDF généré.', 'success');
   } catch (e) {

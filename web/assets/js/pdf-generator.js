@@ -2,10 +2,15 @@
    LMFC Performance — pdf-generator.js
    Export PDF PAYSAGE inspiré d'une fiche de séance pro.
 
-   Page 1 : récapitulatif complet (infos, déroulé, présences).
-            Les procédés SANS schéma tactique y sont détaillés en
-            sous-ligne, pour ne pas gaspiller une page presque vide.
-   Puis    : une page par procédé QUI POSSÈDE un schéma tactique.
+   Page 1 : récapitulatif complet (infos, séance filmée, déroulé,
+            présences par statut, invités signalés). Les procédés SANS
+            schéma tactique y sont détaillés en sous-ligne, avec leurs
+            équipes et leur staff.
+   Puis    : une page par procédé QUI POSSÈDE un schéma tactique :
+            schéma, rubriques, puis ses équipes (pastille de couleur,
+            NOM, joueurs) et son staff. Un procédé tient toujours sur
+            sa page (la police des rubriques se réduit au besoin).
+   Enfin   : bilan individuel (+ / = / −) et commentaire général.
 
    Exposé : window.generateSessionPDF(sessionId)
             window.loadSessionForPdf(sessionId)   (réutilisé par pdf-coach.js)
@@ -64,12 +69,14 @@ window.loadSessionForPdf = async function (sessionId) {
     if (e1 || !sess) throw e1 || new Error('Séance introuvable.');
     const s = sess;
 
-    const [{ data: procs }, { data: clubRow }, { data: players }, { data: att }] = await Promise.all([
+    const [{ data: procs }, { data: clubRow }, { data: players }, { data: att }, bl] = await Promise.all([
       sb.from('procedures').select('*, tactical_schemas(image_path, canvas_json)').eq('session_id', sessionId).order('ordre'),
       sb.from('clubs').select('nom, color, logo_path').eq('id', s.club_id).single(),
-      sb.from('players').select('id, nom, prenom, numero'),
-      sb.from('attendance').select('player_id, present').eq('session_id', sessionId),
+      sb.from('players').select('id, nom, prenom, numero, team_id'),
+      sb.from('attendance').select('*').eq('session_id', sessionId),
+      sb.from('session_bilans').select('player_id, note, commentaire').eq('session_id', sessionId),
     ]);
+    if (bl.error) console.warn('Bilans indisponibles pour le PDF (lmfc_v9.sql ?)', bl.error);
     const club = clubRow || {};
 
     // Résout les images (Storage → data URL) en parallèle.
@@ -79,9 +86,15 @@ window.loadSessionForPdf = async function (sessionId) {
       canvas_image: await storageToDataUrl('schemas', p.tactical_schemas?.image_path),
     })));
 
-    const attMap = {};
-    (att || []).forEach(a => attMap[a.player_id] = !!a.present);
-    const attendance = (players || []).map(p => ({ ...p, present: !!attMap[p.id] }));
+    // Joueurs de la séance : ceux qui ont une ligne de présence (invités
+    // compris). Une très ancienne séance sans aucune ligne : tout l'effectif.
+    const attMap = new Map((att || []).map(a => [a.player_id, a]));
+    const roster = attMap.size ? (players || []).filter(p => attMap.has(p.id)) : (players || []);
+    const attendance = roster.map(p => {
+      const statut = statutOf(attMap.get(p.id));
+      return { ...p, statut, invite: !!attMap.get(p.id)?.invite, present: PARTICIPE.has(statut) };
+    });
+    const bilans = (bl.data || []).map(b => ({ ...b, player: (players || []).find(p => p.id === b.player_id) })).filter(b => b.player);
 
     s.coach_club = club.nom || '';
     s.club_color = club.color || '';
@@ -91,18 +104,19 @@ window.loadSessionForPdf = async function (sessionId) {
       const { data: author } = await sb.from('profiles').select('nom').eq('id', s.created_by).maybeSingle();
       s.coach_nom = author?.nom || '';
     }
-    return { s, procedures, attendance };
+    return { s, procedures, attendance, bilans };
   } catch (e) {
     toast(e.message || 'Erreur de chargement.', 'error');
     return null;
   }
 };
 
-/* Équipes de la séance (chasubles) avec le nom de leurs joueurs.
-   `players` : la liste des joueurs du club (id, nom, prenom, numero). */
-function sessionTeams(s, players) {
+/* Équipes (chasubles) avec le nom de leurs joueurs : celles d'un procédé
+   (procTeamsOf) ou, pour une ancienne séance, de toute la séance.
+   `players` : les joueurs de la séance (id, nom, prenom, numero). */
+function sessionTeams(list, players) {
   const nameOf = (a) => `${a.prenom || ''} ${a.nom || ''}`.trim() + (a.numero != null ? ` #${a.numero}` : '');
-  return (Array.isArray(s.equipes) ? s.equipes : [])
+  return (Array.isArray(list) ? list : [])
     .map(t => ({
       nom: (t.nom || 'Équipe').trim(), couleur: t.couleur,
       names: (t.player_ids || []).map(id => players.find(a => a.id === id)).filter(Boolean).map(nameOf),
@@ -250,12 +264,42 @@ window.generateSessionPDF = async function (sessionId) {
 
   const loaded = await window.loadSessionForPdf(sessionId);
   if (!loaded) return;
-  const { s, procedures, attendance } = loaded;
+  const { s, procedures, attendance, bilans } = loaded;
 
   const { jsPDF } = lib;
   const doc = new jsPDF('l', 'mm', 'a4');   // PAYSAGE
   const W = 297, H = 210, M = 8;
   const { CW, fill, box, header, cell, pageHeader, footer, infoTable, str } = pdfHelpers(doc, s, W, H, M);
+
+  /* Nouveautés (lmfc_v9.sql) : équipes et staff de chaque procédé, séance filmée.
+     Ancienne séance : ses chasubles valaient pour toute la séance (bloc en page 1). */
+  const perProc = procedures.some(p => Array.isArray(p.equipes) && p.equipes.length);
+  const staffOf = (p) => (Array.isArray(p.staff) ? p.staff : []).filter(m => (m.nom || '').trim());
+  const staffText = (p) => staffOf(p).map(m => `${m.nom.trim()}${(m.role || '').trim() ? ` — ${m.role.trim()}` : ''}`).join('   ·   ');
+  /* Équipes d'un procédé en lignes compactes : pastille de sa couleur, NOM (n), joueurs « • ». */
+  const teamRowsFor = (p, w, fs) => {
+    const teams = perProc ? sessionTeams(procTeamsOf(p, s, procedures), attendance) : [];
+    if (!teams.length) return { rows: [], h: 0 };
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(fs);
+    const nameW = Math.min(40, Math.max(...teams.map(t => doc.getTextWidth(str(`${t.nom.toUpperCase()} (${t.names.length})`)))) + 3);
+    doc.setFont('helvetica', 'normal');
+    const lh = fs * 0.3528 * 1.15;
+    const rows = teams.map(t => ({ ...t, nameW, lines: doc.splitTextToSize(str(t.names.join('  •  ') || '—'), w - 4.4 - nameW) }));
+    return { rows, lh, fs, h: rows.reduce((h, r) => h + r.lines.length * lh + 1.4, 0) };
+  };
+  const drawTeamRows = (tr, x, y) => {
+    tr.rows.forEach(r => {
+      const rgb = hexRgb(r.couleur) || [120, 120, 120];
+      doc.setFillColor(...rgb); doc.circle(x + 1.3, y + tr.lh * 0.5, 1.25, 'F');
+      if (rgb[0] + rgb[1] + rgb[2] > 690) { doc.setDrawColor(150, 155, 165); doc.setLineWidth(0.2); doc.circle(x + 1.3, y + tr.lh * 0.5, 1.25, 'S'); }
+      doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(tr.fs);
+      doc.text(str(`${r.nom.toUpperCase()} (${r.names.length})`), x + 4.2, y, { baseline: 'top' });
+      doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal');
+      doc.text(r.lines, x + 4.2 + r.nameW, y, { baseline: 'top' });
+      y += r.lines.length * tr.lh + 1.4;
+    });
+    return y;
+  };
 
   /* ============================================================
      PAGE 1 — RÉCAPITULATIF DE LA SÉANCE
@@ -268,10 +312,29 @@ window.generateSessionPDF = async function (sessionId) {
   const travail = sessionWorkMin(procedures);
   const total = sessionTotalMin(procedures);
   y = infoTable(y,
-    ['DATE', 'ÉQUIPE', 'DURÉE SÉANCE', 'NB PROCÉDÉS', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL'],
+    ['DATE', 'ÉQUIPE', 'DURÉE SÉANCE', 'NB PROCÉDÉS', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL', 'SÉANCE FILMÉE'],
     [fmtDateFr(s.date_seance), s.equipe || '-', (s.duree_min || 0) + "'",
-     String(procedures.length), fmtMin(travail) + "'", fmtMin(total) + "'"],
-    [1.1, 1, 1.15, 1, 1.25, 1.1]);
+     String(procedures.length), fmtMin(travail) + "'", fmtMin(total) + "'", s.filmee ? 'Oui' : 'Non'],
+    [1.1, 1, 1.15, 1, 1.25, 1.1, 1.1]);
+
+  /* Séance filmée : qui gère la vidéo, et les procédés filmés sans responsable. */
+  if (s.filmee) {
+    const who = new Map();
+    procedures.forEach((p, i) => { if (procIsFilmed(p, s)) staffOf(p).filter(m => isVideoRole(m.role)).forEach(m => who.set(m.nom.trim(), [...(who.get(m.nom.trim()) || []), `P${i + 1}`])); });
+    const orphan = procedures.map((p, i) => (procIsFilmed(p, s) && !staffOf(p).some(m => isVideoRole(m.role)) ? `P${i + 1}` : null)).filter(Boolean);
+    const filmedN = procedures.filter(p => procIsFilmed(p, s)).length;
+    const txt = [`Séance filmée : ${filmedN} procédé${filmedN > 1 ? 's' : ''} sur ${procedures.length}`,
+      who.size && `Gestion vidéo : ${[...who].map(([n, ps]) => `${n} (${ps.join(', ')})`).join(' · ')}`,
+      orphan.length && `Sans responsable vidéo : ${orphan.join(', ')}`].filter(Boolean).join('   ·   ');
+    doc.setFontSize(8.2);
+    const vl = doc.splitTextToSize(str(txt), CW - 7);
+    const vh = vl.length * 3.6 + 3.4;
+    y += 2;
+    fill(M, y, CW, vh, PANEL); fill(M, y, 1.2, vh, ACCENT);
+    doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal');
+    doc.text(vl, M + 4, y + 1.9, { baseline: 'top' });
+    y += vh;
+  }
 
   /* Le récap peut désormais dépasser une page (sous-lignes de détail) :
      ce garde-fou ouvre une page de suite au lieu de déborder hors cadre. */
@@ -306,26 +369,31 @@ window.generateSessionPDF = async function (sessionId) {
       doc.setFontSize(8.5);
       const objectif = doc.splitTextToSize(p.objectif || '—', cols[6] - 4);
       const nom = doc.splitTextToSize(p.nom || 'Procédé', cols[1] - 4);
-      const rowH = Math.max(9, Math.max(objectif.length, nom.length) * 4 + 4);
+      const filmed = procIsFilmed(p, s);
+      const rowH = Math.max(9, Math.max(objectif.length, nom.length + (filmed ? 1 : 0)) * 4 + 4);
 
       /* Un procédé sans schéma n'aura pas de page dédiée : on détaille
          donc ici son objectif, ses consignes et les comportements
          attendus, pour que rien ne soit perdu à l'export. */
       const detailFs = 7.5, detailLineH = 3.4;
       let detailLines = [];
+      // Sans schéma, pas de page dédiée : équipes et staff du procédé sont ici aussi.
+      const subTeams = p.canvas_image ? { rows: [], h: 0 } : teamRowsFor(p, CW - 7, detailFs);
       if (!p.canvas_image) {
         const ownPrinciple = (p.principes_jeu || '').trim();
         const bits = [
           ownPrinciple && ownPrinciple !== principe && 'Principe de jeu : ' + ownPrinciple,
           p.consignes && 'Consignes : ' + p.consignes,
           p.comportements_individuels && 'Comportements attendus : ' + p.comportements_individuels,
+          staffText(p) && 'Staff : ' + staffText(p),
         ].filter(Boolean);
         if (bits.length) {
           doc.setFontSize(detailFs);
-          bits.forEach(b => { detailLines = detailLines.concat(doc.splitTextToSize(b, CW - 7)); });
+          bits.forEach(b => { detailLines = detailLines.concat(doc.splitTextToSize(str(b), CW - 7)); });
         }
       }
-      const detailH = detailLines.length ? detailLines.length * detailLineH + 3.5 : 0;
+      const detailH = detailLines.length || subTeams.rows.length
+        ? detailLines.length * detailLineH + (subTeams.rows.length ? subTeams.h + 1 : 0) + 3.5 : 0;
 
       // La ligne et son détail ne doivent jamais être séparés par un saut de page.
       if (y + rowH + detailH > BOTTOM) y = drawDerouleHead(newPage('Suite du déroulé'));
@@ -341,26 +409,42 @@ window.generateSessionPDF = async function (sessionId) {
         cell(cx, y, w, rowH, vals[ci], { fs: 8.5, top: ci === 1 || ci === 6, bold: ci === 1 });
         cx += w;
       });
+      if (filmed) {   // procédé filmé : pastille rouge sous son nom
+        const fx = M + cols[0] + 2.5, fy = y + rowH - 3.2;
+        doc.setFillColor(...ACCENT); doc.circle(fx + 0.9, fy - 0.7, 0.9, 'F');
+        doc.setTextColor(...ACCENT); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4);
+        doc.text('FILMÉ', fx + 2.6, fy, { charSpace: 0.2 });
+      }
       y += rowH;
 
-      if (detailLines.length) {
+      if (detailH) {
         fill(M, y, CW, detailH, [249, 250, 252]); box(M, y, CW, detailH);
-        doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(detailFs);
-        doc.text(detailLines, M + 3.5, y + 3, { align: 'left', baseline: 'top' });
+        let dy = y + 3;
+        if (detailLines.length) {
+          doc.setTextColor(...MUT); doc.setFont('helvetica', 'normal'); doc.setFontSize(detailFs);
+          doc.text(detailLines, M + 3.5, dy, { align: 'left', baseline: 'top' });
+          dy += detailLines.length * detailLineH;
+        }
+        if (subTeams.rows.length) drawTeamRows(subTeams, M + 3.5, dy + (detailLines.length ? 1 : 0));
         y += detailH;
       }
     });
   }
 
-  /* Présences : présents regroupés d'abord, absents à part.
-     Éparpiller les deux dans une même grille obligeait à chercher les
-     pastilles vertes une par une. */
+  /* Présences : présents regroupés d'abord, absents et indisponibles à part,
+     chacun avec la couleur de son statut ; motif et invités signalés. */
   const presents = attendance.filter(a => a.present);
   const absents = attendance.filter(a => !a.present);
 
   const perCol = 4, colW = CW / perCol, rowH = 6;
   const listH = (n) => n ? Math.ceil(n / perCol) * rowH + 4 : 10;
-  const nameOf = (a) => `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ` #${a.numero}` : '');
+  const STATUT_RGB = { present: [76, 175, 80], reprise: [38, 166, 154], retard: [255, 152, 0], absent: [190, 190, 196],
+    excuse: [120, 144, 156], blesse: [229, 57, 53], malade: [171, 71, 188], selection: [212, 160, 10] };
+  const nameOf = (a) => {
+    const tags = [a.statut && !['present', 'absent'].includes(a.statut) ? STATUT_LABEL[a.statut]?.toLowerCase() : '',
+      a.invite ? `invité${typeof teamName === 'function' && teamName(a.team_id) ? ' · ' + teamName(a.team_id) : ''}` : ''].filter(Boolean);
+    return `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ` #${a.numero}` : '') + (tags.length ? ` (${tags.join(', ')})` : '');
+  };
 
   /* Bloc de noms en 4 colonnes. `dim` grise les absents. */
   const nameBlock = (yy, list, dim) => {
@@ -375,7 +459,7 @@ window.generateSessionPDF = async function (sessionId) {
     list.forEach((a, i) => {
       const col = i % perCol, row = Math.floor(i / perCol);
       const x = M + col * colW + 3, ty2 = yy + 4 + row * rowH;
-      doc.setFillColor(dim ? 200 : 76, dim ? 200 : 175, dim ? 205 : 80);
+      doc.setFillColor(...(STATUT_RGB[a.statut] || (dim ? [200, 200, 205] : [76, 175, 80])));
       doc.circle(x + 1.5, ty2 - 0.8, 1.4, 'F');
       doc.setTextColor(...(dim ? MUT : DARK)); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
       // Le nom entier tant qu'il tient dans sa colonne, sinon raccourci à sa largeur.
@@ -402,12 +486,13 @@ window.generateSessionPDF = async function (sessionId) {
     if (absents.length) {
       if (y + 3 + 7 + listH(absents.length) > BOTTOM) y = newPage('Suite');
       y += 3;
-      header(M, y, CW, 7, `Absents — ${absents.length}`, 6.5); y += 7;
+      header(M, y, CW, 7, `Absents et indisponibles — ${absents.length}`, 6.5); y += 7;
       y += nameBlock(y, absents, true);
     }
 
-    /* Équipes de travail (chasubles) : une colonne par couleur. */
-    const equipes = sessionTeams(s, attendance);
+    /* Ancienne séance : chasubles de toute la séance, une colonne par couleur.
+       (Sinon, les équipes sont avec chaque procédé.) */
+    const equipes = perProc ? [] : sessionTeams(s.equipes, attendance);
     if (equipes.length) {
       const blockH = drawTeamColumns(doc, { x: M, y: 0, w: CW, teams: equipes, fs: 8.5, dry: true });
       if (y + 3 + 7 + blockH > BOTTOM) y = newPage('Suite');
@@ -433,16 +518,22 @@ window.generateSessionPDF = async function (sessionId) {
     let py = pageHeader(p.nom || 'Procédé', pp ? 'Principe de jeu : ' + pp : null, `${s.titre || 'Séance'} · procédé ${idx + 1} sur ${withSchema.length}`);
 
     py = infoTable(py,
-      ['TYPE', 'SÉQUENCES', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL', 'ESPACE DE JEU', 'EFFECTIF'],
+      ['TYPE', 'SÉQUENCES', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL', 'ESPACE DE JEU', 'EFFECTIF', ...(s.filmee ? ['FILMÉ'] : [])],
       [p.type_procede || '-', sequenceLabel(p),
        fmtMin(workMin(p)) + "'", fmtMin(totalMin(p)) + "'",
-       p.taille_terrain || '-', p.effectif || '-'],
-      [1, 1.4, 1.2, 1.1, 1.5, 1.2]);
+       p.taille_terrain || '-', p.effectif || '-', ...(s.filmee ? [procIsFilmed(p, s) ? 'Oui' : 'Non'] : [])],
+      [1, 1.4, 1.2, 1.1, 1.5, 1.2, ...(s.filmee ? [0.8] : [])]);
 
-    /* Zone principale : schéma (gauche) + rubriques auto-extensibles (droite) */
-    const mainY = py + 4;
-    const mainH = H - mainY - 10;
+    /* Zone principale : schéma (gauche) + rubriques auto-extensibles (droite) ;
+       sous le schéma ses équipes, sous les rubriques son staff. Tout tient sur la page. */
     const leftW = CW * 0.56, gap = 4, rightX = M + leftW + gap, rightW = CW - leftW - gap;
+    const pTeams = teamRowsFor(p, leftW - 5, 7.8);
+    doc.setFontSize(7.8);
+    const pStaff = staffOf(p).length ? doc.splitTextToSize(str(staffOf(p).map(m => `${m.nom.trim()}${(m.role || '').trim() ? ` — ${m.role.trim()}` : ''}`).join('\n')), rightW - 5) : [];
+    const stripBodyH = Math.max(pTeams.h, pStaff.length * 7.8 * 0.3528 * 1.15) + 4;
+    const stripH = pTeams.rows.length || pStaff.length ? 6 + stripBodyH : 0;
+    const mainY = py + 4;
+    const mainH = H - mainY - 10 - (stripH ? stripH + 4 : 0);
 
     const sz = await imgSize(p.canvas_image);
     const ar = sz ? sz.w / sz.h : 1040 / 680;
@@ -452,56 +543,159 @@ window.generateSessionPDF = async function (sessionId) {
     doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.rect(M + (leftW - iw) / 2, mainY, iw, ih);
 
     /* Rubriques : hauteur proportionnelle au contenu réel, puis ajustée
-       pour remplir la page sans jamais déborder. */
-    const bandH = 6, fs = 9, lineH = 4.1;
+       pour remplir la page. Texte long : la police se réduit pour que le
+       procédé tienne sur sa page (jamais de page de suite). */
+    const bandH = 6;
     const secs = [
       { title: 'Objectif', text: p.objectif },
       { title: 'Consignes', text: p.consignes },
       { title: 'Comportements attendus', text: p.comportements_individuels },
     ];
-    doc.setFontSize(fs);
-    secs.forEach(sec => {
-      sec.lines = doc.splitTextToSize(sec.text || '—', rightW - 5);
-      sec.need = Math.max(10, sec.lines.length * lineH + 5);   // hauteur minimale lisible
-    });
     const avail = mainH - secs.length * bandH;
+    let fs = 9, lineH = 4.1;
+    for (const size of [9, 8.5, 8, 7.5, 7, 6.5, 6]) {
+      fs = size; lineH = size * 0.4556;
+      doc.setFontSize(fs);
+      secs.forEach(sec => {
+        sec.lines = doc.splitTextToSize(str(sec.text || '—'), rightW - 5);
+        sec.need = Math.max(10, sec.lines.length * lineH + 5);   // hauteur minimale lisible
+      });
+      if (secs.reduce((sum, sec) => sum + sec.need, 0) <= avail) break;
+    }
     const totalNeed = secs.reduce((sum, sec) => sum + sec.need, 0);
     // Si ça dépasse, on comprime proportionnellement ; sinon on distribue le surplus.
     const ratio = totalNeed > 0 ? avail / totalNeed : 1;
     secs.forEach(sec => sec.h = sec.need * ratio);
 
     let ry = mainY;
-    const rest = [];
     secs.forEach(sec => {
       header(rightX, ry, rightW, bandH, sec.title, 6.2);
       fill(rightX, ry + bandH, rightW, sec.h, LIGHT); box(rightX, ry + bandH, rightW, sec.h);
       doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal'); doc.setFontSize(fs);
-      // Ce qui ne tient pas dans le bloc n'est pas perdu : suite page suivante.
       const maxLines = Math.max(1, Math.floor((sec.h - 3) / lineH));
       const shown = sec.lines.slice(0, maxLines);
-      if (sec.lines.length > maxLines) { shown[shown.length - 1] += ' (suite page suivante)'; rest.push(sec); }
-      doc.text(shown, rightX + 2.5, ry + bandH + 4, { align: 'left', baseline: 'top' });
+      if (sec.lines.length > maxLines) shown[shown.length - 1] = `${shown[shown.length - 1].replace(/\s*\S*$/, '')} …`;
+      doc.text(shown, rightX + 2.5, ry + bandH + 4, { align: 'left', baseline: 'top', lineHeightFactor: lineH / (fs * 0.3528) });
       ry += bandH + sec.h;
     });
-    if (rest.length) {
-      doc.addPage();
-      fill(0, 0, W, H, [255, 255, 255]);
-      let cy = pageHeader(p.nom || 'Procédé', 'Suite du texte', 'Procédé');
-      rest.forEach(sec => {
-        doc.setFontSize(fs);
-        const lines = doc.splitTextToSize(str(sec.text || ''), CW);
-        header(M, cy, CW, 8, sec.title); cy += 9;
-        lines.forEach(line => {
-          if (cy + lineH > H - 12) { doc.addPage(); fill(0, 0, W, H, [255, 255, 255]); cy = pageHeader(p.nom || 'Procédé', 'Suite du texte', 'Procédé'); }
-          doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal'); doc.setFontSize(fs);
-          doc.text(line, M, cy, { baseline: 'top' }); cy += lineH;
-        });
-        cy += 4;
-      });
+
+    // Équipes (sous le schéma) et staff (sous les rubriques), mêmes bandeaux que les rubriques.
+    if (stripH) {
+      const sy = mainY + mainH + 4;
+      header(M, sy, leftW, bandH, 'Équipes', 6.2);
+      fill(M, sy + bandH, leftW, stripBodyH, LIGHT); box(M, sy + bandH, leftW, stripBodyH);
+      if (pTeams.rows.length) drawTeamRows(pTeams, M + 2.5, sy + bandH + 2.2);
+      else { doc.setTextColor(...MUT); doc.setFont('helvetica', 'italic'); doc.setFontSize(7.8); doc.text('—', M + 2.5, sy + bandH + 2.2, { baseline: 'top' }); }
+      header(rightX, sy, rightW, bandH, 'Staff', 6.2);
+      fill(rightX, sy + bandH, rightW, stripBodyH, LIGHT); box(rightX, sy + bandH, rightW, stripBodyH);
+      doc.setTextColor(...DARK); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.8);
+      doc.text(pStaff.length ? pStaff : ['—'], rightX + 2.5, sy + bandH + 2.2, { baseline: 'top' });
     }
+  }
+
+  /* Fin du document : bilan individuel et commentaire général (même en-tête). */
+  if (bilans.length || (s.notes || '').trim()) {
+    doc.addPage();
+    fill(0, 0, W, H, [255, 255, 255]);
+    const by = pageHeader(s.titre || 'Séance', 'Bilan de la séance', 'Bilan');
+    doc.setLineHeightFactor(1.35);
+    const font = (size, style = 'normal', color = DARK) => { doc.setFont('helvetica', style); doc.setFontSize(size); doc.setTextColor(...color); };
+    const lines = (text, width, size) => { doc.setFontSize(size); return doc.splitTextToSize(str(text), width); };
+    const contPage = () => { doc.addPage(); fill(0, 0, W, H, [255, 255, 255]); return pageHeader(s.titre || 'Séance', 'Bilan de la séance (suite)', 'Bilan'); };
+    drawBilan(doc, { s, attendance, bilans, y: by, M, CW, BOTTOM: H - 12, contPage, font, lines, LH: (size) => size * 0.3528 * 1.35, fill, str });
   }
 
   numberPages(doc, W, H, M);
   doc.save(`seance-${(s.titre || 'lmfc-performance').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-')}.pdf`);
   toast('PDF généré', 'success');
 };
+
+/* ============================================================
+   RÉCAPITULATIF DES JOUEURS puis COMMENTAIRE GÉNÉRAL
+   Lecture rapide : barre + / = / − en tête, puis une ligne par
+   joueur (signe coloré, nom, commentaire), les positifs d'abord.
+   Noms et commentaires vont à la ligne au lieu de se chevaucher ;
+   un long commentaire continue sur la page suivante.
+   ============================================================ */
+function drawBilan(doc, ctx) {
+  const { s, attendance, bilans, M, CW, BOTTOM, font, lines, LH, fill, str } = ctx;
+  let y = ctx.y;
+  const ensure = (h) => { if (y + h > BOTTOM) y = ctx.contPage(); };
+  const section = (title, keep) => { ensure(9 + keep); font(10.5, 'bold', INK); doc.text(str(title), M, y + 5); y += 8; };
+  const notes = (s.notes || '').trim();
+  const COLORS = { plus: [76, 175, 80], egal: [158, 158, 158], moins: [229, 57, 53] };
+  const nameOf = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim();
+
+  if (bilans.length) {
+    section('Récapitulatif des joueurs', 22);
+    const order = { plus: 0, egal: 1, moins: 2 };
+    const rows = [...bilans].sort((a, b) => (order[a.note] ?? 3) - (order[b.note] ?? 3) || nameOf(a.player).localeCompare(nameOf(b.player), 'fr'));
+    const count = (k) => bilans.filter(b => b.note === k).length;
+    const noted = new Set(bilans.filter(b => b.note).map(b => b.player_id));
+    const missing = attendance.filter(a => a.present && !noted.has(a.id));
+    // Barre fine de lecture rapide (une part par note), légende dessous.
+    const segs = [['plus', count('plus')], ['egal', count('egal')], ['moins', count('moins')], ['none', missing.length]].filter(([, n]) => n);
+    const tot = segs.reduce((a, [, n]) => a + n, 0) || 1;
+    let bx = M;
+    segs.forEach(([k, n]) => { const w = CW * n / tot; fill(bx, y, w, 2.6, COLORS[k] || [226, 229, 234]); bx += w; });
+    y += 6;
+    const LEG = { plus: 'positif', egal: 'normal', moins: 'en difficulté', none: 'non noté' };
+    let lx = M;
+    segs.forEach(([k, n]) => {
+      doc.setFillColor(...(COLORS[k] || [200, 204, 210])); doc.circle(lx + 1.1, y - 0.9, 1.1, 'F');
+      const t = str(`${n} ${LEG[k]}${n > 1 && k !== 'moins' ? 's' : ''}`);
+      font(8, 'normal', DARK); doc.text(t, lx + 3.2, y);
+      lx += doc.getTextWidth(t) + 9;
+    });
+    y += 4;
+    // Une ligne par joueur : signe | nom (à la ligne s'il est long) | commentaire (à la ligne, puis page suivante).
+    const signW = 9, nameW = 64, comX = M + signW + nameW + 3, comW = CW - signW - nameW - 5;
+    rows.forEach(b => {
+      const nl = lines(nameOf(b.player), nameW - 4, 9);
+      let rest = (b.commentaire || '').trim() ? lines(b.commentaire.trim(), comW, 8.6) : [];
+      let first = true;
+      do {
+        const need = first ? Math.max(nl.length * LH(9), Math.min(rest.length, 2) * LH(8.6)) + 3 : LH(8.6) + 3;
+        ensure(need);
+        const part = rest.slice(0, Math.max(1, Math.floor((BOTTOM - y - 3) / LH(8.6))));
+        rest = rest.slice(part.length);
+        const h = Math.max(first ? nl.length * LH(9) : 0, part.length * LH(8.6)) + 3;
+        doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M, y + h, M + CW, y + h);
+        if (first) {
+          // Pastille de la note : signe blanc sur sa couleur.
+          doc.setFillColor(...(COLORS[b.note] || [200, 204, 210])); doc.circle(M + 3, y + 3.6, 2.5, 'F');
+          font(8.6, 'bold', [255, 255, 255]);
+          doc.text(str(b.note ? BILAN_NOTES.find(x => x.key === b.note).sign : '·'), M + 3, y + 3.75, { align: 'center', baseline: 'middle' });
+          font(9, 'bold', INK); doc.text(nl, M + signW + 3, y + 4.4);
+        }
+        if (part.length) { font(8.6, 'normal', DARK); doc.text(part, comX, y + 4.4); }
+        y += h;
+        first = false;
+      } while (rest.length);
+    });
+    if (missing.length) {
+      const ml = lines('Non notés : ' + missing.map(nameOf).join(', '), CW, 8);
+      ensure(ml.length * LH(8) + 3);
+      font(8, 'italic', MUT); doc.text(ml, M, y + 3.5);
+      y += ml.length * LH(8) + 3;
+    }
+    y += 5;
+  }
+
+  if (notes) {
+    section('Commentaire général', 12);
+    const nl = lines(notes, CW - 8, 9.2);   // les retours à la ligne saisis sont gardés
+    let i = 0;
+    while (i < nl.length) {
+      ensure(LH(9.2) + 5);
+      const part = nl.slice(i, i + Math.max(1, Math.floor((BOTTOM - y - 5) / LH(9.2))));
+      const h = part.length * LH(9.2) + 4.5;
+      fill(M, y, CW, h, [249, 250, 252]);
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.rect(M, y, CW, h);
+      font(9.2, 'normal', DARK); doc.text(part, M + 4, y + 5.1);
+      i += part.length; y += h;
+    }
+    y += 4;
+  }
+  return y;
+}

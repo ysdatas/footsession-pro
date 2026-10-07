@@ -79,6 +79,12 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            (players.hidden_sections, RPC set_player_hidden_sections) (rejouable)
 27. supabase/lmfc_v8.sql                   ce que voit le joueur en détail : hidden_sections accepte aussi un
                                            test ('test:sprint10_sec') ou une mesure ('mesure:weight_kg') (rejouable)
+28. supabase/lmfc_v9.sql                   séance enrichie : attendance.statut (present suit le statut) et
+                                           attendance.invite, procedures.equipes / staff / filme,
+                                           sessions.filmee, table session_bilans (staff seulement, corbeille),
+                                           trash_restore générique (toute table équipée du déclencheur),
+                                           lien de partage sans commentaire général ni motif d'absence,
+                                           commentaires de la cellule recopiés dans sessions.notes (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -269,7 +275,29 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Séances** — liste, recherche (titre, équipe, principe de jeu, date), export PDF, suppression.
 - **Créer / Modifier une séance** — titre + **principe de jeu** (une fois pour la séance,
   `sessions.principes_jeu` ; les procédés en héritent, un ancien procédé garde le sien :
-  `sessionPrinciple` / `procPrinciple` de `procedure-time.js`), procédés, présence, chasubles.
+  `sessionPrinciple` / `procPrinciple` de `procedure-time.js`), procédés. Dans l'ordre de la page
+  (`lmfc_v9.sql`) :
+  - **Présences & statuts** (`session-roster.js`) : Présent, Reprise, Retard, Absent, Excusé,
+    Blessé, Malade, Sélection (`attendance.statut` ; `present` suit le statut, Analytics inchangé) ;
+    « Tous présents » ; **invité** : recherche dans tout l'effectif du club, ajouté pour cette
+    séance seulement (`attendance.invite`, son équipe ne change pas), retiré d'un clic ;
+  - **Chaque procédé** porte, dans sa carte (`session-proc-teams.js`), ses **équipes** (couleur,
+    nom, joueurs cliqués depuis les présents : présent, reprise, retard, invités ;
+    `procedures.equipes`) et son **staff** (nom — comptes du club proposés, saisie libre — et rôle :
+    Animation, Consignes, Gestion vidéo… ; `procedures.staff`), « Reprendre de… » un autre
+    procédé ; pastilles de couleur, nombre de staff et 🎥 sur l'en-tête replié. Ancienne séance :
+    ses chasubles (`sessions.equipes`) sont reprises sur chaque procédé à l'ouverture et y sont
+    rangées à la sauvegarde ;
+  - **Séance filmée** (Oui / Non, `sessions.filmee`) après les procédés : chaque procédé l'est
+    par défaut (case « Procédé filmé » dans sa carte, `procedures.filme = false` pour l'exclure),
+    alerte si un procédé filmé n'a personne en « Gestion vidéo », résumé de qui filme quoi ;
+  - **Bilan individuel** : + / = / − et commentaire court (140 caractères) par joueur
+    (`session_bilans`, lu par le staff seulement), barre de lecture rapide, filtres ;
+  - **Commentaire général** (`sessions.notes`) : le seul commentaire de la séance. Les anciens
+    « commentaires de la cellule » (`session_comments`) y sont recopiés par `lmfc_v9.sql`, avec
+    leur auteur ; le bloc de la cellule a disparu de la page.
+  Statuts, notes et équipes d'un procédé : `procedure-time.js` (`statutOf`, `participe`,
+  `procTeamsOf`, `procIsFilmed`), partagés par l'éditeur, les PDF et la page de partage.
   Le schéma d'un procédé se dessine **avant** d'enregistrer : `tactical-board.html?draft=…`
   le garde dans le navigateur (`tb_draft_*`) et son image dans `schemas/{club}/drafts/` ; la
   sauvegarde de la séance le rattache au procédé (`commitDraftSchemas`). Le tableau prévient la
@@ -277,8 +305,16 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   saisi n'est perdu ; quitter une séance non enregistrée demande confirmation. Un nouvel essai
   après une erreur met à jour la séance déjà créée au lieu d'en créer une seconde.
 - **PDF** (`pdf-generator.js`, `pdf-coach.js`) — principe de jeu de la séance en tête, objectif
-  de chaque procédé, équipes (chasubles) en colonnes compactes, blason LMFC par défaut. Un texte
-  trop long pour son bloc continue sur une page de suite au lieu d'être coupé.
+  de chaque procédé, blason LMFC par défaut. Un texte trop long pour son bloc continue sur une
+  page de suite au lieu d'être coupé. Le PDF complet garde sa base (page 1 : infos, déroulé,
+  présences ; puis une page par procédé avec schéma) et y ajoute : colonne et bandeau « séance
+  filmée » (qui gère la vidéo), « FILMÉ » sous le nom du procédé, présences avec la couleur et le
+  motif du statut, invités signalés ; sur la page d'un procédé, sous le schéma ses **ÉQUIPES**
+  (pastille de couleur, NOM, joueurs séparés par « • ») et sous les rubriques son **STAFF** ; un
+  procédé sans schéma les a dans sa sous-ligne du déroulé. Un procédé tient toujours sur sa page
+  (la police des rubriques se réduit au besoin). En fin de document : **récapitulatif des joueurs**
+  (barre + / = / −, une pastille par joueur, noms et commentaires à la ligne) et **commentaire
+  général**. La fiche coach reprend les équipes (couleur et joueurs) et le staff dans chaque quart.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne
@@ -299,8 +335,11 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     `lmfc_v8.sql`) ;
   - **Vidéos** (admin, coach) : les vidéos du joueur (`player-videos.js`, comme dans Vidéos joueurs).
   **Générer le PDF** : cases à cocher par rubrique (identité, mesures, tests, radar, points avec
-  description, titre de la vidéo et exercices, préventions avec le nom de leurs PDF, tous les
-  exercices, images). `player.html` renvoie ici (anciens liens). Côté joueur, la même page est « Ma
+  description, titre de la vidéo et exercices, préventions, tous les exercices, images des points).
+  Les PDF joints sont reproduits page par page juste après leur point (`pdf-kit.js` →
+  `pdfPages`, pdf-lib 1.17.1 avec intégrité vérifiée : pages vectorielles, en-tête et numéro
+  de page du dossier). Chaque exercice est un bloc à part (« Exercice 1 — titre », séance,
+  dosage, consignes, puis image et schéma côte à côte), images comprises sans case à cocher. `player.html` renvoie ici (anciens liens). Côté joueur, la même page est « Ma
   performance », sans onglets ni parcours. Pas de présences dans la rubrique Joueurs (elles restent dans
   chaque séance et dans le Bilan).
 - **Programme terrain** (onglet Fiche) — chaque **point fort** ou **axe d'amélioration** : sa

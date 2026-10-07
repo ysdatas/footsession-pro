@@ -27,7 +27,7 @@ const typeLabel = (row) => (row.tbl === 'player_performance_notes' ? NOTE_KIND_L
 const CHILD_WORDS = {
   procedures: ['exercice', 'exercices'], tactical_schemas: ['schéma', 'schémas'], attendance: ['présence', 'présences'],
   session_comments: ['commentaire', 'commentaires'], video_sequences: ['séquence', 'séquences'], video_views: ['visionnage', 'visionnages'],
-  player_video_selections: ['sélection', 'sélections'], player_performance_media: ['image', 'images'],
+  player_video_selections: ['sélection', 'sélections'], player_performance_media: ['image', 'images'], session_bilans: ['bilan', 'bilans'],
   player_videos: ['vidéo', 'vidéos'], player_performance_notes: ['objectif ou prévention', 'objectifs et préventions'],
   player_physical_measurements: ['mesure', 'mesures'], player_physical_tests: ['session de tests', 'sessions de tests'],
   program_exercises: ['exercice du programme', 'exercices du programme'], player_career: ['club du parcours', 'clubs du parcours'],

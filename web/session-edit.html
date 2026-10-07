@@ -59,6 +59,26 @@
       <div class="editor-meta" id="editorMeta">0 procédé · 0 min au total</div>
     </div>
 
+    <div class="card attendance open" style="margin-top:18px;">
+      <button class="attendance-head" id="attendanceToggle" type="button">
+        <span>Présences &amp; statuts <span class="badge" id="presentCount">0 présent</span></span>
+        <span class="chevron">▾</span>
+      </button>
+      <div id="attendanceBody" class="attendance-body">
+        <div class="roster-tools" id="rosterTools">
+          <button class="btn btn-sm" id="btnAllPresent" type="button">Tous présents</button>
+          <div class="guest-search">
+            <input id="guestSearch" type="search" placeholder="Ajouter un joueur du club (autre équipe)…" autocomplete="off" aria-label="Rechercher un joueur du club à inviter">
+            <div id="guestResults" class="guest-results"></div>
+          </div>
+        </div>
+        <div id="attendanceList" class="attendance-grid"></div>
+      </div>
+    </div>
+
+    <datalist id="staffNames"></datalist>
+    <datalist id="staffRoles"></datalist>
+
     <div class="editor-section">
       <div class="flex-between" style="margin:22px 0 12px;">
         <h2 style="margin:0;">Procédés (<span id="procCount">0</span>)</h2>
@@ -72,45 +92,43 @@
       <button class="btn add-proc-wide" id="btnAddProc2" type="button">+ Ajouter un procédé</button>
     </div>
 
-    <div class="card attendance" style="margin-top:18px;">
-      <button class="attendance-head" id="attendanceToggle" type="button">
-        <span>Présence des joueurs <span class="badge" id="presentCount">0 marqué</span></span>
+    <div class="card filmee-card" style="margin-top:18px;">
+      <label class="filmee-switch" for="f-filmee">
+        <input id="f-filmee" type="checkbox" role="switch">
+        <span class="filmee-track" aria-hidden="true"></span>
+        <span>Séance filmée : <strong id="filmeeState">Non</strong></span>
+      </label>
+      <p class="video-summary" id="videoSummary"></p>
+    </div>
+
+    <div class="card attendance open" style="margin-top:18px;">
+      <button class="attendance-head" id="bilanToggle" type="button">
+        <span>Bilan individuel <span class="badge" id="bilanCount"></span></span>
+        <span class="bilan-bar" id="bilanBar" aria-hidden="true"></span>
         <span class="chevron">▾</span>
       </button>
-      <div id="attendanceBody" class="attendance-body">
-        <div id="attendanceList" class="attendance-grid"></div>
+      <div id="bilanBody" class="attendance-body">
+        <div class="bilan-filters" role="group" aria-label="Filtrer le bilan">
+          <button class="chip" type="button" data-bilan-filter="all">Tous</button>
+          <button class="chip" type="button" data-bilan-filter="plus">+</button>
+          <button class="chip" type="button" data-bilan-filter="egal">=</button>
+          <button class="chip" type="button" data-bilan-filter="moins">−</button>
+          <button class="chip" type="button" data-bilan-filter="none">Non notés</button>
+        </div>
+        <div id="bilanList" class="bilan-list"></div>
       </div>
     </div>
 
-    <div class="card attendance" style="margin-top:18px;">
-      <button class="attendance-head" id="teamsToggle" type="button">
-        <span>Équipes de travail <span class="badge" id="teamsCount">0 équipe</span></span>
-        <span class="chevron">▾</span>
-      </button>
-      <div id="teamsBody" class="attendance-body">
-        <p class="text-muted" style="font-size:var(--fs-md);margin-bottom:10px;">
-          Répartissez les joueurs présents par chasuble. Cliquez sur un joueur pour le faire passer d'une équipe à l'autre.
-        </p>
-        <div id="teamsList"></div>
-        <button class="btn btn-sm" id="btnAddTeam" type="button" style="margin-top:10px;">+ Ajouter une équipe</button>
-      </div>
+    <div class="card" style="margin-top:18px;">
+      <h3 id="notesTitle">Commentaire général de la séance</h3>
+      <textarea id="f-notes" rows="3" aria-labelledby="notesTitle" placeholder="Niveau général, points à retenir pour la suite…"></textarea>
     </div>
 
-    <div class="dash-grid" style="margin-top:18px;">
-      <div class="card">
-        <h3>Commentaires de la cellule</h3>
-        <div id="commentList" class="comment-list"><p class="text-muted">Chargement…</p></div>
-        <div class="field" style="margin-top:10px;">
-          <textarea id="commentInput" placeholder="Ajouter une note (coach, staff…)" rows="2"></textarea>
-        </div>
-        <button class="btn btn-primary btn-sm" id="commentSend" type="button">Publier</button>
-      </div>
-      <div class="card">
-        <h3>Partage lecture seule</h3>
-        <p class="text-muted" style="font-size:var(--fs-md);">Générez un lien consultable sans compte (staff, joueurs).</p>
-        <div id="shareArea">
-          <button class="btn btn-primary" id="shareToggle" type="button">Générer un lien</button>
-        </div>
+    <div class="card" style="margin-top:18px;">
+      <h3>Partage lecture seule</h3>
+      <p class="text-muted" style="font-size:var(--fs-md);">Générez un lien consultable sans compte (staff, joueurs).</p>
+      <div id="shareArea">
+        <button class="btn btn-primary" id="shareToggle" type="button">Générer un lien</button>
       </div>
     </div>
   </main>
@@ -137,6 +155,8 @@
   <script src="assets/js/pdf-generator.js"></script>
   <script src="assets/js/pdf-coach.js"></script>
   <script src="assets/js/lightbox.js"></script>
+  <script src="assets/js/session-roster.js"></script>
+  <script src="assets/js/session-proc-teams.js"></script>
   <script src="assets/js/session-edit-page.js"></script>
 </body>
 </html>

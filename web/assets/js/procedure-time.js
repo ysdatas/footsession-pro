@@ -141,3 +141,42 @@ Object.assign(window, {
   mondayOf, weekNumber, weekRangeLabel,
   sessionPrinciple, procPrinciple,
 });
+
+/* ============================================================
+   Séance (lmfc_v9.sql) : statut de chaque joueur, équipes et staff
+   de chaque procédé, bilan individuel. Partagé par l'éditeur, les
+   deux PDF et la page de partage.
+   ============================================================ */
+const STATUTS = [
+  { key: 'present',   label: 'Présent' },
+  { key: 'reprise',   label: 'Reprise' },
+  { key: 'retard',    label: 'Retard' },
+  { key: 'absent',    label: 'Absent' },
+  { key: 'excuse',    label: 'Excusé' },
+  { key: 'blesse',    label: 'Blessé' },
+  { key: 'malade',    label: 'Malade' },
+  { key: 'selection', label: 'Sélection' },
+];
+const STATUT_LABEL = Object.fromEntries(STATUTS.map(s => [s.key, s.label]));
+/* Ceux qui participent : ils vont dans les équipes et le bilan. */
+const PARTICIPE = new Set(['present', 'reprise', 'retard']);
+const participe = (a) => PARTICIPE.has(a.statut);
+/* Ancienne présence (sans statut) : présent ou absent. */
+const statutOf = (row) => row?.statut || (row?.present ? 'present' : 'absent');
+
+const BILAN_NOTES = [
+  { key: 'plus',  sign: '+', label: 'Positif' },
+  { key: 'egal',  sign: '=', label: 'Normal' },
+  { key: 'moins', sign: '−', label: 'En difficulté' },
+];
+
+const isVideoRole = (role) => /vid[ée]o/i.test(role || '');
+/* Équipes d'un procédé : les siennes. Ancienne séance (aucun procédé
+   n'en a) : les chasubles déclarées pour toute la séance. */
+function procTeamsOf(p, s, procedures) {
+  const perProc = (procedures || []).some(x => Array.isArray(x.equipes) && x.equipes.length);
+  return perProc ? (Array.isArray(p.equipes) ? p.equipes : []) : (Array.isArray(s?.equipes) ? s.equipes : []);
+}
+/* Procédé filmé : la séance l'est, et ce procédé n'en est pas exclu. */
+const procIsFilmed = (p, s) => !!s?.filmee && p.filme !== false;
+

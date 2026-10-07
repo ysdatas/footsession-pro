@@ -2322,14 +2322,19 @@ async function saveExerciseSchema(validate) {
     const { error: upErr } = await sb.storage.from('player-performance-media')
       .upload(path, blob, { upsert: true, contentType: 'image/png' });
     if (upErr) throw upErr;
-    const { error } = await sb.from('program_exercises')
-      .update({ schema_json: serialize(), schema_path: path }).eq('id', EXO);
+    // .select() : une mise à jour refusée par la RLS ne renvoie pas d'erreur, juste 0 ligne.
+    const { data: saved, error } = await sb.from('program_exercises')
+      .update({ schema_json: serialize(), schema_path: path }).eq('id', EXO).select('id');
     if (error) throw error;
+    if (!saved?.length) throw new Error('Schéma non enregistré : cet exercice n’est pas modifiable avec ce compte.');
     persistLocal();
+    // La fiche ouverte dans l'autre onglet affiche le schéma sans se recharger (saisie gardée).
+    try { localStorage.setItem('tb_exo_saved', JSON.stringify({ id: EXO, at: Date.now() })); }
+    catch (e) { console.warn('Signal à la fiche impossible', e); }
     if (validate) {
       toast('Schéma enregistré sur l’exercice.', 'success');
-      if (window.opener && !window.opener.closed) { try { window.opener.location.reload(); } catch (e) {} }
-      setTimeout(() => window.close(), 1100);
+      // Onglet ouvert par la fiche : il se ferme. Sinon (même onglet), retour à la fiche.
+      setTimeout(() => { window.close(); if (!window.closed) location.href = `player-performance.html?id=${EXO_ROW.player_id}`; }, 1100);
     } else toast('Schéma enregistré', 'success');
   } catch (e) { console.error('Schéma d’exercice non enregistré', e); toast(e.message, 'error'); }
   finally { if (btn) btn.disabled = false; }

@@ -17,7 +17,7 @@
 
    const kit = await openPdf({ orientation, accent, runTitle, runRight });
    kit.cover({...}) · kit.section(t) · kit.text(t) · kit.table({...})
-   kit.kpis([...]) · kit.radar({...}) · kit.images([...]) · kit.save(nom)
+   kit.kpis([...]) · kit.radar({...}) · kit.images([...]) · kit.pdfPages(url, nom) · kit.save(nom)
    ============================================================ */
 
 const PDF_INK = [20, 22, 27], PDF_TEXT = [44, 49, 57], PDF_MUTE = [108, 115, 126], PDF_SOFT = [158, 164, 173];
@@ -34,6 +34,21 @@ async function loadJsPdf() {
     document.head.append(s);
   }));
   return window.jspdf.jsPDF;
+}
+
+/* pdf-lib (versionné, intégrité vérifiée) : reproduit un PDF joint dans le document. */
+async function loadPdfLib() {
+  if (window.PDFLib?.PDFDocument) return window.PDFLib;
+  await (loadPdfLib.p ||= new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+    s.integrity = 'sha512-z8IYLHO8bTgFqj+yrPyIJnzBDf7DDhWwiEsk4sY+Oe6J2M+WQequeGS7qioI5vT6rXgVRb4K1UVQC5ER7MKzKQ==';
+    s.crossOrigin = 'anonymous';
+    s.onload = resolve;
+    s.onerror = () => { loadPdfLib.p = null; reject(new Error('Lecture des PDF joints indisponible (connexion ?)')); };
+    document.head.append(s);
+  }));
+  return window.PDFLib;
 }
 
 /* Image distante (Storage, page) → data URL pour jsPDF ; null si illisible. */
@@ -103,6 +118,7 @@ async function openPdf({ orientation = 'p', accent = null, runTitle = '', runRig
   const ACC = pdfAccent(accent);
   const crest = await pdfCrest();
   let sectionNo = 0;
+  const attached = [];   // pages de PDF joints : { page, src, index, label }
 
   const k = {
     doc, W, H, M, CW, ACC, y: M, bottom: BOTTOM,
@@ -305,15 +321,51 @@ async function openPdf({ orientation = 'p', accent = null, runTitle = '', runRig
       return k.y;
     },
 
-    /* Numéros de page, puis téléchargement. */
-    save(fileName) {
+    /* PDF joint : une page du document par page du joint, avec l'en-tête et
+       le numéro de page ; son contenu y est posé au moment de save()
+       (vectoriel, texte net). Renvoie le nombre de pages, 0 si illisible. */
+    async pdfPages(url, label) {
+      try {
+        const { PDFDocument } = await loadPdfLib();
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const src = await PDFDocument.load(await r.arrayBuffer(), { ignoreEncryption: true });
+        const n = src.getPageCount();
+        for (let i = 0; i < n; i++) {
+          k.newPage();
+          k.font(7.8, 'bold', PDF_MUTE);
+          k.write(n > 1 ? `${label} · ${i + 1}/${n}` : label, M, TOP);
+          attached.push({ page: doc.getNumberOfPages(), src, index: i });
+        }
+        k.y = BOTTOM + 1;   // page pleine : la suite commence sur une nouvelle page
+        return n;
+      } catch (e) { console.warn('PDF joint illisible pour l’export', label, e); return 0; }
+    },
+
+    /* Numéros de page, PDF joints posés à leur place, puis téléchargement. */
+    async save(fileName) {
       const n = doc.getNumberOfPages();
       for (let i = 1; i <= n; i++) {
         doc.setPage(i);
         k.font(7.4, 'normal', PDF_SOFT);
         k.write(`${i} / ${n}`, W - M, H - 9.4, { align: 'right' });
       }
-      doc.save(fileName);
+      if (!attached.length) return doc.save(fileName);
+      const { PDFDocument } = await loadPdfLib();
+      const out = await PDFDocument.load(doc.output('arraybuffer'));
+      const pt = 72 / 25.4, top = TOP + 6;
+      for (const a of attached) {
+        const [emb] = await out.embedPdf(a.src, [a.index]);
+        const page = out.getPage(a.page - 1);
+        const s = Math.min((CW * pt) / emb.width, ((BOTTOM - top) * pt) / emb.height);
+        const w = emb.width * s, h = emb.height * s;
+        page.drawPage(emb, { x: (page.getWidth() - w) / 2, y: page.getHeight() - top * pt - h, width: w, height: h });
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([await out.save()], { type: 'application/pdf' }));
+      a.download = fileName;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
     },
   };
   return k;

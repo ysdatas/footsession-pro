@@ -13,6 +13,9 @@ try { ({ PGlite } = await import('@electric-sql/pglite')); } catch {
 }
 const SQL = readFileSync(new URL('../supabase/lmfc_v5.sql', import.meta.url), 'utf8');
 const SQL_V6 = readFileSync(new URL('../supabase/lmfc_v6.sql', import.meta.url), 'utf8');
+// lmfc_v9 remplace trash_restore (toute table équipée du déclencheur est restaurable) :
+// toute la suite tourne avec cette version.
+const SQL_V9 = readFileSync(new URL('../supabase/lmfc_v9.sql', import.meta.url), 'utf8');
 
 const db = new PGlite();
 const q = (s, p) => db.query(s, p);
@@ -25,7 +28,7 @@ create table auth.users (id uuid primary key);
 create table public.sim (uid uuid, role text);
 insert into public.sim values ('00000000-0000-0000-0000-000000000001', 'admin');
 create function auth.uid() returns uuid language sql stable as $$ select uid from public.sim $$;
-create table public.clubs (id bigint generated always as identity primary key, nom text);
+create table public.clubs (id bigint generated always as identity primary key, nom text, logo_path text, color text);
 create table public.profiles (id uuid primary key, club_id bigint references public.clubs on delete set null, role text);
 create function public.my_club_id() returns bigint language sql stable as $$ select club_id from public.profiles where id = auth.uid() $$;
 create function public.has_role(variadic r text[]) returns boolean language sql stable as $$ select (select role from public.sim) = any(r) $$;
@@ -33,18 +36,19 @@ create function public.can_edit() returns boolean language sql stable as $$ sele
 create function public.is_club_admin() returns boolean language sql stable as $$ select public.has_role('admin') $$;
 create function public.can_manage_videos() returns boolean language sql stable as $$ select public.has_role('admin','coach') $$;
 create function public.can_manage_plans() returns boolean language sql stable as $$ select public.has_role('admin','coach','prepa') $$;
+create function public.is_staff() returns boolean language sql stable as $$ select not public.has_role('joueur') $$;
 insert into auth.users values ('00000000-0000-0000-0000-000000000001');
 insert into public.clubs (nom) values ('LMFC'), ('Autre');
 insert into public.profiles values ('00000000-0000-0000-0000-000000000001', 1, 'admin');
 
 create table public.teams (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, nom text not null, unique (club_id, nom));
-create table public.players (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, nom text, team_id bigint references public.teams on delete set null);
-create table public.sessions (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, titre text not null, date_seance date not null default now(), team_id bigint references public.teams on delete set null);
-create table public.procedures (id bigint generated always as identity primary key, session_id bigint not null references public.sessions on delete cascade, nom text not null default 'Procédé');
+create table public.players (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, nom text, prenom text, numero int, team_id bigint references public.teams on delete set null);
+create table public.sessions (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, titre text not null, date_seance date not null default now(), team_id bigint references public.teams on delete set null, share_token text, notes text);
+create table public.procedures (id bigint generated always as identity primary key, session_id bigint not null references public.sessions on delete cascade, ordre int default 1, nom text not null default 'Procédé');
 create table public.player_videos (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, titre text, storage_path text not null);
 create table public.tactical_schemas (id bigint generated always as identity primary key, procedure_id bigint not null unique references public.procedures on delete cascade, image_path text, video_id bigint references public.player_videos on delete set null);
 create table public.attendance (id bigint generated always as identity primary key, player_id bigint not null references public.players on delete cascade, session_id bigint not null references public.sessions on delete cascade, present boolean, unique (player_id, session_id));
-create table public.session_comments (id bigint generated always as identity primary key, session_id bigint not null references public.sessions on delete cascade, body text);
+create table public.session_comments (id bigint generated always as identity primary key, session_id bigint not null references public.sessions on delete cascade, author text, body text, created_at timestamptz default now());
 create table public.exercise_templates (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, nom text not null);
 create table public.player_career (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, club_name text not null);
 create table public.video_sequences (id bigint generated always as identity primary key, club_id bigint not null references public.clubs on delete cascade, player_id bigint not null references public.players on delete cascade, video_id bigint not null references public.player_videos on delete cascade, label text, drawings jsonb not null default '[]');
@@ -60,6 +64,7 @@ create table public.program_exercises (id bigint generated always as identity pr
 `);
 await db.exec(SQL);
 await db.exec(SQL);   // rejouable
+await db.exec(SQL_V9);
 
 await db.exec(`
 insert into public.teams (club_id, nom) values (1, 'N2');

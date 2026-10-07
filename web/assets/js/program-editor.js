@@ -191,7 +191,20 @@ async function saveExercise({ keepOpen = false } = {}) {
 }
 
 /* Le schéma se dessine dans le tableau tactique, dans un nouvel onglet ;
-   « Valider » y enregistre le schéma sur l'exercice et recharge la fiche. */
+   « Valider » y enregistre le schéma sur l'exercice et le signale ici
+   (localStorage) : liste et fenêtre ouverte se mettent à jour. */
+window.addEventListener('storage', async (ev) => {
+  if (ev.key !== 'tb_exo_saved' || !prog.player) return;
+  const id = Number(JSON.parse(ev.newValue || '{}').id);
+  if (!prog.exercises?.some(x => x.id === id)) return;
+  await reloadProgram();
+  if (prog.editing?.id === id) {
+    prog.editing = prog.exercises.find(x => x.id === id) || prog.editing;
+    prog.removeSchema = false;
+    renderEditPreviews();
+  }
+  toast('Schéma ajouté à l’exercice.', 'success');
+});
 async function drawSchema() {
   const id = await saveExercise({ keepOpen: true });
   if (!id) return;

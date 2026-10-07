@@ -1,6 +1,8 @@
 /* ============================================================
    LMFC Performance — session-edit-page.js (Chemin B / Supabase)
    Création / édition d'une séance : procédés dynamiques, présences.
+   Statuts, invités et bilan : session-roster.js ; équipes, staff et
+   vidéo par procédé : session-proc-teams.js (lmfc_v9.sql).
    ============================================================ */
 
 const SESSION_ID = new URLSearchParams(location.search).get('id') ? Number(new URLSearchParams(location.search).get('id')) : null;
@@ -17,21 +19,12 @@ let CAN_WRITE = false;
 let procedures = [];   // {_uid, id?, nom, duree_min, objectif, effectif, taille_terrain,
                         //  consignes, principes_jeu, comportements_individuels, temps_recup_min,
                         //  canvas_image?, expanded}
-let attendance = [];   // {player_id, nom, prenom, numero, poste, present}
-let teams = [];        // [{nom, couleur, player_ids:[]}] — chasubles de la séance
-let activeTeam = 0;    // équipe qui reçoit les joueurs cliqués dans le vivier
+let attendance = [];   // {player_id, nom, prenom, numero, poste, team_id, statut, invite}
+let bilans = new Map(); // player_id → {note: 'plus'|'egal'|'moins'|null, commentaire}
 let uidSeq = 1;
 const nextUid = () => 'p' + (uidSeq++);
 let sessionTeamId = null; // équipe du club concernée (table teams), null = sans équipe
 const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
-
-/* Couleurs proposées dans l'ordre pour les nouvelles équipes. */
-const TEAM_PRESETS = [
-  { nom: 'Bleus', couleur: '#1f6feb' },
-  { nom: 'Rouges', couleur: '#E03131' },
-  { nom: 'Jaunes', couleur: '#F2B21E' },
-  { nom: 'Verts', couleur: '#2FA84F' },
-];
 
 (async () => {
   const ctx = await requireAuth();
@@ -61,11 +54,12 @@ const TEAM_PRESETS = [
   document.getElementById('btnSaveHere')?.addEventListener('click', save);
   if (!CAN_WRITE) document.getElementById('btnSaveHere')?.classList.add('hidden');
 
-  // Deux blocs dépliables (présences, équipes) : on cible celui du bouton cliqué.
-  document.querySelectorAll('#attendanceToggle, #teamsToggle').forEach(btn =>
+  // Blocs dépliables (présences, équipes, staff, bilan) : on cible celui du bouton cliqué.
+  document.querySelectorAll('.attendance-head').forEach(btn =>
     btn.addEventListener('click', () => btn.closest('.attendance').classList.toggle('open')));
-  document.getElementById('btnAddTeam').addEventListener('click', addTeam);
-  if (!CAN_WRITE) document.getElementById('btnAddTeam').classList.add('hidden');
+  initRoster();
+  initProcBlocks();
+  loadStaffSuggestions();
   document.getElementById('proceduresList').addEventListener('input', (e) => {
     if (e.target.classList.contains('proc-duree') || e.target.classList.contains('proc-name')) updateMeta();
     // Les temps se recalculent à la frappe. On met à jour les champs concernés
@@ -92,17 +86,23 @@ const TEAM_PRESETS = [
     addProcedure({ nom: 'Échauffement', duree_min: 15 });
   }
   mountTeamSelect();
+  document.getElementById('f-filmee').checked = sessionFilmee;
+  document.getElementById('filmeeState').textContent = sessionFilmee ? 'Oui' : 'Non';
+  if (!CAN_WRITE) ['f-filmee', 'f-notes'].forEach(id => { document.getElementById(id).disabled = true; });
   renderProcedures();
   renderAttendance();
-  renderTeams();
+  renderBilans();
   updateMeta();
-  if (EDITOR_MODE === 'edit' && document.getElementById('commentList')) initCellule();
+  if (EDITOR_MODE === 'edit') renderShare();
   loadPrincipleSuggestions();
   if (CAN_WRITE) {
     const main = document.querySelector('main');
     main.addEventListener('input', markDirty);
     main.addEventListener('change', markDirty);
-    ['attendanceList', 'teamsList', 'btnAddTeam'].forEach(id => document.getElementById(id)?.addEventListener('click', markDirty));
+    // Clics qui modifient la séance (les champs, eux, passent par input / change).
+    ['bilanList', 'guestResults', 'btnAllPresent'].forEach(id => document.getElementById(id)?.addEventListener('click', (e) => {
+      if (e.target.closest('button:not([role="tab"])')) markDirty();
+    }));
     window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
   }
   dirty = false;
@@ -130,72 +130,33 @@ function mountTeamSelect() {
   input.after(select);
   select.addEventListener('change', async () => {
     sessionTeamId = Number(select.value) || null;
-    const marked = new Map(attendance.map(a => [a.player_id, a.present]));
+    // Les statuts déjà saisis et les invités restent ; la liste suit la nouvelle équipe.
+    const before = new Map(attendance.map(a => [a.player_id, a]));
     await loadPlayersForNew();
-    attendance.forEach(a => { a.present = !!marked.get(a.player_id); });
+    attendance.forEach(a => { const b = before.get(a.player_id); if (b) a.statut = b.statut; });
+    before.forEach(b => { if (!attendance.some(a => a.player_id === b.player_id) && (b.invite || participe(b))) attendance.push(b); });
     renderAttendance();
-    renderTeams();
+    renderRosterDependents();
   });
 }
 
 /* Joueurs proposés dans la liste de présence : ceux de l'équipe de la
-   séance, plus ceux déjà marqués présents (knownIds). */
+   séance, plus ceux déjà inscrits (knownIds : invités, présents d'avant).
+   Tout l'effectif reste à portée pour ajouter un invité. */
 async function playersForSession(knownIds = new Set()) {
-  const { data, error } = await sb.from('players')
-    .select(`id, nom, prenom, numero, poste${hasTeams() ? ', team_id, other_team_ids' : ''}`).order('nom');
-  if (error) throw error;
-  return (data || []).filter(p => playerInTeam(p, sessionTeamId) || knownIds.has(p.id));
+  if (!clubPlayers.length) {
+    const { data, error } = await sb.from('players')
+      .select(`id, nom, prenom, numero, poste${hasTeams() ? ', team_id, other_team_ids' : ''}`).order('nom');
+    if (error) throw error;
+    clubPlayers = data || [];
+  }
+  return clubPlayers.filter(p => playerInTeam(p, sessionTeamId) || knownIds.has(p.id));
 }
 
-/* ---------- Commentaires & partage (cellule) ---------- */
+/* ---------- Lien de partage (lecture seule, sans compte) ----------
+   Le commentaire de la séance est sessions.notes (un seul champ) ; les
+   anciens « commentaires de la cellule » y ont été recopiés (lmfc_v9.sql). */
 let shareToken = null;
-function initCellule() {
-  loadComments();
-  document.getElementById('commentSend').addEventListener('click', sendComment);
-  renderShare();
-}
-async function loadComments() {
-  try {
-    // Pas de jointure possible : session_comments.user_id référence auth.users,
-    // pas public.profiles. On récupère les rôles des membres du club séparément.
-    const [{ data: comments, error }, { data: members }] = await Promise.all([
-      sb.from('session_comments').select('id, body, author, created_at, user_id')
-        .eq('session_id', SESSION_ID).order('created_at'),
-      sb.from('profiles').select('id, nom, role').eq('club_id', myProfile.club_id),
-    ]);
-    if (error) throw error;
-    const byId = {};
-    (members || []).forEach(m => byId[m.id] = m);
-
-    document.getElementById('commentList').innerHTML = comments.length ? comments.map(c => {
-      const m = byId[c.user_id];
-      return `<div class="comment">
-        <div class="comment-head"><strong>${escapeHtml(m?.nom || c.author || 'Anonyme')}</strong>
-          ${m?.role ? `<span class="badge">${escapeHtml(ROLE_LABELS[m.role] || m.role)}</span>` : ''}
-          <span class="text-muted">${(c.created_at || '').slice(0, 16).replace('T', ' ')}</span>
-          ${(c.user_id === myProfile.id || myProfile.role === 'admin') ? `<button class="comment-del" type="button" onclick="delComment(${c.id}, this)" title="Supprimer">×</button>` : ''}
-        </div>
-        <div class="comment-body">${escapeHtml(c.body)}</div>
-      </div>`;
-    }).join('') : '<p class="text-muted">Aucun commentaire.</p>';
-  } catch (e) { document.getElementById('commentList').innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`; }
-}
-async function sendComment() {
-  const body = document.getElementById('commentInput').value.trim(); if (!body) return;
-  try {
-    const { error } = await sb.from('session_comments').insert({ session_id: SESSION_ID, user_id: myProfile.id, author: myProfile.nom, body });
-    if (error) throw error;
-    document.getElementById('commentInput').value = '';
-    loadComments();
-  } catch (e) { toast(e.message, 'error'); }
-}
-window.delComment = async (id, btn) => {
-  try {
-    const { error } = await sb.from('session_comments').delete().eq('id', id);
-    if (error) throw error;
-    btn.closest('.comment').remove();
-  } catch (e) { toast(e.message, 'error'); }
-};
 function renderShare() {
   const area = document.getElementById('shareArea');
   if (shareToken) {
@@ -233,11 +194,8 @@ async function loadSession() {
     const { data: s, error: e1 } = await sb.from('sessions').select('*').eq('id', SESSION_ID).single();
     if (e1 || !s) { toast('Séance introuvable.', 'error'); setTimeout(() => location.href = 'sessions.html', 1200); return; }
     shareToken = s.share_token || null;
-    // Les équipes sont stockées en JSON sur la séance.
-    teams = Array.isArray(s.equipes) ? s.equipes.map(t => ({
-      nom: t.nom || 'Équipe', couleur: t.couleur || '#1f6feb',
-      player_ids: Array.isArray(t.player_ids) ? t.player_ids : [],
-    })) : [];
+    sessionFilmee = !!s.filmee;
+    document.getElementById('f-notes').value = s.notes || '';
 
     document.getElementById('f-titre').value = s.titre || '';
     document.getElementById('f-date').value = s.date_seance || '';
@@ -258,17 +216,28 @@ async function loadSession() {
       type_procede: p.type_procede || '', nb_sequences: p.nb_sequences ?? '',
       duree_sequence_min: p.duree_sequence_min ?? '',
       image_path: p.tactical_schemas?.image_path || null, video_id: p.tactical_schemas?.video_id || null, expanded: false,
+      equipes: cleanTeams(p.equipes), staff: Array.isArray(p.staff) ? p.staff : [], filme: p.filme ?? null,
     }));
+    // Ancienne séance : ses chasubles valaient pour toute la séance. Elles sont
+    // reprises sur chaque procédé ; la prochaine sauvegarde les y range.
+    const legacy = cleanTeams(s.equipes);
+    if (legacy.length && procedures.every(p => !p.equipes.length)) {
+      procedures.forEach(p => { p.equipes = JSON.parse(JSON.stringify(legacy)); });
+    }
     document.getElementById('f-principe').value = sessionPrinciple(s, procedures);
 
-    const { data: att } = await sb.from('attendance').select('player_id, present').eq('session_id', SESSION_ID);
-    const attMap = {};
-    (att || []).forEach(a => attMap[a.player_id] = !!a.present);
-    // Hors de l'équipe, seuls les joueurs déjà marqués présents restent listés.
-    const players = await playersForSession(new Set((att || []).filter(a => a.present).map(a => a.player_id)));
+    const [{ data: att }, { data: bl, error: blErr }] = await Promise.all([
+      sb.from('attendance').select('*').eq('session_id', SESSION_ID),
+      sb.from('session_bilans').select('player_id, note, commentaire').eq('session_id', SESSION_ID),
+    ]);
+    if (blErr) console.warn('Bilans indisponibles (lmfc_v9.sql ?)', blErr);
+    bilans = new Map((bl || []).map(b => [b.player_id, { note: b.note, commentaire: b.commentaire || '' }]));
+    const attMap = new Map((att || []).map(a => [a.player_id, a]));
+    // Hors de l'équipe : les invités et les joueurs déjà marqués présents restent listés.
+    const players = await playersForSession(new Set((att || []).filter(a => a.invite || a.present).map(a => a.player_id)));
     attendance = players.map(p => ({
-      player_id: p.id, nom: p.nom, prenom: p.prenom, numero: p.numero, poste: p.poste,
-      present: !!attMap[p.id],
+      player_id: p.id, nom: p.nom, prenom: p.prenom, numero: p.numero, poste: p.poste, team_id: p.team_id,
+      statut: statutOf(attMap.get(p.id)), invite: !!attMap.get(p.id)?.invite,
     }));
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -277,7 +246,8 @@ async function loadPlayersForNew() {
   try {
     const players = await playersForSession();
     attendance = players.map(p => ({
-      player_id: p.id, nom: p.nom, prenom: p.prenom, numero: p.numero, poste: p.poste, present: false,
+      player_id: p.id, nom: p.nom, prenom: p.prenom, numero: p.numero, poste: p.poste, team_id: p.team_id,
+      statut: 'absent', invite: false,
     }));
   } catch (e) { console.error('Liste des joueurs indisponible', e); attendance = []; }
 }
@@ -293,7 +263,7 @@ function addProcedure(data = {}) {
     temps_recup_min: data.temps_recup_min ?? '',
     type_procede: data.type_procede || '', nb_sequences: data.nb_sequences ?? '',
     duree_sequence_min: data.duree_sequence_min ?? '',
-    image_path: null, expanded: true,
+    image_path: null, expanded: true, equipes: [], staff: [], filme: null,
   });
   // Modèle qui avait un principe de jeu : il devient celui de la séance s'il manque.
   const principe = document.getElementById('f-principe');
@@ -389,6 +359,7 @@ function procTemplate(p, index) {
       <span class="proc-num">${index + 1}</span>
       <input class="proc-name" data-field="nom" value="${f(p.nom)}" placeholder="Nom du procédé" ${dis}>
       <div class="proc-head-right">
+        <span class="proc-badges" data-proc-badges="${p._uid}">${procBadgesHtml(p)}</span>
         <span class="proc-dot"></span>
         <input class="proc-duree" data-field="duree_min" type="number" min="0" step="5"
                value="${hasSequences(p) ? totalMin(p) : (Number(p.duree_min) || 0)}"
@@ -433,6 +404,7 @@ function procTemplate(p, index) {
         <div class="schema-box" data-schema-box>${tac}</div>
         <div class="schema-recap">Procédé ${index + 1} / ${procedures.length} · ${escapeHtml(sequenceLabel(p))}</div>
       </div>
+      ${procExtrasHtml(p)}
     </div>
   </div>`;
 }
@@ -559,6 +531,15 @@ function refreshProcTimes(node) {
 function renderProcedures() {
   document.getElementById('proceduresList').innerHTML = procedures.map(procTemplate).join('');
   document.getElementById('procCount').textContent = procedures.length;
+  renderProcBlocks();   // équipes et staff de chaque procédé, résumé vidéo
+}
+
+/* Chasubles lues en base : toujours { nom, couleur, player_ids[] }. */
+function cleanTeams(list) {
+  return (Array.isArray(list) ? list : []).map(t => ({
+    nom: t.nom || 'Équipe', couleur: t.couleur || '#1f6feb',
+    player_ids: Array.isArray(t.player_ids) ? t.player_ids.map(Number) : [],
+  }));
 }
 
 function syncFromDom() {
@@ -597,132 +578,6 @@ window.openLinkedVideo = async (videoId) => {
 };
 window.openBoard = (procId) => { window.open('tactical-board.html?procedure_id=' + procId, '_blank'); };
 
-/* ---------- Présences ---------- */
-/* ============================================================
-   ÉQUIPES DE TRAVAIL (chasubles)
-   ============================================================ */
-const playerName = (a) => `${a.prenom || ''} ${a.nom}`.trim();
-
-function addTeam() {
-  const preset = TEAM_PRESETS[teams.length % TEAM_PRESETS.length];
-  teams.push({ nom: preset.nom, couleur: preset.couleur, player_ids: [] });
-  activeTeam = teams.length - 1;
-  renderTeams();
-}
-
-window.removeTeam = (i) => {
-  teams.splice(i, 1);
-  if (activeTeam >= teams.length) activeTeam = Math.max(0, teams.length - 1);
-  renderTeams();
-};
-
-window.setActiveTeam = (i) => { activeTeam = i; renderTeams(); };
-
-/* Affecte un joueur à l'équipe active. Un joueur n'appartient qu'à une
-   seule équipe : on le retire d'abord de toutes les autres. */
-window.assignToTeam = (playerId) => {
-  if (!teams.length) { toast('Ajoutez d\'abord une équipe.', 'error'); return; }
-  teams.forEach(t => t.player_ids = t.player_ids.filter(id => id !== playerId));
-  teams[activeTeam].player_ids.push(playerId);
-  renderTeams();
-};
-
-window.unassignPlayer = (playerId) => {
-  teams.forEach(t => t.player_ids = t.player_ids.filter(id => id !== playerId));
-  renderTeams();
-};
-
-function renderTeams() {
-  const wrap = document.getElementById('teamsList');
-  if (!wrap) return;
-  const dis = CAN_WRITE ? '' : 'disabled';
-  const presents = attendance.filter(a => a.present);
-
-  // Un joueur devenu absent ne doit pas rester dans une équipe.
-  const presentIds = presents.map(a => a.player_id);
-  teams.forEach(t => t.player_ids = t.player_ids.filter(id => presentIds.includes(id)));
-
-  const assigned = new Set(teams.flatMap(t => t.player_ids));
-  const pool = presents.filter(a => !assigned.has(a.player_id));
-
-  const chip = (a, onclick) => {
-    const num = a.numero != null ? `<span class="num">#${a.numero}</span>` : '';
-    return `<span class="pchip" ${CAN_WRITE ? `onclick="${onclick}"` : ''}>${escapeHtml(playerName(a))}${num}</span>`;
-  };
-
-  const blocks = teams.map((t, i) => {
-    const members = t.player_ids
-      .map(id => presents.find(a => a.player_id === id))
-      .filter(Boolean);
-    return `
-    <div class="team-block ${i === activeTeam ? 'active' : ''}" onclick="setActiveTeam(${i})">
-      <div class="team-head">
-        <span class="team-dot" style="background:${escapeHtml(t.couleur)}"></span>
-        <input type="text" data-team="${i}" data-tfield="nom" value="${escapeHtml(t.nom)}" placeholder="Nom de l'équipe" ${dis}>
-        <input type="color" data-team="${i}" data-tfield="couleur" value="${escapeHtml(t.couleur)}" title="Couleur de la chasuble" ${dis}>
-        <span class="team-count">${members.length} joueur${members.length > 1 ? 's' : ''}</span>
-        ${CAN_WRITE ? `<button class="btn btn-sm btn-danger" type="button" onclick="event.stopPropagation();removeTeam(${i})">Supprimer</button>` : ''}
-      </div>
-      <div class="team-chips">
-        ${members.map(a => chip(a, `event.stopPropagation();unassignPlayer(${a.player_id})`)).join('')}
-      </div>
-    </div>`;
-  }).join('');
-
-  const poolHtml = !presents.length
-    ? `<p class="text-muted" style="font-size:var(--fs-md);">Marquez d'abord des joueurs présents ci-dessus.</p>`
-    : `<div class="team-pool">
-         <div class="team-pool-label">Vivier — présents non affectés (${pool.length})</div>
-         <div class="team-chips">${pool.map(a => chip(a, `assignToTeam(${a.player_id})`)).join('')}</div>
-       </div>`;
-
-  wrap.innerHTML = (blocks || `<p class="text-muted" style="font-size:var(--fs-md);">Aucune équipe. Cliquez sur « Ajouter une équipe ».</p>`) + poolHtml;
-
-  const n = teams.length;
-  document.getElementById('teamsCount').textContent = `${n} équipe${n > 1 ? 's' : ''}`;
-
-  // Nom et couleur : on écrit dans l'état sans re-générer le HTML à chaque frappe.
-  wrap.querySelectorAll('[data-tfield]').forEach(inp => {
-    inp.addEventListener('click', e => e.stopPropagation());
-    inp.addEventListener('input', () => {
-      const t = teams[Number(inp.dataset.team)];
-      if (!t) return;
-      t[inp.dataset.tfield] = inp.value;
-      if (inp.dataset.tfield === 'couleur') {
-        inp.closest('.team-head').querySelector('.team-dot').style.background = inp.value;
-      }
-    });
-  });
-}
-
-function renderAttendance() {
-  const list = document.getElementById('attendanceList');
-  if (!attendance.length) {
-    list.innerHTML = `<p class="text-muted">Aucun joueur. <a class="text-gold" href="players.html">Ajouter des joueurs</a></p>`;
-    updatePresentCount(); return;
-  }
-  list.innerHTML = attendance.map((a, i) => {
-    const name = escapeHtml(`${a.prenom || ''} ${a.nom}`.trim());
-    const meta = [a.numero ? '#' + a.numero : '', a.poste || ''].filter(Boolean).join(' · ');
-    return `<div class="att-item ${a.present ? 'present' : ''}" data-i="${i}" onclick="toggleAtt(${i})">
-              <span class="att-check">✓</span>
-              <div><div class="att-name">${name}</div><div class="att-meta">${escapeHtml(meta)}</div></div>
-            </div>`;
-  }).join('');
-  updatePresentCount();
-}
-window.toggleAtt = (i) => {
-  if (!CAN_WRITE) return;
-  attendance[i].present = !attendance[i].present;
-  document.querySelectorAll('#attendanceList .att-item')[i].classList.toggle('present', attendance[i].present);
-  updatePresentCount();
-  renderTeams();   // le vivier suit les présences
-};
-function updatePresentCount() {
-  const n = attendance.filter(a => a.present).length;
-  document.getElementById('presentCount').textContent = `${n} marqué${n > 1 ? 's' : ''}`;
-}
-
 /* ---------- Méta ---------- */
 function updateMeta() {
   syncFromDom();   // les temps se lisent sur l'état, pas sur le DOM brut
@@ -747,8 +602,10 @@ async function save() {
     titre, date_seance,
     principes_jeu: document.getElementById('f-principe').value.trim() || null,
     equipe: document.getElementById('f-equipe').value.trim() || null,
-    equipes: teams.map(t => ({ nom: (t.nom || '').trim() || 'Équipe', couleur: t.couleur, player_ids: t.player_ids })),
+    equipes: [],   // les chasubles vivent sur chaque procédé (procedures.equipes)
     duree_min: Number(document.getElementById('f-duree').value) || 0,
+    filmee: sessionFilmee,
+    notes: document.getElementById('f-notes').value.trim() || null,
   };
   if (hasTeams()) {
     sessionRow.team_id = sessionTeamId;
@@ -771,6 +628,7 @@ async function save() {
     await saveProcedures(sid);
     await commitDraftSchemas();
     await saveAttendance(sid);
+    await saveBilans(sid);
     dirty = false;
 
     if (SESSION_ID) {
@@ -800,6 +658,9 @@ async function saveProcedures(sid) {
       type_procede: p.type_procede || null,
       nb_sequences: p.nb_sequences === '' ? null : p.nb_sequences,
       duree_sequence_min: p.duree_sequence_min === '' ? null : p.duree_sequence_min,
+      equipes: (p.equipes || []).map(t => ({ nom: (t.nom || '').trim() || 'Équipe', couleur: t.couleur, player_ids: t.player_ids })),
+      staff: (p.staff || []).map(m => ({ nom: (m.nom || '').trim(), role: (m.role || '').trim() })).filter(m => m.nom || m.role),
+      filme: p.filme === false ? false : null,
     };
     if (p.id && existingIds.includes(p.id)) {
       const { error } = await sb.from('procedures').update(row).eq('id', p.id);
@@ -817,11 +678,4 @@ async function saveProcedures(sid) {
     const { error } = await sb.from('procedures').delete().in('id', toDelete);
     if (error) throw error;
   }
-}
-
-async function saveAttendance(sid) {
-  if (!attendance.length) return;
-  const rows = attendance.map(a => ({ player_id: a.player_id, session_id: sid, present: !!a.present }));
-  const { error } = await sb.from('attendance').upsert(rows, { onConflict: 'player_id,session_id' });
-  if (error) throw error;
 }

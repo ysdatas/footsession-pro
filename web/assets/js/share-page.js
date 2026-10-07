@@ -32,8 +32,17 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       `<span>Travail : ${fmtMin(sessionWorkMin(procedures))} min</span>`,
       `<span>Total : ${fmtMin(sessionTotalMin(procedures))} min</span>`,
       `<span>${procedures.length} procédé${procedures.length > 1 ? 's' : ''}</span>`,
+      s.filmee ? '<span>Séance filmée</span>' : '',
     ].filter(Boolean).join('');
 
+    // Chasubles : celles de chaque procédé ; ancienne séance, celles de toute la séance.
+    const perProc = procedures.some(p => Array.isArray(p.equipes) && p.equipes.length);
+    const nameOf = (a) => `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ' #' + a.numero : '');
+    const teamsHtml = (list) => (Array.isArray(list) ? list : []).filter(t => (t.player_ids || []).length).map(t => {
+      const noms = (t.player_ids || []).map(id => attendance.find(a => a.id === id)).filter(Boolean).map(nameOf).join(', ');
+      return `<div class="sp-field" style="border-left:3px solid ${escapeHtml(t.couleur || '#888')};padding-left:8px;margin-bottom:6px;">
+        <b>${escapeHtml(t.nom || 'Équipe')} :</b> ${escapeHtml(noms || '—')}</div>`;
+    }).join('');
     const procsHtml = procedures.map((p, i) => {
       const imgUrl = p.image_path ? sb.storage.from('schemas').getPublicUrl(p.image_path).data.publicUrl : null;
       // Le principe de jeu est celui de la séance (en tête) ; un ancien
@@ -44,11 +53,14 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
         ['principes_jeu', 'Principe de jeu'], ['comportements_individuels', 'Comportements'],
       ].filter(([k]) => p[k] && (k !== 'principes_jeu' || own !== principe))
         .map(([k, lbl]) => `<div class="sp-field"><b>${lbl} :</b> ${escapeHtml(p[k])}</div>`).join('');
-      const meta = [p.type_procede, sequenceLabel(p)].filter(Boolean).join(' · ');
+      const meta = [p.type_procede, sequenceLabel(p), procIsFilmed(p, s) ? 'filmé' : ''].filter(Boolean).join(' · ');
+      const staff = (Array.isArray(p.staff) ? p.staff : []).filter(m => (m.nom || '').trim());
       return `<div class="card sp-proc">
         <h3><span>${i + 1}. ${escapeHtml(p.nom)}</span><span class="text-muted">${escapeHtml(meta)}</span></h3>
         ${imgUrl ? `<img src="${imgUrl}" alt="Schéma">` : ''}
         ${fields}
+        ${perProc ? teamsHtml(p.equipes) : ''}
+        ${staff.length ? `<div class="sp-field"><b>Staff :</b> ${staff.map(m => escapeHtml(`${m.nom}${m.role ? ` (${m.role})` : ''}`)).join(' · ')}</div>` : ''}
       </div>`;
     }).join('');
 
@@ -56,9 +68,8 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
     // une par une quand tout était mélangé.
     const presents = attendance.filter(a => a.present);
     const absents = attendance.filter(a => !a.present);
-    const nameOf = (a) => `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ' #' + a.numero : '');
     const pills = (list, color) => `<div class="tag-row" style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${list.map(a => `<span class="pill" style="border-color:${color};">${escapeHtml(nameOf(a))}</span>`).join('')}
+        ${list.map(a => `<span class="pill" style="border-color:${color};">${escapeHtml(nameOf(a))}${a.invite ? ' · invité' : ''}</span>`).join('')}
       </div>`;
 
     const attHtml = attendance.length ? `<div class="card">
@@ -67,18 +78,8 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       ${absents.length ? `<h3 style="margin-top:16px;">Absents — ${absents.length}</h3>${pills(absents, 'var(--border)')}` : ''}
     </div>` : '';
 
-    // Équipes de travail (chasubles) déclarées sur la séance.
-    const equipes = (Array.isArray(s.equipes) ? s.equipes : []).filter(t => (t.player_ids || []).length);
-    const teamsHtml = equipes.length ? `<div class="card">
-      <h3>Équipes de travail</h3>
-      ${equipes.map(t => {
-        const noms = (t.player_ids || [])
-          .map(id => presents.find(a => a.id === id))
-          .filter(Boolean).map(nameOf).join(', ');
-        return `<div class="sp-field" style="border-left:3px solid ${escapeHtml(t.couleur || '#888')};padding-left:8px;margin-bottom:8px;">
-          <b>${escapeHtml(t.nom || 'Équipe')} :</b> ${escapeHtml(noms || '—')}</div>`;
-      }).join('')}
-    </div>` : '';
+    const legacyTeams = perProc ? '' : teamsHtml(s.equipes);
+    const sessionTeamsHtml = legacyTeams ? `<div class="card"><h3>Équipes de travail</h3>${legacyTeams}</div>` : '';
 
     wrap.innerHTML = `
       <div class="share-head">
@@ -92,7 +93,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       <div class="sp-meta">${metaParts}</div>
       ${procsHtml}
       ${attHtml}
-      ${teamsHtml}
+      ${sessionTeamsHtml}
       <p class="text-muted" style="text-align:center;margin-top:24px;font-size:var(--fs-sm);">Généré par LMFC Performance</p>`;
   } catch (e) {
     wrap.innerHTML = `<div class="empty">Erreur de chargement : ${escapeHtml(e.message)}</div>`;
