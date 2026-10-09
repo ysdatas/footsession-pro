@@ -18,7 +18,8 @@ const ALL_STAFF   = ['admin', 'coach', 'prepa'];   // + préparateur physique
    menu (renderUserMenu). */
 const NAV_ITEMS = [
   { key: 'dashboard',   href: 'dashboard.html',      label: 'Accueil',           roles: ALL_STAFF },
-  { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: STAFF_ROLES },
+  { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: ALL_STAFF },   // prépa : séances ouvertes (lmfc_v10.sql)
+  { key: 'matches',     href: 'matchs.html',         label: 'Retours de match',  roles: ALL_STAFF },   // prépa : lecture (lmfc_v11.sql)
   { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: ALL_STAFF },
   { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: ALL_STAFF },
   { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: STAFF_ROLES },

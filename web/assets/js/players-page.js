@@ -31,7 +31,7 @@ const pickPlayers = { on: false, ids: new Set() };
   CAN_EDIT_PLAYERS = canEdit(myProfile.role);
   if (CAN_EDIT_PLAYERS) {
     document.getElementById('btnAddPlayer').classList.remove('hidden');
-    document.getElementById('btnAddPlayer').addEventListener('click', openPlayerModal);
+    document.getElementById('btnAddPlayer').addEventListener('click', () => openPlayerModal());
     document.getElementById('m-save').addEventListener('click', savePlayer);
   }
 
@@ -207,10 +207,14 @@ function playerRow(p) {
     <span class="pr-data">${data}</span>
   </div>`;
   }
-  return `<a class="player-row" href="player-performance.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
+  // Modifier : double-clic sur la ligne, ou le crayon (toujours visible sur écran tactile).
+  const edit = CAN_EDIT_PLAYERS ? `<span class="pr-edit" data-edit="${p.id}" role="button" title="Modifier (ou double-clic sur la ligne)" aria-label="Modifier ${escapeHtml(fullName(p))}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></span>` : '';
+  return `<a class="player-row${CAN_EDIT_PLAYERS ? ' can-edit' : ''}" href="player-performance.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
     ${photo}
     <span class="pr-name"><strong>${escapeHtml(fullName(p))}</strong>${team ? `<small>${escapeHtml(team)}</small>` : ''}</span>
     <span class="pr-data">${data}</span>
+    ${edit}
     <svg class="pr-go" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
   </a>`;
 }
@@ -252,9 +256,28 @@ const togglePick = (row) => {
   renderGrid();
   document.querySelector(`.player-row[data-pick="${id}"]`)?.focus();
 };
+/* Clic simple : la fiche. Double-clic ou crayon : modifier le joueur. Pour qui
+   peut modifier, la fiche s'ouvre après un court délai (le temps de voir venir
+   un second clic) ; Ctrl/Cmd-clic et le clavier l'ouvrent comme un lien. */
+let openTimer = null;
+const playerById = (id) => playersCache.find(x => x.id === Number(id));
 document.getElementById('gridView').addEventListener('click', (e) => {
   const row = e.target.closest('.player-row[data-pick]');
-  if (row) togglePick(row);
+  if (row) return togglePick(row);
+  const edit = e.target.closest('[data-edit]');
+  if (edit) { e.preventDefault(); clearTimeout(openTimer); return openPlayerModal(playerById(edit.dataset.edit)); }
+  const link = e.target.closest('a.player-row');
+  if (!link || !CAN_EDIT_PLAYERS || !e.detail || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  e.preventDefault();
+  clearTimeout(openTimer);
+  if (e.detail === 1) openTimer = setTimeout(() => { location.href = link.href; }, 220);
+});
+document.getElementById('gridView').addEventListener('dblclick', (e) => {
+  const link = e.target.closest('a.player-row');
+  if (!link || !CAN_EDIT_PLAYERS) return;
+  e.preventDefault();
+  clearTimeout(openTimer);
+  openPlayerModal(playerById(link.dataset.id));
 });
 document.getElementById('gridView').addEventListener('keydown', (e) => {
   const row = e.target.closest('.player-row[data-pick]');
@@ -328,22 +351,26 @@ function renderUnassigned() {
   });
 }
 
-/* ---------- Ajout ---------- */
-function openPlayerModal() {
-  document.getElementById('playerModalTitle').textContent = 'Nouveau joueur';
-  document.getElementById('m-id').value = '';
-  for (const id of ['m-prenom', 'm-nom', 'm-poste']) document.getElementById(id).value = '';
+/* ---------- Ajout et modification ---------- */
+function openPlayerModal(p = null) {
+  document.getElementById('playerModalTitle').textContent = p ? 'Modifier le joueur' : 'Nouveau joueur';
+  document.getElementById('m-id').value = p?.id || '';
+  document.getElementById('m-prenom').value = p?.prenom || '';
+  document.getElementById('m-nom').value = p?.nom || '';
+  document.getElementById('m-poste').value = p?.poste || '';
   const teams = window.CLUB_TEAMS || [];
-  document.getElementById('m-team-field').classList.toggle('hidden', !teams.length);
+  document.getElementById('m-team-field').classList.toggle('hidden', !teams.length || (p && !('team_id' in p)));
   document.getElementById('m-team').innerHTML = '<option value="">Sans équipe</option>'
     + teams.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
-  document.getElementById('m-team').value = currentTeamId() || '';
+  document.getElementById('m-team').value = p ? (p.team_id ?? '') : (currentTeamId() || '');
   openModal('playerModal');
 }
 
 async function savePlayer() {
   const nom = document.getElementById('m-nom').value.trim();
   if (!nom) return toast('Le nom est obligatoire.', 'error');
+  const editId = Number(document.getElementById('m-id').value) || null;
+  if (editId) return updatePlayer(editId, nom);
   const body = {
     club_id: myProfile.club_id,
     nom, prenom: document.getElementById('m-prenom').value.trim() || null,
@@ -358,4 +385,24 @@ async function savePlayer() {
     toast('Joueur ajouté', 'success');
     window.location.href = `player-performance.html?id=${data.id}`;
   } catch (e) { toast(e.message, 'error'); }
+}
+
+async function updatePlayer(id, nom) {
+  const body = {
+    nom, prenom: document.getElementById('m-prenom').value.trim() || null,
+    poste: document.getElementById('m-poste').value.trim() || null,
+  };
+  if (!document.getElementById('m-team-field').classList.contains('hidden')) body.team_id = Number(document.getElementById('m-team').value) || null;
+  try {
+    // .select : une modification refusée par la base ne renvoie aucune ligne, sans erreur.
+    const { data, error } = await sb.from('players').update(body).eq('id', id).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('Modification refusée : droits insuffisants.');
+    closeModal('playerModal');
+    toast('Joueur modifié', 'success');
+    await loadGrid();
+  } catch (e) {
+    console.error('Joueur non modifié', e);
+    toast(e.message, 'error');
+  }
 }

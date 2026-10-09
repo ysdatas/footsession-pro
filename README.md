@@ -85,6 +85,17 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            trash_restore générique (toute table équipée du déclencheur),
                                            lien de partage sans commentaire général ni motif d'absence,
                                            commentaires de la cellule recopiés dans sessions.notes (rejouable)
+29. supabase/lmfc_v10.sql                  droits d'accès par séance : sessions.acces ('club' pour les séances
+                                           existantes, 'equipe' par défaut), table session_access, niveau
+                                           session_level / session_access_level, politiques de la séance et de
+                                           ses tables, garde du créateur, corbeille discrète (rejouable)
+30. supabase/lmfc_v11.sql                  retours de match : tables matches et match_players (statut,
+                                           minutes, buts, passes, + / = / −), staff en lecture, admin et
+                                           coachs en écriture, corbeille avec les joueurs du match (rejouable)
+31. supabase/lmfc_v12.sql                  durées à virgule (procedures.duree_min, temps_recup_min,
+                                           duree_sequence_min, sessions.duree_min en numeric), statuts
+                                           « groupe_pro » et « autre » (attendance.statut_libre, present
+                                           suit la case « participe ») (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -277,8 +288,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   `sessions.principes_jeu` ; les procédés en héritent, un ancien procédé garde le sien :
   `sessionPrinciple` / `procPrinciple` de `procedure-time.js`), procédés. Dans l'ordre de la page
   (`lmfc_v9.sql`) :
-  - **Présences & statuts** (`session-roster.js`) : Présent, Reprise, Retard, Absent, Excusé,
-    Blessé, Malade, Sélection (`attendance.statut` ; `present` suit le statut, Analytics inchangé) ;
+  - **Présences & statuts** (`session-roster.js`) : Présent, Reprise, Absent, Blessé, Sélection,
+    Groupe pro, ou « Autre… » avec un motif libre et une case « participe »
+    (`attendance.statut`, `statut_libre` ; `present` suit le statut, Analytics inchangé). Retard,
+    Excusé et Malade ne sont plus proposés mais restent affichés sur les anciennes séances ;
     « Tous présents » ; **invité** : recherche dans tout l'effectif du club, ajouté pour cette
     séance seulement (`attendance.invite`, son équipe ne change pas), retiré d'un clic ;
   - **Chaque procédé** porte, dans sa carte (`session-proc-teams.js`), ses **équipes** (couleur,
@@ -293,6 +306,13 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     alerte si un procédé filmé n'a personne en « Gestion vidéo », résumé de qui filme quoi ;
   - **Bilan individuel** : + / = / − et commentaire court (140 caractères) par joueur
     (`session_bilans`, lu par le staff seulement), barre de lecture rapide, filtres ;
+  - **Droits d'accès** (`session-access.js`, `lmfc_v10.sql`), réglés par le créateur ou
+    l'administrateur : accès de base « staff de l'équipe de la séance » (défaut, avec le staff sans
+    équipe fixe) ou « tout le staff du club » (les séances d'avant), puis Aucun / Lecture /
+    Modification par personne (modification réservée aux comptes admin et coach ; seuls les écarts
+    sont enregistrés). Le niveau est calculé en base (`session_access_level`) et s'applique à la
+    séance, ses procédés, schémas, présences, bilans et commentaires, donc aux PDF. En lecture
+    seule, la page est verrouillée. Le menu Séances s'ouvre au préparateur (ce qu'on lui partage) ;
   - **Commentaire général** (`sessions.notes`) : le seul commentaire de la séance. Les anciens
     « commentaires de la cellule » (`session_comments`) y sont recopiés par `lmfc_v9.sql`, avec
     leur auteur ; le bloc de la cellule a disparu de la page.
@@ -315,10 +335,20 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   (la police des rubriques se réduit au besoin). En fin de document : **récapitulatif des joueurs**
   (barre + / = / −, une pastille par joueur, noms et commentaires à la ligne) et **commentaire
   général**. La fiche coach reprend les équipes (couleur et joueurs) et le staff dans chaque quart.
+- **Durées** — séquences, récupérations et durées acceptent la virgule (1,5 ; 0,5 ; 11,5),
+  partout : saisie (`parseDecimal`), calculs, récapitulatif, PDF (`fmtMin`, au centième).
+- **Retours de match** (`matchs.html`, `matchs-page.js`, `lmfc_v11.sql`) — onglet **Matchs** :
+  liste de l'équipe choisie (score en vert / gris / rouge), fiche du match (adversaire, date,
+  compétition, lieu, score, informations, commentaire général, à retenir) et ses joueurs
+  (« Ajouter l'effectif » ou recherche dans le club ; statut, minutes, buts, passes, + / = / −,
+  commentaire). Onglet **Par joueur** : totaux et frise de ses matchs. Tout le staff consulte,
+  admin et coachs saisissent.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne
   déduite du poste, ou choisie en glissant la ligne, à la souris), recherche, filtre par poste.
+  Clic : la fiche ; **double-clic** ou crayon (toujours visible sur écran tactile) : modifier
+  prénom, nom, poste, équipe (admin, coach).
 - **Fiche joueur** (`player-performance.html?id=…`, staff) — une seule page, trois onglets sans
   changer de page (`?tab=fiche|performance|videos`, gardé au rechargement) sous l'en-tête (photo,
   identité, club, taille, poids, masse grasse, « Modifier » : identité, équipe principale et
@@ -437,8 +467,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 
 ## 🎨 Tableau tactique — prise en main
 
-- **Outils** : sélection, joueur, adversaire, flèches (droite / courbée / pointillée),
-  trait, formes (carré, rectangle, cercle, triangle), texte.
+- **Outils** : sélection, joueur, adversaire, flèche pleine (**passe**), flèche pointillée
+  (**trajectoire**), trait, formes (carré, rectangle, cercle, triangle), texte. Une flèche ou un
+  trait sélectionné passe en plein ou en pointillé avec « Pointillé » (barre de sélection ou menu
+  de l'élément, `style` de l'élément) ; les schémas existants gardent leur tracé.
 - **Zones** : choisir une forme puis **glisser** sur le terrain ; la sélectionner
   (outil ↖) puis **tirer un coin** pour la redimensionner.
 - **Formations** : menu déroulant (4-3-3, 4-4-2…) place 11 joueurs.

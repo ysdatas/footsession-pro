@@ -54,7 +54,7 @@
         <div class="field"><label for="f-equipe">Équipe</label>
           <input id="f-equipe" placeholder="Ex: U17"></div>
         <div class="field"><label for="f-duree">Durée totale (min)</label>
-          <input id="f-duree" type="number" min="0" step="5" value="90"></div>
+          <input id="f-duree" type="text" inputmode="decimal" value="90"></div>
       </div>
       <div class="editor-meta" id="editorMeta">0 procédé · 0 min au total</div>
     </div>
@@ -124,6 +124,19 @@
       <textarea id="f-notes" rows="3" aria-labelledby="notesTitle" placeholder="Niveau général, points à retenir pour la suite…"></textarea>
     </div>
 
+    <div class="card hidden" id="accessCard" style="margin-top:18px;">
+      <h3>Droits d’accès</h3>
+      <div class="access-base">
+        <label for="accessBase">Accès de base</label>
+        <select id="accessBase">
+          <option value="equipe">Staff de l’équipe de la séance</option>
+          <option value="club">Tout le staff du club</option>
+        </select>
+      </div>
+      <p class="text-muted access-hint" id="accessHint"></p>
+      <div id="accessList" class="access-list"></div>
+    </div>
+
     <div class="card" style="margin-top:18px;">
       <h3>Partage lecture seule</h3>
       <p class="text-muted" style="font-size:var(--fs-md);">Générez un lien consultable sans compte (staff, joueurs).</p>
@@ -157,6 +170,7 @@
   <script src="assets/js/lightbox.js"></script>
   <script src="assets/js/session-roster.js"></script>
   <script src="assets/js/session-proc-teams.js"></script>
+  <script src="assets/js/session-access.js"></script>
   <script src="assets/js/session-edit-page.js"></script>
 </body>
 </html>

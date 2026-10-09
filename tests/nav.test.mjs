@@ -25,10 +25,11 @@ assert.ok(keys('coach', {}).includes('videos'), 'coach : Vidéos');
 assert.ok(!keys('coach', {}).includes('club'), 'coach : pas de Mon club');
 assert.ok(keys('admin', {}).includes('club'), 'admin : Mon club');
 
-// Préparateur physique : performance et joueurs, ni séances, ni vidéos, ni tableau.
+// Préparateur physique : performance, joueurs, et les séances qu'on lui ouvre
+// (lecture, lmfc_v10.sql) ; ni vidéos, ni tableau.
 const prepa = keys('prepa', {});
-for (const k of ['dashboard', 'players', 'performance', 'faq']) assert.ok(prepa.includes(k), `prépa : ${k}`);
-for (const k of ['sessions', 'videos', 'tactical', 'analytics', 'club']) assert.ok(!prepa.includes(k), `prépa : pas de ${k}`);
+for (const k of ['dashboard', 'players', 'performance', 'sessions', 'matches', 'faq']) assert.ok(prepa.includes(k), `prépa : ${k}`);
+for (const k of ['videos', 'tactical', 'analytics', 'club']) assert.ok(!prepa.includes(k), `prépa : pas de ${k}`);
 // Un joueur n'a aucune rubrique du staff.
 assert.equal(keys('joueur', {}).length, 0, 'joueur : pas de menu staff');
 

@@ -113,6 +113,13 @@
 .st-blesse    { --st: var(--danger);  --st-bg: rgba(244,67,54,.14);  --st-text: #ff8a80; }
 .st-malade    { --st: #AB47BC;        --st-bg: rgba(171,71,188,.14); --st-text: #dda0e8; }
 .st-selection { --st: var(--gold);    --st-bg: rgba(var(--gold-rgb), .14); --st-text: var(--gold-light); }
+.st-groupe_pro { --st: #5C7CFA;      --st-bg: rgba(92,124,250,.14); --st-text: #a5b8ff; }
+.st-autre     { --st: #90A4AE;       --st-bg: rgba(144,164,174,.14); --st-text: #cfd8dc; }
+.att-item.st-autre { flex-wrap: wrap; }
+.st-other { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }
+.st-libre { flex: 1; min-width: 0; padding: 5px 8px; font-size: var(--fs-sm); }
+.st-part { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-size: var(--fs-sm); font-weight: 500; color: var(--text-secondary);
+  text-transform: none; letter-spacing: normal; white-space: nowrap; }
 .att-item.st-absent .att-name { color: var(--text-secondary); }
 
 /* Commentaires de la cellule */
@@ -292,3 +299,22 @@
   .bilan-comment { grid-column: 1 / -1; }
   .bilan-bar { max-width: 120px; }
 }
+
+/* ---------- Droits d'accès ---------- */
+.access-base { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.access-base label { margin: 0; }
+.access-base select { width: auto; min-width: 260px; }
+.access-hint { font-size: var(--fs-sm); margin: 0 0 12px; }
+.access-list { display: grid; gap: 4px; }
+.access-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--border); }
+.access-name { font-size: var(--fs-md); font-weight: 500; }
+.access-role { margin-left: 8px; font-size: var(--fs-xs); color: var(--text-secondary); font-weight: 400; }
+.access-fixed { font-size: var(--fs-sm); color: var(--text-secondary); }
+.access-seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0; }
+.access-seg button { padding: 5px 11px; border: 0; border-left: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+  font-size: var(--fs-sm); cursor: pointer; }
+.access-seg button:first-child { border-left: 0; }
+.access-seg button[aria-pressed="true"] { background: rgba(var(--gold-rgb), .14); color: var(--gold); font-weight: 600; }
+.access-seg button:disabled { opacity: .35; cursor: not-allowed; }
+@media (max-width: 640px) { .access-row { flex-wrap: wrap; } .access-base select { min-width: 0; width: 100%; } }
+

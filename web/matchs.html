@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <title>LMFC Performance — Retours de match</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/session.css">
+  <link rel="stylesheet" href="assets/css/matches.css">
+  <script src="assets/js/theme.js"></script>
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <nav class="nav" aria-label="Menu principal"></nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Retours de match</h1>
+        <p class="subtitle" id="matchSub">Chargement…</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary hidden" id="btnNewMatch" type="button">+ Nouveau match</button>
+      </div>
+    </div>
+
+    <div class="mt-tabs" role="tablist" aria-label="Retours de match">
+      <button type="button" role="tab" id="tabMatches" aria-selected="true" aria-controls="panelMatches">Matchs</button>
+      <button type="button" role="tab" id="tabPlayer" aria-selected="false" aria-controls="panelPlayer">Par joueur</button>
+    </div>
+
+    <section id="panelMatches" role="tabpanel" aria-labelledby="tabMatches">
+      <div id="matchList"><div class="empty">Chargement…</div></div>
+    </section>
+
+    <section id="panelPlayer" role="tabpanel" aria-labelledby="tabPlayer" hidden>
+      <div class="field mt-pick"><label for="playerPick">Joueur</label><select id="playerPick"><option value="">Choisir un joueur…</option></select></div>
+      <div id="playerHistory"></div>
+    </section>
+  </main>
+
+  <!-- Saisie / lecture d'un match -->
+  <div class="modal-backdrop" id="matchModal">
+    <div class="modal mt-modal">
+      <h3 id="matchModalTitle">Nouveau match</h3>
+      <div class="field-row">
+        <div class="field"><label for="m-adv">Adversaire</label><input id="m-adv" maxlength="120" required></div>
+        <div class="field"><label for="m-date">Date</label><input id="m-date" type="date" required></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="m-comp">Compétition</label><input id="m-comp" placeholder="Ex : N2, Coupe de France…"></div>
+        <div class="field"><label for="m-lieu">Lieu</label>
+          <select id="m-lieu"><option value="">—</option><option value="domicile">Domicile</option><option value="exterieur">Extérieur</option><option value="neutre">Terrain neutre</option></select></div>
+        <div class="field hidden" id="m-team-field"><label for="m-team">Équipe</label><select id="m-team"></select></div>
+      </div>
+      <div class="field"><label>Score (nous – eux)</label>
+        <div class="mt-score"><input id="m-pour" type="number" min="0" max="99" inputmode="numeric" aria-label="Buts marqués"><span>–</span><input id="m-contre" type="number" min="0" max="99" inputmode="numeric" aria-label="Buts encaissés"></div></div>
+      <div class="field"><label for="m-infos">Informations</label><textarea id="m-infos" rows="2" placeholder="Conditions, système, faits de jeu…"></textarea></div>
+
+      <h4 class="mt-h">Joueurs <span id="mpCount"></span></h4>
+      <div class="mt-tools" id="mpTools">
+        <button class="btn btn-sm" type="button" id="btnSquad">Ajouter l’effectif</button>
+        <div class="guest-search">
+          <input id="mpSearch" type="search" placeholder="Ajouter un joueur du club…" autocomplete="off" aria-label="Ajouter un joueur du club">
+          <div class="guest-results" id="mpResults"></div>
+        </div>
+      </div>
+      <div id="mpList" class="mp-list"></div>
+
+      <div class="field"><label for="m-comment">Commentaire général</label><textarea id="m-comment" rows="3"></textarea></div>
+      <div class="field"><label for="m-retenir">À retenir</label><textarea id="m-retenir" rows="2" placeholder="Points à travailler, enseignements…"></textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger hidden" id="m-delete" type="button">Supprimer</button>
+        <span class="mt-spacer"></span>
+        <button class="btn" type="button" data-close="matchModal" id="m-cancel">Annuler</button>
+        <button class="btn btn-primary" id="m-save" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/procedure-time.js"></script>
+  <script src="assets/js/matchs-page.js"></script>
+</body>
+</html>

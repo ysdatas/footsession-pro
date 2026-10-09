@@ -2,7 +2,8 @@
    LMFC Performance — session-edit-page.js (Chemin B / Supabase)
    Création / édition d'une séance : procédés dynamiques, présences.
    Statuts, invités et bilan : session-roster.js ; équipes, staff et
-   vidéo par procédé : session-proc-teams.js (lmfc_v9.sql).
+   vidéo par procédé : session-proc-teams.js (lmfc_v9.sql) ; droits
+   d'accès : session-access.js (lmfc_v10.sql).
    ============================================================ */
 
 const SESSION_ID = new URLSearchParams(location.search).get('id') ? Number(new URLSearchParams(location.search).get('id')) : null;
@@ -19,11 +20,12 @@ let CAN_WRITE = false;
 let procedures = [];   // {_uid, id?, nom, duree_min, objectif, effectif, taille_terrain,
                         //  consignes, principes_jeu, comportements_individuels, temps_recup_min,
                         //  canvas_image?, expanded}
-let attendance = [];   // {player_id, nom, prenom, numero, poste, team_id, statut, invite}
+let attendance = [];   // {player_id, nom, prenom, numero, poste, team_id, statut, statut_libre, present, invite}
 let bilans = new Map(); // player_id → {note: 'plus'|'egal'|'moins'|null, commentaire}
 let uidSeq = 1;
 const nextUid = () => 'p' + (uidSeq++);
 let sessionTeamId = null; // équipe du club concernée (table teams), null = sans équipe
+let loadedSession = null; // la séance telle que lue (créateur, accès de base)
 const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
 
 (async () => {
@@ -31,6 +33,11 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   if (!ctx) return;
   myProfile = ctx.profile;
   CAN_WRITE = canEdit(myProfile.role);
+  // Séance existante : le droit de la modifier vient de la base (créateur, réglages, équipe).
+  if (EDITOR_MODE === 'edit') {
+    const { data: lvl, error } = await sb.rpc('session_access_level', { p_session: SESSION_ID });
+    if (!error && lvl) CAN_WRITE = lvl === 'modification';   // sans lmfc_v10.sql : le rôle décide, comme avant
+  }
 
   document.getElementById('uName').textContent = myProfile.nom || 'Utilisateur';
   document.getElementById('uRole').textContent = (ROLE_LABELS[myProfile.role] || myProfile.role).toUpperCase();
@@ -38,6 +45,7 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
   if (!CAN_WRITE) {
+    ['f-titre', 'f-principe', 'f-date', 'f-equipe', 'f-duree'].forEach(id => { document.getElementById(id).disabled = true; });
     document.getElementById('btnSave').classList.add('hidden');
     document.getElementById('btnAddProc').classList.add('hidden');
     document.getElementById('btnAddProc2').classList.add('hidden');
@@ -71,7 +79,8 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   });
 
   if (EDITOR_MODE === 'edit') {
-    document.getElementById('editorTitle').innerHTML = 'Modifier la séance <span class="badge badge-gold">ÉDITION</span>';
+    document.getElementById('editorTitle').innerHTML = CAN_WRITE ? 'Modifier la séance <span class="badge badge-gold">ÉDITION</span>'
+      : 'Séance <span class="badge">LECTURE SEULE</span>';
     const fullBtn = document.getElementById('btnPdfFull');
     fullBtn?.classList.remove('hidden');
     fullBtn?.addEventListener('click', () => window.generateSessionPDF(SESSION_ID));
@@ -94,6 +103,7 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   renderBilans();
   updateMeta();
   if (EDITOR_MODE === 'edit') renderShare();
+  await initAccess(loadedSession);
   loadPrincipleSuggestions();
   if (CAN_WRITE) {
     const main = document.querySelector('main');
@@ -133,7 +143,8 @@ function mountTeamSelect() {
     // Les statuts déjà saisis et les invités restent ; la liste suit la nouvelle équipe.
     const before = new Map(attendance.map(a => [a.player_id, a]));
     await loadPlayersForNew();
-    attendance.forEach(a => { const b = before.get(a.player_id); if (b) a.statut = b.statut; });
+    attendance.forEach(a => { const b = before.get(a.player_id); if (b) Object.assign(a, { statut: b.statut, statut_libre: b.statut_libre, present: b.present }); });
+    renderAccess();   // le staff de l'équipe change
     before.forEach(b => { if (!attendance.some(a => a.player_id === b.player_id) && (b.invite || participe(b))) attendance.push(b); });
     renderAttendance();
     renderRosterDependents();
@@ -163,9 +174,11 @@ function renderShare() {
     const url = location.origin + baseUrl('share.html') + '?token=' + shareToken;
     area.innerHTML = `<input readonly value="${url}" onclick="this.select()" style="margin-bottom:8px;">
       <div class="flex gap-sm"><button class="btn btn-sm" type="button" id="shareCopy">Copier</button>
-      <button class="btn btn-sm btn-danger" type="button" id="shareToggle">Désactiver</button></div>`;
+      ${CAN_WRITE ? '<button class="btn btn-sm btn-danger" type="button" id="shareToggle">Désactiver</button>' : ''}</div>`;
     document.getElementById('shareCopy').addEventListener('click', () => { navigator.clipboard?.writeText(url); toast('Lien copié', 'success'); });
-    document.getElementById('shareToggle').addEventListener('click', unshare);
+    document.getElementById('shareToggle')?.addEventListener('click', unshare);
+  } else if (!CAN_WRITE) {
+    area.innerHTML = '<p class="text-muted" style="font-size:var(--fs-md);">Aucun lien pour cette séance.</p>';
   } else {
     area.innerHTML = `<button class="btn btn-primary" id="shareToggle" type="button">Générer un lien</button>`;
     document.getElementById('shareToggle').addEventListener('click', doShare);
@@ -194,6 +207,7 @@ async function loadSession() {
     const { data: s, error: e1 } = await sb.from('sessions').select('*').eq('id', SESSION_ID).single();
     if (e1 || !s) { toast('Séance introuvable.', 'error'); setTimeout(() => location.href = 'sessions.html', 1200); return; }
     shareToken = s.share_token || null;
+    loadedSession = s;
     sessionFilmee = !!s.filmee;
     document.getElementById('f-notes').value = s.notes || '';
 
@@ -201,7 +215,7 @@ async function loadSession() {
     document.getElementById('f-date').value = s.date_seance || '';
     document.getElementById('f-equipe').value = s.equipe || '';
     sessionTeamId = s.team_id ?? null;
-    document.getElementById('f-duree').value = s.duree_min || 90;
+    document.getElementById('f-duree').value = decStr(s.duree_min ?? 90);
     document.getElementById('editorSubtitle').textContent = `Créée le ${(s.created_at || '').slice(0, 10)}`;
 
     const { data: procs } = await sb.from('procedures')
@@ -237,7 +251,8 @@ async function loadSession() {
     const players = await playersForSession(new Set((att || []).filter(a => a.invite || a.present).map(a => a.player_id)));
     attendance = players.map(p => ({
       player_id: p.id, nom: p.nom, prenom: p.prenom, numero: p.numero, poste: p.poste, team_id: p.team_id,
-      statut: statutOf(attMap.get(p.id)), invite: !!attMap.get(p.id)?.invite,
+      statut: statutOf(attMap.get(p.id)), statut_libre: attMap.get(p.id)?.statut_libre || '',
+      present: !!attMap.get(p.id)?.present, invite: !!attMap.get(p.id)?.invite,
     }));
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -361,8 +376,8 @@ function procTemplate(p, index) {
       <div class="proc-head-right">
         <span class="proc-badges" data-proc-badges="${p._uid}">${procBadgesHtml(p)}</span>
         <span class="proc-dot"></span>
-        <input class="proc-duree" data-field="duree_min" type="number" min="0" step="5"
-               value="${hasSequences(p) ? totalMin(p) : (Number(p.duree_min) || 0)}"
+        <input class="proc-duree" data-field="duree_min" type="text" inputmode="decimal"
+               value="${decStr(hasSequences(p) ? totalMin(p) : (Number(p.duree_min) || 0))}"
                ${hasSequences(p) ? 'readonly title="Calculé : séquences + récupérations"' : ''} ${dis}>
         <span class="proc-unit">min</span>
         ${CAN_WRITE ? `
@@ -389,9 +404,9 @@ function procTemplate(p, index) {
           <div class="field"><label>Nb séquences</label>
             <input data-field="nb_sequences" type="number" min="1" step="1" value="${p.nb_sequences ?? ''}" placeholder="Ex: 3" ${dis}></div>
           <div class="field"><label>Durée séquence (min)</label>
-            <input data-field="duree_sequence_min" type="number" min="0" step="0.5" value="${p.duree_sequence_min ?? ''}" placeholder="Ex: 4" ${dis}></div>
+            <input data-field="duree_sequence_min" type="text" inputmode="decimal" value="${decStr(p.duree_sequence_min)}" placeholder="Ex: 1,5" ${dis}></div>
           <div class="field"><label>Récup (min)</label>
-            <input data-field="temps_recup_min" type="number" min="0" step="0.5" value="${p.temps_recup_min ?? ''}" placeholder="Ex: 1" ${dis}></div>
+            <input data-field="temps_recup_min" type="text" inputmode="decimal" value="${decStr(p.temps_recup_min)}" placeholder="Ex: 0,5" ${dis}></div>
           <div class="field"><label>Récapitulatif</label>
             <input value="${escapeHtml(sequenceLabel(p))}" readonly tabindex="-1"
                    title="Travail ${fmtMin(workMin(p))}' · récup ${fmtMin(recupMin(p))}' · total ${fmtMin(totalMin(p))}'"></div>
@@ -498,16 +513,15 @@ function refreshProcTimes(node) {
   if (!p) return;
   node.querySelectorAll('[data-field]').forEach(inp => {
     const k = inp.dataset.field;
-    if (['nb_sequences', 'duree_sequence_min', 'temps_recup_min'].includes(k)) {
-      p[k] = inp.value === '' ? '' : Number(inp.value);
-    }
+    if (k === 'nb_sequences') p[k] = inp.value === '' ? '' : Number(inp.value);
+    else if (k === 'duree_sequence_min' || k === 'temps_recup_min') p[k] = parseDecimal(inp.value);
   });
 
   const dureeInput = node.querySelector('.proc-duree');
   if (dureeInput) {
     if (hasSequences(p)) {
       p.duree_min = totalMin(p);
-      dureeInput.value = p.duree_min;
+      dureeInput.value = decStr(p.duree_min);
       dureeInput.readOnly = true;
       dureeInput.title = 'Calculé : séquences + récupérations';
     } else {
@@ -548,10 +562,9 @@ function syncFromDom() {
     if (!p) return;
     node.querySelectorAll('[data-field]').forEach(inp => {
       const k = inp.dataset.field;
-      if (k === 'duree_min') p[k] = Number(inp.value) || 0;
-      else if (['temps_recup_min', 'nb_sequences', 'duree_sequence_min'].includes(k)) {
-        p[k] = inp.value === '' ? '' : Number(inp.value);
-      }
+      if (k === 'duree_min') p[k] = parseDecimal(inp.value) || 0;
+      else if (k === 'nb_sequences') p[k] = inp.value === '' ? '' : Number(inp.value);
+      else if (k === 'temps_recup_min' || k === 'duree_sequence_min') p[k] = parseDecimal(inp.value);
       else p[k] = inp.value;
     });
     // La structure en séquences fait foi sur la durée saisie librement.
@@ -603,10 +616,11 @@ async function save() {
     principes_jeu: document.getElementById('f-principe').value.trim() || null,
     equipe: document.getElementById('f-equipe').value.trim() || null,
     equipes: [],   // les chasubles vivent sur chaque procédé (procedures.equipes)
-    duree_min: Number(document.getElementById('f-duree').value) || 0,
+    duree_min: parseDecimal(document.getElementById('f-duree').value) || 0,
     filmee: sessionFilmee,
     notes: document.getElementById('f-notes').value.trim() || null,
   };
+  if (access.ready) sessionRow.acces = access.base;
   if (hasTeams()) {
     sessionRow.team_id = sessionTeamId;
     sessionRow.equipe = teamName(sessionTeamId) || null;
@@ -629,6 +643,7 @@ async function save() {
     await commitDraftSchemas();
     await saveAttendance(sid);
     await saveBilans(sid);
+    await saveAccess(sid);
     dirty = false;
 
     if (SESSION_ID) {

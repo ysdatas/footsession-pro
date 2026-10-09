@@ -19,6 +19,7 @@ const TRASH_TYPES = {
   player_career:            { label: 'Parcours',            name: (d) => [d.club_name, d.categorie].filter(Boolean).join(' · ') || 'Club' },
   exercise_templates:       { label: 'Modèle d’exercice',   name: (d) => d.nom || 'Modèle' },
   teams:                    { label: 'Équipe',              name: (d) => d.nom || 'Équipe' },
+  matches:                  { label: 'Match',               name: (d) => `${d.adversaire || 'Match'}${d.date_match ? ` · ${fmtDate(d.date_match)}` : ''}` },
 };
 const NOTE_KIND_LABELS = { objective: 'Objectif', prevention: 'Prévention', strength: 'Point fort', improvement: 'Axe d’amélioration' };
 const typeLabel = (row) => (row.tbl === 'player_performance_notes' ? NOTE_KIND_LABELS[row.data.kind] || 'Objectif'
@@ -26,7 +27,7 @@ const typeLabel = (row) => (row.tbl === 'player_performance_notes' ? NOTE_KIND_L
 /* Lignes liées, dites simplement (« 3 exercices, 2 présences »). */
 const CHILD_WORDS = {
   procedures: ['exercice', 'exercices'], tactical_schemas: ['schéma', 'schémas'], attendance: ['présence', 'présences'],
-  session_comments: ['commentaire', 'commentaires'], video_sequences: ['séquence', 'séquences'], video_views: ['visionnage', 'visionnages'],
+  session_comments: ['commentaire', 'commentaires'], match_players: ['joueur du match', 'joueurs du match'], session_access: ['droit d’accès', 'droits d’accès'], video_sequences: ['séquence', 'séquences'], video_views: ['visionnage', 'visionnages'],
   player_video_selections: ['sélection', 'sélections'], player_performance_media: ['image', 'images'], session_bilans: ['bilan', 'bilans'],
   player_videos: ['vidéo', 'vidéos'], player_performance_notes: ['objectif ou prévention', 'objectifs et préventions'],
   player_physical_measurements: ['mesure', 'mesures'], player_physical_tests: ['session de tests', 'sessions de tests'],

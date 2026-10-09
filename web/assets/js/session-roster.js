@@ -1,8 +1,9 @@
 /* ============================================================
    LMFC Performance — session-roster.js (page séance)
-   Les joueurs dans la séance (lmfc_v9.sql) :
-     - statut de chacun (attendance.statut) : présent, reprise,
-       retard, absent, excusé, blessé, malade, sélection ;
+   Les joueurs dans la séance (lmfc_v9.sql, lmfc_v12.sql) :
+     - statut de chacun (attendance.statut) : présent, reprise, absent,
+       blessé, sélection, groupe pro, ou « Autre » avec un motif libre
+       (statut_libre) et une case « participe » (present) ;
      - invités : n'importe quel joueur du club, ajouté pour cette
        séance seulement (attendance.invite), son équipe ne change pas ;
      - bilan individuel + / = / − et commentaire court
@@ -11,7 +12,7 @@
    fichier l'affiche et le modifie.
    ============================================================ */
 
-// STATUTS, STATUT_LABEL, participe, statutOf, BILAN_NOTES : procedure-time.js.
+// STATUTS, STATUT_LABEL, participe, statutLabel, statutOf, BILAN_NOTES : procedure-time.js.
 const rosterName = (a) => `${a.prenom || ''} ${a.nom || ''}`.trim();
 
 let clubPlayers = [];          // tout l'effectif du club (recherche d'invités)
@@ -34,30 +35,46 @@ function renderAttendance() {
           <div class="att-meta">${escapeHtml(meta)}${guest}</div>
         </div>
         <select class="st-select st-${a.statut}" data-att="${i}" aria-label="Statut de ${escapeHtml(rosterName(a))}" ${dis}>
-          ${STATUTS.map(s => `<option value="${s.key}"${s.key === a.statut ? ' selected' : ''}>${s.label}</option>`).join('')}
+          ${statutOptions(a.statut)}
         </select>
         ${a.invite && CAN_WRITE ? `<button class="att-remove" type="button" data-remove-guest="${i}" aria-label="Retirer ${escapeHtml(rosterName(a))} de la séance" title="Retirer de la séance">✕</button>` : ''}
+        ${a.statut === 'autre' ? `<div class="st-other">
+          <input class="st-libre" data-libre="${i}" maxlength="40" value="${escapeHtml(a.statut_libre || '')}" placeholder="Motif (ex. Soins)" aria-label="Motif pour ${escapeHtml(rosterName(a))}" ${dis}>
+          <label class="st-part"><input type="checkbox" data-part="${i}"${a.present ? ' checked' : ''} ${dis}> Participe</label>
+        </div>` : ''}
       </div>`;
     }).join('');
   }
   updatePresentCount();
 }
 
+/* Statuts proposés ; un ancien statut (Retard, Excusé, Malade) reste affiché tel quel. */
+function statutOptions(current) {
+  const list = STATUTS_ANCIENS.some(s => s.key === current) ? [...STATUTS, STATUTS_ANCIENS.find(s => s.key === current)] : STATUTS;
+  return list.map(s => `<option value="${s.key}"${s.key === current ? ' selected' : ''}>${s.label}</option>`).join('');
+}
+
 function updatePresentCount() {
-  const n = (k) => attendance.filter(a => a.statut === k).length;
   const p = attendance.filter(participe).length, guests = attendance.filter(a => a.invite).length;
+  // Les autres statuts, regroupés par libellé (motif libre compris) ; « 2 blessés », « 1 groupe pro », « 1 soins ».
+  const other = new Map();
+  attendance.filter(a => !['present', 'absent'].includes(a.statut))
+    .forEach(a => { const l = statutLabel(a).toLowerCase(); other.set(l, { n: (other.get(l)?.n || 0) + 1, plural: a.statut !== 'autre' && a.statut !== 'groupe_pro' }); });
   const parts = [`${p} présent${p > 1 ? 's' : ''}`,
-    ...['blesse', 'malade', 'reprise', 'excuse', 'selection'].filter(k => n(k)).map(k => `${n(k)} ${STATUT_LABEL[k].toLowerCase()}${n(k) > 1 ? 's' : ''}`),
+    ...[...other].map(([l, o]) => `${o.n} ${l}${o.n > 1 && o.plural ? 's' : ''}`),
     guests ? `${guests} invité${guests > 1 ? 's' : ''}` : ''].filter(Boolean);
   document.getElementById('presentCount').textContent = parts.join(' · ');
 }
 
 /* Changement de statut : équipes, bilan et compteurs suivent. */
 function setStatut(i, statut) {
-  attendance[i].statut = statut;
+  const a = attendance[i];
+  a.statut = statut;
+  if (statut === 'autre') a.present = false;   // à cocher si le joueur participe malgré tout
   markDirty();
   renderAttendance();
   renderRosterDependents();
+  if (statut === 'autre') document.querySelector(`[data-libre="${i}"]`)?.focus();
 }
 function renderRosterDependents() {
   if (typeof renderProcBlocks === 'function') renderProcBlocks();
@@ -156,8 +173,23 @@ function setBilan(playerId, patch) {
 function initRoster() {
   const list = document.getElementById('attendanceList');
   list.addEventListener('change', e => {
+    if (!CAN_WRITE) return;
     const sel = e.target.closest('[data-att]');
-    if (sel && CAN_WRITE) setStatut(Number(sel.dataset.att), sel.value);
+    if (sel) return setStatut(Number(sel.dataset.att), sel.value);
+    const part = e.target.closest('[data-part]');
+    if (part) {
+      attendance[Number(part.dataset.part)].present = part.checked;
+      markDirty();
+      updatePresentCount();
+      renderRosterDependents();
+    }
+  });
+  list.addEventListener('input', e => {
+    const libre = e.target.closest('[data-libre]');
+    if (!libre || !CAN_WRITE) return;
+    attendance[Number(libre.dataset.libre)].statut_libre = libre.value;
+    markDirty();
+    updatePresentCount();
   });
   list.addEventListener('click', e => {
     const rm = e.target.closest('[data-remove-guest]');
@@ -196,7 +228,8 @@ async function saveAttendance(sid) {
     removedGuests.clear();
   }
   if (!attendance.length) return;
-  const rows = attendance.map(a => ({ player_id: a.player_id, session_id: sid, statut: a.statut, invite: !!a.invite, present: participe(a) }));
+  const rows = attendance.map(a => ({ player_id: a.player_id, session_id: sid, statut: a.statut, invite: !!a.invite, present: participe(a),
+    statut_libre: a.statut === 'autre' ? (a.statut_libre || '').trim().slice(0, 40) || null : null }));
   const { error } = await sb.from('attendance').upsert(rows, { onConflict: 'player_id,session_id' });
   if (error) throw error;
 }

@@ -189,7 +189,7 @@ function table(list) {
           <td><a class="text-gold" href="session-edit.html?id=${s.id}">${escapeHtml(s.titre)}</a></td>
           <td>${escapeHtml(fmtDateFr(s.date_seance))}</td>
           <td>${escapeHtml(s.equipe || '—')}</td>
-          <td>${s.duree_min} min</td>
+          <td>${fmtMin(s.duree_min)} min</td>
           <td>${fmtMin(sessionWorkMin(s.procedures))} min</td>
           <td>${(s.procedures || []).length}</td>
           <td style="text-align:right;white-space:nowrap;">
@@ -206,7 +206,9 @@ function table(list) {
 window.deleteSession = async (id, btn) => {
   if (!confirm(`Supprimer cette séance et tous ses procédés ?${await trashNote()}`)) return;
   try {
-    const { error } = await sb.from('sessions').delete().eq('id', id);
+    // Sans droit de modification sur cette séance, la base ne supprime rien (0 ligne) : on le dit.
+    const { data: gone, error } = await sb.from('sessions').delete().eq('id', id).select('id');
+    if (!error && !gone?.length) throw new Error('Vous ne pouvez pas supprimer cette séance (droits d’accès).');
     if (error) throw error;
     sessionsCache = sessionsCache.filter(s => s.id !== id);
     render();

@@ -50,7 +50,7 @@
     <details class="faq-q">
       <summary>L’e-mail de confirmation n’arrive pas : que faire ?</summary>
       <div class="faq-a"><p>Regardez d’abord dans les spams. Sur la page de connexion, « Renvoyer l’e-mail de confirmation » apparaît après l’inscription, et aussi quand une connexion échoue parce que l’adresse n’est pas encore confirmée (un renvoi par minute).</p>
-        <p>Si personne ne reçoit rien, l’envoi d’e-mails du site n’est pas encore configuré : l’administrateur technique doit brancher un service d’envoi dans Supabase (voir le README, « E-mails de confirmation »).</p></div>
+        <p>Toujours rien après quelques minutes : prévenez l’administrateur du club.</p></div>
     </details>
     <details class="faq-q">
       <summary>Comment créer un joueur ?</summary>
@@ -141,6 +141,10 @@
         <p>Supprimer un élément le retire de l’étape affichée et des suivantes, pas des précédentes. « ▶ » enchaîne les étapes : les pions glissent, et ce qui apparaît ou disparaît le fait en fondu.</p></div>
     </details>
     <details class="faq-q">
+      <summary>Flèche pleine ou pointillée : laquelle choisir ?</summary>
+      <div class="faq-a"><p>Flèche <strong>pleine</strong> : une passe. Flèche <strong>pointillée</strong> : une trajectoire (course, déplacement). Pour changer un tracé déjà dessiné, flèche ou trait, sélectionnez-le puis touchez « Pointillé » dans la barre (de nouveau pour revenir au trait plein).</p></div>
+    </details>
+    <details class="faq-q">
       <summary>Comment choisir la couleur et la taille des pions ?</summary>
       <div class="faq-a"><p>Couleur : touchez à nouveau l’équipe active (pastille en haut à gauche) et choisissez ; les pions suivants la prennent et elle reste mémorisée. La pastille au bout de la barre d’outils fait de même pour les flèches, zones et textes. Taille : touchez un pion, puis glissez le curseur de sa barre, ou pincez avec deux doigts (pavé tactile : pincez aussi) — c’est l’élément qui change de taille, jamais la page. Les pions suivants gardent cette taille. Pendant qu’on déplace un élément, ses réglages s’effacent et reviennent au relâchement.</p></div>
     </details>
@@ -151,7 +155,7 @@
     </details>
     <details class="faq-q">
       <summary>Comment noter les présences, les blessés et un joueur invité ?</summary>
-      <div class="faq-a"><p>Dans la séance, bloc <em>Présences &amp; statuts</em> : chaque joueur a son statut (Présent, Reprise, Retard, Absent, Excusé, Blessé, Malade, Sélection). « Tous présents » passe les absents en présents sans toucher aux blessés ni aux malades. Présent, reprise et retard comptent comme présents (équipes, bilan, Bilan &amp; Analytics).</p>
+      <div class="faq-a"><p>Dans la séance, bloc <em>Présences &amp; statuts</em> : chaque joueur a son statut : Présent, Reprise, Absent, Blessé, Sélection, Groupe pro, ou « Autre… » avec le motif de votre choix (Soins, Repos…). « Tous présents » passe les absents en présents sans toucher aux autres statuts. Présent et Reprise comptent comme présents (équipes, bilan, Bilan &amp; Analytics) ; Sélection et Groupe pro non ; pour « Autre », cochez « Participe » si le joueur fait la séance. Les anciennes séances gardent leurs statuts d’alors (Retard, Excusé, Malade).</p>
       <p>Pour un joueur d’une autre équipe (un U15 en séance U18) : tapez son nom dans « Ajouter un joueur du club ». Il apparaît avec le badge « Invité · U15 », pour cette séance seulement : son équipe ne change pas. ✕ le retire. Le PDF le signale aussi.</p></div>
     </details>
     <details class="faq-q">
@@ -162,6 +166,16 @@
       <summary>Comment indiquer le staff de chaque procédé et si la séance est filmée ?</summary>
       <div class="faq-a"><p>Dans la carte du procédé, partie <em>Staff</em> : « + Membre », un nom (le staff du club est proposé, ou n’importe quel nom) et un rôle : Animation, Consignes, Gestion vidéo, Source de balle… Plusieurs personnes par procédé ; « Reprendre de… » copie le staff d’un autre procédé.</p>
       <p>Sous les procédés, activez « Séance filmée ». Chaque procédé est alors filmé (décochez « Procédé filmé » dans sa carte pour en exclure un). Une alerte signale un procédé filmé sans personne en « Gestion vidéo », et le bloc résume qui filme quoi. Tout est repris dans le PDF.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Qui peut voir ou modifier une séance ?</summary>
+      <div class="faq-a"><p>Bloc <em>Droits d’accès</em>, en bas de la séance (visible par son créateur et l’administrateur). Par défaut, le staff de l’équipe de la séance la consulte (et le staff sans équipe fixe) ; vous et l’administrateur la modifiez. « Tout le staff du club » l’ouvre à tous, comme les séances d’avant.</p>
+      <p>Pour chaque personne : Aucun, Lecture ou Modification (Modification seulement pour un coach ou un administrateur). Une personne en lecture voit toute la séance et ses PDF, sans rien pouvoir changer. Les droits se modifient à tout moment ; l’administrateur garde toujours l’accès complet.</p></div>
+    </details>
+    <details class="faq-q">
+      <summary>Comment faire un retour de match ?</summary>
+      <div class="faq-a"><p><em>Retours de match</em> → « + Nouveau match » : adversaire, date, compétition, lieu, score, informations. « Ajouter l’effectif » met les joueurs de l’équipe, ou cherchez un joueur du club. Pour chacun : titulaire, remplaçant ou non entré, minutes, buts, passes, + / = / − et un commentaire court. En bas : commentaire général et « À retenir ».</p>
+      <p>L’onglet <em>Par joueur</em> montre l’historique d’un joueur : ses matchs du plus récent au plus ancien, ses totaux (matchs, titularisations, minutes, buts, passes, nombre de + / = / −). Tout le staff consulte ; administrateur et coachs saisissent. Un match supprimé passe par la corbeille.</p></div>
     </details>
     <details class="faq-q">
       <summary>Comment faire le bilan individuel après la séance ?</summary>
@@ -199,7 +213,7 @@
     </details>
     <details class="faq-q">
       <summary>Une vidéo ne se charge pas : que faire ?</summary>
-      <div class="faq-a"><p>Le message dit ce qui bloque. « Serveur vidéo incomplet : secret VIDEO_URL_SECRET absent » : l’administrateur doit l’ajouter sur Cloudflare (Workers → footsession-pro → Settings → Variables and Secrets, type <strong>Secret</strong>). « Session expirée » : reconnectez-vous. « Vidéo introuvable » : le fichier n’est plus dans le stockage, renvoyez-la.</p></div>
+      <div class="faq-a"><p>Rechargez la page et vérifiez votre connexion. « Session expirée » : reconnectez-vous. « Vidéo introuvable » : elle a été supprimée, envoyez-la à nouveau. Si le problème continue, prévenez l’administrateur du club en lui recopiant le message affiché.</p></div>
     </details>
     <details class="faq-q">
       <summary>Comment personnaliser mon menu ?</summary>
@@ -421,12 +435,12 @@
         <thead><tr><th></th><th>Voit</th><th>Modifie</th></tr></thead>
         <tbody>
           <tr><td>Administrateur</td><td>Tout</td><td>Tout, plus la gestion du club : accès, membres, équipes, couleur du club, suppression de fiches ; corbeille complète</td></tr>
-          <tr><td>Coach</td><td>Séances, joueurs, performance (consultation), vidéos, statistiques de visionnage</td><td>Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs. <strong>Pas</strong> les données physiques ni les tests</td></tr>
-          <tr><td>Préparateur physique</td><td>Joueurs, performance, objectifs et préventions</td><td>Données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Pas de vidéos ni de séances</td></tr>
+          <tr><td>Coach</td><td>Séances, joueurs, performance (consultation), vidéos, statistiques de visionnage</td><td>Séances, retours de match, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs. <strong>Pas</strong> les données physiques ni les tests</td></tr>
+          <tr><td>Préparateur physique</td><td>Joueurs, performance, objectifs et préventions</td><td>Données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Consulte les séances qui lui sont ouvertes ; pas de vidéos</td></tr>
           <tr><td>Joueur</td><td>Ses propres données : poids, masse grasse, chronos, radar, objectifs, préventions, programme terrain, vidéos</td><td>Ses séquences : sélection, dessins, analyse, envoi au staff ; « fait » et ressenti sur ses exercices</td></tr>
         </tbody>
       </table>
-      <p class="text-muted">Le joueur ne voit ni l’asymétrie, ni les plis cutanés, ni le ratio, ni les données d’un autre joueur. Ces règles sont appliquées par la base de données elle-même (RLS), pas seulement par l’affichage.</p>
+      <p class="text-muted">Le joueur ne voit ni l’asymétrie, ni les plis cutanés, ni le ratio, ni les données d’un autre joueur. Ces règles sont vérifiées par le serveur, pas seulement par l’affichage.</p>
       </div>
     </details>
   </main>

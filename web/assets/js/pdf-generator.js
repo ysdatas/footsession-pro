@@ -91,8 +91,8 @@ window.loadSessionForPdf = async function (sessionId) {
     const attMap = new Map((att || []).map(a => [a.player_id, a]));
     const roster = attMap.size ? (players || []).filter(p => attMap.has(p.id)) : (players || []);
     const attendance = roster.map(p => {
-      const statut = statutOf(attMap.get(p.id));
-      return { ...p, statut, invite: !!attMap.get(p.id)?.invite, present: PARTICIPE.has(statut) };
+      const row = attMap.get(p.id), statut = statutOf(row);
+      return { ...p, statut, statut_libre: row?.statut_libre || '', invite: !!row?.invite, present: participe({ statut, present: row?.present }) };
     });
     const bilans = (bl.data || []).map(b => ({ ...b, player: (players || []).find(p => p.id === b.player_id) })).filter(b => b.player);
 
@@ -313,7 +313,7 @@ window.generateSessionPDF = async function (sessionId) {
   const total = sessionTotalMin(procedures);
   y = infoTable(y,
     ['DATE', 'ÉQUIPE', 'DURÉE SÉANCE', 'NB PROCÉDÉS', 'TEMPS DE TRAVAIL', 'TEMPS TOTAL', 'SÉANCE FILMÉE'],
-    [fmtDateFr(s.date_seance), s.equipe || '-', (s.duree_min || 0) + "'",
+    [fmtDateFr(s.date_seance), s.equipe || '-', fmtMin(s.duree_min) + "'",
      String(procedures.length), fmtMin(travail) + "'", fmtMin(total) + "'", s.filmee ? 'Oui' : 'Non'],
     [1.1, 1, 1.15, 1, 1.25, 1.1, 1.1]);
 
@@ -439,9 +439,10 @@ window.generateSessionPDF = async function (sessionId) {
   const perCol = 4, colW = CW / perCol, rowH = 6;
   const listH = (n) => n ? Math.ceil(n / perCol) * rowH + 4 : 10;
   const STATUT_RGB = { present: [76, 175, 80], reprise: [38, 166, 154], retard: [255, 152, 0], absent: [190, 190, 196],
-    excuse: [120, 144, 156], blesse: [229, 57, 53], malade: [171, 71, 188], selection: [212, 160, 10] };
+    excuse: [120, 144, 156], blesse: [229, 57, 53], malade: [171, 71, 188], selection: [212, 160, 10],
+    groupe_pro: [92, 124, 250], autre: [144, 164, 174] };
   const nameOf = (a) => {
-    const tags = [a.statut && !['present', 'absent'].includes(a.statut) ? STATUT_LABEL[a.statut]?.toLowerCase() : '',
+    const tags = [a.statut && !['present', 'absent'].includes(a.statut) ? statutLabel(a).toLowerCase() : '',
       a.invite ? `invité${typeof teamName === 'function' && teamName(a.team_id) ? ' · ' + teamName(a.team_id) : ''}` : ''].filter(Boolean);
     return `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ` #${a.numero}` : '') + (tags.length ? ` (${tags.join(', ')})` : '');
   };

@@ -1,0 +1,82 @@
+/* ============================================================
+   LMFC Performance — Retours de match (matchs.html)
+   Champs de recherche, ✕ et boutons + / = / − : session.css.
+   ============================================================ */
+.mt-tabs {
+  display: flex; gap: 4px; padding: 4px; margin-bottom: 14px; max-width: 360px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+}
+.mt-tabs [role="tab"] {
+  flex: 1 0 auto; min-height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: none;
+  color: var(--text-secondary); font: 600 var(--fs-md)/1 var(--font-main); cursor: pointer;
+}
+.mt-tabs [aria-selected="true"] { background: var(--bg-hover); color: var(--gold); }
+
+/* Liste : date, adversaire, joueurs, score */
+.mt-list { display: grid; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); overflow: hidden; }
+.mt-row {
+  display: grid; grid-template-columns: 92px minmax(0, 1fr) auto 72px; align-items: center; gap: 12px;
+  min-height: 56px; padding: 8px 14px; border: 0; border-bottom: 1px solid var(--border); background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.mt-row:last-child { border-bottom: 0; }
+.mt-row:hover, .mt-row:focus-visible { background: var(--bg-hover); outline: none; }
+.mt-date { font-size: var(--fs-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.mt-main { display: grid; min-width: 0; }
+.mt-main strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-main small { font-size: var(--fs-xs); color: var(--text-secondary); }
+.mt-comment { font-size: var(--fs-sm); color: var(--text-secondary); font-style: normal; white-space: pre-line; }
+.mt-count { font-size: var(--fs-sm); color: var(--text-secondary); white-space: nowrap; }
+.mt-res {
+  justify-self: end; min-width: 60px; padding: 4px 8px; border-radius: 999px; text-align: center;
+  font-weight: 700; font-variant-numeric: tabular-nums; border: 1px solid var(--border); color: var(--text-secondary);
+}
+.mt-v { color: #8fd694; border-color: rgba(76,175,80,.5); background: rgba(76,175,80,.12); }
+.mt-n { color: var(--text-primary); border-color: #9E9E9E; background: rgba(158,158,158,.12); }
+.mt-d { color: #ff8a80; border-color: rgba(244,67,54,.5); background: rgba(244,67,54,.12); }
+.mt-note { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: var(--radius-sm); font-weight: 800; color: #0A0A0A; }
+.mt-note-plus { background: var(--success); }
+.mt-note-egal { background: #9E9E9E; }
+.mt-note-moins { background: var(--danger); color: #fff; }
+
+/* Par joueur : totaux puis frise */
+.mt-pick { max-width: 360px; }
+.mt-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.mt-stat { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card); }
+.mt-stat strong { font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }
+.mt-stat span { font-size: var(--fs-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+
+/* Fenêtre de saisie */
+.mt-modal { max-width: 900px; }
+.mt-score { display: flex; align-items: center; gap: 8px; }
+.mt-score input { width: 72px; text-align: center; }
+.mt-h { margin: 18px 0 8px; font-size: var(--fs-md); }
+.mt-h span { color: var(--text-secondary); font-weight: 500; }
+.mt-tools { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.mt-spacer { flex: 1; }
+.mp-list { display: grid; gap: 6px; margin-bottom: 14px; }
+.mp-row {
+  display: grid; grid-template-columns: minmax(120px, 1.2fr) 124px repeat(3, 76px) auto minmax(120px, 1.5fr) 28px; gap: 8px; align-items: center;
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface);
+}
+.mp-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-row select, .mp-row input { padding: 5px 8px; font-size: var(--fs-sm); }
+.mp-num { display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.mp-num input { width: 46px; text-align: center; padding: 5px 4px; }
+
+@media (max-width: 760px) {
+  /* Nom, statut, ✕ ; puis minutes, buts, passes, + / = / − ; puis le commentaire. */
+  .mp-row { grid-template-columns: repeat(3, auto) minmax(0, 1fr) 28px; }
+  .mp-row .mp-name { grid-column: 1 / 4; grid-row: 1; }
+  .mp-row select { grid-column: 4; grid-row: 1; justify-self: end; }
+  .mp-row .att-remove { grid-column: 5; grid-row: 1; }
+  .mp-row .mp-num { grid-row: 2; }
+  .mp-row .bilan-notes { grid-column: 4 / 6; grid-row: 2; justify-self: end; }
+  .mp-row .mp-comment { grid-column: 1 / -1; grid-row: 3; }
+}
+@media (max-width: 560px) {
+  .mt-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .mt-date { grid-column: 1 / -1; }
+  .mt-count { display: none; }
+  .mt-hist { grid-template-columns: minmax(0, 1fr) auto auto; }
+}

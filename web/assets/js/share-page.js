@@ -28,7 +28,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       `<span>Date : ${escapeHtml(fmtDateFrLong(s.date_seance))}</span>`,
       principe ? `<span>Principe de jeu : ${escapeHtml(principe)}</span>` : '',
       s.equipe ? `<span>Équipe : ${escapeHtml(s.equipe)}</span>` : '',
-      `<span>Durée séance : ${s.duree_min} min</span>`,
+      `<span>Durée séance : ${fmtMin(s.duree_min)} min</span>`,
       `<span>Travail : ${fmtMin(sessionWorkMin(procedures))} min</span>`,
       `<span>Total : ${fmtMin(sessionTotalMin(procedures))} min</span>`,
       `<span>${procedures.length} procédé${procedures.length > 1 ? 's' : ''}</span>`,

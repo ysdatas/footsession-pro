@@ -40,11 +40,21 @@ function hasSequences(p) {
   return numOr0(p?.nb_sequences) > 0 && numOr0(p?.duree_sequence_min) > 0;
 }
 
-/* Arrondit à 0,5 près et supprime le « .0 » superflu : 4 → «4», 4.5 → «4,5». */
+/* Durée lisible, au centième près, sans zéro superflu : 4 → «4», 4.5 → «4,5», 1.25 → «1,25». */
 function fmtMin(v) {
-  const n = Math.round(numOr0(v) * 2) / 2;
+  const n = Math.round(numOr0(v) * 100) / 100;
   return String(n).replace('.', ',');
 }
+
+/* Saisie d'une durée : « 1,5 » comme « 1.5 » → 1.5 ; vide ou illisible → ''. */
+function parseDecimal(v) {
+  const t = String(v ?? '').trim().replace(',', '.');
+  if (!t) return '';
+  const n = Number(t);
+  return Number.isFinite(n) ? n : '';
+}
+/* Valeur d'un champ de durée : virgule française ; vide reste vide. */
+const decStr = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? '' : fmtMin(v));
 
 /* Étiquette lisible : « 3 × 4' + 1' récup », ou « 20' » à défaut. */
 function sequenceLabel(p) {
@@ -136,7 +146,7 @@ function procPrinciple(p, s, procs = []) {
    sans module, comme le reste de l'application. */
 Object.assign(window, {
   PROC_TYPES, workMin, recupMin, totalMin, hasSequences,
-  fmtMin, sequenceLabel, sessionWorkMin, sessionTotalMin,
+  fmtMin, parseDecimal, decStr, sequenceLabel, sessionWorkMin, sessionTotalMin,
   fmtDateFr, fmtDateFrLong,
   mondayOf, weekNumber, weekRangeLabel,
   sessionPrinciple, procPrinciple,
@@ -148,19 +158,23 @@ Object.assign(window, {
    deux PDF et la page de partage.
    ============================================================ */
 const STATUTS = [
-  { key: 'present',   label: 'Présent' },
-  { key: 'reprise',   label: 'Reprise' },
-  { key: 'retard',    label: 'Retard' },
-  { key: 'absent',    label: 'Absent' },
-  { key: 'excuse',    label: 'Excusé' },
-  { key: 'blesse',    label: 'Blessé' },
-  { key: 'malade',    label: 'Malade' },
-  { key: 'selection', label: 'Sélection' },
+  { key: 'present',    label: 'Présent' },
+  { key: 'reprise',    label: 'Reprise' },
+  { key: 'absent',     label: 'Absent' },
+  { key: 'blesse',     label: 'Blessé' },
+  { key: 'selection',  label: 'Sélection' },
+  { key: 'groupe_pro', label: 'Groupe pro' },
+  { key: 'autre',      label: 'Autre…' },
 ];
-const STATUT_LABEL = Object.fromEntries(STATUTS.map(s => [s.key, s.label]));
-/* Ceux qui participent : ils vont dans les équipes et le bilan. */
+/* Plus proposés (lmfc_v12.sql) : une ancienne séance les garde et les affiche. */
+const STATUTS_ANCIENS = [{ key: 'retard', label: 'Retard' }, { key: 'excuse', label: 'Excusé' }, { key: 'malade', label: 'Malade' }];
+const STATUT_LABEL = Object.fromEntries([...STATUTS, ...STATUTS_ANCIENS].map(s => [s.key, s.label]));
+/* Ceux qui participent : ils vont dans les équipes et le bilan.
+   « Autre » (motif libre) : selon sa case « participe » (present). */
 const PARTICIPE = new Set(['present', 'reprise', 'retard']);
-const participe = (a) => PARTICIPE.has(a.statut);
+const participe = (a) => (a.statut === 'autre' ? !!a.present : PARTICIPE.has(a.statut));
+/* Libellé affiché : le motif libre pour « Autre ». */
+const statutLabel = (a) => (a.statut === 'autre' ? (a.statut_libre || '').trim() || 'Autre' : STATUT_LABEL[a.statut] || a.statut || '');
 /* Ancienne présence (sans statut) : présent ou absent. */
 const statutOf = (row) => row?.statut || (row?.present ? 'present' : 'absent');
 

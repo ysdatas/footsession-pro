@@ -515,11 +515,11 @@ function drawArrow(it) {
 }
 function drawLine(it) {
   const bend = bendOf(it);
-  ctx.strokeStyle = it.color; ctx.lineWidth = 3; ctx.setLineDash([]);
+  ctx.strokeStyle = it.color; ctx.lineWidth = 3; ctx.setLineDash(it.style === 'dashed' ? [10, 8] : []);
   ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(it.x1, it.y1);
   if (bend) ctx.lineTo(bend.x, bend.y);
-  ctx.lineTo(it.x2, it.y2); ctx.stroke();
+  ctx.lineTo(it.x2, it.y2); ctx.stroke(); ctx.setLineDash([]);
 }
 /* Dessin libre : points relatifs à (x, y), pour qu'il se déplace et
    s'anime comme les autres éléments. Courbe lissée par des quadratiques. */
@@ -1040,7 +1040,7 @@ const menu = (() => {
     '<div class="tbm-title" id="tbmTitle">Élément</div>' +
     '<div class="tbm-row" id="tbmRenameRow"><span>Renommer</span><input id="tbmRename"></div>' +
     '<div class="tbm-row"><span>Couleur</span><input type="color" id="tbmColor"></div>' +
-    '<div class="tbm-row hidden" id="tbmDashRow"><span>Contour</span><button class="tbm-btn" id="tbmDash" type="button">Pointillé</button></div>' +
+    '<div class="tbm-row hidden" id="tbmDashRow"><span id="tbmDashLabel">Contour</span><button class="tbm-btn" id="tbmDash" type="button">Pointillé</button></div>' +
     '<div class="tbm-row hidden" id="tbmLabelRow"><span>Étiquette</span><span class="tbm-seg" id="tbmLabelSeg">' +
       '<button data-lp="top" type="button" title="Au-dessus">↑</button>' +
       '<button data-lp="center" type="button" title="Au centre">•</button>' +
@@ -1069,14 +1069,14 @@ function openMenu(e, it) {
   else if (it.type === 'text') { rn.type = 'text'; rn.value = it.text || ''; rn.placeholder = 'Texte'; }
   else if (it.type === 'shape') { rn.type = 'text'; rn.value = it.label || ''; rn.placeholder = 'Nom de la zone'; }
   $('#tbmColor').value = toHex(it.color || '#C9A84C');
-  // Options spécifiques aux zones : contour pointillé + position de l'étiquette.
+  // Zones : contour pointillé + position de l'étiquette. Flèches et traits : plein ou pointillé.
   const isShape = it.type === 'shape';
-  $('#tbmDashRow').classList.toggle('hidden', !isShape);
+  const dashed = isDashed(it);
+  $('#tbmDashRow').classList.toggle('hidden', !isShape && !canDash(it));
+  $('#tbmDashLabel').textContent = isShape ? 'Contour' : 'Trait';
+  $('#tbmDash').textContent = dashed ? 'Plein' : 'Pointillé';
   $('#tbmLabelRow').classList.toggle('hidden', !(isShape && it.label));
-  if (isShape) {
-    $('#tbmDash').textContent = it.dash ? 'Plein' : 'Pointillé';
-    $$('#tbmLabelSeg button').forEach(b => b.classList.toggle('on', (it.labelPos || 'center') === b.dataset.lp));
-  }
+  if (isShape) $$('#tbmLabelSeg button').forEach(b => b.classList.toggle('on', (it.labelPos || 'center') === b.dataset.lp));
   menu.classList.remove('hidden');
   const mw = 214, mh = menu.offsetHeight || 220;
   let x = Math.min(e.clientX, window.innerWidth - mw - 8);
@@ -1098,9 +1098,10 @@ $('#tbmColor').addEventListener('input', e => {
   it.color = e.target.value; render(); scheduleSave(); syncSelBar();
 });
 $('#tbmDash').addEventListener('click', () => {
-  const it = menuTarget; if (!it || it.type !== 'shape') return;
-  it.dash = !it.dash; $('#tbmDash').textContent = it.dash ? 'Plein' : 'Pointillé';
-  render(); scheduleSave();
+  const it = menuTarget; if (!it || (it.type !== 'shape' && !canDash(it))) return;
+  pushHistory();
+  toggleDash(it); $('#tbmDash').textContent = isDashed(it) ? 'Plein' : 'Pointillé';
+  syncSelBar(); render(); scheduleSave();
 });
 $('#tbmLabelSeg').addEventListener('click', e => {
   const btn = e.target.closest('button'); const it = menuTarget;
@@ -1437,7 +1438,28 @@ function syncSelBar() {
     bendBtn.textContent = has ? 'Redresser' : 'Angle';
     bendBtn.classList.toggle('active', has);
   }
+  // Plein ou pointillé : flèche pleine = passe, pointillée = trajectoire.
+  const dashBtn = $('#selDash');
+  dashBtn.classList.toggle('hidden', !(one && canDash(one)));
+  if (one && canDash(one)) {
+    dashBtn.classList.toggle('active', isDashed(one));
+    dashBtn.setAttribute('aria-pressed', String(isDashed(one)));
+  }
 }
+/* Pointillé : `style` pour les flèches et traits (l'ancienne flèche courbe
+   garde le sien), `dash` pour les zones. */
+function canDash(it) { return (it.type === 'arrow' || it.type === 'line') && it.style !== 'curved'; }
+function isDashed(it) { return it.type === 'shape' ? !!it.dash : it.style === 'dashed'; }
+function toggleDash(it) {
+  if (it.type === 'shape') it.dash = !it.dash;
+  else it.style = it.style === 'dashed' ? 'solid' : 'dashed';
+}
+$('#selDash').addEventListener('click', () => {
+  const it = selected(); if (!it || !canDash(it)) return;
+  pushHistory();
+  toggleDash(it);
+  syncSelBar(); render(); scheduleSave();
+});
 $('#selBend').addEventListener('click', () => {
   const it = selected(); if (!it || (it.type !== 'arrow' && it.type !== 'line')) return;
   pushHistory();
