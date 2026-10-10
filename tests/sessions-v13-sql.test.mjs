@@ -30,4 +30,13 @@ assert.equal((await one(`select titre from public.sessions`)).titre, 'A', 'le tr
 // A continue avec la date reçue : ça passe.
 assert.ok(await one(`update public.sessions set titre = 'A2' where id = 1 and updated_at = $1 returning id`, [a.updated_at]));
 
-console.log('sessions-v13-sql : OK (verrou)');
+// lmfc_v15.sql : terrain d'effectif, un objet { id: [x, y] } (vide par défaut).
+const v15 = readFileSync(new URL('../supabase/lmfc_v15.sql', import.meta.url), 'utf8');
+await db.exec(v15);
+await db.exec(v15);   // rejouable
+assert.deepEqual((await one(`select terrain from public.sessions`)).terrain, {}, 'vide par défaut');
+await db.query(`update public.sessions set terrain = '{"7": [50, 12.5]}'`);
+assert.deepEqual((await one(`select terrain from public.sessions`)).terrain, { 7: [50, 12.5] });
+await assert.rejects(db.query(`update public.sessions set terrain = '[]'`), /check/, 'un objet seulement');
+
+console.log('sessions-v13-sql : OK (verrou, terrain d’effectif)');

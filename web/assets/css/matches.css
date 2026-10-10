@@ -41,6 +41,7 @@
 
 /* Par joueur : totaux puis frise */
 .mt-pick { max-width: 360px; }
+.mt-fiche { margin: 0 0 10px; font-size: var(--fs-sm); color: var(--text-secondary); }
 .mt-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 12px; }
 .mt-stat { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card); }
 .mt-stat strong { font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }

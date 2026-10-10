@@ -30,8 +30,9 @@ function renderAttendance() {
       const meta = [a.numero != null ? '#' + a.numero : '', a.poste || ''].filter(Boolean).join(' · ');
       const guest = a.invite ? `<span class="guest-badge" title="Présence exceptionnelle : son équipe ne change pas">Invité${teamName(a.team_id) ? ` · ${escapeHtml(teamName(a.team_id))}` : ''}</span>` : '';
       return `<div class="att-item st-${a.statut}${a.invite ? ' is-guest' : ''}">
+        ${CAN_WRITE ? `<button type="button" class="att-grip" data-grip="${a.player_id}" aria-label="Placer ${escapeHtml(rosterName(a))} sur le terrain" title="Glisser sur le terrain (ou cliquer)">⠿</button>` : ''}
         <div class="att-main">
-          <div class="att-name">${escapeHtml(rosterName(a))}</div>
+          <div class="att-name">${playerLink(a.player_id, rosterName(a))}</div>
           <div class="att-meta">${escapeHtml(meta)}${guest}</div>
         </div>
         <select class="st-select st-${a.statut}" data-att="${i}" aria-label="Statut de ${escapeHtml(rosterName(a))}" ${dis}>
@@ -46,6 +47,7 @@ function renderAttendance() {
     }).join('');
   }
   updatePresentCount();
+  renderPitch();   // terrain d'effectif (session-pitch.js) : poignées et pions à jour
 }
 
 /* Statuts proposés ; un ancien statut (Retard, Excusé, Malade) reste affiché tel quel. */
@@ -154,7 +156,7 @@ function renderBilans() {
   box.innerHTML = shown.map(a => {
     const b = bilans.get(a.player_id) || {};
     return `<div class="bilan-row bl-${b.note || 'none'}" data-player="${a.player_id}">
-      <span class="bilan-name">${escapeHtml(rosterName(a))}${a.invite ? ' <span class="guest-badge">Invité</span>' : ''}</span>
+      <span class="bilan-name">${playerLink(a.player_id, rosterName(a))}${a.invite ? ' <span class="guest-badge">Invité</span>' : ''}</span>
       <span class="bilan-notes" role="group" aria-label="Bilan de ${escapeHtml(rosterName(a))}">
         ${BILAN_NOTES.map(n => `<button type="button" class="bn bn-${n.key}" data-note="${n.key}" aria-pressed="${b.note === n.key}" title="${n.label}" ${dis}>${n.sign}</button>`).join('')}
       </span>

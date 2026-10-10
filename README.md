@@ -102,6 +102,8 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 33. supabase/lmfc_v14.sql                  membres du club réservés à l'admin (profiles_read : soi-même ou
                                            admin ; club_staff() pour le staff), plusieurs équipes par compte
                                            (profiles.team_ids), session_level en tient compte (rejouable)
+34. supabase/lmfc_v15.sql                  terrain d'effectif : sessions.terrain (placement des joueurs,
+                                           { "id": [x %, y %] }) (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -339,6 +341,13 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   des modifications en attente fait prévenir le navigateur ; un onglet masqué enregistre aussitôt.
   Les exports PDF enregistrent d'abord. L'ouverture charge séance, procédés, présences, bilans
   et effectif en une seule vague de requêtes.
+  **Terrain d'effectif** (`session-pitch.js`, `lmfc_v15.sql`) : à droite des présences (dessous
+  sur téléphone), un petit terrain vertical ; la poignée ⠿ d'un joueur se glisse dessus (pointer
+  events, souris et doigt ; un clic le pose sur la ligne du bas), un pion se déplace ou sort du
+  terrain pour être retiré (Suppr au clavier), « Vider ». Placement : `sessions.terrain`,
+  enregistré automatiquement, repris dans le PDF complet (page 1, compact) et, au choix, dans
+  la fiche coach (un quart de page). Les noms des joueurs (présences, bilan, retours de match)
+  ouvrent leur fiche (`playerLink`, `app.js`).
   Le schéma d'un procédé pas encore enregistré se dessine tout de suite :
   `tactical-board.html?draft=…` le garde dans le navigateur (`tb_draft_*`) et son image dans
   `schemas/{club}/drafts/` ; dès que le tableau l'enregistre (`tb_draftmeta_*`, événement
@@ -354,6 +363,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   (la police des rubriques se réduit au besoin). En fin de document : **récapitulatif des joueurs**
   (barre + / = / −, une pastille par joueur, noms et commentaires à la ligne) et **commentaire
   général**. La fiche coach reprend les équipes (couleur et joueurs) et le staff dans chaque quart.
+  Avant la fiche coach, une fenêtre propose le format des noms (prénom et nom, ou prénom seul)
+  et ce qui y figure, parmi ce que la séance contient ; « Mémoriser » garde ces choix dans
+  `profiles.prefs.pdf_coach` (`savePrefsPatch`). Dans le PDF complet, les noms des présences, du
+  terrain et du bilan sont des liens vers la fiche du joueur.
 - **Durées** — séquences, récupérations et durées acceptent la virgule (1,5 ; 0,5 ; 11,5),
   partout : saisie (`parseDecimal`), calculs, récapitulatif, PDF (`fmtMin`, au centième).
 - **Retours de match** (`matchs.html`, `matchs-page.js`, `lmfc_v11.sql`) — onglet **Matchs** :

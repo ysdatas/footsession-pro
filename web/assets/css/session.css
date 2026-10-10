@@ -335,4 +335,45 @@
 .save-status[data-state="error"], .save-status[data-state="conflict"], .save-status[data-state="invalid"] {
   --dot: var(--danger); color: var(--text-primary); border-color: rgba(244,67,54,.6); cursor: pointer; }
 @keyframes save-pulse { 50% { opacity: .3; } }
+/* L'indicateur flotte : le bas de la page ne passe jamais dessous. */
+.main:has(> .save-status:not([hidden])) { padding-bottom: 72px; }
 @media (prefers-reduced-motion: reduce) { .save-status[data-state="saving"]::before { animation: none; } }
+
+/* Terrain d'effectif (session-pitch.js) : à droite des présences, dessous sur téléphone. */
+.roster-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 16px; align-items: start; }
+.roster-layout .attendance-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.pitch-panel { position: sticky; top: 12px; display: grid; gap: 8px; }
+.pitch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-secondary); }
+.pitch-head small { font-weight: 500; color: var(--text-muted); }
+.mini-pitch { position: relative; aspect-ratio: 68 / 105; border-radius: var(--radius-md); overflow: hidden;
+  background: repeating-linear-gradient(180deg, #1f6b3b 0 10%, #23733f 10% 20%); touch-action: none; }
+.pitch-lines { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: rgba(255,255,255,.55); stroke-width: .5; }
+.pitch-hint { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.pitch-token { position: absolute; display: grid; justify-items: center; gap: 1px; padding: 0; border: 0; background: none;
+  transform: translate(-50%, -50%); cursor: grab; touch-action: none; color: #fff; }
+.pitch-token.is-dragging { opacity: .25; }
+.pitch-token.is-ghost { position: fixed; z-index: 200; pointer-events: none; cursor: grabbing; }
+.pt-dot { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: #0A0A0A;
+  font-size: 10px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,.45); }
+.pt-name { max-width: 64px; padding: 0 3px; border-radius: 3px; background: rgba(0,0,0,.45); font-size: 9.5px; font-weight: 600; line-height: 1.35;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pitch-token:focus-visible .pt-dot { outline: 2px solid #fff; outline-offset: 1px; }
+.att-grip { flex: none; width: 22px; height: 30px; margin-left: -4px; padding: 0; border: 0; border-radius: var(--radius-sm); background: none;
+  color: var(--text-muted); font-size: 15px; line-height: 1; cursor: grab; touch-action: none; }
+.att-grip:hover { color: var(--gold); background: var(--bg-hover); }
+.att-grip.is-placed { color: var(--gold); }
+@media (max-width: 760px) {
+  .roster-layout { grid-template-columns: minmax(0, 1fr); }
+  .pitch-panel { position: static; max-width: 300px; justify-self: center; width: 100%; }
+}
+
+/* Fiche coach : options avant l'export (pdf-coach.js). */
+.cp-modal { max-width: 480px; }
+.cp-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-seg label { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px;
+  font-size: var(--fs-md); font-weight: 500; text-transform: none; letter-spacing: normal; color: var(--text-primary); cursor: pointer; }
+.cp-seg label:has(input:checked) { border-color: var(--gold-border); background: rgba(var(--gold-rgb), .1); }
+.cp-parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 12px; }
+.cp-check { display: flex; align-items: center; gap: 8px; margin: 0; padding: 5px 0; font-size: var(--fs-md); font-weight: 500;
+  text-transform: none; letter-spacing: normal; color: var(--text-primary); cursor: pointer; }
+.cp-check input, .cp-seg input { width: auto; flex: none; margin: 0; accent-color: var(--gold); }

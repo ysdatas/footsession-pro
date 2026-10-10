@@ -71,7 +71,15 @@
             <div id="guestResults" class="guest-results"></div>
           </div>
         </div>
-        <div id="attendanceList" class="attendance-grid"></div>
+        <div class="roster-layout">
+          <div id="attendanceList" class="attendance-grid"></div>
+          <div class="pitch-panel">
+            <div class="pitch-head"><span>Terrain d’effectif <small id="pitchCount"></small></span>
+              <button class="btn btn-sm hidden" id="pitchClear" type="button">Vider</button></div>
+            <div class="mini-pitch" id="miniPitch" role="group" aria-label="Terrain d’effectif"></div>
+            <p class="pitch-hint">Glissez la poignée ⠿ d’un joueur sur le terrain ; sortez un pion pour le retirer.</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -170,6 +178,7 @@
   <script src="assets/js/session-roster.js"></script>
   <script src="assets/js/session-proc-teams.js"></script>
   <script src="assets/js/session-access.js"></script>
+  <script src="assets/js/session-pitch.js"></script>
   <script src="assets/js/session-autosave.js"></script>
   <script src="assets/js/session-edit-page.js"></script>
 </body>

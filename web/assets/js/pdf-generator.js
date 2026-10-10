@@ -111,8 +111,8 @@ window.loadSessionForPdf = async function (sessionId) {
 /* Équipes (chasubles) avec le nom de leurs joueurs : celles d'un procédé
    (procTeamsOf) ou, pour une ancienne séance, de toute la séance.
    `players` : les joueurs de la séance (id, nom, prenom, numero). */
-function sessionTeams(list, players) {
-  const nameOf = (a) => `${a.prenom || ''} ${a.nom || ''}`.trim() + (a.numero != null ? ` #${a.numero}` : '');
+const fullNameNum = (a) => `${a.prenom || ''} ${a.nom || ''}`.trim() + (a.numero != null ? ` #${a.numero}` : '');
+function sessionTeams(list, players, nameOf = fullNameNum) {
   return (Array.isArray(list) ? list : [])
     .map(t => ({
       nom: (t.nom || 'Équipe').trim(), couleur: t.couleur,
@@ -149,6 +149,43 @@ function drawTeamColumns(doc, { x, y, w, teams, fs = 8, dry = false, maxCols = 6
   return total;
 }
 window.sessionTeams = sessionTeams;
+
+/* Lien vers la fiche d'un joueur, à poser sur son nom dans un PDF. */
+const playerUrl = (id) => new URL(`player-performance.html?id=${id}`, location.href).href;
+window.playerUrl = playerUrl;
+
+/* Terrain d'effectif (sessions.terrain, lmfc_v15.sql) en paysage : le terrain
+   vertical de l'écran pivote, son haut (but adverse) passe à droite.
+   Pastille numérotée et prénom sous chaque joueur placé. Partagé par les
+   deux PDF ; `nameOf` : prénom seul ou prénom et nom. */
+function drawPitchPdf(doc, { x, y, w, h, terrain, players, accent, nameOf = (a) => a.prenom || a.nom || '' }) {
+  const L = (m) => m / 105 * w, Wd = (m) => m / 68 * h;
+  doc.setFillColor(236, 244, 238); doc.rect(x, y, w, h, 'F');
+  doc.setDrawColor(150, 184, 160); doc.setLineWidth(0.3);
+  doc.rect(x, y, w, h);
+  doc.line(x + w / 2, y, x + w / 2, y + h);
+  doc.circle(x + w / 2, y + h / 2, L(9.15), 'S');
+  [[x, 1], [x + w, -1]].forEach(([gx, dir]) => {
+    doc.rect(dir > 0 ? gx : gx - L(16.5), y + h / 2 - Wd(20.15), L(16.5), Wd(40.3));
+    doc.rect(dir > 0 ? gx : gx - L(5.5), y + h / 2 - Wd(9.15), L(5.5), Wd(18.3));
+  });
+  const str = (t) => (typeof pdfStr === 'function' ? pdfStr(t) : String(t ?? ''));
+  Object.entries(terrain || {}).forEach(([id, [ux, uy]]) => {
+    const a = players.find(p => String(p.id) === String(id));
+    if (!a) return;
+    const px = x + (1 - uy / 100) * w, py = y + (ux / 100) * h;
+    doc.setFillColor(...accent); doc.circle(px, py, 2.3, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(5.6);
+    doc.text(str(a.numero != null ? String(a.numero) : `${(a.prenom || '')[0] || ''}${(a.nom || '')[0] || ''}`.toUpperCase()), px, py + 0.1, { align: 'center', baseline: 'middle' });
+    doc.setTextColor(30, 34, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(5.6);
+    const name = str(nameOf(a));
+    doc.text(name, px, py + 4.6, { align: 'center' });
+    doc.link(px - doc.getTextWidth(name) / 2, py - 2.4, doc.getTextWidth(name), 7.4, { url: playerUrl(a.id) });
+  });
+}
+window.drawPitchPdf = drawPitchPdf;
+const hasTerrain = (s, players) => Object.keys(s?.terrain || {}).some(id => players.some(p => String(p.id) === id));
+window.hasTerrain = hasTerrain;
 window.drawTeamColumns = drawTeamColumns;
 
 /* Fabrique les helpers de dessin pour un document donné : partagés
@@ -464,6 +501,7 @@ window.generateSessionPDF = async function (sessionId) {
       let name = str(nameOf(a));
       while (name.length > 4 && doc.getTextWidth(name) > colW - 8) name = `${name.slice(0, -2).trimEnd()}…`;
       doc.text(name, x + 5, ty2);
+      doc.link(x + 5, ty2 - 3, doc.getTextWidth(name), 4, { url: playerUrl(a.id) });   // le nom ouvre sa fiche
     });
     return h;
   };
@@ -486,6 +524,17 @@ window.generateSessionPDF = async function (sessionId) {
       y += 3;
       header(M, y, CW, 7, `Absents et indisponibles — ${absents.length}`, 6.5); y += 7;
       y += nameBlock(y, absents, true);
+    }
+
+    /* Terrain d'effectif : la disposition posée dans la séance, compacte. */
+    if (hasTerrain(s, attendance)) {
+      const ph = 58, pw = ph * 105 / 68;
+      if (y + 3 + 7 + ph + 2 > BOTTOM) y = newPage('Suite');
+      y += 3;
+      header(M, y, CW, 7, 'Terrain d’effectif', 6.5); y += 7;
+      drawPitchPdf(doc, { x: M + (CW - pw) / 2, y: y + 1, w: pw, h: ph, terrain: s.terrain, players: attendance,
+        accent: typeof pdfAccent === 'function' ? pdfAccent(s.club_color) : (hexRgb(s.club_color) || ACCENT) });
+      y += ph + 2;
     }
 
     /* Ancienne séance : chasubles de toute la séance, une colonne par couleur.
@@ -665,6 +714,7 @@ function drawBilan(doc, ctx) {
           font(8.6, 'bold', [255, 255, 255]);
           doc.text(str(b.note ? BILAN_NOTES.find(x => x.key === b.note).sign : '·'), M + 3, y + 3.75, { align: 'center', baseline: 'middle' });
           font(9, 'bold', INK); doc.text(nl, M + signW + 3, y + 4.4);
+          doc.link(M + signW + 3, y + 1, nameW - 4, nl.length * LH(9) + 1, { url: playerUrl(b.player.id) });
         }
         if (part.length) { font(8.6, 'normal', DARK); doc.text(part, comX, y + 4.4); }
         y += h;

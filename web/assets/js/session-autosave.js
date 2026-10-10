@@ -93,7 +93,8 @@ function setSaveStatus(state, detail = '') {
 /* À la fin de l'ouverture de la page : la sauvegarde automatique démarre. */
 function startAutosave(session) {
   autosave.knownAt = session?.updated_at || null;
-  procedures.forEach((p, i) => { if (p.id) savedProcs.set(p.id, JSON.stringify(procRow(p, savedSessionId, i + 1))); });
+  // Procédé qui reçoit les chasubles d'une ancienne séance : pas encore en base, il partira au premier enregistrement.
+  procedures.forEach((p, i) => { if (p.id) savedProcs.set(p.id, p._legacyTeams ? 'à enregistrer' : JSON.stringify(procRow(p, savedSessionId, i + 1))); });
   clearTimeout(autosave.timer);
   dirty = false;
   autosave.ready = true;
@@ -154,6 +155,7 @@ async function saveAll() {
     duree_min: parseDecimal(document.getElementById('f-duree').value) || 0,
     filmee: sessionFilmee,
     notes: document.getElementById('f-notes').value.trim() || null,
+    terrain,   // terrain d'effectif (session-pitch.js, lmfc_v15.sql)
   };
   if (access.ready) sessionRow.acces = access.base;
   if (hasTeams()) {

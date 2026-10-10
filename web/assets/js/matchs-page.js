@@ -161,7 +161,7 @@ function renderRows() {
   document.getElementById('mpList').innerHTML = rows.length ? rows.map(r => {
     const name = playerName(playerOf(r.player_id));
     return `<div class="mp-row" data-player="${r.player_id}">
-      <span class="mp-name">${escapeHtml(name)}</span>
+      <span class="mp-name">${playerLink(r.player_id, name, ' target="_blank" rel="noopener" title="Fiche du joueur (nouvel onglet)"')}</span>
       <select data-k="statut" aria-label="Statut de ${escapeHtml(name)}" ${dis}><option value="">—</option>${STATUTS_MATCH.map(([k, l]) => `<option value="${k}"${r.statut === k ? ' selected' : ''}>${l}</option>`).join('')}</select>
       ${num(r, 'minutes', 130, 'min')}${num(r, 'buts', 20, 'buts')}${num(r, 'passes', 20, 'passes')}
       <span class="bilan-notes" role="group" aria-label="Note de ${escapeHtml(name)}">${BILAN_NOTES.map(n =>
@@ -318,7 +318,8 @@ async function renderPlayerHistory() {
   const count = (k, v) => rows.filter(r => r[k] === v).length;
   const stats = [['Matchs', rows.length], ['Titulaire', count('statut', 'titulaire')], ['Minutes', sum('minutes')],
     ['Buts', sum('buts')], ['Passes', sum('passes')], ['+ / = / −', `${count('note', 'plus')} / ${count('note', 'egal')} / ${count('note', 'moins')}`]];
-  box.innerHTML = `<div class="mt-stats">${stats.map(([l, v]) => `<div class="mt-stat"><strong>${v}</strong><span>${l}</span></div>`).join('')}</div>
+  box.innerHTML = `<p class="mt-fiche">${playerLink(pid, `Fiche de ${playerName(playerOf(pid))} →`)}</p>
+    <div class="mt-stats">${stats.map(([l, v]) => `<div class="mt-stat"><strong>${v}</strong><span>${l}</span></div>`).join('')}</div>
     <div class="mt-list">${rows.map(r => {
       const m = r.matches;
       const line = [STATUT_MATCH_LABEL[r.statut], r.minutes != null ? `${r.minutes}'` : '',

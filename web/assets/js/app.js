@@ -63,6 +63,9 @@ const fmtDate = (d) => {
   return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 /* Majuscule initiale (« juil. 2024 » → « Juil. 2024 »). */
+/* Nom d'un joueur qui ouvre sa fiche (clic simple ; Ctrl/Cmd : nouvel onglet). */
+const playerHref = (id) => `player-performance.html?id=${id}`;
+const playerLink = (id, text, extra = '') => `<a class="player-link" href="${playerHref(id)}"${extra}>${escapeHtml(text)}</a>`;
 const capFirst = (s) => { const t = String(s ?? ''); return t.charAt(0).toUpperCase() + t.slice(1); };
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

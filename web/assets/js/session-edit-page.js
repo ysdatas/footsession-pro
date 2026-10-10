@@ -61,6 +61,7 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
     btn.addEventListener('click', () => btn.closest('.attendance').classList.toggle('open')));
   initRoster();
   initProcBlocks();
+  initPitch();
   document.getElementById('proceduresList').addEventListener('input', (e) => {
     if (e.target.classList.contains('proc-duree') || e.target.classList.contains('proc-name')) updateMeta();
     // Les temps se recalculent à la frappe. On met à jour les champs concernés
@@ -215,6 +216,7 @@ async function loadSession() {
     shareToken = s.share_token || null;
     loadedSession = s;
     sessionFilmee = !!s.filmee;
+    terrain = s.terrain && typeof s.terrain === 'object' ? s.terrain : {};
     document.getElementById('f-notes').value = s.notes || '';
 
     document.getElementById('f-titre').value = s.titre || '';
@@ -236,10 +238,11 @@ async function loadSession() {
       equipes: cleanTeams(p.equipes), staff: Array.isArray(p.staff) ? p.staff : [], filme: p.filme ?? null,
     }));
     // Ancienne séance : ses chasubles valaient pour toute la séance. Elles sont
-    // reprises sur chaque procédé ; la prochaine sauvegarde les y range.
+    // reprises sur chaque procédé ; la prochaine sauvegarde les y range (_legacyTeams :
+    // à enregistrer même sans autre changement, puisque la séance perd les siennes).
     const legacy = cleanTeams(s.equipes);
     if (legacy.length && procedures.every(p => !p.equipes.length)) {
-      procedures.forEach(p => { p.equipes = JSON.parse(JSON.stringify(legacy)); });
+      procedures.forEach(p => { p.equipes = JSON.parse(JSON.stringify(legacy)); p._legacyTeams = true; });
     }
     document.getElementById('f-principe').value = sessionPrinciple(s, procedures);
 
