@@ -24,7 +24,8 @@ const access = {
 function accessDefault(m) {
   if (m.role === 'admin' || m.id === access.creator) return 'modification';
   if (access.base === 'club') return m.role === 'coach' ? 'modification' : 'lecture';
-  return !sessionTeamId || !m.team_id || m.team_id === sessionTeamId ? 'lecture' : 'aucun';
+  const teams = m.team_ids || [];
+  return !sessionTeamId || !teams.length || teams.includes(sessionTeamId) ? 'lecture' : 'aucun';
 }
 
 /* Charge le bloc si le compte peut régler les droits (créateur ou admin).
@@ -70,7 +71,7 @@ function renderAccess() {
     const level = fixed ? 'modification' : (access.overrides.get(m.id) || accessDefault(m));
     const tag = m.id === access.creator ? 'Créateur' : (ROLE_LABELS[m.role] || m.role);
     return `<div class="access-row" data-member="${escapeHtml(m.id)}">
-      <span class="access-name">${escapeHtml(m.nom || 'Sans nom')}<span class="access-role">${escapeHtml(tag)}${teamName(m.team_id) ? ` · ${escapeHtml(teamName(m.team_id))}` : ''}</span></span>
+      <span class="access-name">${escapeHtml(m.nom || 'Sans nom')}<span class="access-role">${escapeHtml([tag, ...(m.team_ids || []).map(teamName).filter(Boolean)].join(' · '))}</span></span>
       ${fixed ? '<span class="access-fixed">Accès complet</span>' : `<span class="access-seg" role="group" aria-label="Accès de ${escapeHtml(m.nom || '')}">
         ${ACCESS_LEVELS.map(([k, label]) => `<button type="button" data-access="${k}" aria-pressed="${k === level}"
           ${k === 'modification' && !['admin', 'coach'].includes(m.role) ? 'disabled title="Réservé aux comptes admin ou coach"' : ''}>${label}</button>`).join('')}

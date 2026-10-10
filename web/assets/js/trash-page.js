@@ -58,7 +58,7 @@ async function loadTrash() {
   const [tRes, pRes, mRes] = await Promise.all([
     sb.from('trash').select('id, tbl, row_id, root_id, root_tbl, data, deleted_by, deleted_at').order('deleted_at', { ascending: false }).limit(1000),
     sb.from('players').select('id, prenom, nom'),
-    sb.from('profiles').select('id, nom'),
+    sb.rpc('club_staff'),   // auteurs des suppressions : le staff du club (lmfc_v14.sql)
   ]);
   if (tRes.error) {
     console.error('Corbeille illisible', tRes.error);

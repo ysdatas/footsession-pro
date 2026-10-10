@@ -69,12 +69,13 @@ window.loadSessionForPdf = async function (sessionId) {
     if (e1 || !sess) throw e1 || new Error('Séance introuvable.');
     const s = sess;
 
-    const [{ data: procs }, { data: clubRow }, { data: players }, { data: att }, bl] = await Promise.all([
+    const [{ data: procs }, { data: clubRow }, { data: players }, { data: att }, bl, { data: staff }] = await Promise.all([
       sb.from('procedures').select('*, tactical_schemas(image_path, canvas_json)').eq('session_id', sessionId).order('ordre'),
       sb.from('clubs').select('nom, color, logo_path').eq('id', s.club_id).single(),
       sb.from('players').select('id, nom, prenom, numero, team_id'),
       sb.from('attendance').select('*').eq('session_id', sessionId),
       sb.from('session_bilans').select('player_id, note, commentaire').eq('session_id', sessionId),
+      s.created_by ? sb.rpc('club_staff') : { data: [] },   // auteur de la séance (lmfc_v14.sql)
     ]);
     if (bl.error) console.warn('Bilans indisponibles pour le PDF (lmfc_v9.sql ?)', bl.error);
     const club = clubRow || {};
@@ -99,11 +100,7 @@ window.loadSessionForPdf = async function (sessionId) {
     s.coach_club = club.nom || '';
     s.club_color = club.color || '';
     s.club_logo = await storageToDataUrl('logos', club.logo_path) || await brandLogoDataUrl();
-    // Nom du créateur de la séance (si le profil est visible dans le club).
-    if (s.created_by) {
-      const { data: author } = await sb.from('profiles').select('nom').eq('id', s.created_by).maybeSingle();
-      s.coach_nom = author?.nom || '';
-    }
+    s.coach_nom = (staff || []).find(m => m.id === s.created_by)?.nom || '';
     return { s, procedures, attendance, bilans };
   } catch (e) {
     toast(e.message || 'Erreur de chargement.', 'error');

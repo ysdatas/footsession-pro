@@ -99,6 +99,9 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 32. supabase/lmfc_v13.sql                  sauvegarde automatique : sessions.updated_at avancé à chaque
                                            modification (trg_touch_session), verrou contre l'écrasement
                                            entre deux personnes ou deux onglets (rejouable)
+33. supabase/lmfc_v14.sql                  membres du club réservés à l'admin (profiles_read : soi-même ou
+                                           admin ; club_staff() pour le staff), plusieurs équipes par compte
+                                           (profiles.team_ids), session_level en tient compte (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -185,11 +188,14 @@ sélecteur en haut du menu (`profiles.prefs.team_id`) filtre Joueurs, Séances,
 Performance, Vidéos et le tableau de bord. Les notes /10 et les moyennes
 sont calculées au sein de l'équipe du joueur.
 
-- **Compte rattaché à une équipe** (`profiles.team_id`, `lmfc_v7.sql`) : dans **Mon club →
-  Membres**, l'admin choisit l'équipe d'un coach ou d'un préparateur (« Toutes les équipes »
-  par défaut). Le menu affiche alors cette équipe sans choix possible, et le compte ne voit
-  que ses joueurs et ses séances ; les séances de l'équipe sont partagées par tout son staff.
-  Filtre d'affichage : la RLS reste celle du club.
+- **Compte rattaché à une ou plusieurs équipes** (`profiles.team_ids`, `lmfc_v14.sql` ;
+  `team_id` = la première, pour compatibilité) : dans **Mon club → Membres**, l'admin coche
+  les équipes d'un coach ou d'un préparateur (aucune = toutes les équipes). Une seule : le
+  menu l'affiche sans choix possible. Plusieurs (N2, N3, U19) : le sélecteur ne propose que
+  celles-là, sans « Toutes », pour ne jamais mélanger les données. Le compte ne voit que ses
+  joueurs et ses séances ; les séances « équipe » sont ouvertes au staff de cette équipe
+  (`session_level`). Une équipe supprimée sort de la liste ; seul l'admin la change (garde
+  `guard_profile_membership_changes`).
 - **Joueur dans plusieurs équipes** : `players.team_id` est l'équipe principale (moyennes
   « équipe »), `players.other_team_ids` les autres (« Joue aussi en », fenêtre **Modifier**).
   Le joueur apparaît dans les listes de chacune (`byPlayerTeam`, `playerInTeam`, `nav.js`) ;
@@ -463,7 +469,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   aucune migration) : chaque PDF devient un lien qui s'ouvre dans un nouvel onglet ;
   sans titre, la carte reprend le début de la description.
 - **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
-  e-mail, membres.
+  e-mail, membres. Les **membres** sont réservés à l'administrateur, aussi en base
+  (`lmfc_v14.sql`) : un compte ne lit que son propre profil ; le staff obtient seulement les
+  noms, rôles et équipes du staff (`club_staff()`) pour les procédés, les droits d'accès, la
+  corbeille et les PDF, un compte joueur rien.
 - **Design system** — `main.css` : échelle typographique unique (`--fs-xs` à `--fs-2xl`,
   toutes les tailles de l'app en font partie), espacements, rayons, profondeur, durées
   d'animation ; icônes Lucide en sprite SVG. Le projet reste sans build : pas de React ni

@@ -1,7 +1,8 @@
 /* Droits d'accès par séance (supabase/lmfc_v10.sql) sur un vrai Postgres
    (PGlite, WASM), RLS active, comptes simulés : ancienne séance inchangée,
    nouvelle séance réservée au staff de son équipe, réglages nominatifs,
-   garde du créateur, tables liées, corbeille.
+   garde du créateur, tables liées, corbeille. Puis lmfc_v14.sql : profils
+   lisibles par l'administrateur seul, club_staff(), plusieurs équipes. 
    Lancement : npm i --no-save @electric-sql/pglite && node tests/sessions-access-sql.test.mjs
    (sans PGlite installé, le test est ignoré). */
 import { readFileSync } from 'node:fs';
@@ -32,10 +33,12 @@ create table public.clubs (id bigint generated always as identity primary key, n
 insert into public.clubs (nom) values ('LMFC'), ('Autre');
 create table public.teams (id bigint generated always as identity primary key, club_id bigint not null references public.clubs, nom text not null);
 insert into public.teams (club_id, nom) values (1, 'U18'), (1, 'U15');
-create table public.profiles (id uuid primary key, club_id bigint references public.clubs, role text, team_id bigint references public.teams);
+create table public.profiles (id uuid primary key, club_id bigint references public.clubs, role text, team_id bigint references public.teams on delete set null,
+  nom text, prefs jsonb default '{}');
 insert into auth.users select unnest(array['${ADMIN}','${CREATEUR}','${COACH_U18}','${COACH_U15}','${PREPA_U18}','${PREPA_LIBRE}','${JOUEUR}'])::uuid;
-insert into public.profiles values ('${ADMIN}', 1, 'admin', null), ('${CREATEUR}', 1, 'coach', 1), ('${COACH_U18}', 1, 'coach', 1),
+insert into public.profiles (id, club_id, role, team_id) values ('${ADMIN}', 1, 'admin', null), ('${CREATEUR}', 1, 'coach', 1), ('${COACH_U18}', 1, 'coach', 1),
   ('${COACH_U15}', 1, 'coach', 2), ('${PREPA_U18}', 1, 'prepa', 1), ('${PREPA_LIBRE}', 1, 'prepa', null), ('${JOUEUR}', 1, 'joueur', null);
+update public.profiles set nom = role || '-' || right(id::text, 1);
 create function public.my_club_id() returns bigint language sql stable security definer as $$ select club_id from public.profiles where id = auth.uid() $$;
 create function public.has_role(variadic r text[]) returns boolean language sql stable as $$ select (select role from public.sim) = any(r) $$;
 create function public.can_edit() returns boolean language sql stable as $$ select public.has_role('admin','coach') $$;
@@ -43,6 +46,13 @@ create function public.is_club_admin() returns boolean language sql stable as $$
 create function public.is_staff() returns boolean language sql stable as $$ select not public.has_role('joueur') $$;
 create function public.can_manage_videos() returns boolean language sql stable as $$ select public.has_role('admin','coach') $$;
 create function public.can_manage_plans() returns boolean language sql stable as $$ select public.has_role('admin','coach','prepa') $$;
+-- Comme en production (schema.sql, lmfc_v7.sql) : profils du club lisibles, garde des profils.
+alter table public.profiles enable row level security;
+create policy "profiles_read" on public.profiles for select using (club_id = public.my_club_id() or id = auth.uid());
+create policy "profiles_admin" on public.profiles for update using (club_id = public.my_club_id() and public.is_club_admin());
+create policy "profiles_self" on public.profiles for update using (id = auth.uid());
+create function public.guard_profile_membership_changes() returns trigger language plpgsql as $$ begin return new; end; $$;
+create trigger guard_profile_membership_changes before update on public.profiles for each row execute function public.guard_profile_membership_changes();
 
 create table public.players (id bigint generated always as identity primary key, club_id bigint not null references public.clubs,
   nom text not null, prenom text, numero int, team_id bigint references public.teams);
@@ -69,7 +79,8 @@ alter table public.attendance enable row level security;
 alter table public.session_comments enable row level security;
 create policy "comments_delete" on public.session_comments for delete using (user_id = auth.uid() or public.is_club_admin());
 grant usage on schema auth to authenticated;
-grant select on public.sim, public.profiles, public.teams to authenticated;
+grant select on public.sim, public.teams to authenticated;
+grant select, update on public.profiles to authenticated;
 grant select, insert, update, delete on public.sessions, public.players, public.procedures, public.tactical_schemas, public.attendance, public.session_comments to authenticated;
 grant usage on all sequences in schema public to authenticated;
 -- Une séance d'avant la migration.
@@ -142,4 +153,34 @@ const root = await one(`select id from public.trash where tbl = 'sessions' and r
 await as(CREATEUR, () => q(`select public.trash_restore($1)`, [[root.id]]));
 assert.equal(await level(COACH_U18, S), 'aucun', 'réglages restaurés avec la séance');
 
-console.log('sessions-access-sql : OK (5 scénarios)');
+
+// 6) lmfc_v14.sql : membres réservés à l'administrateur, plusieurs équipes par compte.
+await db.exec(read('lmfc_v14.sql'));
+await db.exec(read('lmfc_v14.sql'));   // rejouable
+const visibleProfiles = async (uid) => (await as(uid, () => q('select id from public.profiles'))).rows.length;
+assert.deepEqual([await visibleProfiles(ADMIN), await visibleProfiles(COACH_U18), await visibleProfiles(JOUEUR)], [7, 1, 1], 'profils : l’administrateur seul voit le club');
+const staff = (await as(COACH_U18, () => q('select * from public.club_staff()'))).rows;
+assert.equal(staff.length, 6, 'le staff voit le staff (sans les joueurs)');
+assert.deepEqual(Object.keys(staff[0]).sort(), ['id', 'nom', 'role', 'team_ids'], 'rien de plus que le nécessaire');
+assert.equal((await as(JOUEUR, () => q('select * from public.club_staff()'))).rows.length, 0, 'rien pour un joueur');
+assert.deepEqual((await one(`select team_ids from public.profiles where id = '${COACH_U15}'`)).team_ids, [2], 'équipe reprise de team_id');
+
+// Plusieurs équipes : réglées par l'administrateur seul, du club seulement.
+await db.exec(`insert into public.teams (club_id, nom) values (2, 'Ailleurs')`);
+await as(ADMIN, () => q(`update public.profiles set team_ids = '{2,1,3,1}' where id = '${COACH_U15}'`));
+assert.deepEqual(await one(`select team_ids, team_id from public.profiles where id = '${COACH_U15}'`), { team_ids: [1, 2], team_id: 1 }, 'U18 + U15, sans doublon ni équipe d’un autre club');
+await as(COACH_U18, () => q(`update public.profiles set team_ids = '{1,2}', nom = 'Pierre' where id = '${COACH_U18}'`));
+assert.deepEqual(await one(`select team_ids, nom from public.profiles where id = '${COACH_U18}'`), { team_ids: [1], nom: 'Pierre' }, 'un compte ne change pas ses équipes');
+const S6 = (await as(CREATEUR, () => one(`insert into public.sessions (club_id, titre, team_id) values (1, 'Séance U18 (v14)', 1) returning id`))).id;
+assert.deepEqual([await level(COACH_U15, S6), await level(COACH_U18, S6)], ['lecture', 'lecture'], 'coach U18 + U15 : voit la séance U18');
+// Le créateur règle toujours les droits, sans lire les profils des autres.
+await as(CREATEUR, () => q(`insert into public.session_access (session_id, profile_id, niveau) values ($1, '${COACH_U18}', 'aucun')`, [S6]));
+assert.equal(await level(COACH_U18, S6), 'aucun');
+await assert.rejects(as(CREATEUR, () => q(`insert into public.session_access (session_id, profile_id, niveau) values ($1, '${PREPA_U18}', 'modification')`, [S6])), /row-level security/);
+// Équipe supprimée : elle sort de la liste ; compte retiré du club : plus d'équipe.
+await db.exec(`delete from public.teams where id = 2`);
+assert.deepEqual((await one(`select team_ids from public.profiles where id = '${COACH_U15}'`)).team_ids, [1], 'équipe supprimée retirée');
+await db.exec(`update public.profiles set club_id = null where id = '${COACH_U15}'`);
+assert.deepEqual(await one(`select team_ids, team_id from public.profiles where id = '${COACH_U15}'`), { team_ids: [], team_id: null }, 'compte retiré du club');
+
+console.log('sessions-access-sql : OK (6 scénarios)');

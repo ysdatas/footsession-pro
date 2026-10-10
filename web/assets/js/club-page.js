@@ -123,16 +123,21 @@ async function loadMembers() {
   const teams = window.CLUB_TEAMS || [];
   list.innerHTML = (members || []).map(m => {
     const linked = roster.find(p => p.auth_user_id === m.id);
-    const team = teams.find(t => t.id === m.team_id);
+    // Équipes du compte (lmfc_v14.sql : plusieurs ; avant : une seule).
+    const ids = (m.team_ids?.length ? m.team_ids : [m.team_id]).filter(Boolean);
+    const teamsTxt = ids.map(teamName).filter(Boolean).join(', ');
     const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée')
-      : [ROLE_LABELS[m.role] || m.role, team && escapeHtml(team.nom)].filter(Boolean).join(' · ');
+      : [ROLE_LABELS[m.role] || m.role, teamsTxt && escapeHtml(teamsTxt)].filter(Boolean).join(' · ');
     const self = m.id === myProfile.id;
-    // Coach, préparateur : rattachés à une équipe, ils ne voient qu'elle.
-    const teamSelect = 'team_id' in m && teams.length && !['joueur', 'admin'].includes(m.role)
-      ? `<select class="team-select" aria-label="Équipe du compte" title="Équipe que ce compte voit et gère">
-          <option value="">Toutes les équipes</option>
-          ${teams.map(t => `<option value="${t.id}" ${t.id === m.team_id ? 'selected' : ''}>${escapeHtml(t.nom)}</option>`).join('')}
-        </select>` : '';
+    // Coach, préparateur : rattachés à une ou plusieurs équipes, ils ne voient qu'elles.
+    const teamSelect = 'team_ids' in m && teams.length && !['joueur', 'admin'].includes(m.role)
+      ? `<details class="team-multi">
+          <summary title="Équipes que ce compte voit et gère">${escapeHtml(teamsTxt || 'Toutes les équipes')}</summary>
+          <div class="team-multi-list" role="group" aria-label="Équipes du compte">
+            ${teams.map(t => `<label><input type="checkbox" value="${t.id}"${ids.includes(t.id) ? ' checked' : ''}> ${escapeHtml(t.nom)}</label>`).join('')}
+            <small>Aucune cochée : toutes les équipes.</small>
+          </div>
+        </details>` : '';
     const controls = isAdmin && !self
       ? `<div class="member-controls" data-id="${m.id}">
           <select class="role-select" aria-label="Fonction">
@@ -205,11 +210,20 @@ document.getElementById('pendingList').addEventListener('click', async (e) => {
 document.getElementById('memberList').addEventListener('change', async (e) => {
   const box = e.target.closest('.member-controls'); if (!box) return;
   const profileId = box.dataset.id;
-  if (e.target.matches('.team-select')) {
-    const { error } = await sb.from('profiles').update({ team_id: Number(e.target.value) || null }).eq('id', profileId);
-    if (error) { console.error('Équipe du compte non enregistrée', error); toast(error.message, 'error'); }
-    else toast(e.target.value ? 'Compte rattaché à l’équipe' : 'Le compte voit toutes les équipes', 'success');
-    return loadMembers();
+  const multi = e.target.closest('.team-multi');
+  if (multi) {
+    // Enregistré à chaque case ; la liste reste ouverte pour en cocher d'autres.
+    const team_ids = [...multi.querySelectorAll('input:checked')].map(b => Number(b.value));
+    const { data, error } = await sb.from('profiles').update({ team_ids }).eq('id', profileId).select('team_ids');
+    if (error || !data?.length) {
+      console.error('Équipes du compte non enregistrées', error);
+      toast(error?.message || 'Modification refusée.', 'error');
+      return loadMembers();
+    }
+    const names = data[0].team_ids.map(teamName).filter(Boolean).join(', ');
+    multi.querySelector('summary').textContent = names || 'Toutes les équipes';
+    toast(names ? `Équipes du compte : ${names}` : 'Le compte voit toutes les équipes', 'success');
+    return;
   }
   const role = box.querySelector('.role-select').value;
   const linkSel = box.querySelector('.player-link-select');
@@ -224,6 +238,11 @@ document.getElementById('memberList').addEventListener('change', async (e) => {
   const { error } = await rpc;
   if (error) toast(error.message, 'error'); else toast('Membre mis à jour', 'success');
   await loadMembers();
+});
+
+// Liste d'équipes ouverte : un clic ailleurs la referme.
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('.team-multi[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; });
 });
 
 document.getElementById('memberList').addEventListener('click', async (e) => {

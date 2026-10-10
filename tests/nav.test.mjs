@@ -68,6 +68,16 @@ assert.equal(run('currentTeamId()'), 3, 'équipe du compte prioritaire');
 window.CURRENT_PROFILE.team_id = 99;
 assert.equal(run('currentTeamId()'), 5, 'équipe du compte supprimée : retour au choix du menu');
 delete window.CURRENT_PROFILE.team_id;
+// Plusieurs équipes (lmfc_v14.sql) : le choix du menu parmi elles, la première par défaut, jamais « toutes ».
+window.CURRENT_PROFILE.team_ids = [3, 5];
+window.CURRENT_PROFILE.prefs.team_id = 5;
+assert.equal(run('currentTeamId()'), 5, 'U19 choisie parmi N2 + U19');
+window.CURRENT_PROFILE.prefs.team_id = null;
+assert.equal(run('currentTeamId()'), 3, 'sans choix : la première de ses équipes');
+window.CURRENT_PROFILE.team_ids = [5];
+window.CURRENT_PROFILE.prefs.team_id = 3;
+assert.equal(run('currentTeamId()'), 5, 'une seule équipe : imposée');
+delete window.CURRENT_PROFILE.team_ids;
 // Joueurs : équipe principale, autres équipes, ou sans équipe.
 const calls = [];
 run('byPlayerTeam')({ or: (f) => { calls.push(f); return 'filtré'; } }, 3);
