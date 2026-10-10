@@ -67,7 +67,7 @@ function avatarClass(i) { return 'av' + (i % 6); }
 function playerInitials(p) {
   return (((p?.prenom || p?.nom || '')[0] || '') + ((p?.nom || '')[0] || '') || '?').toUpperCase();
 }
-const fullName = (p) => `${p.prenom || ''} ${p.nom}`.trim();
+const fullName = playerFullName;   // app.js
 
 /* ---------- Grille ---------- */
 async function loadGrid() {
@@ -78,17 +78,15 @@ async function loadGrid() {
     if (error) throw error;
 
     const ids = players.map(p => p.id);
-    const [photoResults, mRes] = await Promise.all([
-      Promise.all(players.map(p => p.photo_path
-        ? sb.storage.from('player-photos').createSignedUrl(p.photo_path, 3600)
-        : Promise.resolve({ data: null }))),
+    const [photos, mRes] = await Promise.all([
+      signedUrls('player-photos', players.map(p => p.photo_path)),   // une requête pour toutes les photos (app.js)
       ids.length
         ? sb.from('player_physical_measurements').select('player_id, season_key, month_label, measured_at, height_cm, weight_kg').in('player_id', ids)
         : Promise.resolve({ data: [] }),
     ]);
     if (mRes.error) console.warn('Mesures indisponibles pour la liste des joueurs', mRes.error.message);
     const last = latestMeasures(mRes.data || []);
-    playersCache = players.map((p, i) => ({ ...p, photo_url: photoResults[i]?.data?.signedUrl || null, ...last.get(p.id) }));
+    playersCache = players.map(p => ({ ...p, photo_url: photos.get(p.photo_path) || null, ...last.get(p.id) }));
 
     fillPosteFilter();
     renderUnassigned();
@@ -167,7 +165,7 @@ async function deletePickedPlayers() {
   const list = playersCache.filter(p => pickPlayers.ids.has(p.id));
   if (!list.length) return;
   if (!(await trashReady())) {
-    return toast('Activez d’abord la corbeille (supabase/lmfc_v5.sql) : la suppression d’un joueur doit rester récupérable.', 'error');
+    return toast('La corbeille n’est pas disponible : la suppression d’un joueur doit rester récupérable. Prévenez l’administrateur du club.', 'error');
   }
   const linked = list.filter(p => p.auth_user_id).length;
   if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} joueurs` : 'ce joueur'} ?\n\n${namesList(list.map(fullName))}\n\n`
@@ -322,7 +320,7 @@ document.getElementById('gridView').addEventListener('drop', async (e) => {
     p.ligne = previous;
     renderGrid();
     console.error('Changement de ligne refusé', error);
-    toast(/ligne/.test(error.message) ? 'Base à mettre à jour : exécutez supabase/player_lines.sql.' : error.message, 'error');
+    toast(/ligne/.test(error.message) ? updateNeeded('player_lines.sql') : error.message, 'error');
     return;
   }
   toast(`${fullName(p)} → ${LINE_SINGULAR[target]}`, 'success');

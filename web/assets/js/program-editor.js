@@ -185,7 +185,7 @@ async function saveExercise({ keepOpen = false } = {}) {
   } catch (err) {
     console.error('Enregistrement de l’exercice impossible', err);
     toast(/program_exercises/.test(err.message || '')
-      ? 'Base à mettre à jour : exécutez supabase/player_program.sql.' : err.message, 'error');
+      ? updateNeeded('player_program.sql') : err.message, 'error');
     return null;
   } finally { btn.disabled = false; }
 }

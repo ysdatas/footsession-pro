@@ -43,7 +43,7 @@ const trash = { roots: [], kids: new Map(), players: new Map(), people: new Map(
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
   if (!isStaffRole(ctx.profile.role)) return showEmpty('La corbeille est réservée au staff.');
   if (!(await trashReady())) {
-    return showEmpty('La corbeille n’est pas encore activée : l’administrateur doit exécuter supabase/lmfc_v5.sql dans Supabase. D’ici là, une suppression reste définitive.');
+    return showEmpty('La corbeille n’est pas encore activée (prévenez l’administrateur du club). D’ici là, une suppression reste définitive.');
   }
   bindTrash();
   await loadTrash();

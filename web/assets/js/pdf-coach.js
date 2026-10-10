@@ -27,11 +27,12 @@ const COACH_PARTS = [
 ];
 
 window.generateCoachPDF = async function (sessionId) {
-  const lib = window.jspdf;
-  if (!lib || !lib.jsPDF) { toast('Module PDF non chargé.', 'error'); return; }
-
-  const loaded = await window.loadSessionForPdf(sessionId);
-  if (!loaded) return;
+  // Le générateur (chargé au premier export) et les données arrivent ensemble.
+  const [jsPDF, loaded] = await Promise.all([
+    loadJsPdf().catch(e => { console.error('Générateur PDF indisponible', e); toast(e.message, 'error'); return null; }),
+    window.loadSessionForPdf(sessionId),
+  ]);
+  if (!jsPDF || !loaded) return;
   const { s, procedures, attendance } = loaded;
   const principe = sessionPrinciple(s, procedures);
   // Ancienne séance : chasubles de toute la séance, en tête. Sinon, dans chaque procédé.
@@ -61,7 +62,6 @@ window.generateCoachPDF = async function (sessionId) {
 
   const { INK, LIGHT, LINE, PANEL, DARK, MUT, imgSize, hexRgb, ACCENT } = window.PDF_THEME;
   const str = (t) => (typeof pdfStr === 'function' ? pdfStr(t) : String(t ?? ''));
-  const { jsPDF } = lib;
   const doc = new jsPDF('l', 'mm', 'a4');
   const W = 297, H = 210, M = 7;
   const gold = typeof pdfAccent === 'function' ? pdfAccent(s.club_color) : (hexRgb(s.club_color) || ACCENT);

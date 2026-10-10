@@ -49,7 +49,7 @@ let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton r
   await loadVideos();
 })();
 
-const fullName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
+const fullName = playerFullName;   // app.js
 const initials = (p) => `${(p?.prenom || '')[0] || ''}${(p?.nom || '')[0] || ''}`.toUpperCase() || '?';
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const shortDate = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });

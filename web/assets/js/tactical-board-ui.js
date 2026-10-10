@@ -82,7 +82,7 @@ async function linkVideo(videoId) {
   }
   if (error) {
     console.error('Vidéo non liée', error);
-    return toast(/video_id/.test(error.message) ? 'Base à mettre à jour : exécutez supabase/platform_v2.sql.' : error.message, 'error');
+    return toast(/video_id/.test(error.message) ? updateNeeded('platform_v2.sql') : error.message, 'error');
   }
   tbLinkedVideo = tbVideos.find(v => v.id === videoId) || null;
   syncVideoChip(); renderVideoList();

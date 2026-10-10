@@ -13,7 +13,7 @@
    ============================================================ */
 
 // STATUTS, STATUT_LABEL, participe, statutLabel, statutOf, BILAN_NOTES : procedure-time.js.
-const rosterName = (a) => `${a.prenom || ''} ${a.nom || ''}`.trim();
+const rosterName = playerFullName;   // app.js
 
 let clubPlayers = [];          // tout l'effectif du club (recherche d'invités)
 const removedGuests = new Set(); // invités retirés : leur présence est supprimée à l'enregistrement

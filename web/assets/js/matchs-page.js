@@ -20,7 +20,7 @@ let clubPlayers = [];    // tout l'effectif du club (noms, recherche)
 let editing = null;      // match ouvert : { id, rows: Map(player_id → ligne), removed: Set }
 
 const val = (id) => document.getElementById(id).value.trim();
-const playerName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
+const playerName = playerFullName;   // app.js
 const playerOf = (id) => clubPlayers.find(p => p.id === id);
 const resultOf = (m) => (m.score_pour == null || m.score_contre == null ? null
   : m.score_pour > m.score_contre ? 'v' : m.score_pour < m.score_contre ? 'd' : 'n');

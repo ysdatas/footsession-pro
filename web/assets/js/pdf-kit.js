@@ -24,32 +24,9 @@ const PDF_INK = [20, 22, 27], PDF_TEXT = [44, 49, 57], PDF_MUTE = [108, 115, 126
 const PDF_LINE = [226, 229, 234], PDF_PANEL = [245, 246, 248], PDF_RED = [200, 16, 46];
 const PDF_GOOD = [36, 130, 70], PDF_BAD = [190, 45, 45];
 
-async function loadJsPdf() {
-  if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
-  await (loadJsPdf.p ||= new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    s.onload = resolve;
-    s.onerror = () => { loadJsPdf.p = null; reject(new Error('Générateur PDF indisponible (connexion ?)')); };
-    document.head.append(s);
-  }));
-  return window.jspdf.jsPDF;
-}
-
-/* pdf-lib (versionné, intégrité vérifiée) : reproduit un PDF joint dans le document. */
-async function loadPdfLib() {
-  if (window.PDFLib?.PDFDocument) return window.PDFLib;
-  await (loadPdfLib.p ||= new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
-    s.integrity = 'sha512-z8IYLHO8bTgFqj+yrPyIJnzBDf7DDhWwiEsk4sY+Oe6J2M+WQequeGS7qioI5vT6rXgVRb4K1UVQC5ER7MKzKQ==';
-    s.crossOrigin = 'anonymous';
-    s.onload = resolve;
-    s.onerror = () => { loadPdfLib.p = null; reject(new Error('Lecture des PDF joints indisponible (connexion ?)')); };
-    document.head.append(s);
-  }));
-  return window.PDFLib;
-}
+/* jsPDF et pdf-lib : versions figées, intégrité vérifiée, chargés au premier export (loadLib, app.js). */
+async function loadJsPdf() { await loadLib('jspdf'); return window.jspdf.jsPDF; }
+async function loadPdfLib() { await loadLib('pdflib'); return window.PDFLib; }
 
 /* Image distante (Storage, page) → data URL pour jsPDF ; null si illisible. */
 async function urlToDataUrl(url) {

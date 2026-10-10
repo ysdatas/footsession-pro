@@ -275,7 +275,7 @@ function mountNoteModal() {
         <div id="noteExos" class="note-exos-pick"></div>
         <small class="field-hint">Touchez les exercices dans l’ordre voulu. Pour en créer un : « + Exercice » dans le Programme terrain.</small>
       </div>
-      <p class="field-hint point-only hidden" id="noteLinksMissing">Vidéo et exercices liés : passez d’abord supabase/lmfc_v6.sql dans Supabase.</p>
+      <p class="field-hint point-only hidden" id="noteLinksMissing">Vidéo et exercices liés : pas encore disponibles (prévenez l’administrateur du club).</p>
       <div class="field">
         <label>Images et PDF</label>
         <div id="noteImages" class="note-images-edit"></div>

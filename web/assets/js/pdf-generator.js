@@ -292,15 +292,15 @@ function pdfHelpers(doc, s, W, H, M) {
 window.pdfHelpers = pdfHelpers;
 
 window.generateSessionPDF = async function (sessionId) {
-  const lib = window.jspdf;
-  if (!lib || !lib.jsPDF) { toast('Module PDF non chargé.', 'error'); return; }
   toast('Génération du PDF…');
-
-  const loaded = await window.loadSessionForPdf(sessionId);
-  if (!loaded) return;
+  // Le générateur (chargé au premier export) et les données arrivent ensemble.
+  const [jsPDF, loaded] = await Promise.all([
+    loadJsPdf().catch(e => { console.error('Générateur PDF indisponible', e); toast(e.message, 'error'); return null; }),
+    window.loadSessionForPdf(sessionId),
+  ]);
+  if (!jsPDF || !loaded) return;
   const { s, procedures, attendance, bilans } = loaded;
 
-  const { jsPDF } = lib;
   const doc = new jsPDF('l', 'mm', 'a4');   // PAYSAGE
   const W = 297, H = 210, M = 8;
   const { CW, fill, box, header, cell, pageHeader, footer, infoTable, str } = pdfHelpers(doc, s, W, H, M);

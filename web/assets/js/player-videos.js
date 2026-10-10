@@ -26,7 +26,7 @@ const PV = {
   pick: { on: false, kind: 'seqs', ids: [] },
 };
 const pvPlural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
-const pvName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
+const pvName = playerFullName;   // app.js
 const pvDay = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 /* Créée par le joueur (son compte) ou par le staff. */
 const pvByPlayer = (s) => !!PV.player?.auth_user_id && s.created_by === PV.player.auth_user_id;

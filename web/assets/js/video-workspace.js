@@ -129,7 +129,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   if (error) {
     console.error('Séquences illisibles', error);
     $w('[data-el="side"]').innerHTML = `<p class="text-danger vw-hint">${/video_sequences/.test(error.message)
-      ? 'Base à mettre à jour : exécutez supabase/platform_v2.sql.' : escapeHtml(error.message)}</p>`;
+      ? updateNeeded('platform_v2.sql') : escapeHtml(error.message)}</p>`;
     return { video: vid };
   }
   w.seqs = data || [];

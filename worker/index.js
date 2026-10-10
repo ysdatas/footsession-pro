@@ -45,7 +45,8 @@ export default {
       }
     } catch (e) {
       console.error('Worker vidéos :', request.method, url.pathname, e);
-      if (e instanceof ConfigError) return fail(503, e.message);
+      // Réglage manquant : le détail reste dans les journaux, la page dit seulement qui prévenir.
+      if (e instanceof ConfigError) return fail(503, 'Serveur vidéo pas encore configuré : prévenez l’administrateur du club.');
       return fail(500, 'Erreur du serveur vidéo.');
     }
   },

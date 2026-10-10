@@ -99,7 +99,7 @@ function showLogo(src) {
   document.getElementById('logoEmpty').classList.add('hidden');
 }
 
-const playerName = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim() || 'Joueur';
+const playerName = playerFullName;   // app.js
 
 /* ---------- Accès (e-mail + fonction + fiche) et membres ---------- */
 async function loadMembers() {
@@ -195,7 +195,7 @@ document.getElementById('accessForm').addEventListener('submit', async (e) => {
   } catch (err) {
     console.error('Accès non enregistré', err);
     toast(err.code === '23505' ? 'Cette adresse ou ce joueur a déjà un accès en attente.'
-      : /club_access/.test(err.message || '') ? 'Base à mettre à jour : exécutez supabase/platform_v2.sql.' : err.message, 'error');
+      : /club_access/.test(err.message || '') ? updateNeeded('platform_v2.sql') : err.message, 'error');
   } finally { if (btn) btn.disabled = false; }
 });
 

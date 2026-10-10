@@ -31,6 +31,52 @@ function baseUrl(path) {
   return parts.join('/');
 }
 
+/* ---------- Bibliothèques chargées à la demande ----------
+   Version figée et intégrité vérifiée (SRI) ; une seule insertion même
+   si plusieurs appels arrivent ensemble. `global` : l'objet attendu. */
+const LIBS = {
+  jspdf: ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk', 'jspdf'],
+  pdflib: ['https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', 'sha512-z8IYLHO8bTgFqj+yrPyIJnzBDf7DDhWwiEsk4sY+Oe6J2M+WQequeGS7qioI5vT6rXgVRb4K1UVQC5ER7MKzKQ==', 'PDFLib'],
+  xlsx: ['https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw', 'XLSX'],
+};
+const scriptsLoading = new Map();
+function loadScriptOnce(src, integrity, global) {
+  if (window[global]) return Promise.resolve();
+  if (!scriptsLoading.has(src)) scriptsLoading.set(src, new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    Object.assign(s, { src, integrity, crossOrigin: 'anonymous' });
+    s.onload = () => (window[global] ? resolve() : reject(new Error(`${global} absent`)));
+    s.onerror = () => { scriptsLoading.delete(src); s.remove(); reject(new Error('Module indisponible : vérifiez la connexion puis réessayez.')); };
+    document.head.append(s);
+  }));
+  return scriptsLoading.get(src);
+}
+const loadLib = (name) => loadScriptOnce(...LIBS[name]);
+
+/* ---------- Liens signés du stockage (photos, logos) ----------
+   Gardés 50 min dans l'onglet : une photo déjà vue garde la même adresse,
+   le navigateur la reprend de son cache au lieu de la retélécharger à
+   chaque page. Les liens manquants partent en une seule requête.
+   Renvoie Map(chemin → lien). */
+const SIGNED_MEMO = 'lmfc-signed';
+async function signedUrls(bucket, paths) {
+  const now = Date.now(), out = new Map(), missing = [];
+  let memo = {};
+  try { memo = JSON.parse(sessionStorage.getItem(SIGNED_MEMO) || '{}'); } catch { /* mémoire illisible : on redemande */ }
+  [...new Set(paths.filter(Boolean))].forEach(p => {
+    const m = memo[`${bucket}/${p}`];
+    if (m && m.exp > now) out.set(p, m.url); else missing.push(p);
+  });
+  if (!missing.length) return out;
+  const { data, error } = await sb.storage.from(bucket).createSignedUrls(missing, 3600);
+  if (error) console.warn('Liens du stockage indisponibles', bucket, error.message);
+  (data || []).forEach(d => { if (d.signedUrl) { out.set(d.path, d.signedUrl); memo[`${bucket}/${d.path}`] = { url: d.signedUrl, exp: now + 50 * 60000 }; } });
+  try {
+    sessionStorage.setItem(SIGNED_MEMO, JSON.stringify(Object.fromEntries(Object.entries(memo).filter(([, m]) => m.exp > now))));
+  } catch { /* stockage plein ou bloqué : pas de mémoire, rien de grave */ }
+  return out;
+}
+
 /* ---------- Toasts ---------- */
 function toast(message, type = '') {
   let stack = document.getElementById('toast-stack');
@@ -63,6 +109,13 @@ const fmtDate = (d) => {
   return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 /* Majuscule initiale (« juil. 2024 » → « Juil. 2024 »). */
+/* Fonction pas encore activée en base : un message simple pour l'utilisateur,
+   le détail technique dans la console (pour l'administrateur technique). */
+const UPDATE_NEEDED = 'Cette fonction n’est pas encore disponible : prévenez l’administrateur du club.';
+const updateNeeded = (detail) => { console.warn('Base à mettre à jour :', detail); return UPDATE_NEEDED; };
+
+/* Nom d'un joueur, « Prénom NOM » : la seule mise en forme, partagée par les pages. */
+const playerFullName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
 /* Nom d'un joueur qui ouvre sa fiche (clic simple ; Ctrl/Cmd : nouvel onglet). */
 const playerHref = (id) => `player-performance.html?id=${id}`;
 const playerLink = (id, text, extra = '') => `<a class="player-link" href="${playerHref(id)}"${extra}>${escapeHtml(text)}</a>`;

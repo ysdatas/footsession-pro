@@ -629,7 +629,7 @@ function renderCareer() {
   if (!box) return;
   if (careerMissing) {
     box.innerHTML = `<div class="career-empty">Parcours indisponible.${isStaff()
-      ? '<br>Exécutez <code>supabase/player_profile_career.sql</code> dans Supabase.' : ''}</div>`;
+      ? `<br>${updateNeeded('player_profile_career.sql')}` : ''}</div>`;
     return;
   }
   if (!career.length) {
@@ -938,9 +938,10 @@ async function loadPage() {
   renderCareer();
 
   if (player.photo_path) {
-    const { data } = await sb.storage.from('player-photos').createSignedUrl(player.photo_path, 3600);
-    if (data?.signedUrl) {
-      document.getElementById('playerPhoto').src = data.signedUrl;
+    // Même lien que dans la liste des joueurs : la photo vient du cache (app.js).
+    const url = (await signedUrls('player-photos', [player.photo_path])).get(player.photo_path);
+    if (url) {
+      document.getElementById('playerPhoto').src = url;
       document.getElementById('playerPhoto').classList.remove('hidden');
       document.getElementById('playerInitials').classList.add('hidden');
     }
@@ -1029,7 +1030,7 @@ async function savePlayerEdit() {
   Object.assign(player, body);
   closePerfModal('playerEditModal');
   notify(identityMissing
-    ? 'Fiche mise à jour. Naissance, nationalité et contrat nécessitent la migration player_profile_career.sql.'
+    ? 'Fiche mise à jour. Naissance, nationalité et contrat ne sont pas encore disponibles.'
     : 'Fiche joueur mise à jour.', identityMissing ? 'info' : 'success');
   renderIdentity();
 }
@@ -1092,7 +1093,7 @@ function setSeasonData(allMeasures, allTests) {
    incompréhensible, ou recréerait des doublons. */
 function periodKeyError(error) {
   return /no unique or exclusion constraint|season_key/i.test(error?.message || '')
-    ? 'Base à mettre à jour : exécutez supabase/performance_one_row_per_period.sql dans Supabase.'
+    ? updateNeeded('performance_one_row_per_period.sql')
     : error?.message;
 }
 
@@ -1260,7 +1261,7 @@ function setupVisibilityToggles() {
     const { error } = await sb.rpc('set_player_hidden_sections', { p_player_ids: [player.id], p_sections: [...keys] });
     if (error) {
       console.error('Visibilité non enregistrée', error);
-      notify(/hidden_sections_check/.test(error.message) ? 'Base à mettre à jour : exécutez supabase/lmfc_v8.sql.' : error.message, 'error');
+      notify(/hidden_sections_check/.test(error.message) ? updateNeeded('lmfc_v8.sql') : error.message, 'error');
     } else player.hidden_sections = [...keys].sort();
     syncs.forEach(f => f());
   };
@@ -1348,7 +1349,7 @@ async function deletePlayer() {
   if (ctxProfile?.role !== 'admin' || !player) return;
   const name = `${player.prenom || ''} ${player.nom || ''}`.trim() || 'ce joueur';
   if (!(await trashReady())) {
-    return notify('Activez d’abord la corbeille (supabase/lmfc_v5.sql) : la suppression d’un joueur doit rester récupérable.', 'error');
+    return notify('La corbeille n’est pas disponible : la suppression d’un joueur doit rester récupérable. Prévenez l’administrateur du club.', 'error');
   }
   const account = player.auth_user_id ? '\nSon compte joueur n’aura plus accès à son espace.' : '';
   if (!confirm(`Supprimer ${name} ?\n\nSa fiche part avec tout ce qui la concerne : mesures, tests, vidéos et séquences, objectifs et préventions, programme, parcours, présences.${account}\n\nRécupérable depuis la Corbeille.`)) return;

@@ -154,8 +154,10 @@ console.error = (...a) => { logged = a.join(' '); };
 r = await call('POST', '/api/videos/sign', { token: 'staff7', body: JSON.stringify({ paths: [B] }) }, { ...env, VIDEO_URL_SECRET: '' });
 console.error = orig;
 assert.equal(r.status, 503, 'réglage Cloudflare manquant : 503, pas une panne');
-assert.match((await r.json()).error, /VIDEO_URL_SECRET absent/, 'la page dit quoi régler');
-assert.match(logged, /VIDEO_URL_SECRET/);
+const shown = (await r.json()).error;
+assert.match(shown, /pas encore configuré/, 'la page dit qui prévenir');
+assert.doesNotMatch(shown, /VIDEO_URL_SECRET|Cloudflare/, 'aucun détail interne à l’écran');
+assert.match(logged, /VIDEO_URL_SECRET/, 'le détail est dans les journaux');
 assert.doesNotMatch(logged, /secret-de-test/);
 
 console.log('video-worker : OK');

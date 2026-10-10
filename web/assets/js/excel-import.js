@@ -606,8 +606,7 @@ const ExcelImport = (() => {
     if (err) {
       // Sans la migration, importer recréerait exactement les doublons qu'on corrige.
       fail(/season_key/.test(err.message)
-        ? `La base n’est pas encore prête pour l’import par saison.<br>
-           Exécutez <code>supabase/performance_one_row_per_period.sql</code> dans Supabase, puis réessayez.`
+        ? updateNeeded('performance_one_row_per_period.sql')
         : `Lecture des données existantes impossible : ${h(err.message)}`);
       return false;
     }
@@ -620,6 +619,7 @@ const ExcelImport = (() => {
     $('xiBody').innerHTML = '<div class="xi-placeholder">Lecture du fichier…</div>';
     $('xiConfirm').disabled = true;
     try {
+      await loadLib('xlsx');   // 860 Ko, chargé seulement au premier import
       const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
       const missingSheets = ['Anthropométrie', 'Tests bruts'].filter(n => !workbook.SheetNames.includes(n));
       if (missingSheets.length) {

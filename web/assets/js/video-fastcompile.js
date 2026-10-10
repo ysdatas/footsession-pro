@@ -30,16 +30,7 @@ const FAST_AUDIO_STEP = 4800;     // morceaux de 100 ms
 const fastSupported = () => ['VideoDecoder', 'VideoEncoder', 'VideoFrame', 'EncodedVideoChunk',
   'AudioEncoder', 'AudioData', 'OfflineAudioContext'].every(k => k in window);
 
-function loadScriptOnce(src, integrity, global) {
-  if (window[global]) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    Object.assign(s, { src, integrity, crossOrigin: 'anonymous' });
-    s.onload = () => (window[global] ? resolve() : reject(new Error(`${global} absent`)));
-    s.onerror = () => reject(new Error(`Bibliothèque indisponible : ${src}`));
-    document.head.append(s);
-  });
-}
+// loadScriptOnce : app.js.
 /* Attente courte sans minuterie : pas ralentie quand l'onglet est caché. */
 const fastYield = () => new Promise(r => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
 const even = (n) => Math.max(2, Math.round(n / 2) * 2);

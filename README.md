@@ -606,7 +606,23 @@ node tests/video-worker.test.mjs  # Worker vidéo : droits, liens signés, lectu
 node tests/session-principle.test.mjs  # principe de jeu : séance, anciennes séances, héritage
 node tests/video-status.test.mjs   # statuts des séquences vidéo
 node tests/trash-sql.test.mjs      # corbeille sur un vrai Postgres (ignoré sans PGlite)
+node tests/procedure-time.test.mjs # durées à virgule, statuts de présence
+node tests/sessions-v9-sql.test.mjs tests/sessions-v12-sql.test.mjs tests/sessions-v13-sql.test.mjs \
+  tests/sessions-access-sql.test.mjs tests/matches-sql.test.mjs   # séances, droits, membres, matchs (PGlite)
 ```
+
+**Chargement des pages** :
+- `supabase-js` et `chart.js` sont figés sur une version précise, avec contrôle d'intégrité
+  (SRI). Le fichier est donc mis en cache par le navigateur et ne change jamais sans qu'on
+  le décide. Pour une mise à jour : changer la version et l'empreinte dans toutes les pages.
+- jsPDF, pdf-lib et la lecture Excel (`xlsx`, 860 Ko) sont chargés seulement au premier
+  export ou import, par `loadLib` (`app.js`, versions et empreintes dans `LIBS`).
+- `requireAuth` demande le profil et les équipes en même temps.
+- Les photos passent par `signedUrls` (`app.js`) : une requête pour toute la liste, et des
+  liens gardés 50 minutes dans l'onglet, ce qui permet au navigateur de reprendre les images
+  de son cache.
+- Un message à l'écran ne cite jamais de fichier SQL, de secret ni de configuration :
+  `updateNeeded` affiche une phrase simple et met le détail dans la console.
 
 Le second tourne sur une extraction du classeur réel
 (`tests/fixtures-tests-physiques.json`) et vérifie les valeurs exactes de plusieurs

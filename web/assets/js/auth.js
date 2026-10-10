@@ -17,26 +17,14 @@ async function requireAuth(opts = {}) {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.href = 'index.html'; return null; }
 
-  let { data: profile, error } = await sb
-    .from('profiles')
-    .select('id, nom, role, club_id, team_id, team_ids, prefs, clubs(nom, color, logo_path, join_code, saison_start)')
-    .eq('id', session.user.id)
-    .single();
-
-  /* Replis successifs : une migration pas encore passée ne doit jamais
-     empêcher la connexion. On retire d'abord team_ids, puis team_id, puis
-     saison_start, puis prefs. Le dernier jeu de colonnes est celui du schéma d'origine. */
-  const FALLBACKS = [
-    'id, nom, role, club_id, team_id, prefs, clubs(nom, color, logo_path, join_code, saison_start)',
-    'id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code, saison_start)',
-    'id, nom, role, club_id, prefs, clubs(nom, color, logo_path, join_code)',
-    'id, nom, role, club_id, clubs(nom, color, logo_path, join_code)',
-  ];
-  for (const cols of FALLBACKS) {
-    if (!error) break;
-    ({ data: profile, error } = await sb
-      .from('profiles').select(cols).eq('id', session.user.id).single());
-  }
+  // Profil et équipes partent ensemble : un aller-retour de moins sur chaque page du staff.
+  // (Un compte joueur n'en a pas l'usage ici : la réponse est simplement ignorée.)
+  const [{ data: profile, error }, teamsRes] = await Promise.all([
+    sb.from('profiles')
+      .select('id, nom, role, club_id, team_id, team_ids, prefs, clubs(nom, color, logo_path, join_code, saison_start)')
+      .eq('id', session.user.id).single(),
+    sb.from('teams').select('id, nom, sort_order').order('sort_order').order('nom'),
+  ]);
 
   if (error) {
     console.error('requireAuth: lecture du profil impossible', error);
@@ -75,10 +63,8 @@ async function requireAuth(opts = {}) {
   // Menu, équipes et pages réservées à certains rôles (nav.js, pages staff).
   if (profile.role !== 'joueur' && typeof navGuard === 'function') {
     if (!navGuard(profile)) return null;
-    const { data: teams, error: teamsError } = await sb.from('teams')
-      .select('id, nom, sort_order').order('sort_order').order('nom');
-    if (teamsError) console.warn('Équipes indisponibles (migration roles_teams_preventions.sql non passée ?) :', teamsError.message);
-    window.CLUB_TEAMS = teams || [];
+    if (teamsRes.error) console.warn('Équipes indisponibles :', teamsRes.error.message);
+    window.CLUB_TEAMS = teamsRes.data || [];
     renderNav(profile);   // et le garde pour le dessiner tout de suite à la page suivante (nav.js)
   }
   return { user: session.user, profile };
