@@ -344,9 +344,11 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   **Terrain d'effectif** (`session-pitch.js`, `lmfc_v15.sql`) : à droite des présences (dessous
   sur téléphone), un petit terrain vertical ; la poignée ⠿ d'un joueur se glisse dessus (pointer
   events, souris et doigt ; un clic le pose sur la ligne du bas), un pion se déplace ou sort du
-  terrain pour être retiré (Suppr au clavier), « Vider ». Placement : `sessions.terrain`,
-  enregistré automatiquement, repris dans le PDF complet (page 1, compact) et, au choix, dans
-  la fiche coach (un quart de page). Les noms des joueurs (présences, bilan, retours de match)
+  terrain pour être retiré (Suppr au clavier), « Vider ». Clic droit (ou appui long) sur un
+  pion : couleur du maillot (`COLOR_PALETTE`), pour lui ou tous les pions ; les suivants prennent
+  la dernière couleur. Placement : `sessions.terrain` (`[x %, y %, couleur]`), enregistré
+  automatiquement, repris en page 1 du PDF complet à droite des présences (noms sur 3 colonnes
+  plus étroites) et, au choix, dans la fiche coach (un quart de page). Les noms des joueurs (présences, bilan, retours de match)
   ouvrent leur fiche (`playerLink`, `app.js`).
   Le schéma d'un procédé pas encore enregistré se dessine tout de suite :
   `tactical-board.html?draft=…` le garde dans le navigateur (`tb_draft_*`) et son image dans
@@ -503,7 +505,7 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 ## 🎨 Tableau tactique — prise en main
 
 - **Outils** : sélection, joueur, adversaire, flèche pleine (**passe**), flèche pointillée
-  (**trajectoire**), trait, formes (carré, rectangle, cercle, triangle), texte. Une flèche ou un
+  (**trajectoire**), flèche ondulée (**conduite de balle**, `style: 'wavy'`, coude possible), trait, formes (carré, rectangle, cercle, triangle), texte. Une flèche ou un
   trait sélectionné passe en plein ou en pointillé avec « Pointillé » (barre de sélection ou menu
   de l'élément, `style` de l'élément) ; les schémas existants gardent leur tracé.
 - **Zones** : choisir une forme puis **glisser** sur le terrain ; la sélectionner

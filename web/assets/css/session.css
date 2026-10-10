@@ -350,10 +350,11 @@
 .pitch-lines { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: rgba(255,255,255,.55); stroke-width: .5; }
 .pitch-hint { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
 .pitch-token { position: absolute; display: grid; justify-items: center; gap: 1px; padding: 0; border: 0; background: none;
+  -webkit-touch-callout: none; user-select: none;
   transform: translate(-50%, -50%); cursor: grab; touch-action: none; color: #fff; }
 .pitch-token.is-dragging { opacity: .25; }
 .pitch-token.is-ghost { position: fixed; z-index: 200; pointer-events: none; cursor: grabbing; }
-.pt-dot { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: #0A0A0A;
+.pt-dot { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--pt, var(--gold)); color: var(--pt-ink, #0A0A0A);
   font-size: 10px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,.45); }
 .pt-name { max-width: 64px; padding: 0 3px; border-radius: 3px; background: rgba(0,0,0,.45); font-size: 9.5px; font-weight: 600; line-height: 1.35;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -377,3 +378,14 @@
 .cp-check { display: flex; align-items: center; gap: 8px; margin: 0; padding: 5px 0; font-size: var(--fs-md); font-weight: 500;
   text-transform: none; letter-spacing: normal; color: var(--text-primary); cursor: pointer; }
 .cp-check input, .cp-seg input { width: auto; flex: none; margin: 0; accent-color: var(--gold); }
+
+/* Couleur du maillot d'un pion (clic droit, appui long). */
+.pitch-palette { position: fixed; z-index: 210; display: grid; gap: 8px; padding: 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); background: var(--bg-card); box-shadow: var(--shadow); }
+.pp-title { font-size: var(--fs-xs); font-weight: 600; color: var(--text-secondary); }
+.pp-colors { display: grid; grid-template-columns: repeat(5, 26px); gap: 6px; }
+.pp-colors button { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); cursor: pointer; }
+.pp-colors button:hover, .pp-colors button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.pp-all { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-sm); font-weight: 500; text-transform: none;
+  letter-spacing: normal; color: var(--text-primary); cursor: pointer; }
+.pp-all input { width: auto; margin: 0; accent-color: var(--gold); }

@@ -170,12 +170,15 @@ function drawPitchPdf(doc, { x, y, w, h, terrain, players, accent, nameOf = (a) 
     doc.rect(dir > 0 ? gx : gx - L(5.5), y + h / 2 - Wd(9.15), L(5.5), Wd(18.3));
   });
   const str = (t) => (typeof pdfStr === 'function' ? pdfStr(t) : String(t ?? ''));
-  Object.entries(terrain || {}).forEach(([id, [ux, uy]]) => {
+  Object.entries(terrain || {}).forEach(([id, [ux, uy, color]]) => {
     const a = players.find(p => String(p.id) === String(id));
     if (!a) return;
     const px = x + (1 - uy / 100) * w, py = y + (ux / 100) * h;
-    doc.setFillColor(...accent); doc.circle(px, py, 2.3, 'F');
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(5.6);
+    // Couleur du maillot choisie sur le terrain (sinon celle du club) ; numéro lisible dessus.
+    const rgb = hexRgb(color) || accent, light = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 150;
+    doc.setFillColor(...rgb); doc.circle(px, py, 2.3, 'F');
+    if (light) { doc.setDrawColor(150, 155, 165); doc.setLineWidth(0.2); doc.circle(px, py, 2.3, 'S'); }
+    doc.setTextColor(...(light ? [20, 22, 27] : [255, 255, 255])); doc.setFont('helvetica', 'bold'); doc.setFontSize(5.6);
     doc.text(str(a.numero != null ? String(a.numero) : `${(a.prenom || '')[0] || ''}${(a.nom || '')[0] || ''}`.toUpperCase()), px, py + 0.1, { align: 'center', baseline: 'middle' });
     doc.setTextColor(30, 34, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(5.6);
     const name = str(nameOf(a));
@@ -470,7 +473,12 @@ window.generateSessionPDF = async function (sessionId) {
   const presents = attendance.filter(a => a.present);
   const absents = attendance.filter(a => !a.present);
 
-  const perCol = 4, colW = CW / perCol, rowH = 6;
+  // Terrain d'effectif posé : il se place à droite des présences, sur la même
+  // page ; les noms passent alors sur 3 colonnes plus étroites, un peu plus petits.
+  const withPitch = hasTerrain(s, attendance);
+  const pitchH = 56, pitchW = pitchH * 105 / 68, pitchGap = 5;
+  const listW = withPitch ? CW - pitchW - pitchGap : CW;
+  const perCol = withPitch ? 3 : 4, colW = listW / perCol, rowH = withPitch ? 5.4 : 6, nameFs = withPitch ? 7.8 : 8.5;
   const listH = (n) => n ? Math.ceil(n / perCol) * rowH + 4 : 10;
   const STATUT_RGB = { present: [76, 175, 80], reprise: [38, 166, 154], retard: [255, 152, 0], absent: [190, 190, 196],
     excuse: [120, 144, 156], blesse: [229, 57, 53], malade: [171, 71, 188], selection: [212, 160, 10],
@@ -481,10 +489,10 @@ window.generateSessionPDF = async function (sessionId) {
     return `${a.prenom || ''} ${a.nom}`.trim() + (a.numero != null ? ` #${a.numero}` : '') + (tags.length ? ` (${tags.join(', ')})` : '');
   };
 
-  /* Bloc de noms en 4 colonnes. `dim` grise les absents. */
+  /* Bloc de noms en colonnes (4, ou 3 à côté du terrain). `dim` grise les absents. */
   const nameBlock = (yy, list, dim) => {
     const h = listH(list.length);
-    fill(M, yy, CW, h, dim ? [248, 249, 250] : LIGHT); box(M, yy, CW, h);
+    fill(M, yy, listW, h, dim ? [248, 249, 250] : LIGHT); box(M, yy, listW, h);
     if (!list.length) {
       doc.setTextColor(...MUT); doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5);
       doc.text('Aucun', M + 4, yy + 6);
@@ -496,7 +504,7 @@ window.generateSessionPDF = async function (sessionId) {
       const x = M + col * colW + 3, ty2 = yy + 4 + row * rowH;
       doc.setFillColor(...(STATUT_RGB[a.statut] || (dim ? [200, 200, 205] : [76, 175, 80])));
       doc.circle(x + 1.5, ty2 - 0.8, 1.4, 'F');
-      doc.setTextColor(...(dim ? MUT : DARK)); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      doc.setTextColor(...(dim ? MUT : DARK)); doc.setFont('helvetica', 'normal'); doc.setFontSize(nameFs);
       // Le nom entier tant qu'il tient dans sa colonne, sinon raccourci à sa largeur.
       let name = str(nameOf(a));
       while (name.length > 4 && doc.getTextWidth(name) > colW - 8) name = `${name.slice(0, -2).trimEnd()}…`;
@@ -512,30 +520,33 @@ window.generateSessionPDF = async function (sessionId) {
     header(M, y, CW, 7, 'Présence des joueurs', 6.5); y += 7;
     cell(M, y, CW, 12, 'Aucun joueur enregistré.', { fs: 9 });
   } else {
+    // Terrain à droite : présents, absents et terrain restent ensemble sur la page.
+    let pitchBottom = 0, pitchPage = 0;
+    if (withPitch) {
+      const listsH = 4 + 7 + listH(presents.length) + (absents.length ? 3 + 7 + listH(absents.length) : 0);
+      if (y + Math.max(listsH, 4 + 7 + pitchH + 2) > BOTTOM) y = newPage('Suite');
+      const px = M + listW + pitchGap;
+      header(px, y + 4, pitchW, 7, 'Terrain d’effectif', 6.5);
+      drawPitchPdf(doc, { x: px, y: y + 4 + 7 + 1, w: pitchW, h: pitchH, terrain: s.terrain, players: attendance,
+        accent: typeof pdfAccent === 'function' ? pdfAccent(s.club_color) : (hexRgb(s.club_color) || ACCENT) });
+      pitchBottom = y + 4 + 7 + pitchH + 2;
+      pitchPage = doc.getNumberOfPages();
+    }
+
     // Bloc « Présents »
     if (y + 4 + 7 + listH(presents.length) > BOTTOM) y = newPage('Suite');
     y += 4;
-    header(M, y, CW, 7, `Présents — ${presents.length} / ${attendance.length}`, 6.5); y += 7;
+    header(M, y, listW, 7, `Présents — ${presents.length} / ${attendance.length}`, 6.5); y += 7;
     y += nameBlock(y, presents, false);
 
     // Bloc « Absents », uniquement s'il y en a
     if (absents.length) {
       if (y + 3 + 7 + listH(absents.length) > BOTTOM) y = newPage('Suite');
       y += 3;
-      header(M, y, CW, 7, `Absents et indisponibles — ${absents.length}`, 6.5); y += 7;
+      header(M, y, listW, 7, `Absents et indisponibles — ${absents.length}`, 6.5); y += 7;
       y += nameBlock(y, absents, true);
     }
-
-    /* Terrain d'effectif : la disposition posée dans la séance, compacte. */
-    if (hasTerrain(s, attendance)) {
-      const ph = 58, pw = ph * 105 / 68;
-      if (y + 3 + 7 + ph + 2 > BOTTOM) y = newPage('Suite');
-      y += 3;
-      header(M, y, CW, 7, 'Terrain d’effectif', 6.5); y += 7;
-      drawPitchPdf(doc, { x: M + (CW - pw) / 2, y: y + 1, w: pw, h: ph, terrain: s.terrain, players: attendance,
-        accent: typeof pdfAccent === 'function' ? pdfAccent(s.club_color) : (hexRgb(s.club_color) || ACCENT) });
-      y += ph + 2;
-    }
+    if (doc.getNumberOfPages() === pitchPage) y = Math.max(y, pitchBottom);   // la suite passe sous le terrain
 
     /* Ancienne séance : chasubles de toute la séance, une colonne par couleur.
        (Sinon, les équipes sont avec chaque procédé.) */

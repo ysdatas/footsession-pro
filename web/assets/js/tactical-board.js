@@ -493,7 +493,9 @@ function drawArrow(it) {
   ctx.setLineDash(it.style === 'dashed' ? [10, 8] : []);
   ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(it.x1, it.y1);
-  if (bend) {
+  if (it.style === 'wavy') {
+    wavyPath([{ x: it.x1, y: it.y1 }, ...(bend ? [bend] : []), { x: it.x2, y: it.y2 }]);
+  } else if (bend) {
     ctx.lineTo(bend.x, bend.y); ctx.lineTo(it.x2, it.y2);
   } else if (it.style === 'curved') {
     // Ancien style conservé pour que les schémas déjà enregistrés
@@ -512,6 +514,25 @@ function drawArrow(it) {
   ctx.lineTo(it.x2 - 16 * Math.cos(ang - 0.4), it.y2 - 16 * Math.sin(ang - 0.4));
   ctx.lineTo(it.x2 - 16 * Math.cos(ang + 0.4), it.y2 - 16 * Math.sin(ang + 0.4));
   ctx.closePath(); ctx.fillStyle = it.color; ctx.fill();
+}
+/* Conduite de balle : une ondulation le long du tracé (coude compris),
+   qui s'adoucit au départ et s'arrête avant la pointe pour la laisser nette. */
+function wavyPath(pts) {
+  const amp = 7, wave = 30, step = 2;
+  const total = pts.slice(1).reduce((t, b, i) => t + Math.hypot(b.x - pts[i].x, b.y - pts[i].y), 0);
+  const stop = Math.max(0, total - 20);
+  let done = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
+    for (let t = step; t <= len; t += step) {
+      const d = done + t;
+      const off = d < stop ? Math.sin(d / wave * Math.PI * 2) * amp * Math.min(1, d / 10, (stop - d) / 10) : 0;
+      ctx.lineTo(a.x + ux * t - uy * off, a.y + uy * t + ux * off);
+    }
+    done += len;
+  }
+  ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
 }
 function drawLine(it) {
   const bend = bendOf(it);
@@ -912,7 +933,7 @@ canvas.addEventListener('pointerdown', (e) => {
     const t = prompt('Texte :', ''); if (t) { state.items.push({ id: nid(), type: 'text', x: p.x, y: p.y, text: t, color: c, size: 22, font: state.textFont }); commit(); }
   }
   else if (state.tool.startsWith('arrow') || state.tool === 'line') {
-    const style = state.tool === 'arrow-curved' ? 'curved' : state.tool === 'arrow-dashed' ? 'dashed' : 'solid';
+    const style = { 'arrow-curved': 'curved', 'arrow-dashed': 'dashed', 'arrow-wavy': 'wavy' }[state.tool] || 'solid';
     const it = { id: nid(), type: state.tool === 'line' ? 'line' : 'arrow', style, x1: p.x, y1: p.y, x2: p.x, y2: p.y, color: c };
     state.items.push(it); state.selIds = [it.id]; drag = { mode: 'create-seg', it };
   }
@@ -1447,8 +1468,8 @@ function syncSelBar() {
   }
 }
 /* Pointillé : `style` pour les flèches et traits (l'ancienne flèche courbe
-   garde le sien), `dash` pour les zones. */
-function canDash(it) { return (it.type === 'arrow' || it.type === 'line') && it.style !== 'curved'; }
+   et la flèche ondulée de conduite de balle gardent le leur), `dash` pour les zones. */
+function canDash(it) { return (it.type === 'arrow' || it.type === 'line') && !['curved', 'wavy'].includes(it.style); }
 function isDashed(it) { return it.type === 'shape' ? !!it.dash : it.style === 'dashed'; }
 function toggleDash(it) {
   if (it.type === 'shape') it.dash = !it.dash;
