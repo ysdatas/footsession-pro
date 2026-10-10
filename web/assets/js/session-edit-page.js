@@ -3,17 +3,14 @@
    Création / édition d'une séance : procédés dynamiques, présences.
    Statuts, invités et bilan : session-roster.js ; équipes, staff et
    vidéo par procédé : session-proc-teams.js (lmfc_v9.sql) ; droits
-   d'accès : session-access.js (lmfc_v10.sql).
+   d'accès : session-access.js (lmfc_v10.sql) ; enregistrement
+   automatique : session-autosave.js.
    ============================================================ */
 
 const SESSION_ID = new URLSearchParams(location.search).get('id') ? Number(new URLSearchParams(location.search).get('id')) : null;
 const EDITOR_MODE = SESSION_ID ? 'edit' : 'create';
-// Séance déjà créée par un premier enregistrement : un nouvel essai (après
-// une erreur réseau, par exemple) la met à jour au lieu d'en créer une autre.
+// Séance déjà créée par un premier enregistrement : les suivants la mettent à jour.
 let savedSessionId = SESSION_ID;
-// Modifications pas encore enregistrées : on prévient avant de quitter.
-let dirty = false;
-const markDirty = () => { dirty = true; };
 
 let myProfile = null;
 let CAN_WRITE = false;
@@ -33,9 +30,12 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   if (!ctx) return;
   myProfile = ctx.profile;
   CAN_WRITE = canEdit(myProfile.role);
+  // Tout ce qui ne dépend que du compte part en même temps que la séance.
+  loadPrincipleSuggestions();
+  const staffReady = loadStaffSuggestions();
   // Séance existante : le droit de la modifier vient de la base (créateur, réglages, équipe).
   if (EDITOR_MODE === 'edit') {
-    const { data: lvl, error } = await sb.rpc('session_access_level', { p_session: SESSION_ID });
+    const [{ data: lvl, error }] = await Promise.all([sb.rpc('session_access_level', { p_session: SESSION_ID }), loadSession()]);
     if (!error && lvl) CAN_WRITE = lvl === 'modification';   // sans lmfc_v10.sql : le rôle décide, comme avant
   }
 
@@ -46,7 +46,6 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
 
   if (!CAN_WRITE) {
     ['f-titre', 'f-principe', 'f-date', 'f-equipe', 'f-duree'].forEach(id => { document.getElementById(id).disabled = true; });
-    document.getElementById('btnSave').classList.add('hidden');
     document.getElementById('btnAddProc').classList.add('hidden');
     document.getElementById('btnAddProc2').classList.add('hidden');
     document.getElementById('btnLibrary')?.classList.add('hidden');
@@ -56,18 +55,12 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
 
   document.getElementById('btnAddProc').addEventListener('click', () => addProcedure());
   document.getElementById('btnAddProc2').addEventListener('click', () => addProcedure());
-  document.getElementById('btnSave').addEventListener('click', save);
-  // Second bouton d'enregistrement au niveau des procédés : évite de
-  // remonter en haut de page après chaque modification.
-  document.getElementById('btnSaveHere')?.addEventListener('click', save);
-  if (!CAN_WRITE) document.getElementById('btnSaveHere')?.classList.add('hidden');
 
   // Blocs dépliables (présences, équipes, staff, bilan) : on cible celui du bouton cliqué.
   document.querySelectorAll('.attendance-head').forEach(btn =>
     btn.addEventListener('click', () => btn.closest('.attendance').classList.toggle('open')));
   initRoster();
   initProcBlocks();
-  loadStaffSuggestions();
   document.getElementById('proceduresList').addEventListener('input', (e) => {
     if (e.target.classList.contains('proc-duree') || e.target.classList.contains('proc-name')) updateMeta();
     // Les temps se recalculent à la frappe. On met à jour les champs concernés
@@ -78,16 +71,12 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
     }
   });
 
+  // Exports : ce qui est en attente est enregistré d'abord, le PDF lit la base.
+  const exportPdf = async (fn) => { if (await flushSave()) fn(savedSessionId); else toast('Enregistrez d’abord la séance (titre et date).', 'error'); };
+  document.getElementById('btnPdfFull')?.addEventListener('click', () => exportPdf(window.generateSessionPDF));
+  document.getElementById('btnPdfCoach')?.addEventListener('click', () => exportPdf(window.generateCoachPDF));
   if (EDITOR_MODE === 'edit') {
-    document.getElementById('editorTitle').innerHTML = CAN_WRITE ? 'Modifier la séance <span class="badge badge-gold">ÉDITION</span>'
-      : 'Séance <span class="badge">LECTURE SEULE</span>';
-    const fullBtn = document.getElementById('btnPdfFull');
-    fullBtn?.classList.remove('hidden');
-    fullBtn?.addEventListener('click', () => window.generateSessionPDF(SESSION_ID));
-    const coachBtn = document.getElementById('btnPdfCoach');
-    coachBtn?.classList.remove('hidden');
-    coachBtn?.addEventListener('click', () => window.generateCoachPDF(SESSION_ID));
-    await loadSession();
+    showSavedSession();
   } else {
     document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
     sessionTeamId = currentTeamId();
@@ -103,20 +92,33 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   renderBilans();
   updateMeta();
   if (EDITOR_MODE === 'edit') renderShare();
-  await initAccess(loadedSession);
-  loadPrincipleSuggestions();
+  await initAccess(loadedSession, staffReady);
   if (CAN_WRITE) {
     const main = document.querySelector('main');
-    main.addEventListener('input', markDirty);
-    main.addEventListener('change', markDirty);
+    // La recherche d'un invité ne modifie rien tant qu'on n'a pas choisi le joueur.
+    const edit = (e) => { if (!e.target.closest('#guestSearch')) markDirty(); };
+    main.addEventListener('input', edit);
+    main.addEventListener('change', edit);
     // Clics qui modifient la séance (les champs, eux, passent par input / change).
     ['bilanList', 'guestResults', 'btnAllPresent'].forEach(id => document.getElementById(id)?.addEventListener('click', (e) => {
       if (e.target.closest('button:not([role="tab"])')) markDirty();
     }));
-    window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
   }
-  dirty = false;
+  startAutosave(loadedSession);
 })();
+
+/* Séance enregistrée : titre, exports et partage disponibles. */
+function showSavedSession() {
+  document.getElementById('editorTitle').innerHTML = CAN_WRITE ? 'Modifier la séance <span class="badge badge-gold">ÉDITION</span>'
+    : 'Séance <span class="badge">LECTURE SEULE</span>';
+  ['btnPdfFull', 'btnPdfCoach'].forEach(id => document.getElementById(id)?.classList.remove('hidden'));
+}
+/* Première sauvegarde d'une nouvelle séance (session-autosave.js). */
+function onSessionCreated() {
+  showSavedSession();
+  renderShare();
+  document.getElementById('editorSubtitle').textContent = `Créée le ${new Date().toISOString().slice(0, 10)} · enregistrée à chaque modification`;
+}
 
 /* Principes déjà utilisés par le club : proposés à la saisie, pour que le
    même principe s'écrive toujours pareil (et se compte bien dans Analytics). */
@@ -155,12 +157,7 @@ function mountTeamSelect() {
    séance, plus ceux déjà inscrits (knownIds : invités, présents d'avant).
    Tout l'effectif reste à portée pour ajouter un invité. */
 async function playersForSession(knownIds = new Set()) {
-  if (!clubPlayers.length) {
-    const { data, error } = await sb.from('players')
-      .select(`id, nom, prenom, numero, poste${hasTeams() ? ', team_id, other_team_ids' : ''}`).order('nom');
-    if (error) throw error;
-    clubPlayers = data || [];
-  }
+  await loadClubPlayers();
   return clubPlayers.filter(p => playerInTeam(p, sessionTeamId) || knownIds.has(p.id));
 }
 
@@ -185,27 +182,36 @@ function renderShare() {
   }
 }
 function randomToken() { return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join(''); }
+/* Lien de partage : la date de modification renvoyée garde le verrou de la sauvegarde automatique à jour. */
+async function setShareToken(token) {
+  await flushSave();
+  const { data, error } = await sb.from('sessions').update({ share_token: token }).eq('id', savedSessionId).select('updated_at');
+  if (error) throw error;
+  if (data?.[0]) autosave.knownAt = data[0].updated_at;
+  shareToken = token;
+  renderShare();
+}
 async function doShare() {
-  try {
-    const token = randomToken();
-    const { error } = await sb.from('sessions').update({ share_token: token }).eq('id', SESSION_ID);
-    if (error) throw error;
-    shareToken = token; renderShare(); toast('Lien de partage activé', 'success');
-  } catch (e) { toast(e.message, 'error'); }
+  try { await setShareToken(randomToken()); toast('Lien de partage activé', 'success'); } catch (e) { toast(e.message, 'error'); }
 }
 async function unshare() {
-  try {
-    const { error } = await sb.from('sessions').update({ share_token: null }).eq('id', SESSION_ID);
-    if (error) throw error;
-    shareToken = null; renderShare(); toast('Partage désactivé', 'success');
-  } catch (e) { toast(e.message, 'error'); }
+  try { await setShareToken(null); toast('Partage désactivé', 'success'); } catch (e) { toast(e.message, 'error'); }
 }
 
-/* ---------- Chargement ---------- */
+/* ---------- Chargement ----------
+   Une seule vague de requêtes : séance, procédés, présences, bilans et
+   effectif partent ensemble (avant : six allers-retours à la suite). */
 async function loadSession() {
   try {
-    const { data: s, error: e1 } = await sb.from('sessions').select('*').eq('id', SESSION_ID).single();
+    const [{ data: s, error: e1 }, { data: procs, error: e2 }, { data: att, error: e3 }, { data: bl, error: blErr }] = await Promise.all([
+      sb.from('sessions').select('*').eq('id', SESSION_ID).single(),
+      sb.from('procedures').select('*, tactical_schemas(*)').eq('session_id', SESSION_ID).order('ordre'),
+      sb.from('attendance').select('*').eq('session_id', SESSION_ID),
+      sb.from('session_bilans').select('player_id, note, commentaire').eq('session_id', SESSION_ID),
+      loadClubPlayers(),
+    ]);
     if (e1 || !s) { toast('Séance introuvable.', 'error'); setTimeout(() => location.href = 'sessions.html', 1200); return; }
+    if (e2 || e3) throw e2 || e3;
     shareToken = s.share_token || null;
     loadedSession = s;
     sessionFilmee = !!s.filmee;
@@ -218,9 +224,6 @@ async function loadSession() {
     document.getElementById('f-duree').value = decStr(s.duree_min ?? 90);
     document.getElementById('editorSubtitle').textContent = `Créée le ${(s.created_at || '').slice(0, 10)}`;
 
-    const { data: procs } = await sb.from('procedures')
-      .select('*, tactical_schemas(*)')
-      .eq('session_id', SESSION_ID).order('ordre');
     procedures = (procs || []).map(p => ({
       _uid: nextUid(), id: p.id, nom: p.nom || '', duree_min: p.duree_min || 20,
       objectif: p.objectif || '', effectif: p.effectif || '',
@@ -240,10 +243,6 @@ async function loadSession() {
     }
     document.getElementById('f-principe').value = sessionPrinciple(s, procedures);
 
-    const [{ data: att }, { data: bl, error: blErr }] = await Promise.all([
-      sb.from('attendance').select('*').eq('session_id', SESSION_ID),
-      sb.from('session_bilans').select('player_id, note, commentaire').eq('session_id', SESSION_ID),
-    ]);
     if (blErr) console.warn('Bilans indisponibles (lmfc_v9.sql ?)', blErr);
     bilans = new Map((bl || []).map(b => [b.player_id, { note: b.note, commentaire: b.commentaire || '' }]));
     const attMap = new Map((att || []).map(a => [a.player_id, a]));
@@ -254,7 +253,17 @@ async function loadSession() {
       statut: statutOf(attMap.get(p.id)), statut_libre: attMap.get(p.id)?.statut_libre || '',
       present: !!attMap.get(p.id)?.present, invite: !!attMap.get(p.id)?.invite,
     }));
-  } catch (e) { toast(e.message, 'error'); }
+    rememberSavedRoster(attMap);   // ce qui est déjà en base ne sera pas renvoyé tel quel
+  } catch (e) { console.error('Séance illisible', e); toast(e.message, 'error'); }
+}
+
+/* Tout l'effectif du club, une fois (liste de présence, recherche d'invités). */
+async function loadClubPlayers() {
+  if (clubPlayers.length) return;
+  const { data, error } = await sb.from('players')
+    .select(`id, nom, prenom, numero, poste${hasTeams() ? ', team_id, other_team_ids' : ''}`).order('nom');
+  if (error) throw error;
+  clubPlayers = data || [];
 }
 
 async function loadPlayersForNew() {
@@ -427,8 +436,8 @@ function procTemplate(p, index) {
 /* ---------- Schéma tactique d'un procédé ----------
    Procédé enregistré : son schéma (tactical_schemas). Procédé pas encore
    enregistré : un brouillon dessiné tout de suite (tactical-board.html
-   ?draft=…), gardé dans le navigateur et rattaché au procédé à la
-   sauvegarde de la séance (commitDraftSchemas). */
+   ?draft=…), gardé dans le navigateur et rattaché au procédé par la
+   sauvegarde automatique (commitDraftSchemas). */
 const lsJson = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { console.warn('Brouillon illisible', key, e); return null; } };
 const schemaUrl = (path, v) => `${sb.storage.from('schemas').getPublicUrl(path).data.publicUrl}${v ? `?v=${v}` : ''}`;
 function schemaBoxHtml(p) {
@@ -442,11 +451,11 @@ function schemaBoxHtml(p) {
   const started = p.draft_key && localStorage.getItem('tb_draft_' + p.draft_key);
   if (meta || started) {
     return `${meta?.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(meta.image_path, meta.at))}" alt="Aperçu du schéma">` : ''}
-      <p class="schema-empty">${meta ? 'Schéma prêt : il sera enregistré avec la séance.' : 'Schéma commencé : cliquez « Enregistrer » dans le tableau, puis sauvegardez la séance.'}</p>
+      <p class="schema-empty">${meta ? 'Schéma prêt : il est rattaché au procédé dès que la séance est enregistrée (titre et date).' : 'Schéma commencé : cliquez « Enregistrer » dans le tableau.'}</p>
       <button class="btn btn-sm" type="button" onclick="openDraftBoard('${p._uid}')">Modifier le schéma →</button>`;
   }
   return `<button class="btn btn-sm btn-primary" type="button" onclick="openDraftBoard('${p._uid}')">Dessiner le schéma →</button>
-    <p class="schema-empty">Inutile d’enregistrer la séance d’abord : le schéma sera rattaché au procédé à la sauvegarde.</p>`;
+    <p class="schema-empty">Le schéma est rattaché au procédé dès que la séance est enregistrée.</p>`;
 }
 function refreshSchemaBox(p) {
   const box = document.querySelector(`.proc[data-uid="${p._uid}"] [data-schema-box]`);
@@ -467,20 +476,22 @@ window.addEventListener('storage', (e) => {
   if (!e.key || !e.newValue) return;
   if (e.key.startsWith('tb_draftmeta_')) {
     const p = procedures.find(x => x.draft_key && e.key === 'tb_draftmeta_' + x.draft_key);
-    if (p) refreshSchemaBox(p);
+    if (p) { refreshSchemaBox(p); markDirty(); }   // la sauvegarde automatique rattache le schéma au procédé
   } else if (e.key === 'tb_proc_saved') {
     const m = lsJson('tb_proc_saved');
     const p = m && procedures.find(x => x.id === m.procedure_id);
     if (p) { p.image_path = m.image_path; p.image_v = m.at; refreshSchemaBox(p); }
   }
 });
-/* À la sauvegarde : chaque brouillon devient le schéma de son procédé,
-   désormais enregistré (image copiée à sa place définitive). */
+/* À la sauvegarde : chaque brouillon enregistré dans le tableau (« Enregistrer »,
+   tb_draftmeta_*) devient le schéma de son procédé, désormais enregistré (image
+   copiée à sa place définitive). Le procédé garde sa clé : si le tableau est
+   encore ouvert et enregistre de nouveau, le schéma suit. */
 async function commitDraftSchemas() {
   for (const p of procedures.filter(x => x.draft_key && x.id)) {
     const json = lsJson('tb_draft_' + p.draft_key);
-    if (!json) continue;
     const meta = lsJson('tb_draftmeta_' + p.draft_key);
+    if (!json || !meta) continue;
     let image_path = null;
     if (meta?.image_path) {
       const dest = `${myProfile.club_id}/procedure-${p.id}.png`;
@@ -500,7 +511,8 @@ async function commitDraftSchemas() {
     }
     localStorage.removeItem('tb_draft_' + p.draft_key);
     localStorage.removeItem('tb_draftmeta_' + p.draft_key);
-    p.draft_key = null; p.image_path = image_path;
+    p.image_path = image_path; p.image_v = Date.now();
+    refreshSchemaBox(p);
   }
 }
 
@@ -602,95 +614,4 @@ function updateMeta() {
     + (recup > 0 ? ` + ${fmtMin(recup)} min de récup` : '')
     + ` · ${fmtMin(total)} min au total`;
   document.getElementById('procCount').textContent = n;
-}
-
-/* ---------- Sauvegarde ---------- */
-async function save() {
-  syncFromDom();
-  const titre = document.getElementById('f-titre').value.trim();
-  const date_seance = document.getElementById('f-date').value;
-  if (!titre || !date_seance) return toast('Titre et date sont obligatoires.', 'error');
-
-  const sessionRow = {
-    titre, date_seance,
-    principes_jeu: document.getElementById('f-principe').value.trim() || null,
-    equipe: document.getElementById('f-equipe').value.trim() || null,
-    equipes: [],   // les chasubles vivent sur chaque procédé (procedures.equipes)
-    duree_min: parseDecimal(document.getElementById('f-duree').value) || 0,
-    filmee: sessionFilmee,
-    notes: document.getElementById('f-notes').value.trim() || null,
-  };
-  if (access.ready) sessionRow.acces = access.base;
-  if (hasTeams()) {
-    sessionRow.team_id = sessionTeamId;
-    sessionRow.equipe = teamName(sessionTeamId) || null;
-  }
-
-  const btn = document.getElementById('btnSave'); btn.disabled = true;
-  try {
-    let sid = savedSessionId;
-    if (sid) {
-      const { error } = await sb.from('sessions').update(sessionRow).eq('id', sid);
-      if (error) throw error;
-    } else {
-      const { data, error } = await sb.from('sessions').insert({ ...sessionRow, club_id: myProfile.club_id }).select('id').single();
-      if (error) throw error;
-      sid = data.id;
-      savedSessionId = sid;
-    }
-
-    await saveProcedures(sid);
-    await commitDraftSchemas();
-    await saveAttendance(sid);
-    await saveBilans(sid);
-    await saveAccess(sid);
-    dirty = false;
-
-    if (SESSION_ID) {
-      toast('Séance mise à jour', 'success');
-      location.reload();
-    } else {
-      toast('Séance créée', 'success');
-      location.href = 'session-edit.html?id=' + sid;
-    }
-  } catch (e) { toast(e.message, 'error'); }
-  finally { btn.disabled = false; }
-}
-
-async function saveProcedures(sid) {
-  const { data: existing } = await sb.from('procedures').select('id').eq('session_id', sid);
-  const existingIds = (existing || []).map(r => r.id);
-  const keep = [];
-
-  let ordre = 1;
-  for (const p of procedures) {
-    const row = {
-      session_id: sid, ordre: ordre++, nom: p.nom.trim() || 'Procédé', duree_min: p.duree_min || 0,
-      objectif: p.objectif || null, effectif: p.effectif || null,
-      taille_terrain: p.taille_terrain || null, consignes: p.consignes || null,
-      principes_jeu: p.principes_jeu || null, comportements_individuels: p.comportements_individuels || null,
-      temps_recup_min: p.temps_recup_min === '' ? null : p.temps_recup_min,
-      type_procede: p.type_procede || null,
-      nb_sequences: p.nb_sequences === '' ? null : p.nb_sequences,
-      duree_sequence_min: p.duree_sequence_min === '' ? null : p.duree_sequence_min,
-      equipes: (p.equipes || []).map(t => ({ nom: (t.nom || '').trim() || 'Équipe', couleur: t.couleur, player_ids: t.player_ids })),
-      staff: (p.staff || []).map(m => ({ nom: (m.nom || '').trim(), role: (m.role || '').trim() })).filter(m => m.nom || m.role),
-      filme: p.filme === false ? false : null,
-    };
-    if (p.id && existingIds.includes(p.id)) {
-      const { error } = await sb.from('procedures').update(row).eq('id', p.id);
-      if (error) throw error;
-      keep.push(p.id);
-    } else {
-      const { data, error } = await sb.from('procedures').insert(row).select('id').single();
-      if (error) throw error;
-      p.id = data.id;
-      keep.push(data.id);
-    }
-  }
-  const toDelete = existingIds.filter(id => !keep.includes(id));
-  if (toDelete.length) {
-    const { error } = await sb.from('procedures').delete().in('id', toDelete);
-    if (error) throw error;
-  }
 }

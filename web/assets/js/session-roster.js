@@ -220,34 +220,55 @@ function initRoster() {
   document.querySelectorAll('[data-bilan-filter]').forEach(b => b.addEventListener('click', () => { bilanFilter = b.dataset.bilanFilter; renderBilans(); }));
 }
 
-/* ---------- Enregistrement ---------- */
-async function saveAttendance(sid) {
-  if (removedGuests.size) {
-    const { error } = await sb.from('attendance').delete().eq('session_id', sid).in('player_id', [...removedGuests]);
-    if (error) throw error;
-    removedGuests.clear();
-  }
-  if (!attendance.length) return;
-  const rows = attendance.map(a => ({ player_id: a.player_id, session_id: sid, statut: a.statut, invite: !!a.invite, present: participe(a),
-    statut_libre: a.statut === 'autre' ? (a.statut_libre || '').trim().slice(0, 40) || null : null }));
-  const { error } = await sb.from('attendance').upsert(rows, { onConflict: 'player_id,session_id' });
-  if (error) throw error;
+/* ---------- Enregistrement (session-autosave.js) ----------
+   Seules les lignes qui ont changé depuis le dernier enregistrement
+   partent ; l'état de référence est pris AVANT l'envoi, pour qu'une
+   modification faite pendant l'envoi reparte au tour suivant. */
+const savedAtt = new Map();      // player_id → présence telle qu'enregistrée (JSON)
+const savedBilans = new Map();   // player_id → bilan tel qu'enregistré (JSON)
+const attRow = (a) => ({ statut: a.statut, invite: !!a.invite, present: participe(a),
+  statut_libre: a.statut === 'autre' ? (a.statut_libre || '').trim().slice(0, 40) || null : null });
+const bilanRow = (b) => ({ note: b.note || null, commentaire: (b.commentaire || '').trim() || null });
+
+/* À l'ouverture : ce qui est déjà en base. */
+function rememberSavedRoster(attMap) {
+  attendance.forEach(a => { if (attMap.has(a.player_id)) savedAtt.set(a.player_id, JSON.stringify(attRow(a))); });
+  bilans.forEach((b, id) => savedBilans.set(id, JSON.stringify(bilanRow(b))));
 }
 
-/* Bilans : une ligne par joueur noté ou commenté ; une ligne vidée est supprimée. */
+async function saveAttendance(sid) {
+  if (removedGuests.size) {
+    const ids = [...removedGuests];
+    const { error } = await sb.from('attendance').delete().eq('session_id', sid).in('player_id', ids);
+    if (error) throw error;
+    ids.forEach(id => { removedGuests.delete(id); savedAtt.delete(id); });
+  }
+  const changed = attendance.map(a => [a, JSON.stringify(attRow(a))]).filter(([a, json]) => savedAtt.get(a.player_id) !== json);
+  if (!changed.length) return;
+  const rows = changed.map(([a]) => ({ player_id: a.player_id, session_id: sid, ...attRow(a) }));
+  const { error } = await sb.from('attendance').upsert(rows, { onConflict: 'player_id,session_id' });
+  if (error) throw error;
+  changed.forEach(([a, json]) => savedAtt.set(a.player_id, json));
+}
+
+/* Bilans : une ligne par joueur noté ou commenté ; une ligne vidée (ou d'un invité retiré) est supprimée. */
 async function saveBilans(sid) {
   const keep = [], drop = [];
   bilans.forEach((b, player_id) => {
-    const commentaire = (b.commentaire || '').trim();
-    if (b.note || commentaire) keep.push({ session_id: sid, player_id, note: b.note || null, commentaire: commentaire || null });
-    else drop.push(player_id);
+    const row = bilanRow(b), json = JSON.stringify(row);
+    if (savedBilans.get(player_id) === json) return;
+    if (row.note || row.commentaire) keep.push({ json, row: { session_id: sid, player_id, ...row } });
+    else if (savedBilans.has(player_id)) drop.push(player_id);
   });
+  savedBilans.forEach((_, id) => { if (!bilans.has(id)) drop.push(id); });
   if (keep.length) {
-    const { error } = await sb.from('session_bilans').upsert(keep, { onConflict: 'session_id,player_id' });
+    const { error } = await sb.from('session_bilans').upsert(keep.map(k => k.row), { onConflict: 'session_id,player_id' });
     if (error) throw error;
+    keep.forEach(k => savedBilans.set(k.row.player_id, k.json));
   }
   if (drop.length) {
     const { error } = await sb.from('session_bilans').delete().eq('session_id', sid).in('player_id', drop);
     if (error) throw error;
+    drop.forEach(id => savedBilans.delete(id));
   }
 }

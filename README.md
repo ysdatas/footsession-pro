@@ -96,6 +96,9 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            duree_sequence_min, sessions.duree_min en numeric), statuts
                                            « groupe_pro » et « autre » (attendance.statut_libre, present
                                            suit la case « participe ») (rejouable)
+32. supabase/lmfc_v13.sql                  sauvegarde automatique : sessions.updated_at avancé à chaque
+                                           modification (trg_touch_session), verrou contre l'écrasement
+                                           entre deux personnes ou deux onglets (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -318,12 +321,22 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     leur auteur ; le bloc de la cellule a disparu de la page.
   Statuts, notes et équipes d'un procédé : `procedure-time.js` (`statutOf`, `participe`,
   `procTeamsOf`, `procIsFilmed`), partagés par l'éditeur, les PDF et la page de partage.
-  Le schéma d'un procédé se dessine **avant** d'enregistrer : `tactical-board.html?draft=…`
-  le garde dans le navigateur (`tb_draft_*`) et son image dans `schemas/{club}/drafts/` ; la
-  sauvegarde de la séance le rattache au procédé (`commitDraftSchemas`). Le tableau prévient la
-  séance par `localStorage` (événement `storage`) au lieu de la recharger : rien de ce qui est
-  saisi n'est perdu ; quitter une séance non enregistrée demande confirmation. Un nouvel essai
-  après une erreur met à jour la séance déjà créée au lieu d'en créer une seconde.
+  **Sauvegarde automatique** (`session-autosave.js`, `lmfc_v13.sql`) : plus de bouton ; chaque
+  `markDirty()` enregistre 0,8 s après la dernière modification, une sauvegarde à la fois (un
+  changement pendant l'envoi repart juste après). Seul ce qui a changé part (procédés, présences,
+  bilans, droits comparés à leur dernier état enregistré) ; la séance est créée dès qu'elle a un
+  titre et une date (l'adresse devient `?id=…`, sans rechargement). Indicateur fixe en bas à
+  droite : en attente, enregistrement, enregistré (heure), erreur (nouvel essai à 2 s, 4 s, 8 s…
+  30 s ; clic = tout de suite). Verrou : la mise à jour de la séance porte `updated_at = celle
+  lue` ; si quelqu'un d'autre a enregistré entre-temps, rien n'est écrit et la page demande de
+  recharger. Un lien de l'application attend la fin de l'enregistrement ; fermer l'onglet avec
+  des modifications en attente fait prévenir le navigateur ; un onglet masqué enregistre aussitôt.
+  Les exports PDF enregistrent d'abord. L'ouverture charge séance, procédés, présences, bilans
+  et effectif en une seule vague de requêtes.
+  Le schéma d'un procédé pas encore enregistré se dessine tout de suite :
+  `tactical-board.html?draft=…` le garde dans le navigateur (`tb_draft_*`) et son image dans
+  `schemas/{club}/drafts/` ; dès que le tableau l'enregistre (`tb_draftmeta_*`, événement
+  `storage`), la sauvegarde automatique le rattache au procédé (`commitDraftSchemas`).
 - **PDF** (`pdf-generator.js`, `pdf-coach.js`) — principe de jeu de la séance en tête, objectif
   de chaque procédé, blason LMFC par défaut. Un texte trop long pour son bloc continue sur une
   page de suite au lieu d'être coupé. Le PDF complet garde sa base (page 1 : infos, déroulé,

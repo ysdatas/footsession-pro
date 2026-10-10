@@ -215,10 +215,12 @@ function initProcBlocks() {
   document.getElementById('staffRoles').innerHTML = STAFF_ROLE_SUGGESTIONS.map(r => `<option value="${escapeHtml(r)}"></option>`).join('');
 }
 
-/* Noms proposés pour le staff : les comptes staff du club. */
+/* Noms proposés pour le staff : les comptes staff du club. Renvoie la
+   réponse, reprise par les droits d'accès (une seule requête). */
 async function loadStaffSuggestions() {
-  const { data, error } = await sb.from('profiles').select('nom, role').eq('club_id', myProfile.club_id).neq('role', 'joueur').order('nom');
-  if (error) return console.warn('Staff du club indisponible pour les suggestions', error);
-  document.getElementById('staffNames').innerHTML = (data || []).filter(m => m.nom)
+  const res = await sb.from('profiles').select('id, nom, role, team_id').eq('club_id', myProfile.club_id).neq('role', 'joueur').order('nom');
+  if (res.error) { console.warn('Staff du club indisponible pour les suggestions', res.error); return res; }
+  document.getElementById('staffNames').innerHTML = (res.data || []).filter(m => m.nom)
     .map(m => `<option value="${escapeHtml(m.nom)}">${escapeHtml(ROLE_LABELS[m.role] || m.role || '')}</option>`).join('');
+  return res;
 }

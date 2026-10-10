@@ -17,6 +17,7 @@ const access = {
   staff: [],           // comptes staff du club
   overrides: new Map(),// profile_id → niveau (écarts au réglage de base)
   removed: new Set(),  // réglages à supprimer à l'enregistrement
+  saved: '[]',         // réglages tels qu'enregistrés (JSON) : rien à envoyer s'ils n'ont pas changé
 };
 
 /* Niveau sans réglage nominatif : même règle que session_level() côté base. */
@@ -26,19 +27,22 @@ function accessDefault(m) {
   return !sessionTeamId || !m.team_id || m.team_id === sessionTeamId ? 'lecture' : 'aucun';
 }
 
-/* Charge le bloc si le compte peut régler les droits (créateur ou admin). */
-async function initAccess(session) {
+/* Charge le bloc si le compte peut régler les droits (créateur ou admin).
+   staffReady : la liste du staff, déjà demandée à l'ouverture de la page. */
+async function initAccess(session, staffReady) {
   access.base = session?.acces || 'equipe';
   access.creator = session?.created_by || myProfile.id;
   const canManage = CAN_WRITE && (myProfile.role === 'admin' || access.creator === myProfile.id);
   if (!canManage) return;
   const [{ data: staff, error }, rows] = await Promise.all([
-    sb.from('profiles').select('id, nom, role, team_id').eq('club_id', myProfile.club_id).neq('role', 'joueur').order('nom'),
+    staffReady,
     sb.from('session_access').select('profile_id, niveau').eq('session_id', session?.id ?? -1),   // erreur : lmfc_v10.sql non passée
   ]);
   if (error || rows.error) return console.warn('Droits d’accès indisponibles', error || rows.error);
   access.staff = staff || [];
   access.overrides = new Map((rows.data || []).map(r => [r.profile_id, r.niveau]));
+  access.saved = JSON.stringify([...access.overrides]);
+  access.sid = session?.id;
   access.ready = true;
   document.getElementById('accessCard').classList.remove('hidden');
   document.getElementById('accessBase').value = access.base;
@@ -77,7 +81,8 @@ function renderAccess() {
 
 /* Enregistre les écarts au réglage de base (après la séance, qui fournit son id). */
 async function saveAccess(sid) {
-  if (!access.ready) return;
+  if (!access.ready || (!access.removed.size && JSON.stringify([...access.overrides]) === access.saved && sid === access.sid)) return;
+  access.sid = sid;
   // Un écart devenu égal au réglage de base (base changée) n'a plus lieu d'être.
   access.overrides.forEach((niveau, id) => {
     const m = access.staff.find(x => x.id === id);
@@ -88,9 +93,11 @@ async function saveAccess(sid) {
     if (error) throw error;
     access.removed.clear();
   }
+  const saved = JSON.stringify([...access.overrides]);
   const rows = [...access.overrides].map(([profile_id, niveau]) => ({ session_id: sid, profile_id, niveau }));
   if (rows.length) {
     const { error } = await sb.from('session_access').upsert(rows, { onConflict: 'session_id,profile_id' });
     if (error) throw error;
   }
+  access.saved = saved;
 }

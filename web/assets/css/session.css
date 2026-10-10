@@ -318,3 +318,21 @@
 .access-seg button:disabled { opacity: .35; cursor: not-allowed; }
 @media (max-width: 640px) { .access-row { flex-wrap: wrap; } .access-base select { min-width: 0; width: 100%; } }
 
+
+/* Sauvegarde automatique (session-autosave.js) : toujours visible, en bas à droite. */
+.save-status {
+  --dot: var(--success);
+  position: fixed; z-index: 50; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg-card); box-shadow: var(--shadow);
+  color: var(--text-secondary); font: 500 var(--fs-sm)/1.2 var(--font-main); cursor: default;
+}
+.save-status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); flex: none; }
+.save-status[data-state="pending"] { --dot: var(--text-muted); }
+.save-status[data-state="saving"] { --dot: var(--gold); }
+.save-status[data-state="saving"]::before { animation: save-pulse 1s ease-in-out infinite; }
+.save-status[data-state="new"] { --dot: var(--text-muted); }
+.save-status[data-state="error"], .save-status[data-state="conflict"], .save-status[data-state="invalid"] {
+  --dot: var(--danger); color: var(--text-primary); border-color: rgba(244,67,54,.6); cursor: pointer; }
+@keyframes save-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .save-status[data-state="saving"]::before { animation: none; } }

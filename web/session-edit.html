@@ -35,7 +35,6 @@
         <a class="btn" href="sessions.html" data-back>← Séances</a>
         <button class="btn hidden" id="btnPdfFull" type="button" title="Fiche détaillée : une page par procédé avec schéma">PDF complet</button>
         <button class="btn hidden" id="btnPdfCoach" type="button" title="Tout sur une feuille, à distribuer avant la séance">Fiche coach</button>
-        <button class="btn btn-primary" id="btnSave" type="button">Sauvegarder</button>
       </div>
     </div>
 
@@ -85,7 +84,6 @@
         <div class="page-actions">
           <button class="btn" id="btnLibrary" type="button">Bibliothèque</button>
           <button class="btn" id="btnAddProc" type="button">+ Ajouter un procédé</button>
-          <button class="btn btn-primary" id="btnSaveHere" type="button" title="Enregistre la séance sans remonter en haut de page">Sauvegarder</button>
         </div>
       </div>
       <div id="proceduresList"></div>
@@ -144,6 +142,7 @@
         <button class="btn btn-primary" id="shareToggle" type="button">Générer un lien</button>
       </div>
     </div>
+    <button class="save-status" id="saveStatus" type="button" hidden aria-live="polite"></button>
   </main>
 
   <!-- Modale bibliothèque d'exercices -->
@@ -171,6 +170,7 @@
   <script src="assets/js/session-roster.js"></script>
   <script src="assets/js/session-proc-teams.js"></script>
   <script src="assets/js/session-access.js"></script>
+  <script src="assets/js/session-autosave.js"></script>
   <script src="assets/js/session-edit-page.js"></script>
 </body>
 </html>
