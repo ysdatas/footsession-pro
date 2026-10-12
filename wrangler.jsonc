@@ -23,6 +23,10 @@
   // VIDEO_URL_SECRET, lui, se règle dans Workers > Settings > Variables and Secrets.
   "vars": {
     "SUPABASE_URL": "https://ygnvijxspkrqhasvjfqg.supabase.co",
+    // Notifications : clé PUBLIQUE du serveur (servie aux navigateurs). La clé
+    // privée correspondante est le secret VAPID_PRIVATE_KEY, saisi dans le
+    // tableau de bord Cloudflare, jamais ici. Changer l'une oblige à changer l'autre.
+    "VAPID_PUBLIC_KEY": "BCyfonStoxUNvg2XQlTVG6xN_i8o9jsky6egrL7XSVlSHLjDM57lawonClIIlSI5hBIys0ovQguwiFrPnp_u_6I",
     "SUPABASE_KEY": "sb_publishable_ebJBeOm5WM5j8mOPHUknoA_zzdcWVG4"
   }
 }

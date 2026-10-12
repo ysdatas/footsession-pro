@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#0A0A0A">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>Mon espace — LMFC Performance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -29,6 +30,8 @@
       </div>
     </section>
 
+    <section class="home-section" id="pushBox" aria-label="Notifications" hidden></section>
+
     <section class="home-section" aria-labelledby="homeAttnTitle">
       <h2 id="homeAttnTitle">Pour toi en ce moment</h2>
       <div class="home-attn" id="homeAttn"><p class="text-muted">Chargement…</p></div>
@@ -51,6 +54,7 @@
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/player-nav.js"></script>
   <script src="assets/js/perf-metrics.js"></script>
+  <script src="assets/js/push.js"></script>
   <script src="assets/js/player-home.js"></script>
 </body>
 </html>

@@ -7,8 +7,11 @@
      - « Mes derniers chiffres » : poids, masse grasse, dernière
        session de tests (RPC my_physical_* : jamais les indicateurs
        réservés au staff) ;
-     - accès à Performance, Vidéos, Objectifs.
-   Tout est en lecture seule : la RLS ne renvoie que SES données.
+     - accès à Performance, Vidéos, Objectifs ;
+     - encart « Activer les notifications » tant que ce téléphone ne
+       les reçoit pas (push.js).
+   Lecture seule (sauf l’abonnement aux notifications) : la RLS ne
+   renvoie que SES données.
    ============================================================ */
 
 const PH_IC = {
@@ -40,6 +43,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   }
   if (!player) return;
 
+  renderPushCard(document.getElementById('pushBox'), { hideWhenOn: true });
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${player.prenom ? `, ${player.prenom}` : ''}`;
   document.getElementById('homeTiles').innerHTML = [

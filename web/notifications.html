@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>LMFC Performance — Notifications</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/club.css">
+  <script src="assets/js/theme.js"></script>
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <nav class="nav" aria-label="Menu principal"></nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Notifications</h1>
+        <p class="subtitle">Un message sur le téléphone de tes joueurs.</p>
+      </div>
+    </div>
+
+    <div class="club-grid">
+      <section class="card">
+        <h3>Nouveau message</h3>
+        <div class="field"><label for="n-title">Titre</label><input id="n-title" maxlength="60" placeholder="Ex : Entraînement décalé" required></div>
+        <div class="field"><label for="n-body">Message</label><textarea id="n-body" rows="3" maxlength="200" placeholder="Ex : Rendez-vous 17 h 30 au stade."></textarea></div>
+        <div class="field"><label for="n-url">Au toucher, ouvrir</label>
+          <select id="n-url">
+            <option value="mon-espace.html">Accueil du joueur</option>
+            <option value="mes-videos.html">Mes vidéos</option>
+            <option value="mon-programme.html">Objectifs &amp; préventions</option>
+            <option value="player-performance.html">Ma performance</option>
+          </select></div>
+        <div class="nt-head">
+          <h4>Destinataires</h4>
+          <button class="btn btn-sm" type="button" id="ntAll">Tout décocher</button>
+        </div>
+        <p class="field-hint" id="ntCount">Chargement…</p>
+        <div class="nt-players" id="ntPlayers"></div>
+        <div class="nt-actions">
+          <button class="btn btn-primary" type="button" id="ntSend" disabled>Envoyer</button>
+        </div>
+      </section>
+
+      <div class="nt-side">
+        <section class="card">
+          <h3>Sur cet appareil</h3>
+          <div id="pushBox"></div>
+          <button class="btn btn-sm nt-test hidden" type="button" id="ntTest">M’envoyer un test</button>
+        </section>
+        <section class="card">
+          <h3>Comment les joueurs les activent</h3>
+          <ol class="nt-steps">
+            <li><strong>iPhone</strong> (iOS 16.4 ou plus récent) : ouvrir le site dans Safari, toucher Partager puis « Sur l’écran d’accueil ».</li>
+            <li>Ouvrir LMFC depuis la nouvelle icône et se connecter.</li>
+            <li>Sur l’accueil, toucher « Activer » puis « Autoriser ».</li>
+            <li><strong>Android</strong> : sur l’accueil du site dans Chrome, toucher « Activer » puis « Autoriser ». L’ajout à l’écran d’accueil est conseillé.</li>
+          </ol>
+          <p class="field-hint">Le message n’est pas gardé dans l’application : un joueur qui n’a pas activé les notifications ne le reçoit pas.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/push.js"></script>
+  <script src="assets/js/notifications-page.js"></script>
+</body>
+</html>

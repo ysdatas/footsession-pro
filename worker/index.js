@@ -1,7 +1,8 @@
 /* ============================================================
    LMFC Performance — Worker Cloudflare : vidéos sur R2.
    Le site reste statique (web/, servi tel quel) ; ce Worker ne
-   répond qu'aux adresses /api/videos/… :
+   répond qu'aux adresses /api/videos/… (et /api/push/… :
+   notifications, worker/push.js) :
      POST   /api/videos/sign          { paths } → liens de lecture (6 h)
      GET    /api/videos/file/<chemin>?e=&s=   → lecture (Range : Safari)
      PUT    /api/videos/file/<chemin>         → envoi (staff vidéo du club)
@@ -16,24 +17,23 @@
    de bord Cloudflare, jamais dans le code).
    ============================================================ */
 
+import { fail, ConfigError, tokenOf, supabase, b64u, unb64u } from './common.js';
+import { push } from './push.js';
+
 const TTL = 6 * 3600;                    // validité d'un lien de lecture (s)
 const MAX_BYTES = 95 * 1024 * 1024;      // le Worker gratuit refuse au-delà de 100 Mo
 const MAX_PATHS = 100;
 // r2/<club_id>/<player_id>/<horodatage>.<ext> : rien d'autre n'entre dans le bucket.
 const KEY_RE = /^r2\/(\d+)\/\d+\/\d+\.[a-zA-Z0-9]{1,8}$/;
 
-const fail = (status, error) => Response.json({ error }, { status });
-/* Réglage Cloudflare manquant : dit clairement quoi corriger au lieu
-   d'une « erreur du serveur » sans indice. */
-class ConfigError extends Error {}
-const tokenOf = (req) => (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const p = url.pathname.match(/^\/api\/push\/(\w+)$/);
     const m = url.pathname.match(/^\/api\/videos\/(?:(sign)|file\/(.+))$/);
-    if (!m) return new Response('Not found', { status: 404 });
+    if (!m && !p) return new Response('Not found', { status: 404 });
     try {
+      if (p) return await push(request, env, p[1]);
       if (m[1]) return request.method === 'POST' ? await sign(request, env) : fail(405, 'Méthode non autorisée.');
       const key = decodeURIComponent(m[2]);
       if (!KEY_RE.test(key)) return fail(400, 'Chemin de vidéo invalide.');
@@ -44,24 +44,16 @@ export default {
         default: return fail(405, 'Méthode non autorisée.');
       }
     } catch (e) {
-      console.error('Worker vidéos :', request.method, url.pathname, e);
+      console.error('Worker :', request.method, url.pathname, e);
       // Réglage manquant : le détail reste dans les journaux, la page dit seulement qui prévenir.
-      if (e instanceof ConfigError) return fail(503, 'Serveur vidéo pas encore configuré : prévenez l’administrateur du club.');
-      return fail(500, 'Erreur du serveur vidéo.');
+      const what = p ? 'Notifications pas encore configurées' : 'Serveur vidéo pas encore configuré';
+      if (e instanceof ConfigError) return fail(503, `${what} : prévenez l’administrateur du club.`);
+      return fail(500, p ? 'Erreur du serveur de notifications.' : 'Erreur du serveur vidéo.');
     }
   },
 };
 
-/* ---------- Supabase, avec le jeton de l'utilisateur ---------- */
-async function supabase(env, token, path, init = {}) {
-  const r = await fetch(`${env.SUPABASE_URL}${path}`, {
-    ...init,
-    headers: { apikey: env.SUPABASE_KEY, authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-  });
-  if (r.ok) return r.json();
-  if (r.status !== 401) console.warn('Supabase', r.status, path, await r.text());
-  return null;
-}
+/* ---------- Droits vidéo (Supabase, avec le jeton de l'utilisateur) ---------- */
 async function canManage(request, env, key) {
   const token = tokenOf(request);
   if (!token) return false;
@@ -78,8 +70,6 @@ async function hmacKey(env) {
   return crypto.subtle.importKey('raw', new TextEncoder().encode(env.VIDEO_URL_SECRET),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
-const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 const signPart = async (env, msg) => b64u(await crypto.subtle.sign('HMAC', await hmacKey(env), new TextEncoder().encode(msg)));
 async function validSig(env, msg, sig) {
   try { return await crypto.subtle.verify('HMAC', await hmacKey(env), unb64u(sig), new TextEncoder().encode(msg)); }

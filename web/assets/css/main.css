@@ -550,6 +550,17 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
 /* Icônes (sprite Lucide) : même taille et même trait partout. */
 .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
 
+/* Encart « Notifications du club » (push.js) : accueil joueur, page Notifications. */
+.push-card {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  border: 1px solid var(--gold-border); border-radius: var(--radius-md); background: var(--bg-card);
+}
+.push-card.is-on { border-color: var(--border); }
+.push-card.is-denied { border-color: rgba(var(--red-rgb), .55); }
+.push-ic { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: rgba(var(--gold-rgb), .1); color: var(--gold); }
+.push-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.push-text small { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.4; }
+
 /* ============================================================
    Logo LMFC Performance : le même partout (menu du staff, barre du
    haut sur téléphone, espace joueur, connexion) — blason du club,

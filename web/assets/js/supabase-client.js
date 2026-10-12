@@ -24,15 +24,17 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 const VIDEO_MAX_BYTES = 95 * 1024 * 1024;   // = MAX_BYTES du Worker
 const isR2Video = (path) => path.startsWith('r2/');
 
-async function videoApi(route, init = {}) {
+/* Appel au Worker du site (/api/…) avec le jeton de l'utilisateur. */
+async function siteApi(route, init = {}, what = 'Serveur') {
   const { data: { session } } = await sb.auth.getSession();
-  const r = await fetch(`/api/videos/${route}`, {
+  const r = await fetch(`/api/${route}`, {
     ...init, headers: { authorization: `Bearer ${session?.access_token || ''}`, ...init.headers },
   });
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body.error || `Serveur vidéo indisponible (${r.status}).`);
+  if (!r.ok) throw new Error(body.error || `${what} indisponible (${r.status}).`);
   return body;
 }
+const videoApi = (route, init) => siteApi(`videos/${route}`, init, 'Serveur vidéo');
 
 // Liens de lecture : Map chemin → URL. Une vidéo refusée ou introuvable est absente.
 async function videoUrls(paths) {

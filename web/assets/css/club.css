@@ -55,3 +55,19 @@
 @media (max-width: 760px) {
   .member-controls { width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 96px; }
 }
+
+/* Notifications (notifications.html) : même grille que Mon club. */
+.nt-side { display: grid; gap: 18px; }
+.nt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.nt-head h4 { margin: 0; font-size: var(--fs-md); }
+.nt-players { display: grid; max-height: 420px; overflow-y: auto; margin: 8px 0 14px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.nt-player { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border); cursor: pointer; text-transform: none; letter-spacing: 0; font-size: var(--fs-md); color: var(--text-primary); }
+.nt-player:last-child { border-bottom: 0; }
+.nt-player input { width: 18px; height: 18px; flex: 0 0 18px; padding: 0; accent-color: var(--gold); }
+.nt-player span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-player span small, .nt-status { color: var(--text-secondary); font-size: var(--fs-xs); }
+.nt-player.is-off { cursor: default; color: var(--text-secondary); }
+.nt-player:not(.is-off) .nt-status { color: #8fd694; }
+.nt-actions { display: flex; justify-content: flex-end; }
+.nt-test { margin-top: 12px; }
+.nt-steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 8px; font-size: var(--fs-sm); line-height: 1.5; }

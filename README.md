@@ -17,8 +17,9 @@ vidéo / coaching d'un club. Design sobre noir / gris / doré, police Inter.
 | Front-end | HTML + CSS + JS statiques dans `web/` — **aucun build, aucun npm** |
 | Données / Auth / Storage | **Supabase**, appelé directement depuis le navigateur |
 | Vidéos joueurs | **Cloudflare R2** via un petit Worker (`worker/index.js`) : bande passante gratuite |
+| Notifications | **Web Push** par le même Worker (`worker/push.js`) ; site installable sur l'écran d'accueil (`manifest.webmanifest`, `sw.js`) |
 | Sécurité | **RLS Postgres** + buckets Storage privés + URLs signées |
-| Déploiement | **Cloudflare** (`wrangler.jsonc` → `web/` en statique + Worker `/api/videos/…`) |
+| Déploiement | **Cloudflare** (`wrangler.jsonc` → `web/` en statique + Worker `/api/videos/…` et `/api/push/…`) |
 | Dépôt | `git@github.com:ysdatas/footsession-pro.git`, branche `main` |
 
 Il n'y a **pas de back-end applicatif**, à une exception près : le Worker vidéo, qui ne
@@ -104,6 +105,9 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            (profiles.team_ids), session_level en tient compte (rejouable)
 34. supabase/lmfc_v15.sql                  terrain d'effectif : sessions.terrain (placement des joueurs,
                                            { "id": [x %, y %] }) (rejouable)
+35. supabase/lmfc_v16.sql                  notifications : push_subscriptions (appareils abonnés, services
+                                           d'envoi connus seulement), push_subscribe() ; lecture : soi-même
+                                           ou l'admin du club (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -488,6 +492,15 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   (`lmfc_v14.sql`) : un compte ne lit que son propre profil ; le staff obtient seulement les
   noms, rôles et équipes du staff (`club_staff()`) pour les procédés, les droits d'accès, la
   corbeille et les PDF, un compte joueur rien.
+- **Notifications** (admin) — `notifications.html`, `notifications-page.js` : titre, message,
+  page ouverte au toucher, joueurs de l'équipe choisie (seuls ceux qui ont activé les
+  notifications se cochent, avec leur nombre d'appareils). Envoi par le Worker
+  (`/api/push/send`, 15 joueurs par appel, limite des sous-requêtes du Worker gratuit),
+  « M'envoyer un test » sur l'appareil de l'admin. Le joueur active les notifications depuis
+  son accueil (`push.js`, encart « Activer » ; sur iPhone, iOS 16.4 au moins et le site
+  ajouté à l'écran d'accueil, sinon l'encart explique comment). Les messages ne sont pas
+  gardés : un appareil non abonné ne reçoit rien. Un appareil désabonné (réponse 404/410)
+  est retiré de la base à l'envoi suivant.
 - **Design system** — `main.css` : échelle typographique unique (`--fs-xs` à `--fs-2xl`,
   toutes les tailles de l'app en font partie), espacements, rayons, profondeur, durées
   d'animation ; icônes Lucide en sprite SVG. Le projet reste sans build : pas de React ni
@@ -605,12 +618,13 @@ node tests/excel-import.test.mjs  # import validé sur le vrai Tests_Physiques_N
 node tests/nav.test.mjs           # menu : rôles (dont prépa), ordre, rubriques masquées, pages interdites
 node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classement de chaque test
 node tests/video-worker.test.mjs  # Worker vidéo : droits, liens signés, lecture partielle (Range)
+node tests/push-worker.test.mjs   # notifications : chiffrement (exemple de la RFC 8291), VAPID, droits
 node tests/session-principle.test.mjs  # principe de jeu : séance, anciennes séances, héritage
 node tests/video-status.test.mjs   # statuts des séquences vidéo
 node tests/trash-sql.test.mjs      # corbeille sur un vrai Postgres (ignoré sans PGlite)
 node tests/procedure-time.test.mjs # durées à virgule, statuts de présence
 node tests/sessions-v9-sql.test.mjs tests/sessions-v12-sql.test.mjs tests/sessions-v13-sql.test.mjs \
-  tests/sessions-access-sql.test.mjs tests/matches-sql.test.mjs   # séances, droits, membres, matchs (PGlite)
+  tests/sessions-access-sql.test.mjs tests/matches-sql.test.mjs tests/push-sql.test.mjs   # séances, droits, membres, matchs, notifications (PGlite)
 ```
 
 **Chargement des pages** :
@@ -638,7 +652,7 @@ joueurs, l'absence de fuite de données entre eux, et que les cellules vides le 
 npx wrangler deploy
 ```
 
-`web/` est publié tel quel, avec le Worker `worker/index.js` pour `/api/videos/…`.
+`web/` est publié tel quel, avec le Worker `worker/index.js` pour `/api/videos/…` et `/api/push/…`.
 Vérifier au préalable que les migrations Supabase correspondantes sont passées : **du
 code déployé sans sa migration échoue en silence.**
 
@@ -662,6 +676,22 @@ des vidéos » prend plusieurs fichiers d'un coup, envoyés l'un après l'autre 
 pourcentage de chacun et du total ; un échec n'arrête pas les suivants (« Réessayer »).
 Droits : lire = pouvoir lire la ligne `player_videos` (RLS) ; envoyer ou supprimer =
 `can_manage_videos()` et le club du chemin est le sien.
+
+### Notifications (une seule fois)
+
+1. Passer `supabase/lmfc_v16.sql`.
+2. **Workers → footsession-pro → Settings → Variables and Secrets** → **Add** → type
+   **Secret**, nom `VAPID_PRIVATE_KEY`, valeur = la clé privée qui va avec
+   `VAPID_PUBLIC_KEY` (`wrangler.jsonc`). Jamais dans le code. Sans elle, l'encart
+   « Activer » répond « Notifications pas encore configurées » (503).
+3. Nouvelle paire de clés : `crypto.subtle.generateKey` ECDSA P-256 ; publique = point brut
+   en base64url (87 caractères) dans `wrangler.jsonc`, privée = le `d` du JWK (43 caractères)
+   dans le secret. Changer de clés oblige chaque joueur à toucher « Activer » à nouveau.
+
+Envoi : `worker/push.js` chiffre chaque message pour l'appareil (RFC 8291, `aes128gcm`) et le
+signe (VAPID, RFC 8292), avec WebCrypto seulement, sans dépendance. Destinataires et
+appareils sont lus avec le jeton de l'admin : la RLS borne l'envoi à son club. `sw.js` ne met
+rien en cache : il affiche la notification et ouvre la page demandée.
 
 ### E-mails de confirmation (une seule fois)
 
@@ -698,6 +728,9 @@ une connexion échoue sur une adresse non confirmée.
   `SECURITY DEFINER` pour éviter la récursion de policies.
 - Vidéos R2 : liens de lecture signés HMAC (6 h) délivrés par le Worker après contrôle
   RLS ; servies en `video/*` avec `nosniff`, jamais comme une page.
+- Notifications : envoi réservé à l'admin (`is_club_admin()` + RLS) ; un appareil ne s'inscrit
+  que par `push_subscribe()` et seulement auprès d'Apple, Google, Mozilla ou Microsoft
+  (contrainte en base) : le Worker n'écrit jamais ailleurs. Clé privée VAPID en secret Cloudflare.
 - Buckets Storage **privés** (`player-videos`, `player-photos`,
   `player-performance-media`, `logos`, `schemas`), accès par **URL signée** à durée
   limitée. Convention de chemin `{club_id}/{player_id}/…`, contrôlée par policy.

@@ -27,6 +27,7 @@ const NAV_ITEMS = [
   { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: STAFF_ROLES },
   { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: ALL_STAFF },
   { key: 'club',        href: 'club.html',           label: 'Mon club',          roles: ['admin'] },
+  { key: 'notifications', href: 'notifications.html', label: 'Notifications',    roles: ['admin'] },   // lmfc_v16.sql
   { key: 'trash',       href: 'trash.html',          label: 'Corbeille',         roles: ALL_STAFF },
 ];
 
