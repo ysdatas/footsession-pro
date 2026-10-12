@@ -11,9 +11,12 @@ self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('push', (e) => {
   let m = {};
   try { m = e.data?.json() || {}; } catch { m = { body: e.data?.text() || '' }; }
+  // Sans message, iOS écrit « from LMFC » (en anglais) : le titre passe en message.
+  const title = m.body ? m.title || 'LMFC Performance' : 'LMFC Performance';
+  const body = m.body || m.title || '';
   // Toujours une notification visible : iOS retire l'abonnement sinon.
-  e.waitUntil(self.registration.showNotification(m.title || 'LMFC Performance', {
-    body: m.body || '', icon: 'assets/img/icon-192.png', data: { url: m.url || 'index.html' },
+  e.waitUntil(self.registration.showNotification(title, {
+    body, icon: 'assets/img/icon-192.png', data: { url: m.url || 'index.html' },
   }));
 });
 
