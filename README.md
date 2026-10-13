@@ -358,6 +358,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   `tactical-board.html?draft=…` le garde dans le navigateur (`tb_draft_*`) et son image dans
   `schemas/{club}/drafts/` ; dès que le tableau l'enregistre (`tb_draftmeta_*`, événement
   `storage`), la sauvegarde automatique le rattache au procédé (`commitDraftSchemas`).
+  **Importer une image** (procédé enregistré) remplace le dessin par une photo ou une capture :
+  réduite à 1600 px (`shrinkImage`, `app.js`), rangée au même endroit que le schéma du tableau
+  (`schemas/{club}/procedure-{id}.png`, type réel en `contentType`), `canvas_json` vidé ; fiche,
+  PDF et partage la reprennent comme un schéma. « Dessiner à la place » repart d'un terrain vide.
 - **PDF** (`pdf-generator.js`, `pdf-coach.js`) — principe de jeu de la séance en tête, objectif
   de chaque procédé, blason LMFC par défaut. Un texte trop long pour son bloc continue sur une
   page de suite au lieu d'être coupé. Le PDF complet garde sa base (page 1 : infos, déroulé,
@@ -488,7 +492,9 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   aucune migration) : chaque PDF devient un lien qui s'ouvre dans un nouvel onglet ;
   sans titre, la carte reprend le début de la description.
 - **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
-  e-mail, membres. Les **membres** sont réservés à l'administrateur, aussi en base
+  e-mail, membres. Membres rangés en groupes repliables : staff (admin, coach, préparateur),
+  joueurs sans fiche, joueurs par équipe de leur fiche, joueurs sans équipe ; recherche sans
+  accents sur le nom du compte, la fiche, la fonction et l'équipe. Les **membres** sont réservés à l'administrateur, aussi en base
   (`lmfc_v14.sql`) : un compte ne lit que son propre profil ; le staff obtient seulement les
   noms, rôles et équipes du staff (`club_staff()`) pour les procédés, les droits d'accès, la
   corbeille et les PDF, un compte joueur rien.

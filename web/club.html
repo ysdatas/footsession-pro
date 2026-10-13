@@ -88,7 +88,10 @@
     </section>
 
     <section class="card" style="margin-top:18px;">
-      <h3>Membres du club</h3>
+      <div class="members-head">
+        <h3>Membres du club <span id="memberCount"></span></h3>
+        <input id="memberSearch" type="search" placeholder="Rechercher un membre…" aria-label="Rechercher un membre par son nom" autocomplete="off">
+      </div>
       <div id="memberList"><p class="text-muted">Chargement…</p></div>
     </section>
   </main>

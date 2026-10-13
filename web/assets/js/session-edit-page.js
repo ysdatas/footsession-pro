@@ -235,6 +235,7 @@ async function loadSession() {
       type_procede: p.type_procede || '', nb_sequences: p.nb_sequences ?? '',
       duree_sequence_min: p.duree_sequence_min ?? '',
       image_path: p.tactical_schemas?.image_path || null, video_id: p.tactical_schemas?.video_id || null, expanded: false,
+      has_canvas: !!p.tactical_schemas?.canvas_json,   // faux : image importée (importSchemaImage)
       equipes: cleanTeams(p.equipes), staff: Array.isArray(p.staff) ? p.staff : [], filme: p.filme ?? null,
     }));
     // Ancienne séance : ses chasubles valaient pour toute la séance. Elles sont
@@ -437,7 +438,8 @@ function procTemplate(p, index) {
 }
 
 /* ---------- Schéma tactique d'un procédé ----------
-   Procédé enregistré : son schéma (tactical_schemas). Procédé pas encore
+   Procédé enregistré : son schéma (tactical_schemas), dessiné dans le
+   tableau ou importé en image (importSchemaImage). Procédé pas encore
    enregistré : un brouillon dessiné tout de suite (tactical-board.html
    ?draft=…), gardé dans le navigateur et rattaché au procédé par la
    sauvegarde automatique (commitDraftSchemas). */
@@ -445,8 +447,10 @@ const lsJson = (key) => { try { return JSON.parse(localStorage.getItem(key) || '
 const schemaUrl = (path, v) => `${sb.storage.from('schemas').getPublicUrl(path).data.publicUrl}${v ? `?v=${v}` : ''}`;
 function schemaBoxHtml(p) {
   if (p.id) {
+    const draw = !p.image_path ? 'Dessiner le schéma →' : p.has_canvas ? 'Modifier le schéma →' : 'Dessiner à la place →';
     return `${p.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(p.image_path, p.image_v))}" alt="Schéma du procédé" loading="lazy">` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
-       <button class="btn btn-sm" type="button" onclick="openBoard(${p.id})">${p.image_path ? 'Modifier le schéma →' : 'Dessiner le schéma →'}</button>
+       <button class="btn btn-sm" type="button" onclick="openBoard(${p.id})">${draw}</button>
+       ${CAN_WRITE ? `<button class="btn btn-sm" type="button" onclick="importSchemaImage('${p._uid}')">${p.image_path ? 'Remplacer par une image' : 'Importer une image'}</button>` : ''}
        ${p.video_id ? `<button class="btn btn-sm" type="button" onclick="openLinkedVideo(${p.video_id})">▶ Vidéo liée</button>` : ''}`;
   }
   if (!CAN_WRITE) return '<p class="schema-empty">Aucun schéma pour ce procédé.</p>';
@@ -483,7 +487,7 @@ window.addEventListener('storage', (e) => {
   } else if (e.key === 'tb_proc_saved') {
     const m = lsJson('tb_proc_saved');
     const p = m && procedures.find(x => x.id === m.procedure_id);
-    if (p) { p.image_path = m.image_path; p.image_v = m.at; refreshSchemaBox(p); }
+    if (p) { p.image_path = m.image_path; p.image_v = m.at; p.has_canvas = true; refreshSchemaBox(p); }
   }
 });
 /* À la sauvegarde : chaque brouillon enregistré dans le tableau (« Enregistrer »,
@@ -514,10 +518,42 @@ async function commitDraftSchemas() {
     }
     localStorage.removeItem('tb_draft_' + p.draft_key);
     localStorage.removeItem('tb_draftmeta_' + p.draft_key);
-    p.image_path = image_path; p.image_v = Date.now();
+    p.image_path = image_path; p.image_v = Date.now(); p.has_canvas = true;
     refreshSchemaBox(p);
   }
 }
+
+/* Image à la place d'un schéma dessiné (photo d'un tableau blanc, capture…) :
+   réduite (shrinkImage, app.js), rangée à la place du schéma du tableau (un
+   seul fichier par procédé) et reprise partout comme lui : fiche, PDF,
+   partage. Le dessin éventuel est remplacé : « Dessiner à la place » repart
+   d'un terrain vide. */
+window.importSchemaImage = (uid) => {
+  const p = procedures.find(x => x._uid === uid);
+  if (!p?.id || !CAN_WRITE) return;
+  const input = el('input', { type: 'file', accept: 'image/png,image/jpeg' });
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    if (p.has_canvas && !confirm('Remplacer le schéma dessiné par cette image ? Le dessin sera perdu.')) return;
+    try {
+      const img = await shrinkImage(file);
+      if (!['image/png', 'image/jpeg'].includes(img.type)) throw new Error('choisissez une image JPEG ou PNG');
+      const path = `${myProfile.club_id}/procedure-${p.id}.png`;   // même place que le tableau ; type réel dans contentType
+      const { error: upErr } = await sb.storage.from('schemas').upload(path, img, { upsert: true, contentType: img.type });
+      if (upErr) throw upErr;
+      const { error } = await sb.from('tactical_schemas').upsert({ procedure_id: p.id, image_path: path, canvas_json: null }, { onConflict: 'procedure_id' });
+      if (error) throw error;
+      Object.assign(p, { image_path: path, image_v: Date.now(), has_canvas: false });
+      refreshSchemaBox(p);
+      toast('Image ajoutée au procédé.', 'success');
+    } catch (e) {
+      console.error('Image du procédé non enregistrée', e);
+      toast(`Image non enregistrée : ${e.message}`, 'error');
+    }
+  });
+  input.click();
+};
 
 /* Recalcule la durée et le récapitulatif d'un procédé après saisie des
    séquences. Dès que la structure est complète, la durée devient calculée

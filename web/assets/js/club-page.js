@@ -107,7 +107,7 @@ async function loadMembers() {
   const [{ data: members, error }, { data: players, error: rosterError }, access] = await Promise.all([
     // select('*') : team_id n'existe qu'après lmfc_v7.sql.
     sb.from('profiles').select('*').eq('club_id', myProfile.club_id).order('nom'),
-    sb.from('players').select('id, nom, prenom, auth_user_id').eq('club_id', myProfile.club_id).order('nom'),
+    sb.from('players').select('id, nom, prenom, auth_user_id, team_id').eq('club_id', myProfile.club_id).order('nom'),
     isAdmin ? sb.from('club_access').select('*').is('claimed_at', null).order('created_at', { ascending: false }) : { data: [] },
   ]);
   if (error || rosterError) {
@@ -121,8 +121,9 @@ async function loadMembers() {
   if (isAdmin) renderAccess(pending);
 
   const teams = window.CLUB_TEAMS || [];
-  list.innerHTML = (members || []).map(m => {
-    const linked = roster.find(p => p.auth_user_id === m.id);
+  const fiche = (m) => roster.find(p => p.auth_user_id === m.id);
+  const rowHtml = (m) => {
+    const linked = fiche(m);
     // Équipes du compte (lmfc_v14.sql : plusieurs ; avant : une seule).
     const ids = (m.team_ids?.length ? m.team_ids : [m.team_id]).filter(Boolean);
     const teamsTxt = ids.map(teamName).filter(Boolean).join(', ');
@@ -152,9 +153,58 @@ async function loadMembers() {
           <button type="button" class="btn btn-sm btn-danger" data-remove>Retirer</button>
         </div>`
       : `<span class="badge badge-gold">${self ? 'Vous · ' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
-    return `<div class="member-row"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small></span>${controls}</div>`;
-  }).join('') || '<p class="text-muted">Aucun membre.</p>';
+    const search = fold(`${m.nom || ''} ${linked ? `${playerName(linked)} ${teamName(linked.team_id) || ''}` : ''} ${ROLE_LABELS[m.role] || ''} ${teamsTxt}`);
+    return `<div class="member-row" data-search="${escapeHtml(search)}"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small></span>${controls}</div>`;
+  };
+  // Groupes repliés par l'admin : ils le restent après une modification.
+  const closed = new Set([...list.querySelectorAll('.member-group:not([open])')].map(g => g.dataset.group));
+  list.innerHTML = memberGroups(members || [], fiche, teams).map(([title, rows, hint]) => `
+    <details class="member-group" data-group="${escapeHtml(title)}"${closed.has(title) ? '' : ' open'}>
+      <summary>${escapeHtml(title)} <span>${rows.length}</span></summary>
+      ${hint ? `<p class="member-hint">${hint}</p>` : ''}
+      ${rows.map(rowHtml).join('')}
+    </details>`).join('') || '<p class="text-muted">Aucun membre.</p>';
+  document.getElementById('memberCount').textContent = members?.length ? `· ${members.length}` : '';
+  filterMembers();
 }
+
+/* Membres rangés : le staff (admin, coach, préparateur), les joueurs dont le
+   compte attend sa fiche, puis les joueurs par équipe de leur fiche (ordre
+   des équipes du club), enfin ceux sans équipe. Ordre alphabétique partout. */
+const ROLE_RANK = { admin: 0, coach: 1, prepa: 2 };
+const fold = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const byName = (a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' });
+function memberGroups(members, fiche, teams) {
+  const staff = members.filter(m => m.role !== 'joueur')
+    .sort((a, b) => (ROLE_RANK[a.role] ?? 9) - (ROLE_RANK[b.role] ?? 9) || byName(a.nom || '', b.nom || ''));
+  const players = members.filter(m => m.role === 'joueur');
+  const sortPlayers = (list) => list.sort((a, b) => byName(`${fiche(a)?.nom || ''} ${fiche(a)?.prenom || ''}`, `${fiche(b)?.nom || ''} ${fiche(b)?.prenom || ''}`) || byName(a.nom || '', b.nom || ''));
+  const noFiche = players.filter(m => !fiche(m)).sort((a, b) => byName(a.nom || '', b.nom || ''));
+  const linked = players.filter(m => fiche(m));
+  return [
+    ['Staff', staff],
+    ['Joueurs sans fiche', noFiche, 'Choisissez leur fiche : sans elle, le joueur ne voit aucune donnée.'],
+    ...teams.map(t => [`Joueurs · ${t.nom}`, sortPlayers(linked.filter(m => fiche(m).team_id === t.id))]),
+    [teams.length ? 'Joueurs sans équipe' : 'Joueurs', sortPlayers(linked.filter(m => !teams.some(t => t.id === fiche(m).team_id)))],
+  ].filter(([, rows]) => rows.length);
+}
+
+/* Recherche : seuls les membres dont le nom (compte ou fiche), la fonction ou
+   l'équipe contient le texte ; les groupes vides disparaissent. */
+function filterMembers() {
+  const q = fold(document.getElementById('memberSearch').value.trim());
+  document.querySelectorAll('#memberList .member-group').forEach(g => {
+    let shown = 0;
+    g.querySelectorAll('.member-row').forEach(r => {
+      const hit = !q || r.dataset.search.includes(q);
+      r.classList.toggle('hidden', !hit);
+      shown += hit;
+    });
+    g.classList.toggle('hidden', !shown);
+    if (q && shown) g.open = true;
+  });
+}
+document.getElementById('memberSearch').addEventListener('input', filterMembers);
 
 function renderAccess(pending) {
   const sel = document.getElementById('accPlayer');

@@ -78,6 +78,28 @@ async function signedUrls(bucket, paths) {
 }
 
 /* ---------- Toasts ---------- */
+/* Image envoyée (notes, image d'un procédé) : réduite à 1600 px de côté
+   (une photo de téléphone passe de 4 Mo à ~300 Ko). PNG gardé pour la
+   transparence ; le reste en JPEG. En cas d'échec (format exotique), le
+   fichier part tel quel. */
+async function shrinkImage(file, max = 1600) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    if (k === 1 && file.size < 600 * 1024) { bmp.close?.(); return file; }
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close?.();
+    const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    const blob = await new Promise(res => c.toBlob(res, type, 0.86));
+    return blob && blob.size < file.size ? new File([blob], file.name, { type }) : file;
+  } catch (e) {
+    console.warn('Image envoyée sans réduction', e);
+    return file;
+  }
+}
+
 function toast(message, type = '') {
   let stack = document.getElementById('toast-stack');
   if (!stack) {

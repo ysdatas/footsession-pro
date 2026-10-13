@@ -15,7 +15,7 @@
    en crée un nouveau.
    Utilisé par comparaison-page.js (onglet « Objectifs · Préventions »),
    qui fournit l'effectif (roster) et la recherche. Dépend de notes.js
-   (NOTE_KINDS, OBJ_STATUS, noteTitle, shrinkImage).
+   (NOTE_KINDS, OBJ_STATUS, noteTitle) et app.js (shrinkImage).
    ============================================================ */
 
 const OBJ_KINDS = ['objective', 'prevention'];

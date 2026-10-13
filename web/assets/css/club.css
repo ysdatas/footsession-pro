@@ -71,3 +71,20 @@
 .nt-actions { display: flex; justify-content: flex-end; }
 .nt-test { margin-top: 12px; }
 .nt-steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 8px; font-size: var(--fs-sm); line-height: 1.5; }
+
+/* Membres du club : en-tête avec recherche, groupes repliables. */
+.members-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.members-head h3 { margin: 0; }
+.members-head h3 span { color: var(--text-secondary); font-weight: 500; }
+.members-head input { flex: 0 1 280px; }
+.member-group { border-top: 1px solid var(--border); }
+.member-group:first-child { border-top: 0; }
+.member-group > summary {
+  display: flex; align-items: center; gap: 8px; padding: 14px 0 8px; cursor: pointer; list-style: none;
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-secondary);
+}
+.member-group > summary::-webkit-details-marker { display: none; }
+.member-group > summary::before { content: '▸'; transition: transform var(--dur-micro) ease; }
+.member-group[open] > summary::before { transform: rotate(90deg); }
+.member-group > summary span { padding: 1px 8px; border-radius: 999px; background: var(--bg-hover); color: var(--text-primary); letter-spacing: 0; }
+.member-hint { margin: 0 0 4px; font-size: var(--fs-sm); color: var(--text-secondary); }
