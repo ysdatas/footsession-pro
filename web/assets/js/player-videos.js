@@ -102,7 +102,7 @@ function pvSeq(s, { withVideo = false } = {}) {
   const attrs = pickable ? `data-pv-pick="${s.id}" aria-pressed="${!!rank}"` : `data-pv-open="${s.video_id}" data-pv-seq="${s.id}"`;
   return `<button type="button" class="pvx-seq${pickable ? ' is-pickable' : ''}${rank ? ' is-picked' : ''}" ${attrs}>
     ${pickable ? `<span class="vp-pick" aria-hidden="true">${rank || ''}</span>` : ''}
-    ${thumbHtml(PV.urls.get(s.video_id), s.start_sec, fmtDur(len))}
+    ${thumbHtml(PV.urls.get(s.video_id), s.start_sec, fmtDur(len), s.thumb)}
     <span class="pvx-seq-body">
       <span class="pvx-seq-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>
         <span class="pvx-who ${mine ? 'is-player' : 'is-staff'}">${mine ? 'Joueur' : 'Staff'}</span>
@@ -128,7 +128,7 @@ function pvVideo(v) {
       <button type="button" class="pvx-video-open${pickVideos ? ' is-pickable' : ''}" ${pickVideos
         ? `data-pv-pick="${v.id}" aria-pressed="${on}"` : `data-pv-open="${v.id}"`}>
         ${pickVideos ? `<span class="vp-pick" aria-hidden="true">${on ? '✓' : ''}</span>` : ''}
-        ${thumbHtml(PV.urls.get(v.id), 1, 'Vidéo')}
+        ${thumbHtml(PV.urls.get(v.id), 1, 'Vidéo', v.thumb)}
         <span class="pvx-video-body">
           <strong>${escapeHtml(v.titre || 'Vidéo')}</strong>
           <span class="pvx-seq-meta">Envoyée le ${escapeHtml(pvDay(v.created_at))} · ${escapeHtml(pvViews(v))}</span>
@@ -469,14 +469,17 @@ async function uploadVideos() {
     it.state = 'sending'; renderUploads(); showUploadProgress(it, done, total);
     upl.stamp = Math.max(Date.now(), upl.stamp + 1);   // chemins distincts, même envoyés dans la même milliseconde
     const path = `r2/${clubId}/${playerId}/${upl.stamp}.${fileExt(it.file.name)}`;
+    // Miniature prise sur le fichier pendant l'envoi : les listes l'affichent sans lire la vidéo.
+    const thumbP = fileThumb(it.file);
     try {
       await uploadVideoFile(path, it.file, {
         signal: upl.ctrl.signal,
         onProgress: (p) => { it.pct = p; showUploadProgress(it, done, total); },
       });
+      const thumb = await thumbP;
       const { error } = await sb.from('player_videos').insert({
         club_id: clubId, player_id: playerId, storage_path: path,
-        titre: it.title.trim() || titleFromFile(it.file.name), description,
+        titre: it.title.trim() || titleFromFile(it.file.name), description, ...(thumb && { thumb }),
       });
       if (error) {
         await removeVideoFile(path).catch(err => console.warn('Fichier orphelin', path, err));

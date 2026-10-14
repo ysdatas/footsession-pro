@@ -110,6 +110,8 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            ou l'admin du club (rejouable)
 36. supabase/lmfc_v17.sql                  version des schémas : tactical_schemas.updated_at avancé à chaque
                                            écriture (adresse de l'image versionnée) (rejouable)
+37. supabase/lmfc_v18.sql                  miniatures des vidéos : video_sequences.thumb et player_videos.thumb
+                                           (JPEG 320 px en data URL, ~15 Ko au plus) (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -653,7 +655,8 @@ node tests/trash-sql.test.mjs      # corbeille sur un vrai Postgres (ignoré san
 node tests/procedure-time.test.mjs # durées à virgule, statuts de présence
 node tests/procedure-rows.test.mjs # un procédé relu puis réenregistré redonne la même ligne
 node tests/sessions-v9-sql.test.mjs tests/sessions-v12-sql.test.mjs tests/sessions-v13-sql.test.mjs \
-  tests/sessions-access-sql.test.mjs tests/matches-sql.test.mjs tests/push-sql.test.mjs   # séances, droits, membres, matchs, notifications (PGlite)
+  tests/sessions-access-sql.test.mjs tests/matches-sql.test.mjs tests/push-sql.test.mjs \
+  tests/video-thumbs-sql.test.mjs   # séances, droits, membres, matchs, notifications, miniatures (PGlite)
 ```
 
 **Chargement des pages** :
@@ -668,6 +671,17 @@ node tests/sessions-v9-sql.test.mjs tests/sessions-v12-sql.test.mjs tests/sessio
   de son cache.
 - Un message à l'écran ne cite jamais de fichier SQL, de secret ni de configuration :
   `updateNeeded` affiche une phrase simple et met le détail dans la console.
+- **Vidéos reçues** (mesure du lot 2, banc : 120 ms par requête, 2,5 Mo/s, vidéos 1080p de 86 Mo) :
+  chaque miniature était un `<video>` qui lisait l'index et des images de la source ; 8 séquences
+  « À traiter » téléchargeaient **15,2 Mo** et s'affichaient en **3,1 s**. Désormais chaque vidéo
+  et chaque séquence garde une image fixe (`thumb`, `lmfc_v18.sql`) : la vidéo sur le fichier au
+  moment de l'envoi (`fileThumb`, rien ne transite), la séquence la première fois qu'elle passe
+  dans le lecteur (`keepThumb`, `video-workspace.js` ; reprise après un nouveau découpage). Liste
+  et miniatures : **0,44 s, 0 Mo de vidéo**. Joueurs, vidéos et séquences partent ensemble
+  (`SEQ_LIST_COLS` sans les miniatures, chargées pour les seules séquences affichées) ; les liens
+  de lecture se signent en fond, prêts avant le clic. Ouvrir une séquence : ~0,5 s (index du MP4
+  en tête) à ~0,7 s (index en fin, 2 requêtes de plus : pas assez pour le déplacer à l'envoi).
+  Sans image fixe (ancienne vidéo pas encore rouverte), l'ancien affichage reste.
 
 Le second tourne sur une extraction du classeur réel
 (`tests/fixtures-tests-physiques.json`) et vérifie les valeurs exactes de plusieurs

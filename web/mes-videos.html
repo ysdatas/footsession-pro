@@ -55,7 +55,7 @@
       const player = await requirePlayer();
       if (!player) return;
       const [{ data: videos, error }, { data: seqs }] = await Promise.all([
-        sb.from('player_videos').select('id, titre, description, created_at, storage_path')
+        sb.from('player_videos').select('id, titre, description, created_at, storage_path, thumb')
           .eq('player_id', player.id).order('created_at', { ascending: false }),
         sb.from('video_sequences').select('*').eq('player_id', player.id),
       ]);
@@ -90,7 +90,7 @@
         const list = pv.seqs.filter(s => s.video_id === v.id);
         const back = list.filter(s => seqStatus(s) === 'answered').length;
         return `<a class="vp-card" href="voir-video.html?id=${v.id}">
-          ${thumbHtml(pv.urls.get(v.id), 1, 'Source')}
+          ${thumbHtml(pv.urls.get(v.id), 1, 'Source', v.thumb)}
           <span class="vp-card-body">
             <span class="vp-card-top"><strong>${escapeHtml(v.titre)}</strong>${back ? `<span class="vw-status is-answered">${plural(back, 'retour', 'retours')}</span>` : ''}</span>
             <span class="vp-card-meta">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))} · ${list.length ? plural(list.length, 'séquence', 'séquences') : 'pas encore de séquence'}</span>
@@ -103,7 +103,7 @@
       box.innerHTML = list.length ? `<div class="vp-cards">${list.map(s => {
         const v = pv.videos.find(x => x.id === s.video_id), len = s.end_sec - s.start_sec, n = (s.drawings || []).length;
         return `<a class="vp-card" href="voir-video.html?id=${s.video_id}&seq=${s.id}">
-          ${thumbHtml(pv.urls.get(s.video_id), s.start_sec, fmtDur(len))}
+          ${thumbHtml(pv.urls.get(s.video_id), s.start_sec, fmtDur(len), s.thumb)}
           <span class="vp-card-body">
             <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s)}</span>
             <span class="vp-card-meta">${escapeHtml(v?.titre || 'Vidéo')} · ${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}</span>

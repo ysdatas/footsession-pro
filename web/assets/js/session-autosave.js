@@ -218,9 +218,12 @@ async function saveAll() {
     onSessionCreated();
   }
   await step('Procédés', () => saveProcedures(sid));
-  await step('Présences', () => saveAttendance(sid));
-  await step('Bilans', () => saveBilans(sid));
-  await step('Droits d’accès', () => saveAccess(sid));
+  // Indépendants entre eux : en même temps.
+  await Promise.all([
+    step('Présences', () => saveAttendance(sid)),
+    step('Bilans', () => saveBilans(sid)),
+    step('Droits d’accès', () => saveAccess(sid)),
+  ]);
   // En dernier : une image de schéma pas encore copiée ne retient pas le reste.
   await step('Schémas', commitDraftSchemas);
 }

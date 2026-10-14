@@ -22,7 +22,7 @@ function createSender(ws) {
   const item = (s) => {
     const r = ws.range(s), n = (s.drawings || []).length;
     return `<div class="vw-send-item">
-      ${thumbHtml(ws.src, r.start, fmtDur(r.end - r.start))}
+      ${thumbHtml(ws.src, r.start, fmtDur(r.end - r.start), s.thumb)}
       <span><strong>${escapeHtml(s.label || 'Séquence')}</strong>
         <small>${fmtDur(r.end - r.start)} · ${n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans habillage'}</small></span>
     </div>`;

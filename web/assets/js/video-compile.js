@@ -264,7 +264,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
       return `<li data-id="${id}">
         ${dragHandle(s.label || 'Séquence')}
         <span class="vc-num">${i + 1}</span>
-        ${thumbHtml(urlOf(s), s.start_sec, fmtDur(len))}
+        ${thumbHtml(urlOf(s), s.start_sec, fmtDur(len), s.thumb)}
         <span class="vc-body"><strong>${escapeHtml(s.label || 'Séquence')}</strong>
           <small>${escapeHtml(videoOf(s)?.titre || 'Vidéo')} · ${n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans habillage'}</small></span>
         <span class="vc-actions">

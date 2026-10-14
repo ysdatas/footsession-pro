@@ -205,7 +205,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   const clipCard = (s) => {
     const r = range(s), n = (s.drawings || []).length;
     return `<button type="button" class="vw-clip${s.id === w.cur ? ' is-current' : ''}" data-open="${s.id}">
-      ${thumbHtml(src, r.start, fmtDur(r.end - r.start))}
+      ${thumbHtml(src, r.start, fmtDur(r.end - r.start), s.thumb)}
       <span class="vw-clip-body">
         <strong>${escapeHtml(s.label || 'Séquence')}</strong>
         <span class="vw-clip-meta">${fmtT(r.start)} → ${fmtT(r.end)}${n ? ` · ${n} annotation${n > 1 ? 's' : ''}` : ''}</span>
@@ -353,7 +353,22 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   vid.addEventListener('seeked', () => {
     lastT = vid.currentTime; tl.setTime(vid.currentTime); syncTime();
     if (vid.paused) paintAt(vid.currentTime, false);
+    keepThumb();
   });
+  /* Miniature fixe (lmfc_v18.sql), prise une fois sur l'image affichée : les
+     listes n'ont plus à télécharger la vidéo. Séquence : une image de sa
+     portion ; vidéo (staff) : passé la première seconde. Refus (droits,
+     base pas à jour) : rien ne s'affiche, l'ancienne miniature reste. */
+  function keepThumb() {
+    const s = cur(), t = vid.currentTime;
+    const row = s ? (!s.thumb && t >= Number(s.start_sec) - .05 && t <= Number(s.end_sec) ? s : null)
+      : (staff && !video.thumb && t >= .5 ? video : null);
+    const thumb = row && grabThumb(vid);
+    if (!thumb) return;
+    row.thumb = thumb;
+    sb.from(s ? 'video_sequences' : 'player_videos').update({ thumb }).eq('id', row.id)
+      .then(({ error }) => { if (error) console.warn('Miniature non enregistrée', error.message); });
+  }
   vid.addEventListener('loadedmetadata', () => { render(); const r = range(); if (r && vid.currentTime < r.start) vid.currentTime = r.start; });
   // Toucher la vidéo : lecture / pause (pendant l'annotation, on dessine).
   vid.addEventListener('click', togglePlay);
@@ -438,7 +453,9 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   const opRange = (s, start, end) => {
     const old = [s.start_sec, s.end_sec];
     return { label: 'découpage modifié',
-      do: () => patch(s, { start_sec: start, end_sec: end }), undo: () => patch(s, { start_sec: old[0], end_sec: old[1] }) };
+      // Nouveau découpage : la miniature sera reprise sur la nouvelle portion.
+      do: async () => { const ok = await patch(s, { start_sec: start, end_sec: end }); if (ok) s.thumb = null; return ok; },
+      undo: async () => { const ok = await patch(s, { start_sec: old[0], end_sec: old[1] }); if (ok) s.thumb = null; return ok; } };
   };
   const opDup = (s) => {
     let copy = null;

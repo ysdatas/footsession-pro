@@ -53,12 +53,45 @@ function nextSeqLabel(seqs) {
 }
 
 /* ---------- Miniatures ----------
-   L'image de la vidéo source à l'instant t (#t=… : le navigateur
-   affiche cette image sans lire la vidéo). */
-function thumbHtml(url, t, badge = '') {
+   Image fixe gardée avec la vidéo ou la séquence (thumb, lmfc_v18.sql) :
+   rien à télécharger. Sans elle, l'image de la vidéo source à l'instant t
+   (#t=… : le navigateur lit l'index et quelques images de la source,
+   plusieurs Mo par miniature d'après la mesure du lot 2). */
+function thumbHtml(url, t, badge = '', thumb = null) {
   const src = url ? `${url}#t=${Math.max(.05, Number(t) || 0).toFixed(2)}` : '';
-  return `<span class="vthumb">${src ? `<video muted playsinline preload="none" tabindex="-1" aria-hidden="true" data-src="${escapeHtml(src)}"></video>` : ''}${badge ? `<span class="vthumb-badge">${escapeHtml(badge)}</span>` : ''}</span>`;
+  const img = thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">`
+    : src ? `<video muted playsinline preload="none" tabindex="-1" aria-hidden="true" data-src="${escapeHtml(src)}"></video>` : '';
+  return `<span class="vthumb">${img}${badge ? `<span class="vthumb-badge">${escapeHtml(badge)}</span>` : ''}</span>`;
 }
+/* Miniature de l'image affichée par une vidéo : JPEG 320 px (~15 Ko).
+   null si la vidéo n'est pas prête ou vient d'un autre domaine. */
+function grabThumb(video) {
+  if (!video || video.readyState < 2 || !video.videoWidth) return null;
+  const c = document.createElement('canvas');
+  c.width = 320; c.height = Math.round(320 * video.videoHeight / video.videoWidth);
+  try {
+    c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.72);
+  } catch (e) { return null; }   // vidéo d'un autre domaine : canvas protégé
+}
+/* Miniature d'un fichier vidéo pas encore envoyé (1 s du début) : lue sur
+   l'appareil, rien ne transite. null si le navigateur ne sait pas la lire. */
+function fileThumb(file, at = 1) {
+  return new Promise((resolve) => {
+    const v = document.createElement('video'), url = URL.createObjectURL(file);
+    let over = false;
+    const done = (x) => { if (over) return; over = true; URL.revokeObjectURL(url); v.removeAttribute('src'); resolve(x); };
+    v.muted = true; v.playsInline = true; v.preload = 'auto';
+    v.addEventListener('loadedmetadata', () => { v.currentTime = Math.min(at, (v.duration || 2) / 2); }, { once: true });
+    v.addEventListener('seeked', () => done(grabThumb(v)), { once: true });
+    v.addEventListener('error', () => done(null), { once: true });
+    setTimeout(() => done(null), 8000);
+    v.src = url;
+  });
+}
+/* Colonnes d'une séquence pour les listes : tout sauf la miniature,
+   chargée à part pour les seules séquences affichées. */
+const SEQ_LIST_COLS = 'id, club_id, player_id, video_id, label, start_sec, end_sec, drawings, player_note, selected, submitted_at, staff_feedback, feedback_by, feedback_at, seen_at, edited_at, created_by, created_at, updated_at';
 let thumbObserver = null;
 function loadThumbs(root = document) {
   const start = (v) => { v.preload = 'metadata'; v.src = v.dataset.src; v.removeAttribute('data-src'); };

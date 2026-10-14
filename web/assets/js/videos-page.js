@@ -41,12 +41,9 @@ let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton r
     }));
   }
 
-  const { data: players, error: playersError } = await byPlayerTeam(sb.from('players').select('id, nom, prenom, club_id, auth_user_id').order('nom'));
-  if (playersError) console.error('Joueurs illisibles', playersError);
-  playersCache = players || [];
-
   history.replaceState({ vp: 1, ...view }, '', location.href);
-  await loadVideos();
+  // Joueurs, vidéos et séquences partent ensemble (avant : les joueurs d'abord).
+  await loadVideos(byPlayerTeam(sb.from('players').select('id, nom, prenom, club_id, auth_user_id').order('nom')));
 })();
 
 const fullName = playerFullName;   // app.js
@@ -54,27 +51,46 @@ const initials = (p) => `${(p?.prenom || '')[0] || ''}${(p?.nom || '')[0] || ''}
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const shortDate = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
 
-/* ---------- Chargement (vue d'ensemble) ---------- */
-async function loadVideos() {
+/* ---------- Chargement (vue d'ensemble) ----------
+   Mesure (lot 2) : les miniatures de « À traiter » lisaient chacune la vidéo
+   source (15 Mo pour 8 séquences). Les séquences arrivent sans miniature ni
+   lien ; seules celles à traiter reçoivent ensuite leur image fixe (thumb),
+   et un lien de lecture seulement s'il leur en manque une. */
+async function loadVideos(playersQuery = null) {
   const box = document.getElementById('vpView');
   try {
-    const ids = playersCache.map(p => p.id);
-    const [vRes, sRes] = await Promise.all([
-      sb.from('player_videos').select('id, player_id, titre, storage_path, created_at').in('player_id', ids).order('created_at', { ascending: false }),
-      sb.from('video_sequences').select('*').in('player_id', ids).order('start_sec'),
+    const [pRes, vRes, sRes] = await Promise.all([
+      playersQuery || { data: playersCache },
+      sb.from('player_videos').select('id, player_id, titre, storage_path, created_at, thumb').order('created_at', { ascending: false }),
+      sb.from('video_sequences').select(SEQ_LIST_COLS).order('start_sec'),
     ]);
+    if (pRes.error) console.error('Joueurs illisibles', pRes.error);
     if (vRes.error) throw vRes.error;
     if (sRes.error) console.warn('Séquences indisponibles (platform_v2.sql non passée ?) :', sRes.error.message);
-    videosCache = vRes.data || [];
-    seqsCache = sRes.data || [];
-    await signUrls(videosCache.filter(v => toSeeOf(seqsCache).some(s => s.video_id === v.id)));
+    playersCache = pRes.data || [];
+    const ids = new Set(playersCache.map(p => p.id));   // joueurs de l'équipe choisie
+    videosCache = (vRes.data || []).filter(v => ids.has(v.player_id));
+    seqsCache = (sRes.data || []).filter(s => ids.has(s.player_id));
+    const todo = toSeeOf(seqsCache);
+    const thumbs = await seqThumbs(todo);
+    todo.forEach(s => { s.thumb = thumbs.get(s.id) || null; });
+    await signUrls(videosCache.filter(v => todo.some(s => s.video_id === v.id && !s.thumb)));
     render();
+    // Liens de lecture des autres séquences à traiter : en fond, prêts avant le clic.
+    signUrls(videosCache.filter(v => todo.some(s => s.video_id === v.id)));
   } catch (e) {
     console.error('Vidéos illisibles', e);
     box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`;
   }
 }
-/* URL signées en une seule requête (miniatures de « À traiter »). */
+/* Miniatures fixes des séquences affichées (lmfc_v18.sql), en une requête. */
+async function seqThumbs(list) {
+  if (!list.length) return new Map();
+  const { data, error } = await sb.from('video_sequences').select('id, thumb').in('id', list.map(s => s.id)).not('thumb', 'is', null);
+  if (error) { console.warn('Miniatures indisponibles', error.message); return new Map(); }
+  return new Map((data || []).map(r => [r.id, r.thumb]));
+}
+/* URL signées en une seule requête (miniatures sans image fixe ; la lecture signe à l'ouverture). */
 async function signUrls(videos) {
   const missing = videos.filter(v => !urlCache.has(v.id));
   if (!missing.length) return;
@@ -109,7 +125,7 @@ function seqCard(s) {
   const v = videosCache.find(x => x.id === s.video_id), len = s.end_sec - s.start_sec, note = (s.player_note || '').trim();
   const n = (s.drawings || []).length;
   return `<button type="button" class="vp-card" data-open-video="${s.video_id}" data-seq="${s.id}">
-    ${thumbHtml(urlCache.get(s.video_id), s.start_sec, fmtDur(len))}
+    ${thumbHtml(urlCache.get(s.video_id), s.start_sec, fmtDur(len), s.thumb)}
     <span class="vp-card-body">
       <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s, 'staff')}</span>
       <span class="vp-card-meta">${escapeHtml(fullName(playersCache.find(p => p.id === s.player_id)))} · ${escapeHtml(v?.titre || 'Vidéo')} · ${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}${s.submitted_at ? ` · envoyée le ${escapeHtml(shortDate(s.submitted_at))}` : ''}</span>
