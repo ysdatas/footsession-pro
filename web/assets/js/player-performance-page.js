@@ -858,10 +858,15 @@ async function loadPage() {
       { message: 'Aucun joueur ciblé (paramètre ?id= absent et compte non lié à une fiche).' });
   }
 
-  canEditPerformance = canEditPerformanceData(ctxProfile.role);
-  canEditPlans = canManagePlans(ctxProfile.role);
-  canEditPlayer = canEdit(ctxProfile.role);
+  // Joueur ouvert en lecture seule pour ce compte (exception, lecture club : lmfc_v19.sql) : aucun bouton de modification.
+  const { data: level, error: levelErr } = ctxProfile.role === 'joueur' ? { data: null } : await sb.rpc('player_level', { p_player: playerId });
+  if (levelErr) console.warn('Niveau d’accès au joueur indisponible', levelErr.message);
+  const readOnly = level === 'lecture';
+  canEditPerformance = !readOnly && canEditPerformanceData(ctxProfile.role);
+  canEditPlans = !readOnly && canManagePlans(ctxProfile.role);
+  canEditPlayer = !readOnly && canEdit(ctxProfile.role);
   document.getElementById('perfRoleLabel').textContent = ctxProfile.role === 'joueur' ? 'Espace joueur'
+    : readOnly ? 'Dossier individuel · consultation (accès en lecture)'
     : canEditPerformance ? 'Dossier individuel' : 'Dossier individuel · consultation (données physiques : préparateur)';
   document.getElementById('perfKicker').textContent = ctxProfile.role === 'joueur'
     ? 'Ma performance' : 'Fiche joueur';
@@ -883,7 +888,7 @@ async function loadPage() {
     back.textContent = '← Joueurs';
     setupTabs();
   }
-  const canPhoto = canChangePlayerPhoto(ctxProfile.role);
+  const canPhoto = !readOnly && canChangePlayerPhoto(ctxProfile.role);
   const avatar = document.getElementById('playerAvatar');
   avatar.disabled = !canPhoto;
   avatar.classList.toggle('is-editable', canPhoto);

@@ -2,8 +2,9 @@
    LMFC Performance — session-access.js (page séance)
    Droits d'accès d'une séance (lmfc_v10.sql), réglés par son
    créateur ou l'administrateur :
-     - accès de base : staff de l'équipe de la séance (défaut) ou
-       tout le staff du club (comme les séances d'avant) ;
+     - accès de base : staff de l'équipe de la séance (défaut : coachs
+       en modification, préparateurs et « lecture sur toutes les
+       équipes » en lecture, lmfc_v19.sql) ou tout le staff du club ;
      - par personne : Aucun / Lecture / Modification (« Modification »
        seulement pour un compte admin ou coach).
    Seuls les écarts au réglage de base sont enregistrés (session_access).
@@ -20,12 +21,16 @@ const access = {
   saved: '[]',         // réglages tels qu'enregistrés (JSON) : rien à envoyer s'ils n'ont pas changé
 };
 
-/* Niveau sans réglage nominatif : même règle que session_level() côté base. */
+/* Niveau sans réglage nominatif : même règle que session_level() et
+   team_level() côté base (lmfc_v19.sql). */
 function accessDefault(m) {
   if (m.role === 'admin' || m.id === access.creator) return 'modification';
   if (access.base === 'club') return m.role === 'coach' ? 'modification' : 'lecture';
-  const teams = m.team_ids || [];
-  return !sessionTeamId || !teams.length || teams.includes(sessionTeamId) ? 'lecture' : 'aucun';
+  const teams = m.team_ids || [], coach = ['coach', 'analyste'].includes(m.role);
+  if (sessionTeamId && teams.includes(sessionTeamId)) return coach ? 'modification' : 'lecture';   // staff de l'équipe
+  if (!sessionTeamId && teams.length) return 'lecture';
+  if (!hasTeams()) return coach ? 'modification' : 'lecture';                                       // club sans équipe
+  return m.lecture_club ? 'lecture' : 'aucun';
 }
 
 /* Charge le bloc si le compte peut régler les droits (créateur ou admin).

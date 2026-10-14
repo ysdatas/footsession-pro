@@ -10,7 +10,8 @@
    Les droits restent ceux de Supabase : le Worker interroge l'API
    Supabase avec le jeton de l'utilisateur, la RLS décide. Lire une
    vidéo = pouvoir lire sa ligne player_videos ; envoyer ou supprimer
-   = can_manage_videos() et le club du chemin est le sien.
+   = can_manage_videos(), le club du chemin est le sien et le compte
+   peut modifier le joueur du chemin (player_level, lmfc_v19.sql).
    Bande passante R2 gratuite : aucune limite de visionnage.
    Configuration (wrangler.jsonc) : binding VIDEOS, vars SUPABASE_URL
    et SUPABASE_KEY (clé publique), secret VIDEO_URL_SECRET (tableau
@@ -24,7 +25,7 @@ const TTL = 6 * 3600;                    // validité d'un lien de lecture (s)
 const MAX_BYTES = 95 * 1024 * 1024;      // le Worker gratuit refuse au-delà de 100 Mo
 const MAX_PATHS = 100;
 // r2/<club_id>/<player_id>/<horodatage>.<ext> : rien d'autre n'entre dans le bucket.
-const KEY_RE = /^r2\/(\d+)\/\d+\/\d+\.[a-zA-Z0-9]{1,8}$/;
+const KEY_RE = /^r2\/(\d+)\/(\d+)\/\d+\.[a-zA-Z0-9]{1,8}$/;
 
 export default {
   async fetch(request, env) {
@@ -57,9 +58,10 @@ export default {
 async function canManage(request, env, key) {
   const token = tokenOf(request);
   if (!token) return false;
-  const rpc = (fn) => supabase(env, token, `/rest/v1/rpc/${fn}`, { method: 'POST', body: '{}' });
-  const [can, club] = await Promise.all([rpc('can_manage_videos'), rpc('my_club_id')]);
-  return can === true && club !== null && String(club) === key.match(KEY_RE)[1];
+  const rpc = (fn, args = {}) => supabase(env, token, `/rest/v1/rpc/${fn}`, { method: 'POST', body: JSON.stringify(args) });
+  const [, clubId, playerId] = key.match(KEY_RE);
+  const [can, club, level] = await Promise.all([rpc('can_manage_videos'), rpc('my_club_id'), rpc('player_level', { p_player: Number(playerId) })]);
+  return can === true && club !== null && String(club) === clubId && level === 'modification';
 }
 
 /* ---------- Liens signés (HMAC-SHA256 du chemin et de l'échéance) ---------- */

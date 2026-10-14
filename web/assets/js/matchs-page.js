@@ -123,23 +123,34 @@ function renderMatches() {
 }
 
 /* ---------- Saisie d'un match ---------- */
+/* Droit de modifier CE match (lmfc_v19.sql, la base décide aussi) : admin,
+   créateur, coach de l'équipe du match ; club sans équipe : tout coach. */
+function canEditMatch(m) {
+  if (!CAN_EDIT_MATCH) return false;
+  if (!m || myProfile.role === 'admin' || m.created_by === myProfile.id) return true;
+  const mine = myProfile.team_ids || [];
+  return m.team_id ? mine.includes(m.team_id) : !(window.CLUB_TEAMS || []).length;
+}
 async function openMatch(m) {
-  editing = { id: m?.id || null, rows: new Map(), removed: new Set() };
+  editing = { id: m?.id || null, rows: new Map(), removed: new Set(), editable: canEditMatch(m) };
   const set = (id, v) => { document.getElementById(id).value = v ?? ''; };
   set('m-adv', m?.adversaire); set('m-date', m?.date_match || new Date().toISOString().slice(0, 10));
   set('m-comp', m?.competition); set('m-lieu', m?.lieu); set('m-pour', m?.score_pour); set('m-contre', m?.score_contre);
   set('m-infos', m?.infos); set('m-comment', m?.commentaire); set('m-retenir', m?.a_retenir);
   const teams = window.CLUB_TEAMS || [];
   document.getElementById('m-team-field').classList.toggle('hidden', !teams.length);
+  // Un coach ne range un match que dans ses équipes (sauf celui déjà ouvert).
+  const mine = myProfile.role === 'admin' || !(myProfile.team_ids || []).length ? teams
+    : teams.filter(t => myProfile.team_ids.includes(t.id) || t.id === m?.team_id);
   document.getElementById('m-team').innerHTML = '<option value="">Sans équipe</option>'
-    + teams.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
+    + mine.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
   set('m-team', m ? m.team_id : currentTeamId());
-  document.getElementById('matchModalTitle').textContent = !m ? 'Nouveau match' : CAN_EDIT_MATCH ? 'Modifier le match' : `${m.adversaire} · ${fmtDateFr(m.date_match)}`;
-  // Lecture seule (préparateur) : tout se lit, rien ne s'enregistre.
-  document.querySelectorAll('#matchModal input, #matchModal select, #matchModal textarea').forEach(f => { f.disabled = !CAN_EDIT_MATCH; });
-  ['mpTools', 'm-save'].forEach(id => document.getElementById(id).classList.toggle('hidden', !CAN_EDIT_MATCH));
-  document.getElementById('m-delete').classList.toggle('hidden', !(m && CAN_EDIT_MATCH));
-  document.getElementById('m-cancel').textContent = CAN_EDIT_MATCH ? 'Annuler' : 'Fermer';
+  document.getElementById('matchModalTitle').textContent = !m ? 'Nouveau match' : editing.editable ? 'Modifier le match' : `${m.adversaire} · ${fmtDateFr(m.date_match)}`;
+  // Lecture seule (préparateur, match d'une autre équipe) : tout se lit, rien ne s'enregistre.
+  document.querySelectorAll('#matchModal input, #matchModal select, #matchModal textarea').forEach(f => { f.disabled = !editing.editable; });
+  ['mpTools', 'm-save'].forEach(id => document.getElementById(id).classList.toggle('hidden', !editing.editable));
+  document.getElementById('m-delete').classList.toggle('hidden', !(m && editing.editable));
+  document.getElementById('m-cancel').textContent = editing.editable ? 'Annuler' : 'Fermer';
   document.getElementById('mpList').innerHTML = m ? '<p class="text-muted">Chargement…</p>' : '';
   openModal('matchModal');
   if (m) {
@@ -152,7 +163,7 @@ async function openMatch(m) {
 
 /* Joueurs du match : titulaires, remplaçants, non entrés, puis sans statut. */
 function renderRows() {
-  const dis = CAN_EDIT_MATCH ? '' : 'disabled';
+  const dis = editing.editable ? '' : 'disabled';
   const rank = { titulaire: 0, remplacant: 1, non_entre: 2 };
   const rows = [...editing.rows.values()].sort((a, b) => (rank[a.statut] ?? 3) - (rank[b.statut] ?? 3)
     || playerName(playerOf(a.player_id)).localeCompare(playerName(playerOf(b.player_id)), 'fr'));
@@ -167,9 +178,9 @@ function renderRows() {
       <span class="bilan-notes" role="group" aria-label="Note de ${escapeHtml(name)}">${BILAN_NOTES.map(n =>
         `<button type="button" class="bn bn-${n.key}" data-note="${n.key}" aria-pressed="${r.note === n.key}" title="${n.label}" ${dis}>${n.sign}</button>`).join('')}</span>
       <input class="mp-comment" data-k="commentaire" maxlength="500" value="${escapeHtml(r.commentaire || '')}" placeholder="Commentaire" aria-label="Commentaire sur ${escapeHtml(name)}" ${dis}>
-      ${CAN_EDIT_MATCH ? `<button class="att-remove" type="button" data-remove aria-label="Retirer ${escapeHtml(name)} du match" title="Retirer du match">✕</button>` : ''}
+      ${editing.editable ? `<button class="att-remove" type="button" data-remove aria-label="Retirer ${escapeHtml(name)} du match" title="Retirer du match">✕</button>` : ''}
     </div>`;
-  }).join('') : `<p class="text-muted">Aucun joueur.${CAN_EDIT_MATCH ? ' « Ajouter l’effectif » ou cherchez un joueur du club.' : ''}</p>`;
+  }).join('') : `<p class="text-muted">Aucun joueur.${editing.editable ? ' « Ajouter l’effectif » ou cherchez un joueur du club.' : ''}</p>`;
 }
 
 function addRow(id) {
@@ -196,7 +207,7 @@ function initEditor() {
   });
   list.addEventListener('click', (e) => {
     const r = rowOf(e);
-    if (!r || !CAN_EDIT_MATCH) return;
+    if (!r || !editing.editable) return;
     const b = e.target.closest('[data-note]');
     if (b) {
       r.note = r.note === b.dataset.note ? null : b.dataset.note;   // second clic : retire la note

@@ -112,6 +112,10 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            écriture (adresse de l'image versionnée) (rejouable)
 37. supabase/lmfc_v18.sql                  miniatures des vidéos : video_sequences.thumb et player_videos.thumb
                                            (JPEG 320 px en data URL, ~15 Ko au plus) (rejouable)
+38. supabase/lmfc_v19.sql                  droits par équipe et par joueur, appliqués par la base : player_level,
+                                           team_level, profiles.lecture_club, staff_player_access (exceptions),
+                                           RLS des données joueurs, matchs, stockage et corbeille, session_level
+                                           (coach de l'équipe en modification), sequence_recipients (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -198,9 +202,27 @@ sélecteur en haut du menu (`profiles.prefs.team_id`) filtre Joueurs, Séances,
 Performance, Vidéos et le tableau de bord. Les notes /10 et les moyennes
 sont calculées au sein de l'équipe du joueur.
 
+- **Droits appliqués par la base** (`lmfc_v19.sql`). Pour un joueur, `player_level()` :
+  admin → modification ; exception réglée par l'admin (`staff_player_access` : aucun /
+  lecture / modification) ; joueur d'une de ses équipes (principale ou « joue aussi en ») →
+  modification ; joueur sans équipe et compte qui a une équipe → modification ; club sans
+  équipe → modification ; « Lecture sur toutes les équipes » (`profiles.lecture_club`) →
+  lecture ; sinon rien. Le rôle borne la modification (préparateur : physique ; coach :
+  fiches, vidéos). Toutes les tables d'un joueur (fiche, vidéos, séquences, vues, tests,
+  mesures, points, médias, programme, exercices, parcours), le stockage (photos, médias,
+  anciennes vidéos : dossier `club/joueur/…`), la corbeille (vue et restauration) et le Worker
+  R2 (envoi, suppression) suivent ce niveau. Séances et matchs : `team_level()` (coach de
+  l'équipe → modification, préparateur de l'équipe et lecture club → lecture, sans équipe →
+  lecture pour qui a une équipe) ; créateur, admin et réglage nominatif passent avant. Les
+  séquences qu'un joueur envoie vont à ceux qui ont accès à lui : admins, coachs de son équipe,
+  exceptions (`sequence_recipients()` les nomme dans la feuille d'envoi). **Mon club →
+  Membres → Accès** : lecture club et exceptions ; un coach ou préparateur sans aucun accès est
+  marqué « Aucun accès ». L'interface suit (`my_player_levels()`, `player_level()`) : joueur en
+  lecture = pas de crayon, fiche en consultation ; match d'une autre équipe en lecture.
 - **Compte rattaché à une ou plusieurs équipes** (`profiles.team_ids`, `lmfc_v14.sql` ;
   `team_id` = la première, pour compatibilité) : dans **Mon club → Membres**, l'admin coche
-  les équipes d'un coach ou d'un préparateur (aucune = toutes les équipes). Une seule : le
+  les équipes d'un coach ou d'un préparateur (aucune = aucun joueur depuis `lmfc_v19.sql`, sauf
+  ce que donne « Accès »). Une seule : le
   menu l'affiche sans choix possible. Plusieurs (N2, N3, U19) : le sélecteur ne propose que
   celles-là, sans « Toutes », pour ne jamais mélanger les données. Le compte ne voit que ses
   joueurs et ses séances ; les séances « équipe » sont ouvertes au staff de cette équipe
@@ -647,7 +669,8 @@ node tests/perf-logic.test.mjs    # détection du joueur dans l'Excel + radar pa
 node tests/excel-import.test.mjs  # import validé sur le vrai Tests_Physiques_N2-5.xlsx
 node tests/nav.test.mjs           # menu : rôles (dont prépa), ordre, rubriques masquées, pages interdites
 node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classement de chaque test
-node tests/video-worker.test.mjs  # Worker vidéo : droits, liens signés, lecture partielle (Range)
+node tests/video-worker.test.mjs  # Worker vidéo : droits (club, joueur), liens signés, lecture partielle (Range)
+node tests/rights-sql.test.mjs    # droits par équipe et par joueur : matrice rôles × données (PGlite)
 node tests/push-worker.test.mjs   # notifications : chiffrement (exemple de la RFC 8291), VAPID, droits
 node tests/session-principle.test.mjs  # principe de jeu : séance, anciennes séances, héritage
 node tests/video-status.test.mjs   # statuts des séquences vidéo

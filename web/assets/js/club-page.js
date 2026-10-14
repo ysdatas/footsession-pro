@@ -8,6 +8,7 @@ let logoFile = null;
 let myProfile = null;
 let roster = [];        // fiches joueurs du club
 let isAdmin = false;
+let membersById = new Map();   // profils du club, par id (panneau « Accès »)
 
 (async () => {
   try {
@@ -115,6 +116,8 @@ async function loadMembers() {
     return;
   }
   roster = players || [];
+  membersById = new Map((members || []).map(m => [m.id, m]));
+  if (isAdmin) await loadAccessExceptions();   // club-access.js
   if (access.error) console.warn('Accès indisponibles (migration platform_v2.sql non passée ?) :', access.error.message);
   const pending = access.data || [];
 
@@ -127,16 +130,18 @@ async function loadMembers() {
     // Équipes du compte (lmfc_v14.sql : plusieurs ; avant : une seule).
     const ids = (m.team_ids?.length ? m.team_ids : [m.team_id]).filter(Boolean);
     const teamsTxt = ids.map(teamName).filter(Boolean).join(', ');
+    const acc = isAdmin && m.role !== 'joueur' ? accessSummary(m) : { bits: [], none: false };
     const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée')
-      : [ROLE_LABELS[m.role] || m.role, teamsTxt && escapeHtml(teamsTxt)].filter(Boolean).join(' · ');
+      : [ROLE_LABELS[m.role] || m.role, teamsTxt && escapeHtml(teamsTxt), ...acc.bits].filter(Boolean).join(' · ')
+        + (acc.none ? ' <span class="badge badge-red">Aucun accès</span>' : '');
     const self = m.id === myProfile.id;
     // Coach, préparateur : rattachés à une ou plusieurs équipes, ils ne voient qu'elles.
     const teamSelect = 'team_ids' in m && teams.length && !['joueur', 'admin'].includes(m.role)
       ? `<details class="team-multi">
-          <summary title="Équipes que ce compte voit et gère">${escapeHtml(teamsTxt || 'Toutes les équipes')}</summary>
+          <summary title="Équipes dont ce compte voit et gère les joueurs">${escapeHtml(teamsTxt || 'Aucune équipe')}</summary>
           <div class="team-multi-list" role="group" aria-label="Équipes du compte">
             ${teams.map(t => `<label><input type="checkbox" value="${t.id}"${ids.includes(t.id) ? ' checked' : ''}> ${escapeHtml(t.nom)}</label>`).join('')}
-            <small>Aucune cochée : toutes les équipes.</small>
+            <small>Aucune cochée : aucun joueur, sauf ce que donne « Accès ».</small>
           </div>
         </details>` : '';
     const controls = isAdmin && !self
@@ -150,11 +155,12 @@ async function loadMembers() {
               `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtml(playerName(p))}</option>`).join('')}
           </select>
           ${teamSelect}
+          ${!['joueur', 'admin'].includes(m.role) ? '<button type="button" class="btn btn-sm" data-rights title="Lecture sur toutes les équipes, exceptions par joueur">Accès</button>' : ''}
           <button type="button" class="btn btn-sm btn-danger" data-remove>Retirer</button>
         </div>`
       : `<span class="badge badge-gold">${self ? 'Vous · ' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
     const search = fold(`${m.nom || ''} ${linked ? `${playerName(linked)} ${teamName(linked.team_id) || ''}` : ''} ${ROLE_LABELS[m.role] || ''} ${teamsTxt}`);
-    return `<div class="member-row" data-search="${escapeHtml(search)}"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small></span>${controls}</div>`;
+    return `<div class="member-row${acc.none ? ' is-noaccess' : ''}" data-search="${escapeHtml(search)}"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small></span>${controls}</div>`;
   };
   // Groupes repliés par l'admin : ils le restent après une modification.
   const closed = new Set([...list.querySelectorAll('.member-group:not([open])')].map(g => g.dataset.group));
@@ -271,8 +277,9 @@ document.getElementById('memberList').addEventListener('change', async (e) => {
       return loadMembers();
     }
     const names = data[0].team_ids.map(teamName).filter(Boolean).join(', ');
-    multi.querySelector('summary').textContent = names || 'Toutes les équipes';
-    toast(names ? `Équipes du compte : ${names}` : 'Le compte voit toutes les équipes', 'success');
+    multi.querySelector('summary').textContent = names || 'Aucune équipe';
+    toast(names ? `Équipes du compte : ${names}` : 'Plus aucune équipe : le compte ne voit que ce que donne « Accès »', 'success');
+    membersById.get(profileId).team_ids = data[0].team_ids;
     return;
   }
   const role = box.querySelector('.role-select').value;
@@ -296,6 +303,8 @@ document.addEventListener('click', (e) => {
 });
 
 document.getElementById('memberList').addEventListener('click', async (e) => {
+  const r = e.target.closest('[data-rights]');
+  if (r) return openAccessPanel(membersById.get(r.closest('.member-controls').dataset.id));   // club-access.js
   const b = e.target.closest('[data-remove]'); if (!b) return;
   const profileId = b.closest('.member-controls').dataset.id;
   const name = b.closest('.member-row').querySelector('.member-name').firstChild.textContent;

@@ -28,9 +28,10 @@
 /* Trois colonnes fixes, identiques d'un membre à l'autre : fonction,
    équipe (ou fiche du joueur), bouton. Un administrateur n'a pas
    d'équipe : sa deuxième colonne reste vide, le bouton reste aligné. */
-.member-controls { display: grid; grid-template-columns: 210px 210px 96px; gap: 8px; align-items: center; }
+.member-controls { display: grid; grid-template-columns: 200px 200px 84px 96px; gap: 8px; align-items: center; }
 .member-controls select { width: 100%; min-width: 0; max-width: none; height: 38px; padding: 6px 10px; }
-.member-controls [data-remove] { grid-column: 3; }
+.member-controls [data-rights] { grid-column: 3; min-width: 0; }
+.member-controls [data-remove] { grid-column: 4; }
 .member-controls .btn, .access-list .member-row .btn { min-width: 96px; height: 38px; justify-content: center; }
 .member-controls .hidden { display: none; }
 /* Équipes d'un compte : liste à cocher repliée, du même gabarit qu'une liste déroulante. */
@@ -53,7 +54,9 @@
 .team-multi-list input { width: auto; flex: none; margin: 0; accent-color: var(--gold); }
 .team-multi-list small { padding: 4px 8px 2px; color: var(--text-secondary); font-size: var(--fs-xs); }
 @media (max-width: 760px) {
-  .member-controls { width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 96px; }
+  .member-controls { width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .member-controls [data-rights] { grid-column: 1; }
+  .member-controls [data-remove] { grid-column: 2; }
 }
 
 /* Notifications (notifications.html) : même grille que Mon club. */
@@ -93,3 +96,22 @@
 .member-group.is-warn > summary span { background: rgba(var(--red-rgb), .16); color: #FF6B7D; }
 .member-group .member-row { padding: 10px 14px; }
 .member-hint { margin: 0; padding: 10px 14px 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+
+/* Accès d'un membre du staff (club-access.js) ; compte sans aucun accès signalé. */
+.member-row.is-noaccess .member-name { color: #FF8A80; }
+.member-name .badge { margin-left: 6px; font-size: var(--fs-xs); vertical-align: 1px; }
+.am-readall { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  text-transform: none; letter-spacing: 0; font-size: var(--fs-md); color: var(--text-primary); cursor: pointer; }
+.am-readall input { width: 18px; height: 18px; flex: 0 0 18px; margin-top: 2px; accent-color: var(--gold); }
+.am-readall span { display: grid; gap: 2px; }
+.am-readall small, .am-row small, .am-hit small { color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 400; }
+.am-h { margin: 18px 0 4px; font-size: var(--fs-md); }
+.am-list { display: grid; gap: 6px; margin: 10px 0; }
+.am-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 36px; gap: 8px; align-items: center; }
+.am-row span { display: grid; min-width: 0; }
+.am-row select { padding: 6px 10px; }
+.am-empty { margin: 4px 0; font-size: var(--fs-sm); }
+.am-add { position: relative; }
+.am-results { display: grid; margin-top: 4px; border-radius: var(--radius-md); overflow: hidden; }
+.am-hit { display: grid; text-align: left; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--border); background: var(--bg-surface); color: var(--text-primary); font: inherit; cursor: pointer; }
+.am-hit:hover, .am-hit:focus-visible { background: var(--bg-hover); outline: none; }

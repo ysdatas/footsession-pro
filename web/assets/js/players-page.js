@@ -12,6 +12,8 @@
 let playersCache = [];
 let myProfile = null;
 let CAN_EDIT_PLAYERS = false;
+let readOnlyIds = new Set();   // joueurs visibles en lecture seule (exception, lecture club : lmfc_v19.sql)
+const canWritePlayer = (id) => CAN_EDIT_PLAYERS && !readOnlyIds.has(Number(id));
 /* Mode sélection (administrateur) : plusieurs fiches d'un coup, suppression groupée. */
 const pickPlayers = { on: false, ids: new Set() };
 
@@ -78,13 +80,16 @@ async function loadGrid() {
     if (error) throw error;
 
     const ids = players.map(p => p.id);
-    const [photos, mRes] = await Promise.all([
+    const [photos, mRes, lRes] = await Promise.all([
       signedUrls('player-photos', players.map(p => p.photo_path)),   // une requête pour toutes les photos (app.js)
       ids.length
         ? sb.from('player_physical_measurements').select('player_id, season_key, month_label, measured_at, height_cm, weight_kg').in('player_id', ids)
         : Promise.resolve({ data: [] }),
+      CAN_EDIT_PLAYERS ? sb.rpc('my_player_levels') : Promise.resolve({ data: [] }),
     ]);
     if (mRes.error) console.warn('Mesures indisponibles pour la liste des joueurs', mRes.error.message);
+    if (lRes.error) console.warn('Niveaux d’accès indisponibles', lRes.error.message);
+    readOnlyIds = new Set((lRes.data || []).filter(r => r.niveau !== 'modification').map(r => Number(r.player_id)));
     const last = latestMeasures(mRes.data || []);
     playersCache = players.map(p => ({ ...p, photo_url: photos.get(p.photo_path) || null, ...last.get(p.id) }));
 
@@ -206,9 +211,9 @@ function playerRow(p) {
   </div>`;
   }
   // Modifier : double-clic sur la ligne, ou le crayon (toujours visible sur écran tactile).
-  const edit = CAN_EDIT_PLAYERS ? `<span class="pr-edit" data-edit="${p.id}" role="button" title="Modifier (ou double-clic sur la ligne)" aria-label="Modifier ${escapeHtml(fullName(p))}">
+  const edit = canWritePlayer(p.id) ? `<span class="pr-edit" data-edit="${p.id}" role="button" title="Modifier (ou double-clic sur la ligne)" aria-label="Modifier ${escapeHtml(fullName(p))}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></span>` : '';
-  return `<a class="player-row${CAN_EDIT_PLAYERS ? ' can-edit' : ''}" href="player-performance.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
+  return `<a class="player-row${canWritePlayer(p.id) ? ' can-edit' : ''}" href="player-performance.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
     ${photo}
     <span class="pr-name"><strong>${escapeHtml(fullName(p))}</strong>${team ? `<small>${escapeHtml(team)}</small>` : ''}</span>
     <span class="pr-data">${data}</span>
@@ -265,14 +270,14 @@ document.getElementById('gridView').addEventListener('click', (e) => {
   const edit = e.target.closest('[data-edit]');
   if (edit) { e.preventDefault(); clearTimeout(openTimer); return openPlayerModal(playerById(edit.dataset.edit)); }
   const link = e.target.closest('a.player-row');
-  if (!link || !CAN_EDIT_PLAYERS || !e.detail || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (!link || !canWritePlayer(link.dataset.id) || !e.detail || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
   e.preventDefault();
   clearTimeout(openTimer);
   if (e.detail === 1) openTimer = setTimeout(() => { location.href = link.href; }, 220);
 });
 document.getElementById('gridView').addEventListener('dblclick', (e) => {
   const link = e.target.closest('a.player-row');
-  if (!link || !CAN_EDIT_PLAYERS) return;
+  if (!link || !canWritePlayer(link.dataset.id)) return;
   e.preventDefault();
   clearTimeout(openTimer);
   openPlayerModal(playerById(link.dataset.id));
@@ -358,9 +363,12 @@ function openPlayerModal(p = null) {
   document.getElementById('m-poste').value = p?.poste || '';
   const teams = window.CLUB_TEAMS || [];
   document.getElementById('m-team-field').classList.toggle('hidden', !teams.length || (p && !('team_id' in p)));
+  // Nouveau joueur : un coach le crée dans ses équipes (lmfc_v19.sql) ; une fiche existante garde la sienne.
+  const mine = myProfile.role === 'admin' || !(myProfile.team_ids || []).length ? teams
+    : teams.filter(t => myProfile.team_ids.includes(t.id) || t.id === p?.team_id);
   document.getElementById('m-team').innerHTML = '<option value="">Sans équipe</option>'
-    + teams.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
-  document.getElementById('m-team').value = p ? (p.team_id ?? '') : (currentTeamId() || '');
+    + mine.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
+  document.getElementById('m-team').value = p ? (p.team_id ?? '') : (mine.some(t => t.id === currentTeamId()) ? currentTeamId() : '');
   openModal('playerModal');
 }
 

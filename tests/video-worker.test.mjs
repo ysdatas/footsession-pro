@@ -31,10 +31,12 @@ const VIDEOS = {
 };
 
 /* ---------- Faux Supabase : qui voit quoi, qui gère les vidéos ---------- */
+// writes : joueurs que le compte peut modifier (player_level, lmfc_v19.sql).
 const USERS = {
-  staff7: { can: true, club: 7, sees: (p) => p.startsWith('r2/7/') },
-  joueur12: { can: false, club: 7, sees: (p) => p.startsWith('r2/7/12/') },
-  staff8: { can: true, club: 8, sees: (p) => p.startsWith('r2/8/') },
+  staff7: { can: true, club: 7, sees: (p) => p.startsWith('r2/7/'), writes: () => true },
+  joueur12: { can: false, club: 7, sees: (p) => p.startsWith('r2/7/12/'), writes: () => false },
+  staff8: { can: true, club: 8, sees: (p) => p.startsWith('r2/8/'), writes: () => true },
+  coachU19: { can: true, club: 7, sees: (p) => p.startsWith('r2/7/'), writes: (id) => id !== 12 },   // joueur 12 : lecture seule
 };
 globalThis.fetch = async (url, init) => {
   const u = new URL(url);
@@ -44,6 +46,7 @@ globalThis.fetch = async (url, init) => {
   if (!user) return new Response('{"message":"JWT expired"}', { status: 401 });
   if (u.pathname === '/rest/v1/rpc/can_manage_videos') return Response.json(user.can);
   if (u.pathname === '/rest/v1/rpc/my_club_id') return Response.json(user.club);
+  if (u.pathname === '/rest/v1/rpc/player_level') return Response.json(user.writes(JSON.parse(init.body).p_player) ? 'modification' : 'lecture');
   if (u.pathname === '/rest/v1/player_videos') {
     const asked = u.searchParams.get('storage_path').match(/"[^"]+"/g).map(s => s.slice(1, -1));
     return Response.json(asked.filter(user.sees).map(storage_path => ({ storage_path })));
@@ -71,6 +74,7 @@ assert.equal((await put(A, null, bytes)).status, 403, 'sans jeton : refusé');
 assert.equal((await put('r2/7/12/../../x.mp4', 'staff7', bytes)).status, 400, 'chemin hors format : refusé');
 assert.equal((await call('PUT', `/api/videos/file/${A}`, { token: 'staff7', body: bytes,
   headers: { 'content-length': String(96 * 1024 * 1024) } })).status, 413, 'au-delà de 95 Mo : refusé');
+assert.equal((await put(A, 'coachU19', bytes)).status, 403, 'joueur en lecture seule pour ce coach : pas d’envoi');
 assert.equal((await put(A, 'staff7', bytes)).status, 201, 'le staff vidéo du club envoie');
 assert.equal((await put(B, 'staff7', bytes, 'text/html')).status, 201);
 assert.equal(store.get(B).type, 'video/mp4', 'un type non vidéo est ramené à video/mp4');
@@ -144,6 +148,7 @@ assert.equal((await call('GET', `/api/videos/file/${A}`)).status, 403, 'sans sig
 /* ---------- Suppression ---------- */
 assert.equal((await call('DELETE', `/api/videos/file/${A}`, { token: 'joueur12' })).status, 403);
 assert.equal((await call('DELETE', `/api/videos/file/${A}`, { token: 'staff8' })).status, 403);
+assert.equal((await call('DELETE', `/api/videos/file/${A}`, { token: 'coachU19' })).status, 403, 'lecture seule : pas de suppression');
 assert.equal((await call('DELETE', `/api/videos/file/${A}`, { token: 'staff7' })).status, 200);
 assert.equal(store.has(A), false);
 assert.equal((await call('GET', url)).status, 404, 'supprimée : introuvable');

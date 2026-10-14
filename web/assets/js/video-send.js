@@ -1,15 +1,23 @@
 /* ============================================================
    LMFC Performance — video-send.js
    « Envoyer au staff » en une feuille, puis une confirmation :
-     contenu (miniature, titre, durée, habillage) → destinataire
-     → message facultatif (c'est l'analyse du joueur) → Envoyer.
+     contenu (miniature, titre, durée, habillage) → destinataires
+     (admins et coachs qui ont accès au joueur, nommés : la base les
+     choisit, sequence_recipients) → message facultatif → Envoyer.
    Après l'envoi, la feuille ne se ferme pas d'elle-même : elle
    confirme ce qui est parti, à qui, quand, et le statut.
    Utilisé par video-workspace.js : createSender(ws).
    ============================================================ */
 
 function createSender(ws) {
-  let club = null, seq = null;
+  let club = null, seq = null, recipients = null;
+  /* Destinataires réels (lmfc_v19.sql) : admins et coachs qui ont accès au joueur. */
+  async function loadRecipients() {
+    if (recipients) return recipients;
+    const { data, error } = await sb.rpc('sequence_recipients', { p_player: ws.video.player_id });
+    if (error) { console.warn('Destinataires indisponibles', error.message); return (recipients = []); }
+    return (recipients = (data || []).map(r => r.nom).filter(Boolean));
+  }
   async function clubName() {
     if (club !== null) return club;
     try {
@@ -18,7 +26,7 @@ function createSender(ws) {
     } catch (e) { console.warn('Nom du club indisponible', e); club = ''; }
     return club;
   }
-  const to = () => `Staff${club ? ` — ${escapeHtml(club)}` : ''}`;
+  const to = () => (recipients?.length ? escapeHtml(recipients.join(', ')) : `Staff${club ? ` — ${escapeHtml(club)}` : ''}`);
   const item = (s) => {
     const r = ws.range(s), n = (s.drawings || []).length;
     return `<div class="vw-send-item">
@@ -30,14 +38,14 @@ function createSender(ws) {
 
   async function open(s) {
     seq = s;
-    await clubName();
+    await Promise.all([clubName(), loadRecipients()]);
     ws.showSheet(`
       <div class="vw-sheet" role="dialog" aria-modal="true" aria-labelledby="vwSendTitle">
         <div class="vw-sheet-grip" aria-hidden="true"></div>
         <h3 id="vwSendTitle">Envoyer au staff</h3>
         <div class="vw-send-part"><span class="vw-block-title">Contenu</span>${item(s)}</div>
         <div class="vw-send-part"><span class="vw-block-title">Destinataire</span>
-          <strong>${to()}</strong><small class="vw-muted">Les entraîneurs de ton club : eux seuls la verront.</small></div>
+          <strong>${to()}</strong><small class="vw-muted">Ton administrateur et les coachs de ton équipe : eux seuls la verront.</small></div>
         <label class="vw-send-part"><span class="vw-block-title">Message (facultatif)</span>
           <textarea rows="3" data-el="sendMsg" placeholder="Ce que tu veux que ton staff regarde…">${escapeHtml(s.player_note || '')}</textarea></label>
         <p class="vw-send-err hidden" data-el="sendErr" role="alert"></p>

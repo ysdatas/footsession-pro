@@ -96,11 +96,29 @@
     </section>
   </main>
 
+  <!-- Accès d'un membre du staff (club-access.js) -->
+  <div class="modal-backdrop" id="accessModal" role="dialog" aria-labelledby="amTitle">
+    <div class="modal" style="max-width:560px;">
+      <h3 id="amTitle">Accès</h3>
+      <p class="text-muted" id="amTeams"></p>
+      <label class="am-readall"><input type="checkbox" id="amReadAll"> <span><strong>Lecture sur toutes les équipes</strong><small>Il consulte tous les joueurs, séances et matchs du club, sans les modifier (sauf ses équipes).</small></span></label>
+      <h4 class="am-h">Exceptions par joueur</h4>
+      <p class="field-hint">Une exception remplace la règle de l’équipe pour ce joueur : « Aucun » le retire, « Lecture » ou « Modification » l’ouvre.</p>
+      <div id="amList" class="am-list"></div>
+      <div class="am-add">
+        <input type="search" id="amSearch" placeholder="Ajouter un joueur…" autocomplete="off" aria-label="Ajouter une exception pour un joueur">
+        <div id="amResults" class="am-results"></div>
+      </div>
+      <div class="modal-actions"><button class="btn" type="button" data-close="accessModal">Fermer</button></div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/club-page.js"></script>
+  <script src="assets/js/club-access.js"></script>
 </body>
 </html>
