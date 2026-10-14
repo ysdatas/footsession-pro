@@ -2318,6 +2318,13 @@ async function saveToDB(validate) {
       procedure_id: PROC, canvas_json: serialize(), image_path: path, vue_terrain: state.view,
     }, { onConflict: 'procedure_id' });
     if (error) throw error;
+    // Image précédente sous un autre nom (brouillon rattaché, image importée) : retirée.
+    const old = PROC_SCHEMA?.image_path;
+    if (old && old !== path) {
+      const { error: rmErr } = await sb.storage.from('schemas').remove([old]);
+      if (rmErr) console.warn('Ancienne image du schéma restée dans le stockage', rmErr);
+    }
+    PROC_SCHEMA = { ...PROC_SCHEMA, image_path: path };
 
     persistLocal();
     // La séance ouverte dans l'autre onglet met son procédé à jour sans

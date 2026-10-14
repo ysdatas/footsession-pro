@@ -159,7 +159,7 @@ async function loadMembers() {
   // Groupes repliés par l'admin : ils le restent après une modification.
   const closed = new Set([...list.querySelectorAll('.member-group:not([open])')].map(g => g.dataset.group));
   list.innerHTML = memberGroups(members || [], fiche, teams).map(([title, rows, hint]) => `
-    <details class="member-group" data-group="${escapeHtml(title)}"${closed.has(title) ? '' : ' open'}>
+    <details class="member-group${hint ? ' is-warn' : ''}" data-group="${escapeHtml(title)}"${closed.has(title) ? '' : ' open'}>
       <summary>${escapeHtml(title)} <span>${rows.length}</span></summary>
       ${hint ? `<p class="member-hint">${hint}</p>` : ''}
       ${rows.map(rowHtml).join('')}

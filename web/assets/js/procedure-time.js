@@ -5,6 +5,9 @@
    Utilisé par l'éditeur de séance, les deux exports PDF, la page de
    partage et Analytics, afin qu'un même procédé n'affiche jamais
    deux durées différentes selon l'écran.
+   Contient aussi la lecture et l'écriture d'une ligne de procédé
+   (procFromRow / procRow) : relire puis réenregistrer redonne la même
+   ligne (tests/procedure-rows.test.mjs).
    ============================================================ */
 
 const PROC_TYPES = ['Jeu', 'Exercice', 'Situation'];
@@ -194,3 +197,57 @@ function procTeamsOf(p, s, procedures) {
 /* Procédé filmé : la séance l'est, et ce procédé n'en est pas exclu. */
 const procIsFilmed = (p, s) => !!s?.filmee && p.filme !== false;
 
+/* ---------- Lecture et écriture d'un procédé ---------- */
+function cleanTeams(list) {
+  return (Array.isArray(list) ? list : []).map(t => ({
+    nom: t.nom || 'Équipe', couleur: t.couleur || '#1f6feb',
+    player_ids: Array.isArray(t.player_ids) ? t.player_ids.map(Number) : [],
+  }));
+}
+/* Procédé tel que lu en base (procedures + tactical_schemas). procRow fait
+   l'inverse : relire puis renvoyer une ligne doit la redonner à l'identique. */
+function procFromRow(p, uid) {
+  const t = p.tactical_schemas || {};
+  return {
+    _uid: uid, id: p.id, nom: p.nom || '', duree_min: p.duree_min ?? 20,
+    objectif: p.objectif || '', effectif: p.effectif || '',
+    taille_terrain: p.taille_terrain || '', consignes: p.consignes || '',
+    principes_jeu: p.principes_jeu || '', comportements_individuels: p.comportements_individuels || '',
+    temps_recup_min: p.temps_recup_min ?? '',
+    type_procede: p.type_procede || '', nb_sequences: p.nb_sequences ?? '',
+    duree_sequence_min: p.duree_sequence_min ?? '',
+    image_path: t.image_path || null, video_id: t.video_id || null, expanded: false,
+    image_v: t.updated_at ? Date.parse(t.updated_at) : null,   // version de l'image (lmfc_v17.sql)
+    has_canvas: !!t.canvas_json,   // faux : image importée (importSchemaImage)
+    equipes: cleanTeams(p.equipes), staff: Array.isArray(p.staff) ? p.staff : [], filme: p.filme ?? null,
+  };
+}
+/* Ligne d'un procédé telle qu'envoyée à la base (et comparée à la dernière enregistrée). */
+function procRow(p, sid, ordre) {
+  return {
+    session_id: sid, ordre, nom: (p.nom || '').trim() || 'Procédé', duree_min: p.duree_min || 0,
+    objectif: p.objectif || null, effectif: p.effectif || null,
+    taille_terrain: p.taille_terrain || null, consignes: p.consignes || null,
+    principes_jeu: p.principes_jeu || null, comportements_individuels: p.comportements_individuels || null,
+    temps_recup_min: p.temps_recup_min === '' ? null : p.temps_recup_min,
+    type_procede: p.type_procede || null,
+    nb_sequences: p.nb_sequences === '' ? null : p.nb_sequences,
+    duree_sequence_min: p.duree_sequence_min === '' ? null : p.duree_sequence_min,
+    equipes: (p.equipes || []).map(t => ({ nom: (t.nom || '').trim() || 'Équipe', couleur: t.couleur, player_ids: t.player_ids })),
+    staff: (p.staff || []).map(m => ({ nom: (m.nom || '').trim(), role: (m.role || '').trim() })).filter(m => m.nom || m.role),
+    filme: p.filme === false ? false : null,
+  };
+}
+
+/* Égalité de valeurs telles que relues en base : nombres « 90 » / « 90.00 »,
+   objets jsonb dont l'ordre des clés change. */
+function sameValue(a, b) {
+  if (a == null || b == null) return (a ?? null) === (b ?? null);
+  if (typeof a === 'object' || typeof b === 'object') {
+    if (typeof a !== 'object' || typeof b !== 'object' || Array.isArray(a) !== Array.isArray(b)) return false;
+    const ka = Object.keys(a), kb = Object.keys(b);
+    return ka.length === kb.length && ka.every(k => sameValue(a[k], b[k]));
+  }
+  if (typeof a === 'number' || typeof b === 'number') return Number(a) === Number(b);
+  return String(a) === String(b);
+}

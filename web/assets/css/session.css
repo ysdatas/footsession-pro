@@ -389,3 +389,11 @@
 .pp-all { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-sm); font-weight: 500; text-transform: none;
   letter-spacing: normal; color: var(--text-primary); cursor: pointer; }
 .pp-all input { width: auto; margin: 0; accent-color: var(--gold); }
+
+/* Séance pas chargée (réseau) : rien n'est modifiable, on propose de réessayer. */
+.load-failure {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 14px 16px;
+  border: 1px solid rgba(var(--red-rgb), .55); border-radius: var(--radius-md); background: rgba(var(--red-rgb), .1);
+}
+.load-failure .btn { margin-left: auto; }
+.conflict-choices { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: var(--fs-sm); line-height: 1.5; }

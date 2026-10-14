@@ -35,7 +35,9 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   const staffReady = loadStaffSuggestions();
   // Séance existante : le droit de la modifier vient de la base (créateur, réglages, équipe).
   if (EDITOR_MODE === 'edit') {
-    const [{ data: lvl, error }] = await Promise.all([sb.rpc('session_access_level', { p_session: SESSION_ID }), loadSession()]);
+    const [{ data: lvl, error }, loaded] = await Promise.all([sb.rpc('session_access_level', { p_session: SESSION_ID }), loadSession()]);
+    if (loaded === null) return;                 // introuvable : retour à la liste en cours
+    if (loaded === false) return showLoadFailure();
     if (!error && lvl) CAN_WRITE = lvl === 'modification';   // sans lmfc_v10.sql : le rôle décide, comme avant
   }
 
@@ -183,12 +185,14 @@ function renderShare() {
   }
 }
 function randomToken() { return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join(''); }
-/* Lien de partage : la date de modification renvoyée garde le verrou de la sauvegarde automatique à jour. */
+/* Lien de partage : écrit dans la même file que la sauvegarde automatique
+   (jamais en même temps qu'elle) ; la date renvoyée garde le verrou à jour. */
 async function setShareToken(token) {
-  await flushSave();
-  const { data, error } = await sb.from('sessions').update({ share_token: token }).eq('id', savedSessionId).select('updated_at');
-  if (error) throw error;
-  if (data?.[0]) autosave.knownAt = data[0].updated_at;
+  await exclusiveWrite(async () => {
+    const { data, error } = await sb.from('sessions').update({ share_token: token }).eq('id', savedSessionId).select('updated_at');
+    if (error) throw error;
+    if (data?.[0]) autosave.knownAt = data[0].updated_at;
+  });
   shareToken = token;
   renderShare();
 }
@@ -211,8 +215,9 @@ async function loadSession() {
       sb.from('session_bilans').select('player_id, note, commentaire').eq('session_id', SESSION_ID),
       loadClubPlayers(),
     ]);
-    if (e1 || !s) { toast('Séance introuvable.', 'error'); setTimeout(() => location.href = 'sessions.html', 1200); return; }
-    if (e2 || e3) throw e2 || e3;
+    // Introuvable (ou plus de droit) : retour à la liste. Panne : on le dit, sans rien enregistrer.
+    if (!s && (!e1 || e1.code === 'PGRST116')) { toast('Séance introuvable.', 'error'); setTimeout(() => location.href = 'sessions.html', 1200); return null; }
+    if (e1 || e2 || e3) throw e1 || e2 || e3;
     shareToken = s.share_token || null;
     loadedSession = s;
     sessionFilmee = !!s.filmee;
@@ -226,18 +231,7 @@ async function loadSession() {
     document.getElementById('f-duree').value = decStr(s.duree_min ?? 90);
     document.getElementById('editorSubtitle').textContent = `Créée le ${(s.created_at || '').slice(0, 10)}`;
 
-    procedures = (procs || []).map(p => ({
-      _uid: nextUid(), id: p.id, nom: p.nom || '', duree_min: p.duree_min || 20,
-      objectif: p.objectif || '', effectif: p.effectif || '',
-      taille_terrain: p.taille_terrain || '', consignes: p.consignes || '',
-      principes_jeu: p.principes_jeu || '', comportements_individuels: p.comportements_individuels || '',
-      temps_recup_min: p.temps_recup_min ?? '',
-      type_procede: p.type_procede || '', nb_sequences: p.nb_sequences ?? '',
-      duree_sequence_min: p.duree_sequence_min ?? '',
-      image_path: p.tactical_schemas?.image_path || null, video_id: p.tactical_schemas?.video_id || null, expanded: false,
-      has_canvas: !!p.tactical_schemas?.canvas_json,   // faux : image importée (importSchemaImage)
-      equipes: cleanTeams(p.equipes), staff: Array.isArray(p.staff) ? p.staff : [], filme: p.filme ?? null,
-    }));
+    procedures = (procs || []).map(p => procFromRow(p, nextUid()));   // procedure-time.js
     // Ancienne séance : ses chasubles valaient pour toute la séance. Elles sont
     // reprises sur chaque procédé ; la prochaine sauvegarde les y range (_legacyTeams :
     // à enregistrer même sans autre changement, puisque la séance perd les siennes).
@@ -258,7 +252,23 @@ async function loadSession() {
       present: !!attMap.get(p.id)?.present, invite: !!attMap.get(p.id)?.invite,
     }));
     rememberSavedRoster(attMap);   // ce qui est déjà en base ne sera pas renvoyé tel quel
-  } catch (e) { console.error('Séance illisible', e); toast(e.message, 'error'); }
+    return true;
+  } catch (e) {
+    console.error('Séance illisible', e);
+    return false;
+  }
+}
+
+/* Séance pas chargée (réseau) : rien n'est modifiable ni enregistré, sinon une
+   saisie sur un écran vide écraserait la séance en base. */
+function showLoadFailure() {
+  CAN_WRITE = false;
+  document.getElementById('editorTitle').textContent = 'Séance';
+  const main = document.querySelector('main');
+  main.insertAdjacentHTML('afterbegin', `<div class="load-failure" role="alert">
+    <strong>La séance n’a pas pu être chargée.</strong> Vérifiez la connexion : rien n’a été modifié.
+    <button class="btn btn-primary btn-sm" type="button" onclick="location.reload()">Réessayer</button></div>`);
+  main.querySelectorAll('input, textarea, select, button:not(.load-failure button)').forEach(el => { el.disabled = true; });
 }
 
 /* Tout l'effectif du club, une fois (liste de présence, recherche d'invités). */
@@ -281,7 +291,9 @@ async function loadPlayersForNew() {
 }
 
 /* ---------- Procédés ---------- */
-function addProcedure(data = {}) {
+/* schema : schéma d'un modèle de la bibliothèque ({ image_path, canvas_json }),
+   rattaché au procédé à son premier enregistrement (commitDraftSchemas). */
+function addProcedure(data = {}, schema = null) {
   syncFromDom();
   procedures.push({
     _uid: nextUid(), nom: data.nom || '', duree_min: data.duree_min || 20,
@@ -292,6 +304,7 @@ function addProcedure(data = {}) {
     type_procede: data.type_procede || '', nb_sequences: data.nb_sequences ?? '',
     duree_sequence_min: data.duree_sequence_min ?? '',
     image_path: null, expanded: true, equipes: [], staff: [], filme: null,
+    from_template: schema?.image_path || schema?.canvas_json ? schema : null,
   });
   // Modèle qui avait un principe de jeu : il devient celui de la séance s'il manque.
   const principe = document.getElementById('f-principe');
@@ -319,10 +332,13 @@ window.saveAsTemplate = async (uid) => {
       const { error: copyErr } = await sb.storage.from('schemas').copy(p.image_path, image_path);
       if (copyErr) image_path = null;   // pas bloquant : le modèle reste utile sans image
     }
+    // Le dessin suit le modèle : inséré dans une autre séance, il reste modifiable.
+    const { data: sch } = p.id && p.has_canvas
+      ? await sb.from('tactical_schemas').select('canvas_json').eq('procedure_id', p.id).maybeSingle() : { data: null };
     const { error } = await sb.from('exercise_templates').insert({
       // La catégorie du modèle reprend le type du procédé (jeu / exercice / situation),
       // ce qui donne à la bibliothèque un classement utile.
-      club_id: myProfile.club_id, nom, categorie: p.type_procede || null, data, image_path,
+      club_id: myProfile.club_id, nom, categorie: p.type_procede || null, data, image_path, canvas_json: sch?.canvas_json || null,
     });
     if (error) throw error;
     toast('Modèle enregistré dans la bibliothèque', 'success');
@@ -336,7 +352,7 @@ async function openLibrary() {
   try {
     const { data: templates, error } = await sb.from('exercise_templates').select('id, nom, categorie, image_path').order('created_at', { ascending: false });
     if (error) throw error;
-    if (!templates.length) { list.innerHTML = '<p class="text-muted">Aucun modèle enregistré. Cliquez sur ☆ sur un procédé pour en créer un.</p>'; return; }
+    if (!templates.length) { list.innerHTML = '<p class="text-muted">Aucun modèle enregistré. Cliquez sur ☆ sur un procédé, ou sur « Ajouter à la bibliothèque » dans le tableau tactique (Exporter).</p>'; return; }
 
     const withUrls = await Promise.all(templates.map(async t => {
       if (!t.image_path) return { ...t, url: null };
@@ -360,9 +376,9 @@ async function openLibrary() {
 }
 window.insertTemplate = async (id) => {
   try {
-    const { data: tpl, error } = await sb.from('exercise_templates').select('data').eq('id', id).single();
+    const { data: tpl, error } = await sb.from('exercise_templates').select('nom, data, image_path, canvas_json').eq('id', id).single();
     if (error) throw error;
-    addProcedure(tpl.data || {});
+    addProcedure({ nom: tpl.nom, ...tpl.data }, tpl);
     closeModal('libraryModal');
     toast('Procédé ajouté depuis la bibliothèque', 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -448,12 +464,16 @@ const schemaUrl = (path, v) => `${sb.storage.from('schemas').getPublicUrl(path).
 function schemaBoxHtml(p) {
   if (p.id) {
     const draw = !p.image_path ? 'Dessiner le schéma →' : p.has_canvas ? 'Modifier le schéma →' : 'Dessiner à la place →';
-    return `${p.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(p.image_path, p.image_v))}" alt="Schéma du procédé" loading="lazy">` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
+    return `${p.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(p.image_path, p.image_v))}" alt="Schéma du procédé" loading="lazy" onerror="schemaImgFailed(this, '${p._uid}')">` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
        <button class="btn btn-sm" type="button" onclick="openBoard(${p.id})">${draw}</button>
        ${CAN_WRITE ? `<button class="btn btn-sm" type="button" onclick="importSchemaImage('${p._uid}')">${p.image_path ? 'Remplacer par une image' : 'Importer une image'}</button>` : ''}
        ${p.video_id ? `<button class="btn btn-sm" type="button" onclick="openLinkedVideo(${p.video_id})">▶ Vidéo liée</button>` : ''}`;
   }
   if (!CAN_WRITE) return '<p class="schema-empty">Aucun schéma pour ce procédé.</p>';
+  if (p.from_template) {
+    return `${p.from_template.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(p.from_template.image_path))}" alt="Schéma du modèle">` : ''}
+      <p class="schema-empty">Schéma du modèle : rattaché au procédé dès que la séance est enregistrée.</p>`;
+  }
   const meta = p.draft_key && lsJson('tb_draftmeta_' + p.draft_key);
   const started = p.draft_key && localStorage.getItem('tb_draft_' + p.draft_key);
   if (meta || started) {
@@ -464,6 +484,19 @@ function schemaBoxHtml(p) {
   return `<button class="btn btn-sm btn-primary" type="button" onclick="openDraftBoard('${p._uid}')">Dessiner le schéma →</button>
     <p class="schema-empty">Le schéma est rattaché au procédé dès que la séance est enregistrée.</p>`;
 }
+/* Image du schéma illisible (cache, réseau) : un essai par lien signé,
+   sinon on le dit au lieu d'afficher un cadre vide. */
+window.schemaImgFailed = async (img, uid) => {
+  const p = procedures.find(x => x._uid === uid);
+  if (!p?.image_path) return;
+  if (!img.dataset.retried) {
+    img.dataset.retried = '1';
+    const { data } = await sb.storage.from('schemas').createSignedUrl(p.image_path, 3600);
+    if (data?.signedUrl) { img.src = data.signedUrl; return; }
+  }
+  console.warn('Image du schéma illisible', p.image_path);
+  img.outerHTML = '<p class="schema-empty">Image du schéma introuvable : ouvrez le tableau et enregistrez le schéma.</p>';
+};
 function refreshSchemaBox(p) {
   const box = document.querySelector(`.proc[data-uid="${p._uid}"] [data-schema-box]`);
   if (box) box.innerHTML = schemaBoxHtml(p);
@@ -495,31 +528,54 @@ window.addEventListener('storage', (e) => {
    copiée à sa place définitive). Le procédé garde sa clé : si le tableau est
    encore ouvert et enregistre de nouveau, le schéma suit. */
 async function commitDraftSchemas() {
+  for (const p of procedures.filter(x => x.from_template && x.id)) await attachTemplateSchema(p);
   for (const p of procedures.filter(x => x.draft_key && x.id)) {
     const json = lsJson('tb_draft_' + p.draft_key);
     const meta = lsJson('tb_draftmeta_' + p.draft_key);
     if (!json || !meta) continue;
-    let image_path = null;
-    if (meta?.image_path) {
-      const dest = `${myProfile.club_id}/procedure-${p.id}.png`;
-      const { error: rmErr } = await sb.storage.from('schemas').remove([dest]);   // copy() n'écrase pas
-      if (rmErr) console.warn('Ancienne image du procédé non retirée', rmErr);
-      const { error: cpErr } = await sb.storage.from('schemas').copy(meta.image_path, dest);
-      if (cpErr) console.warn('Image du brouillon non copiée : elle sera refaite à la prochaine ouverture du tableau', cpErr);
-      else image_path = dest;
-    }
-    const { error } = await sb.from('tactical_schemas').upsert({
-      procedure_id: p.id, canvas_json: json, image_path, vue_terrain: json.view || 'complet',
-    }, { onConflict: 'procedure_id' });
-    if (error) throw error;
-    if (meta?.image_path && image_path) {
+    const image_path = meta.image_path ? await copySchemaImage(meta.image_path, p) : p.image_path;
+    await setSchema(p, { canvas_json: json, image_path, vue_terrain: json.view || 'complet' });
+    if (meta.image_path) {
       const { error: delErr } = await sb.storage.from('schemas').remove([meta.image_path]);
       if (delErr) console.warn('Image de brouillon restée dans le stockage', delErr);
     }
     localStorage.removeItem('tb_draft_' + p.draft_key);
     localStorage.removeItem('tb_draftmeta_' + p.draft_key);
-    p.image_path = image_path; p.image_v = Date.now(); p.has_canvas = true;
+    p.has_canvas = true;
     refreshSchemaBox(p);
+  }
+}
+
+/* Procédé inséré depuis la bibliothèque, désormais enregistré : il reçoit
+   une copie de l'image du modèle et son dessin (modifiable dans le tableau). */
+async function attachTemplateSchema(p) {
+  const { image_path: src, canvas_json } = p.from_template;
+  const image_path = src ? await copySchemaImage(src, p) : null;
+  await setSchema(p, { canvas_json: canvas_json || null, image_path });
+  Object.assign(p, { has_canvas: !!canvas_json, from_template: null });
+  refreshSchemaBox(p);
+}
+
+/* Copie d'une image (brouillon, modèle) pour un procédé, sous un nom neuf :
+   l'image en place reste intacte tant que la copie n'a pas réussi. Échec :
+   l'enregistrement est signalé et réessayé, rien n'est effacé. */
+async function copySchemaImage(src, p) {
+  const dest = `${myProfile.club_id}/procedure-${p.id}-${Date.now()}.png`;
+  const { error } = await sb.storage.from('schemas').copy(src, dest);
+  if (error) throw new Error(`image du schéma de « ${p.nom || 'procédé'} » non copiée (${error.message})`);
+  return dest;
+}
+/* Écrit le schéma du procédé, puis retire l'ancienne image s'il en change. */
+async function setSchema(p, fields) {
+  const { data, error } = await sb.from('tactical_schemas').upsert({ procedure_id: p.id, ...fields }, { onConflict: 'procedure_id' })
+    .select('updated_at').maybeSingle();
+  if (error) throw error;
+  const old = p.image_path;
+  p.image_path = fields.image_path;
+  p.image_v = data?.updated_at ? Date.parse(data.updated_at) : Date.now();
+  if (old && old !== p.image_path) {
+    const { error: rmErr } = await sb.storage.from('schemas').remove([old]);
+    if (rmErr) console.warn('Ancienne image du schéma restée dans le stockage', rmErr);
   }
 }
 
@@ -539,12 +595,11 @@ window.importSchemaImage = (uid) => {
     try {
       const img = await shrinkImage(file);
       if (!['image/png', 'image/jpeg'].includes(img.type)) throw new Error('choisissez une image JPEG ou PNG');
-      const path = `${myProfile.club_id}/procedure-${p.id}.png`;   // même place que le tableau ; type réel dans contentType
-      const { error: upErr } = await sb.storage.from('schemas').upload(path, img, { upsert: true, contentType: img.type });
+      const path = `${myProfile.club_id}/procedure-${p.id}-${Date.now()}.${img.type === 'image/png' ? 'png' : 'jpg'}`;
+      const { error: upErr } = await sb.storage.from('schemas').upload(path, img, { contentType: img.type });
       if (upErr) throw upErr;
-      const { error } = await sb.from('tactical_schemas').upsert({ procedure_id: p.id, image_path: path, canvas_json: null }, { onConflict: 'procedure_id' });
-      if (error) throw error;
-      Object.assign(p, { image_path: path, image_v: Date.now(), has_canvas: false });
+      await setSchema(p, { image_path: path, canvas_json: null });
+      p.has_canvas = false;
       refreshSchemaBox(p);
       toast('Image ajoutée au procédé.', 'success');
     } catch (e) {
@@ -599,13 +654,6 @@ function renderProcedures() {
   renderProcBlocks();   // équipes et staff de chaque procédé, résumé vidéo
 }
 
-/* Chasubles lues en base : toujours { nom, couleur, player_ids[] }. */
-function cleanTeams(list) {
-  return (Array.isArray(list) ? list : []).map(t => ({
-    nom: t.nom || 'Équipe', couleur: t.couleur || '#1f6feb',
-    player_ids: Array.isArray(t.player_ids) ? t.player_ids.map(Number) : [],
-  }));
-}
 
 function syncFromDom() {
   document.querySelectorAll('#proceduresList .proc').forEach(node => {

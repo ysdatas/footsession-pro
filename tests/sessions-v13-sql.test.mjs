@@ -39,4 +39,19 @@ await db.query(`update public.sessions set terrain = '{"7": [50, 12.5]}'`);
 assert.deepEqual((await one(`select terrain from public.sessions`)).terrain, { 7: [50, 12.5] });
 await assert.rejects(db.query(`update public.sessions set terrain = '[]'`), /check/, 'un objet seulement');
 
-console.log('sessions-v13-sql : OK (verrou, terrain d’effectif)');
+// lmfc_v17.sql : la version d'un schéma suit chaque écriture (adresse de l'image).
+await db.exec(`create table public.tactical_schemas (id bigint generated always as identity primary key,
+  procedure_id bigint not null unique, canvas_json jsonb, image_path text, vue_terrain text default 'complet', updated_at timestamptz default now());`);
+const v17 = readFileSync(new URL('../supabase/lmfc_v17.sql', import.meta.url), 'utf8');
+await db.exec(v17);
+await db.exec(v17);   // rejouable
+// Époque en microsecondes : deux écritures peuvent tomber dans la même milliseconde.
+const s1 = await one(`insert into public.tactical_schemas (procedure_id, image_path, updated_at) values (1, 'a.png', '2000-01-01')
+  returning extract(epoch from updated_at)::numeric as t`);
+assert.ok(Number(s1.t) > Date.parse('2020-01-01') / 1000, 'date posée à la création, même si on en envoie une autre');
+const s2 = await one(`insert into public.tactical_schemas (procedure_id, image_path) values (1, 'b.png')
+  on conflict (procedure_id) do update set image_path = excluded.image_path returning extract(epoch from updated_at)::numeric as t, image_path`);
+assert.equal(s2.image_path, 'b.png');
+assert.ok(Number(s2.t) > Number(s1.t), 'upsert : nouvelle version');
+
+console.log('sessions-v13-sql : OK (verrou, terrain d’effectif, version des schémas)');

@@ -108,6 +108,8 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 35. supabase/lmfc_v16.sql                  notifications : push_subscriptions (appareils abonnés, services
                                            d'envoi connus seulement), push_subscribe() ; lecture : soi-même
                                            ou l'admin du club (rejouable)
+36. supabase/lmfc_v17.sql                  version des schémas : tactical_schemas.updated_at avancé à chaque
+                                           écriture (adresse de l'image versionnée) (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -338,10 +340,23 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   changement pendant l'envoi repart juste après). Seul ce qui a changé part (procédés, présences,
   bilans, droits comparés à leur dernier état enregistré) ; la séance est créée dès qu'elle a un
   titre et une date (l'adresse devient `?id=…`, sans rechargement). Indicateur fixe en bas à
-  droite : en attente, enregistrement, enregistré (heure), erreur (nouvel essai à 2 s, 4 s, 8 s…
-  30 s ; clic = tout de suite). Verrou : la mise à jour de la séance porte `updated_at = celle
-  lue` ; si quelqu'un d'autre a enregistré entre-temps, rien n'est écrit et la page demande de
-  recharger. Un lien de l'application attend la fin de l'enregistrement ; fermer l'onglet avec
+  droite : « Modifications en attente », « Enregistrement en cours… », « Enregistré · heure »,
+  « Erreur d'enregistrement · Réessayer » avec l'étape en cause au survol (Séance, Procédés,
+  Présences, Bilans, Droits d'accès, Schémas ; nouvel essai à 2 s, 4 s, 8 s… 30 s, clic = tout de
+  suite ; une coupure réseau est d'abord réessayée sans alarme). Verrou : la mise à jour de la
+  séance porte `updated_at = celle lue`. Aucune ligne touchée : la page relit la séance
+  (`adoptOwnWrite`) ; si elle contient ce qu'on vient d'envoyer (réponse perdue, page rechargée
+  pendant un envoi), c'était notre écriture et on continue ; sinon, vrai conflit : « Modifiée par
+  quelqu'un d'autre · choisir » ouvre « Voir la version la plus récente » (recharger) ou « Garder
+  ma version » (tout réenregistrer par-dessus). Une création dont la réponse s'est perdue est
+  reprise au nouvel essai, jamais doublée (séance : `createSession`, procédé : `insertProcedure`).
+  Le lien de partage écrit dans la même file (`exclusiveWrite`). Séance illisible à l'ouverture
+  (réseau) : bandeau « Réessayer », rien n'est modifiable ni enregistré (avant : un écran vide
+  pouvait écraser la séance). Lecture et écriture d'un procédé : `procFromRow` / `procRow`
+  (`procedure-time.js`, relire puis réenregistrer redonne la même ligne). Images de schéma :
+  copiées sous un nom neuf (`copySchemaImage`) puis l'ancienne retirée (`setSchema`) ; adresse
+  versionnée par `tactical_schemas.updated_at` (`lmfc_v17.sql`) ; image illisible : un essai par
+  lien signé, sinon « ouvrez le tableau et enregistrez ». Un lien de l'application attend la fin de l'enregistrement ; fermer l'onglet avec
   des modifications en attente fait prévenir le navigateur ; un onglet masqué enregistre aussitôt.
   Les exports PDF enregistrent d'abord. L'ouverture charge séance, procédés, présences, bilans
   et effectif en une seule vague de requêtes.
@@ -359,8 +374,8 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   `schemas/{club}/drafts/` ; dès que le tableau l'enregistre (`tb_draftmeta_*`, événement
   `storage`), la sauvegarde automatique le rattache au procédé (`commitDraftSchemas`).
   **Importer une image** (procédé enregistré) remplace le dessin par une photo ou une capture :
-  réduite à 1600 px (`shrinkImage`, `app.js`), rangée au même endroit que le schéma du tableau
-  (`schemas/{club}/procedure-{id}.png`, type réel en `contentType`), `canvas_json` vidé ; fiche,
+  réduite à 1600 px (`shrinkImage`, `app.js`), rangée sous `schemas/{club}/procedure-{id}-{date}`
+  (type réel en `contentType`), `canvas_json` vidé ; fiche,
   PDF et partage la reprennent comme un schéma. « Dessiner à la place » repart d'un terrain vide.
 - **PDF** (`pdf-generator.js`, `pdf-coach.js`) — principe de jeu de la séance en tête, objectif
   de chaque procédé, blason LMFC par défaut. Un texte trop long pour son bloc continue sur une
@@ -579,6 +594,13 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Export** : image de l'étape affichée, images de toutes les étapes, vidéo (MP4 quand le
   navigateur le permet), présentation plein écran avec sa barre (étapes, lecture, quitter).
   « Cadrer une zone » limite l'export ; Échap ou le même bouton annule, « ✕ » retire le cadrage.
+- **Bibliothèque** : « Ajouter à la bibliothèque » (panneau Exporter, admin et coachs) fait du
+  schéma affiché un modèle d'exercice (`exercise_templates` : nom, image dans
+  `schemas/{club}/templates/`, dessin dans `canvas_json`), même en schéma libre, sans séance.
+  Dans une séance, « Bibliothèque » → « Insérer » crée le procédé avec le texte du modèle ET
+  son schéma : aperçu tout de suite, copie de l'image et du dessin au premier enregistrement
+  (`attachTemplateSchema`, `session-edit-page.js`), modifiable ensuite dans le tableau. Un modèle
+  créé par ☆ depuis un procédé garde aussi son dessin.
 - **Raccourcis** : `Ctrl+Z` annuler, `Suppr` supprimer l'élément sélectionné.
 - **Sauvegarde** : auto en LocalStorage (30 s) ; « Enregistrer » (panneau Exporter) enregistre le JSON en
   base ; **Valider ce schéma** enregistre l'image dans le procédé et revient à la séance.
@@ -629,6 +651,7 @@ node tests/session-principle.test.mjs  # principe de jeu : séance, anciennes s�
 node tests/video-status.test.mjs   # statuts des séquences vidéo
 node tests/trash-sql.test.mjs      # corbeille sur un vrai Postgres (ignoré sans PGlite)
 node tests/procedure-time.test.mjs # durées à virgule, statuts de présence
+node tests/procedure-rows.test.mjs # un procédé relu puis réenregistré redonne la même ligne
 node tests/sessions-v9-sql.test.mjs tests/sessions-v12-sql.test.mjs tests/sessions-v13-sql.test.mjs \
   tests/sessions-access-sql.test.mjs tests/matches-sql.test.mjs tests/push-sql.test.mjs   # séances, droits, membres, matchs, notifications (PGlite)
 ```
