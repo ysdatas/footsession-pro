@@ -20,7 +20,7 @@
    (↶) et se rétablit (↷).
 
    mountVideoWorkspace(root, { video, src, player, mode: 'player'|'staff',
-     userId, focusSeq, onChange, backHref, history })
+     userId, focusSeq, onChange, backHref, history }) → { video, canLeave }
    ============================================================ */
 
 const VW_FPS = 25;                 // pas « image par image »
@@ -51,6 +51,13 @@ const vwIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${VW
 const vwDate = (d) => new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 async function mountVideoWorkspace(root, { video, src, player, mode, userId, focusSeq = null, onChange = null, backHref = null, history: useHistory = false }) {
+  // Nouveau montage dans le même conteneur (autre séquence, Précédent / Suivant) :
+  // l'élément est remplacé, et les écouteurs du montage précédent partent avec
+  // lui. Avant, ils restaient : un retour envoyé sur la séquence ouverte partait
+  // aussi sur la précédente.
+  const fresh = root.cloneNode(false);
+  root.replaceWith(fresh);
+  root = fresh;
   const staff = mode === 'staff';
   const tu = (toi, vous) => (staff ? vous : toi);   // le joueur est tutoyé, le staff vouvoyé
   const w = { seqs: [], cur: null, ui: 'view', sel: null, stopAt: null, holding: null, holdTimer: 0,
@@ -707,5 +714,13 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     };
     if (vid.readyState >= 1) open(); else vid.addEventListener('loadedmetadata', open, { once: true });
   }
-  return { video: vid };
+  /* Changer de séquence (Précédent / Suivant) : rien de non enregistré ne se
+     perd sans le demander (annotation du joueur, retour du staff en cours). */
+  const canLeave = () => {
+    if (w.ui === 'annotate' && annot?.dirty) return confirm('Ton annotation n’est pas enregistrée. La quitter quand même ?');
+    const fb = root.querySelector('[data-el="feedback"]');
+    if (fb && fb.value.trim() !== (cur()?.staff_feedback || '').trim()) return confirm('Votre retour n’est pas envoyé. Changer de séquence quand même ?');
+    return true;
+  };
+  return { video: vid, canLeave };
 }

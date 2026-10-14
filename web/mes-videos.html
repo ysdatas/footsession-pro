@@ -49,6 +49,17 @@
   const pv = { videos: [], seqs: [], urls: new Map(), tab: new URLSearchParams(location.search).get('tab') === 'seqs' ? 'seqs' : 'videos', filter: 'all' };
   const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 
+  /* Séquence ouverte : la liste affichée, dans son ordre, passe au lecteur
+     (voir-video.html) pour Précédent / Suivant. */
+  document.getElementById('pvContent').addEventListener('click', (e) => {
+    if (!e.target.closest('a.vp-card[href*="&seq="]')) return;
+    const list = [...document.querySelectorAll('#pvContent a.vp-card[href*="&seq="]')].map(a => {
+      const q = new URL(a.href).searchParams;
+      return { id: Number(q.get('id')), seq: Number(q.get('seq')), label: a.querySelector('strong')?.textContent || '' };
+    });
+    try { sessionStorage.setItem('lmfc-vv-list', JSON.stringify(list)); } catch { /* stockage bloqué : pas de Précédent / Suivant */ }
+  });
+
   (async () => {
     const box = document.getElementById('pvContent');
     try {

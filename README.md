@@ -497,6 +497,17 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     stockée dans `drawings` : `{ t, d, freeze, shapes }` ;
   - **Envoi** (`video-send.js`) : contenu (miniature, titre, durée), destinataire, message
     facultatif (l'analyse du joueur), puis une confirmation (destinataire, date, statut) ;
+  - **Précédent / Suivant** : staff, `openVideoWorkspace({ …, playlist })` (`player-videos.js`)
+    reçoit les séquences dans l'ordre de la liste affichée (« À traiter », ou celles d'un joueur,
+    sans doublon : `seqPlaylist`) ; « ‹ Précédent · 3 / 8 · Suivant › » dans l'en-tête de la
+    fenêtre, désactivés aux extrémités, lecteur jamais fermé ; même source = simple saut, autre
+    source = lien signé et index de la suivante chargés d'avance (`preloadSeq`). Joueur,
+    `voir-video.html` : la liste de « Mes vidéos » (`sessionStorage` `lmfc-vv-list`, dans
+    l'ordre) ; chaque séquence est relue avec ses droits (ses vidéos seulement) et signée par le
+    Worker, une autre ne s'ouvre jamais. Un retour du staff ou une annotation pas encore
+    enregistrés font demander avant de changer (`canLeave`). Chaque montage repart d'un
+    conteneur neuf : avant, les écouteurs du montage précédent restaient, et un retour envoyé
+    partait aussi sur la séquence ouverte juste avant ;
   - **Statuts** (`video-status.js`), un seul badge : Brouillon, Envoyé (« À traiter » côté staff),
     Vu, Retour, Modifié (changée depuis l'envoi). Le trigger `guard_video_sequence` date
     lui-même l'envoi, la lecture et les modifications (jamais l'horloge du téléphone) ;

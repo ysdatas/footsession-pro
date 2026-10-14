@@ -604,3 +604,16 @@ body.pa-body:has(.vw.is-annotating) { padding-bottom: env(safe-area-inset-bottom
   .pvx-tools { width: 100%; }
   .pvx-tools .btn { flex: 1 1 auto; justify-content: center; }
 }
+
+/* Précédent / Suivant dans le lecteur (staff : fenêtre ; joueur : voir-video.html). */
+.ws-nav { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ws-nav[hidden] { display: none; }
+.ws-pos { display: grid; justify-items: center; min-width: 0; max-width: 260px; line-height: 1.2; text-align: center; }
+.ws-pos strong { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.ws-pos span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-secondary); }
+.vv-nav { justify-content: space-between; margin-bottom: 10px; }
+@media (max-width: 600px) {
+  .ws-head { flex-wrap: wrap; }
+  .ws-head .ws-nav { order: 3; width: 100%; justify-content: space-between; }
+  .ws-pos { max-width: 52vw; }
+}

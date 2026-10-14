@@ -201,7 +201,12 @@ document.getElementById('vpView').addEventListener('click', (e) => {
     const v = videosCache.find(x => x.id === Number(open.dataset.openVideo));
     if (!v) return;
     return openVideoWorkspace({ video: v, url: urlCache.get(v.id), player: playersCache.find(p => p.id === v.player_id),
-      profile: myProfile, seqId: Number(open.dataset.seq) || null, onChange: loadVideos });
+      profile: myProfile, seqId: Number(open.dataset.seq) || null, onChange: loadVideos,
+      // « À traiter », dans l'ordre affiché : Précédent / Suivant dans le lecteur.
+      playlist: seqPlaylist([...document.querySelectorAll('#vpView [data-open-video][data-seq]')], (b) => {
+        const s = seqsCache.find(x => x.id === Number(b.dataset.seq)), vid = s && videosCache.find(x => x.id === s.video_id);
+        return vid && { seqId: s.id, video: vid, player: playersCache.find(p => p.id === vid.player_id), label: s.label, url: urlCache.get(vid.id) };
+      }) });
   }
   const pl = e.target.closest('[data-player]');
   if (pl) return goTo(Number(pl.dataset.player));

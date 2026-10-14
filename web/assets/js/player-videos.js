@@ -228,7 +228,11 @@ function pvClick(e) {
   if (open) {
     const v = PV.videos.find(x => x.id === Number(open.dataset.pvOpen));
     if (v) openVideoWorkspace({ video: v, url: PV.urls.get(v.id), player: PV.player, profile: PV.profile,
-      seqId: Number(open.dataset.pvSeq) || null, onChange: pvLoad });
+      seqId: Number(open.dataset.pvSeq) || null, onChange: pvLoad,
+      playlist: seqPlaylist([...PV.root.querySelectorAll('[data-pv-open][data-pv-seq]')], (b) => {
+        const s = PV.seqs.find(x => x.id === Number(b.dataset.pvSeq)), vid = s && PV.videos.find(x => x.id === s.video_id);
+        return vid && { seqId: s.id, video: vid, player: PV.player, label: s.label, url: PV.urls.get(vid.id) };
+      }) });
   }
 }
 
@@ -312,11 +316,17 @@ function ensureVideoModals() {
   </div>
   <div class="modal-backdrop" id="wsModal">
     <div class="modal modal-xl">
-      <div class="ws-head"><span class="ws-who" id="wsTitle">Joueur</span><button class="btn btn-sm" type="button" data-close="wsModal">Fermer</button></div>
+      <div class="ws-head"><span class="ws-who" id="wsTitle">Joueur</span>
+        <div class="ws-nav" id="wsNav" hidden></div>
+        <button class="btn btn-sm" type="button" data-close="wsModal">Fermer</button></div>
       <div id="wsRoot"></div>
     </div>
   </div>`);
   document.getElementById('v-submit').addEventListener('click', uploadVideos);
+  document.getElementById('wsNav').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ws-step]');
+    if (b && !b.disabled) wsStep(Number(b.dataset.wsStep));
+  });
   // Fermeture du poste de travail (bouton, Échap, clic à côté) : on coupe
   // la vidéo et on rafraîchit la liste si quelque chose a changé.
   new MutationObserver(() => {
@@ -326,20 +336,69 @@ function ensureVideoModals() {
   }).observe(document.getElementById('wsModal'), { attributes: true, attributeFilter: ['class'] });
 }
 
-const pvWs = { dirty: false, after: null };
-async function openVideoWorkspace({ video, url, player, profile, seqId = null, onChange = null }) {
+const pvWs = { dirty: false, after: null, list: [], i: -1, profile: null, ws: null, busy: false };
+/* playlist : les séquences dans l'ordre de la liste affichée ({ seqId,
+   video, player, label, url? }) ; « ‹ Précédent » et « Suivant › » passent
+   de l'une à l'autre sans fermer le lecteur. Chaque séquence est relue
+   par la base au montage (RLS) et son lien signé par le Worker : une
+   séquence non autorisée ne s'affiche jamais. */
+async function openVideoWorkspace({ video, url, player, profile, seqId = null, onChange = null, playlist = null }) {
   ensureVideoModals();
   if (!url) {
     try { url = await videoUrl(video.storage_path); } catch (e) { console.warn('Lien de lecture indisponible', e); }
   }
   if (!url) return toast(PV.signError ? `Lecture impossible : ${PV.signError.message}` : 'Vidéo introuvable dans le stockage.', 'error');
-  pvWs.dirty = false; pvWs.after = onChange;
-  document.getElementById('wsTitle').textContent = pvName(player);
+  pvWs.dirty = false; pvWs.after = onChange; pvWs.profile = profile;
+  pvWs.list = seqId && playlist ? playlist : [];
+  pvWs.i = pvWs.list.findIndex(it => it.seqId === seqId);
   openModal('wsModal');
-  await mountVideoWorkspace(document.getElementById('wsRoot'), {
-    video, src: url, player, mode: 'staff', userId: profile.id, focusSeq: seqId,
+  await wsMount({ seqId, video, player, url });
+}
+async function wsMount(it) {
+  document.getElementById('wsTitle').textContent = pvName(it.player);
+  renderWsNav();
+  document.getElementById('playerVideo')?.pause();
+  pvWs.ws = await mountVideoWorkspace(document.getElementById('wsRoot'), {
+    video: it.video, src: it.url, player: it.player, mode: 'staff', userId: pvWs.profile.id, focusSeq: it.seqId,
     onChange: () => { pvWs.dirty = true; },
   });
+  // La suivante, si elle vient d'une autre vidéo : lien signé et index chargés d'avance.
+  const next = pvWs.list[pvWs.i + 1];
+  if (next && next.video.id !== it.video.id) preloadSeq(next);
+}
+async function preloadSeq(it) {
+  try {
+    it.url ||= await videoUrl(it.video.storage_path);
+    if (it.url) Object.assign(document.createElement('video'), { preload: 'metadata', muted: true, src: it.url });
+  } catch (e) { console.warn('Séquence suivante non préparée', e); }
+}
+function renderWsNav() {
+  const nav = document.getElementById('wsNav'), { list, i } = pvWs;
+  nav.hidden = list.length < 2 || i < 0;
+  if (nav.hidden) return;
+  nav.innerHTML = `<button class="btn btn-sm" type="button" data-ws-step="-1"${i > 0 ? '' : ' disabled'} aria-label="Séquence précédente">‹ Précédent</button>
+    <span class="ws-pos" aria-live="polite"><strong>${i + 1} / ${list.length}</strong><span>${escapeHtml(list[i].label || 'Séquence')}</span></span>
+    <button class="btn btn-sm" type="button" data-ws-step="1"${i < list.length - 1 ? '' : ' disabled'} aria-label="Séquence suivante">Suivant ›</button>`;
+}
+async function wsStep(d) {
+  const it = pvWs.list[pvWs.i + d];
+  if (!it || pvWs.busy || pvWs.ws?.canLeave() === false) return;
+  pvWs.busy = true;
+  try {
+    it.url ||= await videoUrl(it.video.storage_path);
+    if (!it.url) return toast('Séquence indisponible : vidéo introuvable ou accès retiré.', 'error');
+    pvWs.i += d;
+    await wsMount(it);
+  } catch (e) {
+    console.error('Séquence suivante illisible', e);
+    toast(`Séquence indisponible : ${e.message}`, 'error');
+  } finally { pvWs.busy = false; }
+}
+/* Séquences d'une liste affichée, dans l'ordre, sans doublon (une séquence
+   « À traiter » apparaît aussi sous sa vidéo). */
+function seqPlaylist(buttons, find) {
+  const seen = new Set();
+  return buttons.map(find).filter(it => it && !seen.has(it.seqId) && seen.add(it.seqId));
 }
 
 /* ---------- Envoi de vidéos ----------
