@@ -269,6 +269,16 @@ Classeur de référence : `Tests_Physiques_N2-5.xlsx`. Onglets lus : `Anthropom�
 `Plis cutanés`, `Tests bruts`, `Profil sur 10`, et l'onglet individuel du joueur s'il
 existe. Les décalages de colonnes sont documentés au-dessus de `parseExcel()`.
 
+Le **modèle Espoirs** (`Tests_Physiques_Espoirs`) a les mêmes onglets et colonnes, avec
+trois différences prises en charge :
+- `Plis cutanés` colonne C = **date de naissance** (année de début de saison en C3) : l'âge
+  de chaque mesure est calculé au 15 du mois, avec la formule du classeur, et la date de
+  naissance remplit la fiche créée par l'import ;
+- une seule `Fiche joueur` au lieu d'un onglet par joueur : le ratio Shirado / Sorensen est
+  Shirado ÷ Sorensen, la formule du classeur (et du déclencheur de la base) ;
+- `Notice` et `Tests de force` (dynamomètre) ne sont pas importés : la plateforme n'a pas
+  encore de place pour les tests de force.
+
 Le joueur est reconnu par son **nom de famille**, dans n'importe quel ordre
 prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 

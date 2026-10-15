@@ -205,10 +205,30 @@ function parsePlayerSheet(workbook, target) {
   return result;
 }
 
+/* Date de naissance d'une cellule Excel (lue avec cellDates) : la
+   bibliothèque la rend quelques secondes avant minuit ; on la ramène au
+   jour local le plus proche. */
+function excelDay(v) {
+  if (Object.prototype.toString.call(v) !== '[object Date]' || isNaN(v)) return null;
+  const d = new Date(v.getTime() + 12 * 3600e3);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/* Âge au 15 du mois de mesure, comme le classeur Espoirs :
+   (DATE(année de début de saison [+1 de janvier à juin]; mois; 15) − naissance) / 365,25. */
+function ageAtMonth(birth, startYear, mi) {
+  const month = ((mi + 7) % 12) + 1;                 // MONTHS[0] = août
+  const day = new Date(startYear + (month < 8 ? 1 : 0), month - 1, 15);
+  return Math.floor((day - birth) / 864e5 / 365.25);
+}
+
 /* Lit le classeur du préparateur pour UN joueur.
    Décalages du modèle Tests_Physiques_N2-5 (vérifiés contre le fichier réel) :
      Anthropométrie  en-tête ligne 4 ; taille col C.., poids col N.., MG col Y..
-     Plis cutanés    âge col C, puis 6 colonnes par mois à partir de D
+     Plis cutanés    âge col C (modèle Espoirs : date de naissance, et
+                     année de début de saison en C3), puis 6 colonnes par
+                     mois à partir de D
      Tests bruts     9 colonnes par session à partir de C
      Profil sur 10   5 colonnes par session à partir de C
    Voir tests/perf-logic.test.mjs. */
@@ -250,7 +270,9 @@ function parseExcel(file, workbook, target) {
   const anthRow = anthMatch ? (anth[anthMatch.index] || []) : [];
   const foldRow = foldsMatch ? (folds[foldsMatch.index] || []) : [];
 
-  const age = num(foldRow[2]);
+  const birth = excelDay(foldRow[2]);
+  const age = birth ? null : num(foldRow[2]);
+  const startYear = num(folds[2]?.[2]);
 
   MONTHS.forEach((month, mi) => {
     const height = num(anthRow[2 + mi]);
@@ -285,7 +307,7 @@ function parseExcel(file, workbook, target) {
       measurementsRows.push({
         name: anthMatch?.name || foldsMatch?.name || `${target.prenom || ''} ${target.nom || ''}`.trim(),
         month_label: month,
-        age_at_measurement: age,
+        age_at_measurement: birth && startYear ? ageAtMonth(birth, startYear, mi) : age,
         height_cm: height,
         weight_kg: weight,
         body_fat_pct: bodyFat,
@@ -322,7 +344,9 @@ function parseExcel(file, workbook, target) {
     const shirado = num(rawRow[c + 7]);
     const sorensen = num(rawRow[c + 8]);
 
-    const ratio = playerSheet?.ratioByStage?.[s.key] ?? null;
+    // Onglet individuel (ancien modèle) ; sinon Shirado ÷ Sorensen, la formule
+    // du classeur et du déclencheur de la base : l'aperçu montre ce qui sera enregistré.
+    const ratio = playerSheet?.ratioByStage?.[s.key] ?? (shirado !== null && sorensen ? shirado / sorensen : null);
 
     if ([
       sprint10,
@@ -434,6 +458,7 @@ function parseExcel(file, workbook, target) {
 
     measurements: measurementsRows,
     tests: testRows,
+    birthDate: birth ? isoDay(birth) : null,
 
     individualSheet: playerSheet?.sheetName || null
   };
@@ -882,9 +907,12 @@ const ExcelImport = (() => {
       const createdFiches = [];
       for (const name of st.create) {
         const { nom, prenom } = splitExcelName(name);
+        const { birthDate } = parseExcel({ name: st.fileName }, st.workbook, { nom, prenom });
         const { data: fiche, error } = await sb.from('players')
-          // Rattachée à l'équipe choisie dans le menu, s'il y en a une.
+          // Rattachée à l'équipe choisie dans le menu, s'il y en a une ;
+          // la date de naissance du classeur (modèle Espoirs) est reprise.
           .insert({ club_id: opts.clubId, nom, prenom: prenom || null,
+            ...(birthDate ? { date_naissance: birthDate } : {}),
             ...(typeof currentTeamId === 'function' && currentTeamId() ? { team_id: currentTeamId() } : {}) })
           .select('id, nom, prenom, numero, club_id').single();
         if (error) throw new Error(`création de la fiche « ${name} » : ${error.message}`);

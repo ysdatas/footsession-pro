@@ -143,4 +143,33 @@ const lev = vm.runInContext('levenshtein', ctx);
 assert.equal(lev('botherel', 'bothorel'), 1);
 assert.equal(lev('brunel', 'brunell'), 1);
 
-console.log('OK — import Excel validé sur la structure Tests_Physiques_N2-5 : lecture, noms, fusion, réimport.');
+/* ---------- 9) Modèle Espoirs : date de naissance, pas d'onglet individuel ----------
+   Même grille, mais « Plis cutanés » C = date de naissance (C3 = année de
+   début de saison) et une seule « Fiche joueur » : l'âge et le ratio se
+   calculent comme dans le classeur. Joueurs fictifs. */
+const row = (cells) => Object.assign([], cells);
+const blank = () => [[], [null, 'TITRE'], [], [null, 'NOM Prénom']];
+const folds = blank(); folds[2] = [null, 'Année de début de saison', 2026, 'Août'];
+const anth = blank(), raw = blank();
+// La bibliothèque rend une date quelques secondes avant minuit : 15/03/2009.
+folds.push(row({ 1: 'TESTEUR Paul', 2: new Date(2009, 2, 14, 23, 59, 39), 15: 4, 16: 6, 17: 7, 18: 6, 19: 23, 20: 9.5, 38: 10 }));
+folds.push(row({ 1: 'ESSAI Marc' }));
+anth.push(row({ 1: 'TESTEUR Paul', 4: 180, 15: 70, 26: 9.5 }), row({ 1: 'ESSAI Marc', 15: 66 }));
+raw.push(row({ 1: 'TESTEUR Paul', 2: 1.8, 9: 90, 10: 180 }), row({ 1: 'ESSAI Marc', 9: 80, 10: 0 }));
+const espoirs = { SheetNames: ['Notice', 'Plis cutanés', 'Anthropométrie', 'Tests de force', 'Tests bruts', 'Profil sur 10', 'Fiche joueur'],
+  Sheets: { 'Plis cutanés': folds, 'Anthropométrie': anth, 'Tests bruts': raw, 'Profil sur 10': blank(), 'Fiche joueur': [] } };
+const paul = parseExcel(file, espoirs, { id: 2, club_id: 1, prenom: 'Paul', nom: 'Testeur' });
+assert.equal(paul.individualSheet, null, '« Fiche joueur » n’est pas l’onglet d’un joueur');
+assert.equal(paul.birthDate, '2009-03-15', 'date de naissance ramenée au bon jour');
+const oct = paul.measurements.find(m => m.month_label === 'Octobre');
+assert.equal(oct.age_at_measurement, 17, 'âge au 15/10/2026 (et non la date brute)');
+assert.equal(oct.weight_kg, 70);
+assert.equal(oct.body_fat_pct, 9.5);
+assert.equal(paul.measurements.find(m => m.month_label === 'Janvier').age_at_measurement, 17, 'janvier : année suivante (15/01/2027)');
+assert.equal(paul.tests[0].core_ratio, 0.5, 'ratio = Shirado ÷ Sorensen, comme la fiche joueur du classeur');
+const marc = parseExcel(file, espoirs, { id: 3, club_id: 1, prenom: 'Marc', nom: 'Essai' });
+assert.equal(marc.birthDate, null);
+assert.equal(marc.measurements[0].age_at_measurement, null, 'sans date de naissance, pas d’âge');
+assert.equal(marc.tests[0].core_ratio, null, 'Sorensen à 0 : pas de ratio');
+
+console.log('OK — import Excel validé sur la structure Tests_Physiques_N2-5 et le modèle Espoirs : lecture, noms, âge, ratio, fusion, réimport.');
