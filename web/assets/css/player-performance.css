@@ -557,8 +557,8 @@ details.table-note p{margin:6px 0 0;line-height:1.55;}
 body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max); padding: var(--page-pad-top) var(--page-pad-x) 60px; }
 @media (max-width: 980px) { body.app .perf-main { margin: 0; padding-top: calc(56px + 14px); } }
 @media (max-width: 560px) { body.app .perf-main { padding-top: calc(56px + 8px); padding-bottom: 40px; } }
-.perf-crumbs { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; min-width: 0; }
-.perf-crumbs .back-link { margin: 0; }
+.perf-crumbs { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-width: 0; }
+.perf-crumbs .back-pill { margin: 0; }
 .perf-hero.hero-surface { background: var(--hero-bg); }
 .perf-hero .hero-kicker { font-size: var(--fs-xs); }
 

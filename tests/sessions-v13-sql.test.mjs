@@ -49,6 +49,9 @@ await db.exec(v17);   // rejouable
 const s1 = await one(`insert into public.tactical_schemas (procedure_id, image_path, updated_at) values (1, 'a.png', '2000-01-01')
   returning extract(epoch from updated_at)::numeric as t`);
 assert.ok(Number(s1.t) > Date.parse('2020-01-01') / 1000, 'date posée à la création, même si on en envoie une autre');
+// L'horloge de PGlite ne compte qu'en millisecondes (Postgres : en microsecondes) :
+// deux écritures d'un vrai client ne tombent jamais dans la même milliseconde.
+await new Promise(r => setTimeout(r, 5));
 const s2 = await one(`insert into public.tactical_schemas (procedure_id, image_path) values (1, 'b.png')
   on conflict (procedure_id) do update set image_path = excluded.image_path returning extract(epoch from updated_at)::numeric as t, image_path`);
 assert.equal(s2.image_path, 'b.png');

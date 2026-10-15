@@ -71,17 +71,38 @@ async function loadVideos(playersQuery = null) {
     const ids = new Set(playersCache.map(p => p.id));   // joueurs de l'équipe choisie
     videosCache = (vRes.data || []).filter(v => ids.has(v.player_id));
     seqsCache = (sRes.data || []).filter(s => ids.has(s.player_id));
+    render();
+    // Afficher d'abord : miniatures fixes, puis liens de lecture, arrivent en fond.
+    // (Avant : la page attendait le Worker et restait sur « Chargement… » s'il ne répondait pas.)
     const todo = toSeeOf(seqsCache);
     const thumbs = await seqThumbs(todo);
     todo.forEach(s => { s.thumb = thumbs.get(s.id) || null; });
+    patchThumbs(box);
     await signUrls(videosCache.filter(v => todo.some(s => s.video_id === v.id && !s.thumb)));
-    render();
-    // Liens de lecture des autres séquences à traiter : en fond, prêts avant le clic.
-    signUrls(videosCache.filter(v => todo.some(s => s.video_id === v.id)));
+    patchThumbs(box);
+    signUrls(videosCache.filter(v => todo.some(s => s.video_id === v.id)));   // prêts avant le clic
   } catch (e) {
     console.error('Vidéos illisibles', e);
-    box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`;
+    box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)} <button class="btn btn-sm" type="button" data-retry>Réessayer</button></p>`;
+    box.querySelector('[data-retry]').addEventListener('click', () => {
+      box.innerHTML = '<div class="empty">Chargement…</div>';
+      loadVideos(byPlayerTeam(sb.from('players').select('id, nom, prenom, club_id, auth_user_id').order('nom')));
+    });
   }
+}
+/* Vignettes arrivées après l'affichage (vue d'ensemble) : seules elles changent,
+   la recherche en cours et le défilement restent en place. */
+function patchThumbs(box) {
+  if (view.player) return;
+  box.querySelectorAll('.vp-card[data-seq]').forEach(card => {
+    const s = seqsCache.find(x => x.id === Number(card.dataset.seq));
+    const old = card.querySelector('.vthumb');
+    if (!s || !old) return;
+    const tmp = document.createElement('span');
+    tmp.innerHTML = thumbHtml(urlCache.get(s.video_id), s.start_sec, fmtDur(s.end_sec - s.start_sec), s.thumb);
+    if (old.outerHTML !== tmp.firstElementChild.outerHTML) old.replaceWith(tmp.firstElementChild);
+  });
+  loadThumbs(box);
 }
 /* Miniatures fixes des séquences affichées (lmfc_v18.sql), en une requête. */
 async function seqThumbs(list) {

@@ -6,6 +6,33 @@
 const SUPABASE_URL = 'https://ygnvijxspkrqhasvjfqg.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_ebJBeOm5WM5j8mOPHUknoA_zzdcWVG4';
 
+/* Journal de temps (diagnostic) : ?perf=1 dans l'adresse l'active pour cet
+   appareil (?perf=0 l'arrête). Chaque requête à la base, sa durée et l'heure
+   de la page s'affichent dans la console du navigateur. */
+const PERF_LOG = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get('perf');
+    if (q === '1') localStorage.setItem('lmfc-perf', '1');
+    if (q === '0') localStorage.removeItem('lmfc-perf');
+    return localStorage.getItem('lmfc-perf') === '1';
+  } catch { return false; }
+})();
+const perfRows = [];
+function perfFetch(url, opts) {
+  if (!PERF_LOG) return fetch(url, opts);
+  const t0 = performance.now();
+  const done = (status) => {
+    perfRows.push({ requête: String(url).replace(SUPABASE_URL, '').split('?')[0], début_ms: Math.round(t0), durée_ms: Math.round(performance.now() - t0), statut: status });
+    clearTimeout(perfFetch.timer);
+    perfFetch.timer = setTimeout(() => {
+      const nav = performance.getEntriesByType('navigation')[0];
+      console.log(`[perf] ${location.pathname} · page reçue ${Math.round(nav?.responseEnd || 0)} ms · prête ${Math.round(nav?.domContentLoadedEventEnd || 0)} ms`);
+      console.table(perfRows);
+    }, 1200);
+  };
+  return fetch(url, opts).then(r => { done(r.status); return r; }, e => { done(e?.name || 'erreur'); throw e; });
+}
+
 // window.supabase est injecté par le script CDN chargé juste avant ce fichier.
 // persistSession + autoRefreshToken : l'utilisateur reste connecté d'une visite
 // à l'autre sans ressaisir son mot de passe (le jeton est renouvelé tout seul).
@@ -14,6 +41,12 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     storageKey: 'footsession-auth',
+  },
+  // Jamais de « Chargement… » sans fin : une requête sans réponse échoue au
+  // bout de 30 s et la page l'affiche. Les envois de fichiers en sont exclus.
+  global: {
+    fetch: (url, opts = {}) => (opts.signal || /\/storage\/v1\/object/.test(url) && opts.method && opts.method !== 'GET'
+      ? perfFetch(url, opts) : perfFetch(url, { ...opts, signal: AbortSignal.timeout(30000) })),
   },
 });
 
@@ -27,9 +60,16 @@ const isR2Video = (path) => path.startsWith('r2/');
 /* Appel au Worker du site (/api/…) avec le jeton de l'utilisateur. */
 async function siteApi(route, init = {}, what = 'Serveur') {
   const { data: { session } } = await sb.auth.getSession();
-  const r = await fetch(`/api/${route}`, {
-    ...init, headers: { authorization: `Bearer ${session?.access_token || ''}`, ...init.headers },
-  });
+  let r;
+  try {
+    r = await fetch(`/api/${route}`, {
+      signal: AbortSignal.timeout(15000),   // sans réponse en 15 s : erreur affichée, pas d'attente sans fin
+      ...init, headers: { authorization: `Bearer ${session?.access_token || ''}`, ...init.headers },
+    });
+  } catch (e) {
+    if (e?.name === 'TimeoutError') throw new Error(`${what} : pas de réponse, réessayez.`);
+    throw e;
+  }
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(body.error || `${what} indisponible (${r.status}).`);
   return body;

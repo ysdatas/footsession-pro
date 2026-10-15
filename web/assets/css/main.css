@@ -149,6 +149,16 @@ p  { margin: 0 0 .8em; }
 }
 .btn:hover { background: var(--bg-hover); border-color: #3a3a3a; }
 
+/* Retour à une liste (« Tous les joueurs ») : bien visible, en haut à gauche,
+   assez grand pour le doigt, distinct des liens du menu. */
+.back-pill {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 16px 0 10px;
+  border: 1px solid var(--gold-border); border-radius: 999px; background: rgba(var(--gold-rgb), .08);
+  color: var(--gold-light); font: 600 15px/1 var(--font-main); cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.back-pill::before { content: '‹'; font-size: 24px; line-height: 1; margin-top: -3px; }
+.back-pill:hover, .back-pill:focus-visible { background: rgba(var(--gold-rgb), .16); border-color: var(--gold); color: var(--gold-light); }
+
 .btn-primary {
   background: var(--gold);
   border-color: var(--gold);

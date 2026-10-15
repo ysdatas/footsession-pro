@@ -7,8 +7,13 @@
 
    Principes :
    - chaque joueur est lu sur SA ligne : aucune donnée ne peut passer
-     d'un joueur à un autre ; un nom revendiqué par deux fiches est
-     signalé et exclu ;
+     d'un joueur à un autre ;
+   - chaque ligne de l'Excel est rapprochée des fiches du club sur
+     plusieurs critères (excel-match.js : nom, date de naissance, équipe,
+     taille) ; tant que plusieurs fiches restent possibles, rien n'est
+     associé sans le choix du préparateur ;
+   - la date de naissance du classeur remplit une fiche qui n'en a pas,
+     sans jamais en écraser une autre ;
    - une ligne par joueur, saison et mois (ou session) : réimporter une
      version à jour de l'Excel met à jour les valeurs au lieu de créer
      des doublons ;
@@ -54,22 +59,44 @@ function levenshtein(a, b) {
   return prev[b.length];
 }
 
+/* Nom du joueur d'une ligne : première cellule de texte, ni nombre ni agrégat. */
+const XI_NAME_SHEETS = ['Tests bruts', 'Anthropométrie', 'Profil sur 10', 'Plis cutanés'];
+function excelRowName(row) {
+  return (row || []).find(v => {
+    const t = String(v ?? '').trim();
+    return t && typeof v !== 'object' && !/^[+-]?\d+(?:[.,]\d+)?$/.test(t) && !isAggregateName(t);
+  });
+}
+
 /* Noms de joueurs présents dans le classeur (une entrée par personne). */
 function excelRoster(workbook) {
   const names = new Map();
-  for (const sheet of ['Tests bruts', 'Anthropométrie', 'Profil sur 10', 'Plis cutanés']) {
+  for (const sheet of XI_NAME_SHEETS) {
     const rows = workbookRows(workbook, sheet);
     for (let r = 4; r < rows.length; r++) {
-      const cell = (rows[r] || []).find(v => {
-        const t = String(v ?? '').trim();
-        return t && !/^[+-]?\d+(?:[.,]\d+)?$/.test(t) && !isAggregateName(t);
-      });
+      const cell = excelRowName(rows[r]);
       if (!cell) continue;
       const key = normalizeName(cell);
       if (key && !names.has(key)) names.set(key, String(cell).trim());
     }
   }
   return [...names.values()];
+}
+
+/* Noms portés par deux lignes d'un même onglet : impossibles à distinguer,
+   jamais importés (la lecture par nom prendrait la première ligne). */
+function excelDuplicateNames(workbook) {
+  const dups = new Set();
+  for (const sheet of XI_NAME_SHEETS) {
+    const seen = new Set(), rows = workbookRows(workbook, sheet);
+    for (let r = 4; r < rows.length; r++) {
+      const cell = excelRowName(rows[r]);
+      const key = cell && normalizeName(cell);
+      if (!key) continue;
+      if (seen.has(key)) dups.add(key); else seen.add(key);
+    }
+  }
+  return dups;
 }
 
 /* ------------------------------------------------------------
@@ -651,21 +678,29 @@ const ExcelImport = (() => {
         return fail(`Ce fichier ne suit pas le modèle attendu : onglet${missingSheets.length > 1 ? 's' : ''}
           ${missingSheets.map(n => `« ${h(n)} »`).join(', ')} introuvable${missingSheets.length > 1 ? 's' : ''}.`);
       }
-      const { data: roster, error } = await sb.from('players')
-        .select('id, nom, prenom, numero, club_id').eq('club_id', opts.clubId).order('nom');
-      if (error) return fail(`Lecture de l’effectif impossible : ${h(error.message)}`);
+      // Fiches du club avec leurs critères d'identification, et dernière taille connue.
+      const [rosterRes, heightsRes] = await Promise.all([
+        sb.from('players').select('id, nom, prenom, numero, poste, club_id, team_id, other_team_ids, date_naissance')
+          .eq('club_id', opts.clubId).order('nom'),
+        sb.from('player_physical_measurements').select('player_id, height_cm, season_key, month_label')
+          .eq('club_id', opts.clubId).not('height_cm', 'is', null),
+      ]);
+      if (rosterRes.error) return fail(`Lecture de l’effectif impossible : ${h(rosterRes.error.message)}`);
+      if (heightsRes.error) console.warn('Tailles connues indisponibles (critère ignoré) :', heightsRes.error.message);
+      const heights = new Map();
+      [...(heightsRes.data || [])]
+        .sort((a, b) => String(a.season_key).localeCompare(String(b.season_key)) || MONTHS.indexOf(a.month_label) - MONTHS.indexOf(b.month_label))
+        .forEach(m => heights.set(m.player_id, Number(m.height_cm)));
 
       st = {
-        workbook, fileName: file.name, fileSize: file.size, fileDate: file.lastModified, season: $('xiSeason').value, roster: roster || [],
-        overrides: new Map(), suggested: new Set(), confirmed: new Set(), include: new Set(), create: new Set(),
-        existingMeasures: [], existingTests: [],
+        workbook, fileName: file.name, fileSize: file.size, fileDate: file.lastModified, season: $('xiSeason').value,
+        roster: rosterRes.data || [], heights, teamId: typeof currentTeamId === 'function' ? currentTeamId() : null,
+        rows: [], choice: new Map(), include: new Set(), existingMeasures: [], existingTests: [],
       };
       if (!(await loadExisting())) return;
+      st.rows = readExcelRows();
+      matchRows();
       compute();
-      suggestMatches();
-      compute();
-      // Par défaut : tous les joueurs reconnus sans ambiguïté.
-      st.entries.filter(e => e.status === 'ok').forEach(e => st.include.add(e.fiche.id));
       render();
     } catch (e) {
       console.error('Import Excel :', e);
@@ -673,98 +708,111 @@ const ExcelImport = (() => {
     }
   }
 
-  /* Lit chaque fiche du club dans le classeur et classe le résultat. */
-  function compute() {
-    st.entries = st.roster.map(fiche => {
-      const override = st.overrides.get(fiche.id) || null;
-      const target = override ? { ...fiche, ...splitExcelName(override) } : fiche;
+  /* Une ligne par joueur de l'Excel : ses valeurs et sa carte d'identité. */
+  function readExcelRows() {
+    const dups = excelDuplicateNames(st.workbook);
+    return excelRoster(st.workbook).map(name => {
       let data = null;
-      try { data = parseExcel({ name: st.fileName }, st.workbook, target); } catch { data = null; }
-      // Toutes les orthographes rencontrées pour ce joueur : le classeur
-      // peut écrire le même prénom différemment d'un onglet à l'autre.
-      const claims = data
-        ? new Set([...data.excelNames, override].filter(Boolean).map(normalizeName))
-        : new Set();
-      return { fiche, data, override, claims };
-    });
+      try { data = parseExcel({ name: st.fileName }, st.workbook, splitExcelName(name)); } catch { data = null; }
+      return { key: normalizeName(name), name, data, identity: xmIdentity(name, data), dupInFile: dups.has(normalizeName(name)) };
+    }).filter(r => r.data);
+  }
 
-    const byClaim = new Map();
-    for (const e of st.entries) {
-      for (const c of e.claims) byClaim.set(c, [...(byClaim.get(c) || []), e]);
+  /* Rapprochement (excel-match.js) et choix par défaut : seules les lignes
+     reconnues sans doute sont cochées ; les autres attendent un choix. */
+  function matchRows() {
+    st.rows = matchExcelRows(st.rows, st.roster, { teamId: st.teamId, heights: st.heights });
+    st.choice.clear();
+    st.include.clear();
+    for (const r of st.rows) {
+      if (r.status === 'ok') { st.choice.set(r.key, r.fiche.id); st.include.add(r.key); }
+      else if (r.status === 'confirm') st.choice.set(r.key, r.fiche.id);
+      else if (r.status === 'new') st.choice.set(r.key, 'new');
     }
-    for (const e of st.entries) {
-      const shared = [...e.claims].some(c => byClaim.get(c).length > 1);
-      // Même nom de famille mais prénom différent (« Alex ARNOUX » / « ARNOUX
-      // Nathan ») : jamais importé sans un clic de confirmation.
-      e.nameClash = !!e.data && !e.override && !st.confirmed.has(e.fiche.id) && firstNameClash(e);
-      e.status = !e.data ? 'absent'
-        : shared ? 'conflict'
-        : (st.suggested.has(e.fiche.id) || e.nameClash) ? 'suggested'
-        : 'ok';
-      if (e.status === 'conflict' || e.status === 'absent') st.include.delete(e.fiche.id);
-      if (e.data) Object.assign(e, buildPlayerImport(e.data, e.fiche, {
+  }
+
+  const ficheOf = (r) => { const c = st.choice.get(r.key); return typeof c === 'number' ? st.roster.find(f => f.id === c) || null : null; };
+  const bornOf = (f) => (f?.date_naissance ? String(f.date_naissance).slice(0, 10) : null);
+
+  /* Lignes à écrire pour la fiche choisie, et la date de naissance à reprendre. */
+  function compute() {
+    for (const r of st.rows) {
+      const fiche = ficheOf(r);
+      Object.assign(r, buildPlayerImport(r.data, fiche || { id: null, club_id: opts.clubId }, {
         season: st.season, fileName: st.fileName, userId: opts.userId,
-        existingMeasures: st.existingMeasures, existingTests: st.existingTests,
+        existingMeasures: fiche ? st.existingMeasures : [], existingTests: fiche ? st.existingTests : [],
         replace: replaceMode(),
       }));
-    }
-    st.orphans = excelRoster(st.workbook).filter(n => !byClaim.has(normalizeName(n)));
-    for (const n of [...st.create]) if (!st.orphans.includes(n)) st.create.delete(n);
-  }
-
-  /* Le prénom de la fiche n'apparaît dans aucune orthographe de l'Excel
-     (initiale ou prénom composé tolérés : « J. », « Jean », « Jean-Marc »). */
-  function firstNameClash(e) {
-    const fp = normalizeName(e.fiche.prenom || '');
-    if (!fp) return false;
-    const names = [...new Set(e.data.excelNames || [])]
-      .map(n => normalizeName(splitExcelName(n).prenom || '').replace(/\.$/, '')).filter(Boolean);
-    if (!names.length) return false;
-    return !names.some(p => p === fp || p.startsWith(fp) || fp.startsWith(p));
-  }
-
-  /* Orthographe différente entre la fiche et l'Excel (« Botherel » /
-     « BOTHOREL ») : même prénom et nom à une ou deux lettres près.
-     Le rapprochement est proposé, jamais appliqué sans validation. */
-  function suggestMatches() {
-    const orphans = st.orphans.map(n => ({ name: n, ...splitExcelName(n) }));
-    for (const e of st.entries.filter(x => x.status === 'absent')) {
-      const first = normalizeName(e.fiche.prenom);
-      const last = normalizeName(e.fiche.nom);
-      if (!first || !last) continue;
-      const candidates = orphans.filter(o => {
-        if (normalizeName(o.prenom) !== first) return false;
-        const d = levenshtein(normalizeName(o.nom), last);
-        return d > 0 && d <= (last.length < 5 ? 1 : 2);
-      });
-      if (candidates.length === 1) {
-        st.overrides.set(e.fiche.id, candidates[0].name);
-        st.suggested.add(e.fiche.id);
-      }
+      const born = bornOf(fiche), excelBorn = r.identity.birthDate;
+      r.birthFill = !!(fiche && excelBorn && !born);
+      r.birthClash = !!(fiche && excelBorn && born && born !== excelBorn);
+      if (r.birthFill) r.changes += 1;
     }
   }
+
+  const day = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+  const num1 = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+  const team = (f) => (f.team_id && typeof teamName === 'function' ? teamName(f.team_id) : '');
+  function identityLine(id) {
+    return [id.birthDate && `né le ${day(id.birthDate)}`, id.height !== null && `${num1(id.height)} cm`,
+      id.weight !== null && `${num1(id.weight)} kg`].filter(Boolean).join(' · ') || 'ni date de naissance ni mesure';
+  }
+  function ficheLabel(f) {
+    const hgt = st.heights.get(f.id);
+    return [fullName(f), team(f), bornOf(f) && `né le ${day(bornOf(f))}`, hgt && `${num1(hgt)} cm`,
+      f.poste, f.numero !== null && f.numero !== undefined && `n° ${f.numero}`].filter(Boolean).join(' · ');
+  }
+  /* Ce qui rapproche (ou éloigne) la fiche choisie de la ligne de l'Excel. */
+  function criteriaHtml(r) {
+    const c = r.candidates.find(x => x.fiche.id === st.choice.get(r.key));
+    const chips = [];
+    if (c?.birth === 'same') chips.push(['ok', 'Même date de naissance']);
+    if (c?.link === 'nom') chips.push(['warn', 'Fiche sans prénom']);
+    if (c?.link === 'proche') chips.push(['warn', 'Orthographe proche']);
+    if (c?.team) chips.push(['same', 'Équipe de l’import']);
+    if (c?.height === 'near') chips.push(['ok', 'Taille proche']);
+    if (c?.height === 'far') chips.push(['warn', `Taille très différente (${num1(c.knownHeight)} cm sur la fiche)`]);
+    if (r.birthFill) chips.push(['update', `Date de naissance ajoutée : ${day(r.identity.birthDate)}`]);
+    if (r.birthClash) chips.push(['danger', `Date de naissance différente sur la fiche (${day(bornOf(ficheOf(r)))}) : non modifiée`]);
+    if (st.choice.get(r.key) === 'new') {
+      (r.twins || []).forEach(f => chips.push(['warn', `Même date de naissance que ${fullName(f)} : doublon ?`]));
+      r.excluded.forEach(x => chips.push(['same', `Homonyme écarté : ${fullName(x.fiche)}, né le ${day(bornOf(x.fiche))}`]));
+    }
+    return chips.length ? `<div class="xi-crit">${chips.map(([k, t]) => `<span class="xi-badge xi-${k}">${h(t)}</span>`).join('')}</div>` : '';
+  }
+  function choiceHtml(r, takenBy) {
+    if (r.status === 'dup') return '<span class="xi-hint">Deux lignes du fichier portent ce nom : distinguez-les dans l’Excel.</span>';
+    const cur = st.choice.get(r.key);
+    const opt = (f) => {
+      const other = takenBy.get(f.id);
+      return `<option value="${f.id}" ${cur === f.id ? 'selected' : ''} ${other && other !== r.key ? 'disabled' : ''}>${h(ficheLabel(f))}${other && other !== r.key ? ' — déjà associée' : ''}</option>`;
+    };
+    const candIds = new Set(r.candidates.map(c => c.fiche.id));
+    const others = st.roster.filter(f => !candIds.has(f.id));
+    return `<select data-choice="${h(r.key)}" aria-label="Fiche pour ${h(r.name)}">
+        ${cur === undefined ? '<option value="" selected>— Choisir la fiche —</option>' : ''}
+        ${r.candidates.length ? `<optgroup label="Fiches possibles">${r.candidates.map(c => opt(c.fiche)).join('')}</optgroup>` : ''}
+        <option value="new" ${cur === 'new' ? 'selected' : ''}>Créer une nouvelle fiche</option>
+        ${others.length ? `<optgroup label="Autres fiches du club">${others.map(opt).join('')}</optgroup>` : ''}
+      </select>${criteriaHtml(r)}`;
+  }
+  const STATUS = {
+    ok: ['update', 'Reconnu'], confirm: ['warn', 'À confirmer'], choose: ['warn', 'À choisir'],
+    new: ['same', 'Sans fiche'], dup: ['danger', 'Doublon dans le fichier'],
+  };
 
   function render() {
     const focus = opts.focusPlayerId;
-    const order = { conflict: 0, suggested: 1, ok: 2, absent: 3 };
-    const matched = st.entries.filter(e => e.data)
-      .sort((a, b) => (b.fiche.id === focus) - (a.fiche.id === focus)
-        || order[a.status] - order[b.status] || fullName(a.fiche).localeCompare(fullName(b.fiche)));
-    const absent = st.entries.filter(e => !e.data);
-    const included = matched.filter(e => st.include.has(e.fiche.id));
-    const toUpdate = included.filter(e => e.changes > 0).length;
-    const conflicts = matched.filter(e => e.status === 'conflict').length;
+    const rank = { choose: 0, confirm: 1, dup: 2, new: 3, ok: 4 };
+    const rows = [...st.rows].sort((a, b) => (st.choice.get(b.key) === focus) - (st.choice.get(a.key) === focus)
+      || rank[a.status] - rank[b.status] || a.name.localeCompare(b.name, 'fr'));
+    const takenBy = new Map();
+    st.rows.forEach(r => { const c = st.choice.get(r.key); if (typeof c === 'number') takenBy.set(c, r.key); });
+    const absent = st.roster.filter(f => !takenBy.has(f.id));
+    const count = (s) => st.rows.filter(r => r.status === s).length;
+    const toCheck = count('choose') + count('confirm') + count('dup');
+    const nLines = r => r.measurements.length + r.tests.length;
 
-    const statusCell = e => ({
-      ok: e.changes ? `<span class="xi-badge xi-update">${e.changes} valeur${e.changes > 1 ? 's' : ''}</span>`
-                    : '<span class="xi-badge xi-same">Déjà à jour</span>',
-      suggested: `<span class="xi-badge xi-warn">${e.nameClash ? 'Prénom différent : à confirmer' : 'Rapprochement à confirmer'}</span>`,
-      conflict: '<span class="xi-badge xi-danger">Ambigu : exclu</span>',
-    })[e.status];
-
-    const nLines = e => e.measurements.length + e.tests.length;
-
-    // Source : le fichier lu, ses onglets reconnus, la saison et le mode visés.
     const SHEETS = ['Anthropométrie', 'Plis cutanés', 'Tests bruts', 'Profil sur 10'];
     const kb = Math.max(1, Math.round((st.fileSize || 0) / 1024));
     const when = st.fileDate ? new Date(st.fileDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
@@ -777,59 +825,40 @@ const ExcelImport = (() => {
 
     $('xiBody').innerHTML = source + `
       <div class="xi-summary">
-        <div><strong>${matched.length}</strong> joueur${matched.length > 1 ? 's' : ''} reconnu${matched.length > 1 ? 's' : ''}</div>
-        <div><strong>${toUpdate}</strong> à mettre à jour</div>
-        <div><strong>${st.orphans.length}</strong> sans fiche</div>
+        <div><strong>${count('ok')}</strong> reconnu${count('ok') > 1 ? 's' : ''}</div>
+        <div><strong>${toCheck}</strong> à vérifier</div>
+        <div><strong>${count('new')}</strong> sans fiche</div>
         <div><strong>${absent.length}</strong> fiche${absent.length > 1 ? 's' : ''} absente${absent.length > 1 ? 's' : ''} du fichier</div>
       </div>
-      ${conflicts ? `<div class="xi-alert">${conflicts} fiche${conflicts > 1 ? 's revendiquent' : ' revendique'} la même ligne de l’Excel
-        qu’une autre (homonymes ?). Elles sont exclues pour ne pas mélanger les données : précisez le prénom sur les fiches concernées.</div>` : ''}
+      ${toCheck ? `<div class="xi-alert">${toCheck} ligne${toCheck > 1 ? 's' : ''} à vérifier : rien n’y est importé sans votre choix.
+        Chaque fiche possible est présentée avec son équipe, sa date de naissance et sa taille ; une date de naissance différente écarte une fiche.</div>` : ''}
 
       <div data-select-scope="#xiBody .xi-table" id="xiSelectMatched">${selectAllHtml()}</div>
       <table class="xi-table">
-        <thead><tr><th></th><th>Fiche</th><th>Nom dans l’Excel</th><th>Lignes</th><th>Changements</th></tr></thead>
-        <tbody>${matched.map(e => `
-          <tr class="${e.fiche.id === focus ? 'is-focus' : ''} xi-${e.status}">
-            <td><input type="checkbox" data-include="${e.fiche.id}" aria-label="Importer ${h(fullName(e.fiche))}"
-              ${st.include.has(e.fiche.id) ? 'checked' : ''} ${e.status === 'conflict' ? 'disabled' : ''}></td>
-            <td class="xi-name">${h(fullName(e.fiche))}${e.fiche.id === focus ? ' <small>(fiche ouverte)</small>' : ''}</td>
-            <td class="xi-src">${h([...new Set(e.data.excelNames)].join(' · ') || e.override || '—')}
-              ${e.data.individualSheet ? `<small>Onglet ${h(e.data.individualSheet)}</small>` : ''}</td>
-            <td class="xi-num">${nLines(e)}${e.created ? ` <small>Dont ${e.created} nouvelle${e.created > 1 ? 's' : ''}</small>` : ''}</td>
-            <td>${statusCell(e)} ${nLines(e) ? `<button class="xi-more" type="button" data-detail="${e.fiche.id}" aria-expanded="false">Voir</button>` : ''}</td>
+        <thead><tr><th></th><th>Dans l’Excel</th><th>Fiche</th><th>Statut</th><th>Changements</th></tr></thead>
+        <tbody>${rows.map(r => {
+          const cur = st.choice.get(r.key), ready = r.status !== 'dup' && cur !== undefined;
+          const [cls, label] = STATUS[r.status];
+          return `
+          <tr class="xi-${r.status}${cur === focus && focus ? ' is-focus' : ''}">
+            <td><input type="checkbox" data-include="${h(r.key)}" aria-label="Importer ${h(r.name)}"
+              ${st.include.has(r.key) && ready ? 'checked' : ''} ${ready ? '' : 'disabled'}></td>
+            <td class="xi-src"><strong>${h(r.name)}</strong><small>${h(identityLine(r.identity))}</small></td>
+            <td class="xi-choice">${choiceHtml(r, takenBy)}</td>
+            <td><span class="xi-badge xi-${cls}">${label}</span>${r.reason ? `<small class="xi-reason">${h(r.reason)}</small>` : ''}</td>
+            <td class="xi-num">${!nLines(r) && !r.birthFill ? 'Aucune valeur' : !ready ? '—' : r.changes ? `${r.changes} valeur${r.changes > 1 ? 's' : ''}` : 'Déjà à jour'}
+              ${nLines(r) ? `<button class="xi-more" type="button" data-detail="${h(r.key)}" aria-expanded="false">Voir</button>` : ''}</td>
           </tr>
-          ${nLines(e) ? `<tr class="xi-detail hidden" data-detail-row="${e.fiche.id}"><td></td><td colspan="4">${detailHtml(e)}</td></tr>` : ''}`).join('')}
+          ${nLines(r) ? `<tr class="xi-detail hidden" data-detail-row="${h(r.key)}"><td></td><td colspan="4">${detailHtml(r)}</td></tr>` : ''}`;
+        }).join('')}
         </tbody>
       </table>
 
-      ${absent.length ? `<div class="xi-section">
-        <h4>Fiches absentes du fichier</h4>
-        <p class="xi-hint">Si le joueur figure dans l’Excel sous une autre orthographe, associez-le.</p>
-        ${absent.map(e => `<div class="xi-row">
-          <span>${h(fullName(e.fiche))}</span>
-          <select data-assoc="${e.fiche.id}">
-            <option value="">— non présent dans l’Excel —</option>
-            ${st.orphans.map(n => `<option value="${h(n)}">${h(n)}</option>`).join('')}
-          </select>
-        </div>`).join('')}
-      </div>` : ''}
-
-      ${st.orphans.length ? `<div class="xi-section">
-        <h4>Dans l’Excel, sans fiche dans le club</h4>
-        <p class="xi-hint">Cochez pour créer la fiche et importer ses données en même temps.</p>
-        <div data-select-scope>${selectAllHtml()}
-        ${st.orphans.map(n => `<label class="xi-row xi-check">
-          <input type="checkbox" data-create="${h(n)}" ${st.create.has(n) ? 'checked' : ''}>
-          <span>${h(n)}</span><small>${h(`fiche « ${[splitExcelName(n).prenom, splitExcelName(n).nom].filter(Boolean).join(' ')} »`)}</small>
-        </label>`).join('')}
-        </div>
-      </div>` : ''}`;
-
-    // Association choisie : la sélection courante est restituée.
-    absent.forEach(e => {
-      const sel = $('xiBody').querySelector(`select[data-assoc="${e.fiche.id}"]`);
-      if (sel) sel.value = st.overrides.get(e.fiche.id) || '';
-    });
+      ${absent.length ? `<details class="xi-section">
+        <summary>Fiches du club absentes du fichier (${absent.length})</summary>
+        <p class="xi-hint">Rien n’est modifié sur ces fiches. Si l’une d’elles figure dans l’Excel sous une autre orthographe, choisissez-la sur la ligne correspondante.</p>
+        <p class="xi-absent">${absent.map(f => h(fullName(f))).join(' · ')}</p>
+      </details>` : ''}`;
 
     $('xiBody').querySelectorAll('[data-detail]').forEach(b => b.addEventListener('click', () => {
       const row = $('xiBody').querySelector(`[data-detail-row="${b.dataset.detail}"]`);
@@ -837,35 +866,24 @@ const ExcelImport = (() => {
       b.setAttribute('aria-expanded', String(open));
       b.textContent = open ? 'Masquer' : 'Voir';
     }));
-    // « Tout sélectionner » : les joueurs reconnus, jamais un rapprochement
-    // à confirmer (homonyme, prénom différent) : celui-là se coche à la main.
+    // « Tout sélectionner » : les lignes reconnues ; une ligne à vérifier se coche à la main.
     $('xiSelectMatched')?.addEventListener('select-all', (ev) => {
       ev.preventDefault();
-      if (ev.detail.on) st.entries.filter(x => x.status === 'ok').forEach(x => st.include.add(x.fiche.id));
+      if (ev.detail.on) st.rows.filter(r => r.status === 'ok' && st.choice.has(r.key)).forEach(r => st.include.add(r.key));
       else st.include.clear();
       render();
     });
+    // Cocher une ligne « à confirmer » vaut confirmation de la fiche proposée.
     $('xiBody').querySelectorAll('[data-include]').forEach(cb => cb.addEventListener('change', () => {
-      const id = Number(cb.dataset.include);
-      cb.checked ? st.include.add(id) : st.include.delete(id);
-      // Cocher un rapprochement proposé (ou un prénom différent) vaut confirmation.
-      const entry = st.entries.find(x => x.fiche.id === id);
-      if (cb.checked && entry?.status === 'suggested') {
-        st.suggested.delete(id); st.confirmed.add(id);
-        compute(); render(); return;
-      }
+      cb.checked ? st.include.add(cb.dataset.include) : st.include.delete(cb.dataset.include);
       updateConfirm();
     }));
-    $('xiBody').querySelectorAll('[data-assoc]').forEach(sel => sel.addEventListener('change', () => {
-      const id = Number(sel.dataset.assoc);
-      st.suggested.delete(id);
-      if (sel.value) { st.overrides.set(id, sel.value); st.include.add(id); }
-      else { st.overrides.delete(id); st.include.delete(id); }
+    // Choisir une fiche (ou la création) est un choix explicite : la ligne est cochée.
+    $('xiBody').querySelectorAll('[data-choice]').forEach(sel => sel.addEventListener('change', () => {
+      const key = sel.dataset.choice;
+      if (!sel.value) { st.choice.delete(key); st.include.delete(key); }
+      else { st.choice.set(key, sel.value === 'new' ? 'new' : Number(sel.value)); st.include.add(key); }
       compute(); render();
-    }));
-    $('xiBody').querySelectorAll('[data-create]').forEach(cb => cb.addEventListener('change', () => {
-      cb.checked ? st.create.add(cb.dataset.create) : st.create.delete(cb.dataset.create);
-      updateConfirm();
     }));
     updateConfirm();
   }
@@ -888,8 +906,9 @@ const ExcelImport = (() => {
     </div>`;
   }
 
+  const picked = () => st.rows.filter(r => st.include.has(r.key) && r.status !== 'dup' && st.choice.has(r.key));
   function updateConfirm() {
-    const n = st.entries.filter(e => e.data && e.status !== 'conflict' && st.include.has(e.fiche.id)).length + st.create.size;
+    const n = picked().length;
     $('xiConfirm').disabled = n === 0;
     $('xiConfirm').textContent = n ? `Importer (${n} joueur${n > 1 ? 's' : ''})` : 'Importer';
   }
@@ -901,35 +920,41 @@ const ExcelImport = (() => {
     btn.textContent = 'Import en cours…';
 
     try {
-      const chosen = st.entries.filter(e => e.data && e.status !== 'conflict' && st.include.has(e.fiche.id));
+      const rows = picked();
+      // Garde-fou : une fiche ne reçoit jamais deux lignes de l'Excel.
+      const ids = rows.map(r => st.choice.get(r.key)).filter(v => typeof v === 'number');
+      if (new Set(ids).size !== ids.length) throw new Error('une fiche est associée à deux lignes de l’Excel.');
 
-      // 1) Fiches à créer, puis lecture de leurs données.
-      const createdFiches = [];
-      for (const name of st.create) {
-        const { nom, prenom } = splitExcelName(name);
-        const { birthDate } = parseExcel({ name: st.fileName }, st.workbook, { nom, prenom });
-        const { data: fiche, error } = await sb.from('players')
-          // Rattachée à l'équipe choisie dans le menu, s'il y en a une ;
-          // la date de naissance du classeur (modèle Espoirs) est reprise.
-          .insert({ club_id: opts.clubId, nom, prenom: prenom || null,
-            ...(birthDate ? { date_naissance: birthDate } : {}),
-            ...(typeof currentTeamId === 'function' && currentTeamId() ? { team_id: currentTeamId() } : {}) })
-          .select('id, nom, prenom, numero, club_id').single();
-        if (error) throw new Error(`création de la fiche « ${name} » : ${error.message}`);
-        createdFiches.push(fiche);
-        const data = parseExcel({ name: st.fileName }, st.workbook, { ...fiche, ...splitExcelName(name) });
-        chosen.push({ fiche, data, ...buildPlayerImport(data, fiche, {
+      // 1) Fiches à créer (avec la date de naissance du classeur), puis lignes de chaque joueur.
+      const chosen = [], createdFiches = [], births = [];
+      for (const r of rows) {
+        let fiche = ficheOf(r);
+        if (st.choice.get(r.key) === 'new') {
+          const { nom, prenom } = splitExcelName(r.name);
+          const { data, error } = await sb.from('players')
+            // Rattachée à l'équipe choisie dans le menu, s'il y en a une.
+            .insert({ club_id: opts.clubId, nom, prenom: prenom || null,
+              ...(r.identity.birthDate ? { date_naissance: r.identity.birthDate } : {}),
+              ...(st.teamId ? { team_id: st.teamId } : {}) })
+            .select('id, nom, prenom, numero, club_id').single();
+          if (error) throw new Error(`création de la fiche « ${r.name} » : ${error.message}`);
+          fiche = data;
+          createdFiches.push(fiche);
+        } else if (r.birthFill) births.push({ id: fiche.id, date: r.identity.birthDate });
+        const isNew = createdFiches.includes(fiche);
+        chosen.push({ fiche, ...buildPlayerImport(r.data, fiche, {
           season: st.season, fileName: st.fileName, userId: opts.userId,
-          existingMeasures: [], existingTests: [],
+          existingMeasures: isNew ? [] : st.existingMeasures, existingTests: isNew ? [] : st.existingTests,
+          replace: replaceMode(),
         }) });
       }
 
       // 2) Mode « remplacer » : la saison des joueurs cochés repart de zéro.
       if (replaceMode()) {
-        const ids = chosen.map(e => e.fiche.id);
+        const playerIds = chosen.map(e => e.fiche.id);
         for (const table of ['player_physical_measurements', 'player_physical_tests']) {
           const { error } = await sb.from(table).delete()
-            .eq('club_id', opts.clubId).eq('season_key', st.season).in('player_id', ids);
+            .eq('club_id', opts.clubId).eq('season_key', st.season).in('player_id', playerIds);
           if (error) throw new Error(`nettoyage avant remplacement : ${error.message}`);
         }
       }
@@ -948,10 +973,21 @@ const ExcelImport = (() => {
         if (error) throw error;
       }
 
+      // 4) Dates de naissance : seulement sur les fiches qui n'en ont pas (jamais écrasées).
+      const birthRes = await Promise.all(births.map(b => sb.from('players').update({ date_naissance: b.date })
+        .eq('id', b.id).is('date_naissance', null).select('id')));
+      const birthMissed = birthRes.filter(({ data, error }) => {
+        if (error) console.warn('Date de naissance non reprise :', error.message);
+        return error || !data?.length;
+      }).length;
+      const birthDone = births.length - birthMissed;
+
       $('excelImportModal').classList.remove('open');
       say(`Import terminé : ${chosen.length} joueur${chosen.length > 1 ? 's' : ''}` +
         `${createdFiches.length ? ` (dont ${createdFiches.length} fiche${createdFiches.length > 1 ? 's' : ''} créée${createdFiches.length > 1 ? 's' : ''})` : ''}` +
-        `, saison ${st.season}.`, 'success');
+        `${birthDone ? `, ${birthDone} date${birthDone > 1 ? 's' : ''} de naissance ajoutée${birthDone > 1 ? 's' : ''}` : ''}` +
+        `, saison ${st.season}.` +
+        `${birthMissed ? ` ${birthMissed} date${birthMissed > 1 ? 's' : ''} de naissance non reprise${birthMissed > 1 ? 's' : ''} (droits du compte ou fiche modifiée entre-temps).` : ''}`, 'success');
       st = null;
       await opts.onDone?.();
     } catch (e) {

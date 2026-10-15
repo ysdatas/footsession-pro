@@ -172,4 +172,52 @@ assert.equal(marc.birthDate, null);
 assert.equal(marc.measurements[0].age_at_measurement, null, 'sans date de naissance, pas d’âge');
 assert.equal(marc.tests[0].core_ratio, null, 'Sorensen à 0 : pas de ratio');
 
-console.log('OK — import Excel validé sur la structure Tests_Physiques_N2-5 et le modèle Espoirs : lecture, noms, âge, ratio, fusion, réimport.');
+/* ---------- 10) Rapprochement sur plusieurs critères (excel-match.js) ----------
+   Joueurs fictifs. Jamais d'association d'office tant que plusieurs fiches
+   restent possibles ; une date de naissance différente écarte une fiche. */
+vm.runInContext(readFileSync('web/assets/js/excel-match.js', 'utf8'), ctx);
+const matchRows = vm.runInContext('matchExcelRows', ctx), nameLink = vm.runInContext('xmNameLink', ctx);
+const F = (id, prenom, nom, extra = {}) => ({ id, prenom, nom, team_id: 1, other_team_ids: [], date_naissance: null, ...extra });
+const R = (name, identity = {}) => ({ key: name.toLowerCase(), name, identity: { birthDate: null, height: null, weight: null, ...identity } });
+const statuses = (rows, roster, c = {}) => Array.from(matchRows(rows, roster, c), r => `${r.status}:${r.fiche?.id ?? '-'}`);
+
+assert.equal(nameLink('ALEXANDRE Henoc', F(1, 'Henoc', 'Alexandre')), 'exact');
+assert.equal(nameLink('ALEXANDRE Elohim', F(1, 'Henoc', 'Alexandre')), null, 'autre prénom : autre joueur');
+assert.equal(nameLink('ALEXANDRE Henoc', F(1, null, 'Alexandre')), 'nom', 'fiche sans prénom');
+assert.equal(nameLink('MÉDARD Lenny', F(1, 'Leny', 'Medard')), 'proche', 'prénom à une lettre près');
+assert.equal(nameLink('BOTHOREL Lucas', F(1, 'Lucas', 'Botherel')), 'proche', 'nom à une lettre près');
+assert.equal(nameLink('MARTIN Paul', F(1, 'Paul', 'Dupont')), null);
+
+// Fiche sans prénom face à deux ALEXANDRE : avant, la première ligne était prise d'office.
+assert.deepEqual(statuses([R('ALEXANDRE Henoc'), R('ALEXANDRE Elohim')], [F(5, null, 'Alexandre')]), ['choose:-', 'choose:-']);
+assert.deepEqual(statuses([R('KEITA Abdoulaye')], [F(9, null, 'Keita')]), ['confirm:9'], 'un seul candidat sans prénom : à confirmer');
+// Deux fiches au même nom : la date de naissance tranche…
+const twinsRoster = [F(1, 'Paul', 'Martin', { date_naissance: '2009-03-15' }), F(2, 'Paul', 'Martin', { date_naissance: '2010-01-01' })];
+assert.deepEqual(statuses([R('MARTIN Paul', { birthDate: '2010-01-01' })], twinsRoster), ['ok:2']);
+assert.deepEqual(statuses([R('MARTIN Paul', { birthDate: '2009-03-15' })], [...twinsRoster.slice(0, 1), F(3, 'Paul', 'Martin')]), ['ok:1'],
+  'même date de naissance : reconnu même si une autre fiche n’a pas de date');
+// … sans elle, à choisir, même si l'équipe de l'import en désigne une.
+const choose = matchRows([R('MARTIN Paul')], [F(1, 'Paul', 'Martin', { team_id: 2 }), F(2, 'Paul', 'Martin', { team_id: 1 })], { teamId: 1 })[0];
+assert.equal(choose.status, 'choose');
+assert.equal(choose.fiche, null, 'aucune fiche retenue d’office');
+assert.equal(choose.candidates[0].fiche.id, 2, 'la fiche de l’équipe de l’import est proposée en premier');
+// Date de naissance différente : la fiche est écartée, l'homonyme est signalé.
+const other = matchRows([R('MARTIN Paul', { birthDate: '2011-05-05' })], [F(1, 'Paul', 'Martin', { date_naissance: '2009-03-15' })])[0];
+assert.equal(other.status, 'new');
+assert.equal(other.excluded.length, 1);
+// Sans fiche à ce nom mais même date de naissance qu'une fiche : doublon possible signalé.
+const twin = matchRows([R('DURAND Léo', { birthDate: '2010-11-12' })], [F(3, 'Leo', 'Germain', { date_naissance: '2010-11-12' })])[0];
+assert.equal(twin.status, 'new');
+assert.equal(twin.twins[0].id, 3);
+// Une fiche reconnue pour deux lignes : aucune n'est retenue d'office.
+assert.deepEqual(statuses([R('MARTIN Paul'), R('Paul MARTIN')], [F(1, 'Paul', 'Martin')]), ['choose:-', 'choose:-']);
+// Une ligne reconnue garde sa fiche ; la ligne au nom approchant passe à choisir.
+assert.deepEqual(statuses([R('MARTIN Paul'), R('MARTIN Pol')], [F(1, 'Paul', 'Martin')]), ['ok:1', 'choose:-']);
+// La taille est un critère affiché : écart signalé.
+assert.equal(matchRows([R('MARTIN Paul', { height: 180 })], [F(1, 'Paul', 'Martin')], { heights: new Map([[1, 170]]) })[0].candidates[0].height, 'far');
+// Deux lignes du fichier au même nom : non importables.
+const dupNames = vm.runInContext('excelDuplicateNames', ctx);
+const dupBook = { SheetNames: ['Tests bruts'], Sheets: { 'Tests bruts': [...blank(), row({ 1: 'MARTIN Paul' }), row({ 1: 'Martin  PAUL' }), row({ 1: 'DUPONT Jean' })] } };
+assert.deepEqual([...dupNames(dupBook)], ['martin paul']);
+
+console.log('OK — import Excel validé sur la structure Tests_Physiques_N2-5 et le modèle Espoirs : lecture, noms, âge, ratio, fusion, réimport, rapprochement multi-critères.');

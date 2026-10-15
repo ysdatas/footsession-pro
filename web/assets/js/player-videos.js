@@ -56,12 +56,15 @@ async function pvLoad() {
     ]);
     if (vRes.error) throw vRes.error;
     if (sRes.error) console.warn('Séquences indisponibles (platform_v2.sql non passée ?) :', sRes.error.message);
-    await pvSign(vRes.data || []);
     if (token !== PV.token) return;
     PV.videos = vRes.data || [];
     PV.seqs = sRes.data || [];
     pvRender();
     PV.onChange?.({ videos: PV.videos, seqs: PV.seqs });
+    // Liens de lecture (miniatures) en fond : la liste est déjà affichée.
+    const before = PV.urls.size;
+    await pvSign(PV.videos);
+    if (token === PV.token && (PV.urls.size !== before || PV.signError)) pvRender();
   } catch (e) {
     console.error('Vidéos du joueur illisibles', e);
     if (token === PV.token) box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`;

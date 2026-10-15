@@ -885,7 +885,7 @@ async function loadPage() {
     document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });
     back.href = 'players.html';
     back.dataset.back = '';   // retour à la liste telle qu'on l'a laissée (app.js)
-    back.textContent = '← Joueurs';
+    back.textContent = 'Tous les joueurs';
     setupTabs();
   }
   const canPhoto = !readOnly && canChangePlayerPhoto(ctxProfile.role);

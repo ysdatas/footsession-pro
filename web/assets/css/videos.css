@@ -24,6 +24,7 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .back-inline .ic { width: 16px; height: 16px; flex-shrink: 0; }
+#vpBack { margin-bottom: 10px; }
 .back-inline:hover { color: var(--gold); }
 
 /* ---------- Statut : un seul badge, partout le même ---------- */

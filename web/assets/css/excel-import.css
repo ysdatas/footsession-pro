@@ -58,7 +58,6 @@
   .xi-controls{grid-template-columns:1fr;}
   .xi-summary{grid-template-columns:1fr 1fr;}
   .xi-row{grid-template-columns:1fr;}
-  .xi-table th:nth-child(4),.xi-table td:nth-child(4){display:none;}
 }
 
 .xi-controls{grid-template-columns:200px 1fr 1fr;}
@@ -90,3 +89,18 @@
 .xi-values li span { display: inline-block; min-width: 82px; color: var(--text-primary); font-weight: 600; }
 .xi-values b { color: var(--text-primary); font-weight: 600; }
 @media (max-width: 640px) { .xi-source { grid-template-columns: 1fr; } }
+
+/* Rapprochement ligne par ligne : fiche choisie, critères, raison du statut. */
+.xi-choice{min-width:220px;}
+.xi-choice select{width:100%;min-height:34px;font-size:var(--fs-sm);}
+.xi-crit{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+.xi-crit .xi-badge{white-space:normal;}
+.xi-reason{display:block;margin-top:3px;font-size:var(--fs-xs);color:var(--text-secondary,#9da4ae);}
+.xi-table tr.xi-choose td,.xi-table tr.xi-confirm td{background:rgba(226,180,92,.05);}
+.xi-table tr.xi-dup td{opacity:.6;}
+details.xi-section summary{cursor:pointer;font-weight:600;font-size:var(--fs-md);}
+.xi-absent{font-size:var(--fs-sm);color:#cfd4db;line-height:1.6;}
+@media (max-width:640px){
+  .xi-table th:nth-child(5),.xi-table td:nth-child(5){display:none;}
+  .xi-choice{min-width:0;}
+}

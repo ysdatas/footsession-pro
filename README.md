@@ -254,12 +254,22 @@ ou une fuite de données.
 
 Page **Joueurs** ou fiche Performance → **Importer l’Excel** (admin, préparateur physique). Un seul fichier met à jour tout le club :
 
-- chaque joueur du club est recherché dans le fichier, avec un tableau de contrôle avant validation ;
-- une orthographe différente (« Botherel » / « BOTHOREL ») est **proposée**, jamais appliquée sans confirmation ;
-- même nom de famille mais **prénom différent** (« Alex ARNOUX » / « ARNOUX Nathan ») : décoché, « à confirmer » ;
+- **une ligne du tableau de contrôle par joueur de l'Excel**, rapprochée des fiches du club sur plusieurs
+  critères (`excel-match.js`, pur et testé) : nom et prénom, **date de naissance** (modèle Espoirs),
+  équipe choisie dans le menu, dernière taille connue. Une date de naissance différente **écarte** la
+  fiche (autre joueur). Reconnu d'office seulement s'il reste un seul candidat sûr (nom et prénom
+  exacts, ou même date de naissance) ; sinon « À confirmer » (fiche sans prénom, orthographe proche)
+  ou « À choisir » (plusieurs fiches : chacune affichée avec équipe, date de naissance, taille, poste,
+  numéro) — rien n'est importé sur ces lignes sans le choix du préparateur ;
+- une fiche ne reçoit qu'une seule ligne (déjà associée : grisée ailleurs) ; deux lignes du fichier au
+  même nom ne sont pas importables (`excelDuplicateNames`) ;
+- la **date de naissance** du classeur remplit les fiches qui n'en ont pas (annoncée dans l'aperçu,
+  écrite seulement si la fiche est encore vide) ; une date différente n'est jamais écrasée, elle est
+  signalée ;
 - l'aperçu montre la **source** (fichier, taille, date, onglets reconnus, saison et mode visés) et,
   par joueur, « Voir » détaille les valeurs lues (mesures par mois, tests par session) ;
-- les joueurs du fichier sans fiche peuvent être créés en même temps ;
+- les joueurs du fichier sans fiche peuvent être créés en même temps (cochés à la main) ; une fiche
+  née le même jour, ou un homonyme écarté par sa date de naissance, est signalé pour éviter un doublon ;
 - **Compléter** (par défaut) : une cellule vide n’efface rien ; **Remplacer** : le fichier fait foi pour la saison.
 
 Réimporter une version corrigée met à jour les valeurs : une ligne par joueur, saison et mois (ou session).
@@ -483,7 +493,12 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   au clavier : menu (Paramètres → Mon menu, enregistré au lâcher), équipes (Mon club,
   `teams.sort_order`), séquences d'une compilation.
 - **FAQ** (`faq.html`) — questions cliquables : prise en main, puis données et calculs.
-- **Vidéos** (`videos.html`, staff) — organisation progressive : d'abord **À traiter** (séquences
+- **Vidéos** (`videos.html`, staff) — la liste s'affiche dès que les données sont là : miniatures et
+  liens de lecture (Worker) arrivent ensuite, sans bloquer la page. Les appels au Worker échouent au
+  bout de 15 s et les requêtes à la base au bout de 30 s (`supabase-client.js`) : jamais de
+  « Chargement… » sans fin. Bouton **« ‹ Tous les joueurs »** (`.back-pill`, `main.css`), aussi sur la
+  fiche joueur.
+  Organisation progressive : d'abord **À traiter** (séquences
   envoyées par les joueurs, pas encore commentées) puis les **joueurs**, une ligne chacun
   (« 2 vidéos · 3 séquences » + « 1 à traiter »). Un joueur (`?player=…`, le retour du téléphone
   remonte d'un niveau ; même affichage que l'onglet Vidéos de la fiche, `player-videos.js`) :
@@ -693,6 +708,10 @@ l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
 ---
 
 ## 🛠 Développement
+
+**Journal de temps** (diagnostic, sur le vrai site) : ajouter `?perf=1` à l'adresse d'une page l'active
+pour cet appareil (`?perf=0` l'arrête) ; la console affiche chaque requête à la base avec sa durée,
+et l'heure à laquelle la page est prête (`perfFetch`, `supabase-client.js`).
 
 Aucune dépendance à installer. Servir le dossier `web/` :
 
