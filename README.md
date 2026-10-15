@@ -533,7 +533,9 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   latérale (Accueil · Ma performance · Mes vidéos · Objectifs & préventions, son nom en bas avec
   la déconnexion) et, sur téléphone, onglets en bas ; garde `requirePlayer()`.
   **Accueil joueur** (`mon-espace.html`, `player-home.js`) : « Bonjour, Prénom », vidéos reçues,
-  retours du staff, objectifs et préventions en cours, exercices à faire, derniers chiffres.
+  retours du staff, objectifs et préventions en cours, exercices à faire, derniers chiffres,
+  puis **Mon compte** : changer son e-mail (`auth.updateUser`, actif après le lien de
+  confirmation reçu ; en attendant, l'ancienne adresse reste celle de connexion) ou son mot de passe.
   **Objectifs & préventions** (`mon-programme.html`) : objectifs et préventions avec statut et
   images, puis programme terrain, en lecture seule.
 - **Points** (objectifs, préventions, points forts, axes) — `notes.js` : un clic ouvre le point
@@ -597,11 +599,26 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   pastille au bout des outils règle celle des flèches, zones et textes. Les éléments suivants
   la reprennent, et elle est mémorisée dans le compte (comme dans **Paramètres**). Un élément
   sélectionné change de couleur seul, par la pastille de sa barre.
+- **Terrains** : complet, demi-terrain, vierge, futsal, portrait (terrain entier vertical) et
+  **demi portrait** : la moitié du vrai terrain, but en bas, médiane en haut, aux vraies
+  proportions. Les éléments restent en coordonnées paysage (`portraitSpan()`, `getPos`,
+  `applyBaseTransform`) : un pion garde sa place quand on change de vue. **Paramètres** règle la vue
+  par défaut.
+- **Rotation** : matériel, zones, textes, logos et tracés ont une poignée ronde au-dessus de
+  leur cadre ; la glisser les fait tourner sur 360°, l'angle s'affiche pendant le geste, aimant
+  tous les 15° (Alt : angle libre). Le bouton « 90° » reste. L'angle (`rot`) est le même à
+  toutes les étapes et suit l'enregistrement, les images, le PDF et la vidéo.
 - **Téléphone** : un nouveau schéma s'ouvre en terrain vertical ; les barres défilent au doigt ;
   au doigt, la prise d'un pion est élargie et saisir son corps le déplace.
 - **Joueurs** : choisir l'équipe (pastille), puis un numéro : chaque clic pose le joueur et
   passe au numéro suivant, une équipe se place en onze clics.
 - **Dessin libre** (crayon), en plus des flèches, traits, zones et textes.
+- **Textes sur plusieurs lignes** : l'outil Texte ouvre une zone de saisie posée sur le terrain
+  (`openTextEditor`) ; Entrée passe à la ligne, Ctrl/Cmd + Entrée ou un clic à côté valide, Échap
+  annule. On modifie un texte par double-clic, par son champ dans la barre de l'élément ou par le
+  menu clic droit (le champ d'une ligne montre « ↵ » à la place des retours). Le texte est dessiné
+  ligne par ligne et son cadre suit ses lignes ; en vue portrait, le cadre (et la poignée de
+  rotation) suit le texte, dessiné droit à l'écran.
 - **Annuler / Rétablir** : `Ctrl+Z` / `Ctrl+Maj+Z`, y compris étapes et clips.
 - **Clips** : plusieurs animations sur le même terrain. Nouveau, dupliquer, découper à l'étape
   affichée (le début reste, la suite devient un nouveau clip), retirer avant / après,

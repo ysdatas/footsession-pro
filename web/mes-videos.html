@@ -105,7 +105,7 @@
           <span class="vp-card-body">
             <span class="vp-card-top"><strong>${escapeHtml(v.titre)}</strong>${back ? `<span class="vw-status is-answered">${plural(back, 'retour', 'retours')}</span>` : ''}</span>
             <span class="vp-card-meta">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))} · ${list.length ? plural(list.length, 'séquence', 'séquences') : 'pas encore de séquence'}</span>
-            ${v.description ? `<em>${escapeHtml(v.description)}</em>` : ''}
+            ${v.description ? `<em>${escapeHtml(v.description).replace(/\n/g, '<br>')}</em>` : ''}
           </span>
         </a>`;
       }).join('')}</div>` : '<div class="empty">Aucune vidéo pour le moment. Ton staff ne t’a encore rien envoyé.</div>';

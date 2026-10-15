@@ -9,3 +9,4 @@ body { padding: 24px; }
 .sp-proc img { width: 100%; max-width: 520px; border-radius: 10px; border: 1px solid var(--border); margin: 8px 0; }
 .sp-field { font-size: var(--fs-md); margin: 4px 0; }
 .sp-field b { color: var(--gold); font-weight: 600; }
+.sp-text { white-space: pre-line; }   /* retours à la ligne des consignes, comme saisis */

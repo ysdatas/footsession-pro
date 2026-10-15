@@ -9,7 +9,8 @@
        réservés au staff) ;
      - accès à Performance, Vidéos, Objectifs ;
      - encart « Activer les notifications » tant que ce téléphone ne
-       les reçoit pas (push.js).
+       les reçoit pas (push.js) ;
+     - « Mon compte » : changer son e-mail ou son mot de passe.
    Lecture seule (sauf l’abonnement aux notifications) : la RLS ne
    renvoie que SES données.
    ============================================================ */
@@ -44,6 +45,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   if (!player) return;
 
   renderPushCard(document.getElementById('pushBox'), { hideWhenOn: true });
+  bindAccount(window.CURRENT_USER);
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${player.prenom ? `, ${player.prenom}` : ''}`;
   document.getElementById('homeTiles').innerHTML = [
@@ -131,4 +133,49 @@ function renderStats(measures, tests, hidden) {
     ? stats.map(([label, r, val, when]) => `<a class="home-stat" href="player-performance.html">
         <span>${label}</span><strong>${r ? escapeHtml(val(r)) : '—'}</strong><small>${r ? escapeHtml(when(r) || '') : 'Pas encore mesuré'}</small></a>`).join('')
     : '<p class="text-muted">Aucune mesure pour l’instant : ton préparateur physique les ajoutera.</p>';
+}
+
+/* ---------- Mon compte (Supabase Auth) ----------
+   Le nouvel e-mail ne remplace l'actuel qu'une fois le lien de
+   confirmation ouvert (selon le réglage du projet, aussi celui envoyé à
+   l'adresse actuelle) : en attendant, on se connecte avec l'ancien. */
+const AUTH_ERRORS = {
+  same_password: 'C’est déjà ton mot de passe actuel.',
+  weak_password: 'Mot de passe trop faible : 6 caractères minimum.',
+  email_exists: 'Cette adresse est déjà utilisée par un autre compte.',
+  email_address_invalid: 'Adresse e-mail invalide.',
+  over_email_send_rate_limit: 'Trop d’e-mails envoyés : réessaie dans quelques minutes.',
+  reauthentication_needed: 'Déconnecte-toi, reconnecte-toi, puis réessaie.',
+};
+function bindAccount(user) {
+  const showEmail = (u) => {
+    document.getElementById('emailNow').textContent = `Actuelle : ${u.email}`
+      + (u.new_email ? ` · en attente de confirmation : ${u.new_email}` : '');
+  };
+  showEmail(user);
+  const submit = (formId, run) => document.getElementById(formId).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try { await run(e.target); } catch (err) {
+      console.error(`Mon compte : ${formId}`, err);
+      toast(AUTH_ERRORS[err.code] || err.message, 'error');
+    } finally { btn.disabled = false; }
+  });
+  submit('emailForm', async (form) => {
+    const email = form.newEmail.value.trim().toLowerCase();
+    if (email === (user.email || '').toLowerCase()) return toast('C’est déjà ton adresse actuelle.', 'error');
+    const { data, error } = await sb.auth.updateUser({ email }, { emailRedirectTo: `${location.origin}/` });
+    if (error) throw error;
+    form.reset();
+    showEmail(data.user || { ...user, new_email: email });
+    toast(`Lien de confirmation envoyé à ${email} : ouvre-le pour valider (regarde aussi tes spams).`, 'success');
+  });
+  submit('passForm', async (form) => {
+    if (form.newPass.value !== form.newPass2.value) return toast('Les deux mots de passe ne correspondent pas.', 'error');
+    const { error } = await sb.auth.updateUser({ password: form.newPass.value });
+    if (error) throw error;
+    form.reset();
+    toast('Mot de passe modifié.', 'success');
+  });
 }

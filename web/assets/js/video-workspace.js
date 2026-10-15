@@ -163,7 +163,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
         ${backHref ? `<a class="back-inline" href="${escapeHtml(backHref)}">${vwIc('back')}Mes vidéos</a>` : ''}
         <div class="vw-kind"><span class="vw-chip">Vidéo source</span><span class="vw-muted">${D ? `${fmtDur(D)} · ` : ''}jamais modifiée</span></div>
         <h1 class="vw-h1">${escapeHtml(video.titre || 'Vidéo')}</h1>
-        ${video.description ? `<p class="vw-sub">${escapeHtml(video.description)}</p>` : ''}`;
+        ${video.description ? `<p class="vw-sub">${escapeHtml(video.description).replace(/\n/g, '<br>')}</p>` : ''}`;
       return;
     }
     const r = range(s);
@@ -340,7 +340,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     if (!vid.paused) { endHold(); return vid.pause(); }
     if (w.holding) { endHold(); return vid.play().catch(() => {}); }
     const r = playRange();
-    if (r && (vid.currentTime < r.start - .05 || vid.currentTime >= r.end - .05)) return play(r);
+    if (r && (vid.currentTime < r.start + .05 || vid.currentTime >= r.end - .05)) return play(r);   // au début : arrêt sur la 1re image compris
     w.stopAt = r ? r.end : null;
     vid.play().catch(() => {});
   }
@@ -707,9 +707,9 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   render(); syncPlay();
   const s0 = cur();
   if (s0) {
+    // Toujours au début de la séquence : l'habillage s'affiche pendant la lecture.
     const open = () => {
-      const f = frames()[0];
-      vid.currentTime = f ? f.t : Number(s0.start_sec);
+      vid.currentTime = Number(s0.start_sec);
       if (staff) markSeen(s0);
     };
     if (vid.readyState >= 1) open(); else vid.addEventListener('loadedmetadata', open, { once: true });

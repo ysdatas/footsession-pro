@@ -254,6 +254,14 @@
   font: 600 var(--fs-xs)/1 var(--font-main); padding: 5px 9px; border-radius: 6px; pointer-events: none; box-shadow: var(--shadow);
 }
 
+/* Saisie d'un texte sur le terrain (plusieurs lignes), centrée sur sa place */
+.tb-textedit { position: fixed; z-index: 350; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.tb-textedit textarea {
+  max-width: 80vw; min-height: 0; padding: 6px 12px; resize: none; overflow-y: hidden; text-align: center; line-height: 1.2;
+  background: rgba(0, 0, 0, .55); border: 1px solid var(--gold); border-radius: 8px; box-shadow: var(--shadow);
+}
+.tb-textedit small { padding: 3px 8px; border-radius: 6px; background: rgba(0, 0, 0, .6); color: #fff; font-size: var(--fs-xs); max-width: 80vw; text-align: center; }
+
 /* Menu contextuel (clic droit) */
 .tb-menu {
   position: fixed; z-index: 400; width: 210px;

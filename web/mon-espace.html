@@ -46,6 +46,24 @@
       <h2 id="homeTilesTitle">Mon espace</h2>
       <div class="home-tiles" id="homeTiles"></div>
     </section>
+
+    <section class="home-section" id="compte" aria-labelledby="homeAccountTitle">
+      <h2 id="homeAccountTitle">Mon compte</h2>
+      <div class="home-account">
+        <form class="card" id="emailForm">
+          <h3>Adresse e-mail</h3>
+          <p class="field-hint" id="emailNow"></p>
+          <div class="field"><label for="newEmail">Nouvelle adresse</label><input id="newEmail" type="email" required autocomplete="email" placeholder="toi@exemple.fr"></div>
+          <button class="btn btn-primary btn-sm" type="submit">Changer l’e-mail</button>
+        </form>
+        <form class="card" id="passForm">
+          <h3>Mot de passe</h3>
+          <div class="field"><label for="newPass">Nouveau mot de passe (6 caractères minimum)</label><input id="newPass" type="password" required minlength="6" autocomplete="new-password"></div>
+          <div class="field"><label for="newPass2">Confirmer</label><input id="newPass2" type="password" required autocomplete="new-password"></div>
+          <button class="btn btn-primary btn-sm" type="submit">Changer le mot de passe</button>
+        </form>
+      </div>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>

@@ -26,7 +26,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
     const principe = sessionPrinciple(s, procedures);
     const metaParts = [
       `<span>Date : ${escapeHtml(fmtDateFrLong(s.date_seance))}</span>`,
-      principe ? `<span>Principe de jeu : ${escapeHtml(principe)}</span>` : '',
+      principe ? `<span class="sp-text">Principe de jeu : ${escapeHtml(principe)}</span>` : '',
       s.equipe ? `<span>Équipe : ${escapeHtml(s.equipe)}</span>` : '',
       `<span>Durée séance : ${fmtMin(s.duree_min)} min</span>`,
       `<span>Travail : ${fmtMin(sessionWorkMin(procedures))} min</span>`,
@@ -52,7 +52,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
         ['objectif', 'Objectif'], ['consignes', 'Consignes'], ['postes_cibles', 'Postes ciblés'],
         ['principes_jeu', 'Principe de jeu'], ['comportements_individuels', 'Comportements'],
       ].filter(([k]) => p[k] && (k !== 'principes_jeu' || own !== principe))
-        .map(([k, lbl]) => `<div class="sp-field"><b>${lbl} :</b> ${escapeHtml(p[k])}</div>`).join('');
+        .map(([k, lbl]) => `<div class="sp-field sp-text"><b>${lbl} :</b> ${escapeHtml(p[k])}</div>`).join('');
       const meta = [p.type_procede, sequenceLabel(p), procIsFilmed(p, s) ? 'filmé' : ''].filter(Boolean).join(' · ');
       const staff = (Array.isArray(p.staff) ? p.staff : []).filter(m => (m.nom || '').trim());
       return `<div class="card sp-proc">

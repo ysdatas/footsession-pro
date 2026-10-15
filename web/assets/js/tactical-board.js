@@ -7,6 +7,9 @@
 
 const LW = 1040, LH = 680;           // dimensions logiques du terrain
 const HANDLE = 9;                    // rayon de prise (poignées)
+const ROT_OFF = 28;                  // écart de la poignée de rotation au cadre
+const TEXT_LH = 1.2;                 // interligne d'un texte (× sa taille)
+const textLines = (it) => (it.text || '…').split('\n');
 const canvas = document.getElementById('pitch');
 const ctx = canvas.getContext('2d');
 
@@ -97,17 +100,23 @@ function hexA(color, alpha) {
 
 /* ---------- Orientation ----------
    Les éléments sont TOUJOURS stockés en coordonnées « paysage » (LW×LH).
-   La vue « Horizontal » ne fait que pivoter l'affichage et la saisie de 90°
-   → un pion placé au point de penalty reste au point de penalty dans toutes les vues. */
-const isPortrait = () => state.view === 'horizontal';
-const curW = () => isPortrait() ? LH : LW;   // largeur logique du canvas selon l'orientation
-const curH = () => isPortrait() ? LW : LH;   // hauteur logique du canvas selon l'orientation
+   Les vues portrait ne font que pivoter l'affichage et la saisie de 90°
+   → un pion placé au point de penalty reste au point de penalty dans toutes les vues.
+   « Portrait » montre tout le terrain ; « Demi-terrain portrait » sa moitié
+   gauche (but en bas, médiane en haut), aux vraies proportions : le canvas
+   s'arrête une marge après la médiane. */
+const isPortrait = () => state.view === 'horizontal' || state.view === 'demi-portrait';
+const portraitSpan = () => (state.view === 'demi-portrait' ? LW / 2 + PITCH_MARGIN : LW);   // longueur affichée en hauteur
+const curW = () => isPortrait() ? LH : LW;              // largeur logique du canvas selon l'orientation
+const curH = () => isPortrait() ? portraitSpan() : LH;  // hauteur logique du canvas selon l'orientation
+/* Centre de la partie visible du terrain (éléments ajoutés sans clic). */
+const viewCenter = () => ({ x: (isPortrait() ? portraitSpan() : LW) / 2, y: LH / 2 });
 
 /* Applique la transformation de base (DPR + rotation portrait éventuelle). */
 function applyBaseTransform() {
   const dpr = window.devicePixelRatio || 1;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (isPortrait()) { ctx.translate(0, LW); ctx.rotate(-Math.PI / 2); } // (x,y) paysage → (y, LW−x) portrait
+  if (isPortrait()) { ctx.translate(0, portraitSpan()); ctx.rotate(-Math.PI / 2); } // (x,y) paysage → (y, span−x) portrait
 }
 
 function resizeCanvas() {
@@ -148,7 +157,7 @@ function getPos(e) {
   const px = (e.clientX - r.left) * (curW() / r.width);
   const py = (e.clientY - r.top) * (curH() / r.height);
   // Inverse de la rotation portrait pour retrouver les coordonnées paysage.
-  return isPortrait() ? { x: LW - py, y: px } : { x: px, y: py };
+  return isPortrait() ? { x: portraitSpan() - py, y: px } : { x: px, y: py };
 }
 
 /* ============================================================
@@ -227,6 +236,11 @@ function drawPitch() {
   penaltyArea(LW - m, LH / 2, L, H, -1);
   cornerArc(m, m, 0); cornerArc(LW - m, m, 1); cornerArc(LW - m, LH - m, 2); cornerArc(m, LH - m, 3);
   ctx.restore();
+  // Demi-terrain portrait : au-delà de la médiane, la marge hors terrain.
+  if (state.view === 'demi-portrait') {
+    ctx.fillStyle = grassPattern; ctx.fillRect(LW / 2 + 1.5, 0, LW / 2, LH);
+    ctx.fillStyle = GRASS_SHADE; ctx.fillRect(LW / 2 + 1.5, 0, LW / 2, LH);
+  }
 }
 
 /* Surface de réparation + surface de but + point de penalty + arc (D) + but */
@@ -328,11 +342,12 @@ function drawItem(it) {
 
 /* Texte lisible : légère ombre portée pour le contraste, et en mode Horizontal
    (portrait) on contre-tourne le texte de +90° pour qu'il reste droit à l'écran. */
-function txt(text, x, y) {
+/* dy : décalage vers le bas tel qu'on le voit (lignes d'un texte), portrait compris. */
+function txt(text, x, y, dy = 0) {
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 4; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 1;
-  if (isPortrait()) { ctx.translate(x, y); ctx.rotate(Math.PI / 2); ctx.fillText(text, 0, 0); }
-  else ctx.fillText(text, x, y);
+  if (isPortrait()) { ctx.translate(x, y); ctx.rotate(Math.PI / 2); ctx.fillText(text, 0, dy); }
+  else ctx.fillText(text, x, y + dy);
   ctx.restore();
 }
 
@@ -566,7 +581,8 @@ function drawPath(it) {
 function drawText(it) {
   ctx.fillStyle = it.color; ctx.font = `600 ${it.size}px ${it.font || 'Inter, sans-serif'}`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  txt(it.text || '…', it.x, it.y);
+  const lines = textLines(it), lh = it.size * TEXT_LH;
+  lines.forEach((l, i) => txt(l, it.x, it.y, (i - (lines.length - 1) / 2) * lh));
 }
 function drawLogo(it) {
   if (it._img && it._img.complete) ctx.drawImage(it._img, it.x, it.y, it.w, it.h);
@@ -702,6 +718,14 @@ function drawSelection() {
       const m = midOf(one); handle(m.x, m.y, !bendOf(one));
     }
     else { const b = handleBounds(one); withRotation(one, () => [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].forEach(c => handle(c[0], c[1]))); }
+    // Poignée de rotation : reliée au cadre, elle tourne avec l'élément.
+    if (rotatable(one)) withRotation(one, () => {
+      const r = rotHandle(one);
+      ctx.strokeStyle = accentColor(); ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(r.ex, r.ey); ctx.lineTo(r.x, r.y); ctx.stroke();
+      handle(r.x, r.y, true);
+      ctx.beginPath(); ctx.arc(r.x, r.y, HANDLE - 5, -Math.PI * .9, Math.PI * .5); ctx.stroke();
+    });
   }
 }
 function handle(x, y, hollow) {
@@ -721,7 +745,11 @@ function bounds(it) {
   }
   if (it.type === 'player' || it.type === 'opponent') { const h = tokenHalf(it); return { x: it.x - h, y: it.y - h, w: h * 2, h: h * 2 }; }
   if (it.type === 'equip') return { x: it.x - it.r * 1.15, y: it.y - it.r * 1.7, w: it.r * 2.3, h: it.r * 3.4 };
-  if (it.type === 'text') { const w = (it.text || '…').length * it.size * 0.6, h = it.size; return { x: it.x - w / 2, y: it.y - h / 2, w, h }; }
+  if (it.type === 'text') {
+    const lines = textLines(it), w = Math.max(...lines.map(l => l.length)) * it.size * 0.6, h = lines.length * it.size * TEXT_LH;
+    // En portrait, le texte est dessiné droit à l'écran : son cadre pivote avec lui.
+    return isPortrait() ? { x: it.x - h / 2, y: it.y - w / 2, w: h, h: w } : { x: it.x - w / 2, y: it.y - h / 2, w, h };
+  }
   // shape / logo : normaliser largeur/hauteur négatives
   const x = Math.min(it.x, it.x + it.w), y = Math.min(it.y, it.y + it.h);
   return { x, y, w: Math.abs(it.w), h: Math.abs(it.h) };
@@ -803,6 +831,28 @@ function itemBounds(it) {
 }
 
 /* ---------- Rotation des éléments ---------- */
+/* Ce qui a une orientation (matériel, zones, textes, logos, tracés) se tourne
+   librement, à la poignée ; les pions ronds n'en ont pas. */
+const rotatable = (it) => ['shape', 'equip', 'text', 'logo', 'path'].includes(it?.type);
+/* Poignée de rotation, dans le repère non tourné de l'élément : au-dessus du
+   cadre tel qu'on le voit (en portrait, l'écran est tourné : à sa droite en
+   coordonnées paysage). ex/ey : point du cadre où elle s'attache. */
+function rotHandle(it) {
+  const b = handleBounds(it);
+  return isPortrait()
+    ? { x: b.x + b.w + ROT_OFF, y: b.y + b.h / 2, ex: b.x + b.w, ey: b.y + b.h / 2 }
+    : { x: b.x + b.w / 2, y: b.y - ROT_OFF, ex: b.x + b.w / 2, ey: b.y };
+}
+function hitRotHandle(p, it, pad = 0) {
+  if (!rotatable(it)) return false;
+  const lp = localPoint(p, it), r = rotHandle(it);
+  return Math.hypot(lp.x - r.x, lp.y - r.y) <= HANDLE + 2 + pad;
+}
+/* Angle en degrés (0 à 360) ; aimant à 4° des multiples de 15°, sauf avec Alt. */
+function snapAngle(deg, free) {
+  const a = ((deg % 360) + 360) % 360, near = Math.round(a / 15) * 15;
+  return (free || Math.abs(a - near) > 4 ? Math.round(a * 10) / 10 : near) % 360;
+}
 function itemCenter(it) {
   if (it.type === 'shape' || it.type === 'logo' || it.type === 'path') { const b = bounds(it); return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
   return { x: it.x, y: it.y };
@@ -847,9 +897,13 @@ let drag = null;
 /* Étiquette flottante « largeur × hauteur en mètres » pendant le tracé d'une zone. */
 let sizeTag = null;
 function showSizeTag(e, it) {
-  if (!sizeTag) { sizeTag = document.createElement('div'); sizeTag.className = 'tb-sizetag'; document.body.appendChild(sizeTag); }
   const mpp = 105 / (LW - 2 * PITCH_MARGIN);        // ~ mètres par pixel logique (terrain 105 m)
-  sizeTag.textContent = `${(Math.abs(it.w) * mpp).toFixed(0)} × ${(Math.abs(it.h) * mpp).toFixed(0)} m`;
+  showTag(e, `${(Math.abs(it.w) * mpp).toFixed(0)} × ${(Math.abs(it.h) * mpp).toFixed(0)} m`);
+}
+/* Petite étiquette près du pointeur (taille d'une zone, angle d'une rotation). */
+function showTag(e, text) {
+  if (!sizeTag) { sizeTag = document.createElement('div'); sizeTag.className = 'tb-sizetag'; document.body.appendChild(sizeTag); }
+  sizeTag.textContent = text;
   sizeTag.style.left = (e.clientX + 14) + 'px';
   sizeTag.style.top = (e.clientY + 16) + 'px';
   sizeTag.style.display = 'block';
@@ -857,6 +911,7 @@ function showSizeTag(e, it) {
 function hideSizeTag() { if (sizeTag) sizeTag.style.display = 'none'; }
 
 canvas.addEventListener('pointerdown', (e) => {
+  if (textEdit) { closeTextEditor(true); return; }   // clic à côté de la saisie : on valide
   if (!CAN_EDIT || state.playing) return;
   if (e.button === 2) return;          // clic droit géré par le menu contextuel
   if (e.pointerType === 'touch') {
@@ -881,6 +936,12 @@ canvas.addEventListener('pointerdown', (e) => {
     //    texte se redimensionnent au curseur de la barre, pas aux coins.
     const pad = touchPad(e);
     const one = selected();
+    if (one && hitRotHandle(p, one, pad * .6)) {
+      pushHistory();
+      const c = itemCenter(one);
+      drag = { mode: 'rotate', it: one, c, a0: Math.atan2(p.y - c.y, p.x - c.x), r0: one.rot || 0 };
+      return;
+    }
     if (one) {
       const onBody = pad && one.type !== 'arrow' && one.type !== 'line' && hitItem(p) === one;
       const h = !onBody && !(pad && sizeKind(one)) && hitHandle(p, one, pad * .6);
@@ -930,7 +991,8 @@ canvas.addEventListener('pointerdown', (e) => {
     state.items.push(it); drag = { mode: 'create-path', it };
   }
   else if (state.tool === 'text') {
-    const t = prompt('Texte :', ''); if (t) { state.items.push({ id: nid(), type: 'text', x: p.x, y: p.y, text: t, color: c, size: 22, font: state.textFont }); commit(); }
+    // Ouverte au relâchement : le focus y tient (pas d'événement souris après), le clavier du téléphone s'ouvre.
+    e.preventDefault(); drag = { mode: 'create-text', p };
   }
   else if (state.tool.startsWith('arrow') || state.tool === 'line') {
     const style = { 'arrow-curved': 'curved', 'arrow-dashed': 'dashed', 'arrow-wavy': 'wavy' }[state.tool] || 'solid';
@@ -980,6 +1042,10 @@ canvas.addEventListener('pointermove', (e) => {
   } else if (drag.mode === 'create-box') {
     drag.it.w = p.x - drag.ox; drag.it.h = p.y - drag.oy;
     showSizeTag(e, drag.it);
+  } else if (drag.mode === 'rotate') {
+    const { c, a0, r0 } = drag;
+    drag.it.rot = snapAngle(r0 + (Math.atan2(p.y - c.y, p.x - c.x) - a0) * 180 / Math.PI, e.altKey);
+    showTag(e, `${Math.round(drag.it.rot)}°`);
   } else if (drag.mode === 'handle' && drag.scale) {
     const { c, d0, s0 } = drag.scale;
     setSize(drag.it, s0 * Math.hypot(p.x - c.x, p.y - c.y) / d0);
@@ -996,6 +1062,7 @@ canvas.addEventListener('pointerup', () => {
   hideSizeTag();
   canvas.parentElement.classList.remove('is-moving');
   if (!drag) return;
+  if (drag.mode === 'create-text') { const { p } = drag; drag = null; openTextEditor(null, p); return; }
   if (drag.mode === 'create-box') {
     const it = drag.it;
     // On ne crée la zone QUE si l'utilisateur a réellement étiré (pas un simple clic).
@@ -1047,6 +1114,7 @@ canvas.addEventListener('pointerup', () => {
 /* Curseur de redimensionnement au survol d'une poignée. */
 function hoverCursor(e) {
   const one = CAN_EDIT && state.tool === 'select' ? selected() : null;
+  if (one && hitRotHandle(getPos(e), one)) { canvas.style.cursor = 'grab'; return; }
   const h = one && one.type !== 'arrow' && one.type !== 'line' ? hitHandle(getPos(e), one) : null;
   // En mode portrait, l'affichage est tourné de 90° : les diagonales s'inversent.
   const diag = (h === 'nw' || h === 'se') !== isPortrait() ? 'nwse-resize' : 'nesw-resize';
@@ -1087,8 +1155,9 @@ function openMenu(e, it) {
   $('#tbmRenameRow').classList.toggle('hidden', !canRename);
   const rn = $('#tbmRename');
   if (isToken) { rn.type = 'number'; rn.value = it.number ?? ''; rn.placeholder = 'N°'; }
-  else if (it.type === 'text') { rn.type = 'text'; rn.value = it.text || ''; rn.placeholder = 'Texte'; }
+  else if (it.type === 'text') { rn.type = 'text'; rn.value = oneLine(it.text); rn.placeholder = 'Texte'; }
   else if (it.type === 'shape') { rn.type = 'text'; rn.value = it.label || ''; rn.placeholder = 'Nom de la zone'; }
+  rn.readOnly = it.type === 'text';   // un clic ouvre la zone multiligne (openTextEditor)
   $('#tbmColor').value = toHex(it.color || '#C9A84C');
   // Zones : contour pointillé + position de l'étiquette. Flèches et traits : plein ou pointillé.
   const isShape = it.type === 'shape';
@@ -1103,16 +1172,76 @@ function openMenu(e, it) {
   let x = Math.min(e.clientX, window.innerWidth - mw - 8);
   let y = Math.min(e.clientY, window.innerHeight - mh - 8);
   menu.style.left = Math.max(8, x) + 'px'; menu.style.top = Math.max(8, y) + 'px';
-  if (canRename) setTimeout(() => $('#tbmRename').focus(), 0);
+  if (canRename && it.type !== 'text') setTimeout(() => $('#tbmRename').focus(), 0);
 }
 function hideMenu() { menu.classList.add('hidden'); menuTarget = null; }
+
+/* ---------- Texte sur plusieurs lignes ----------
+   Zone posée sur le terrain, là où sera le texte : Entrée passe à la ligne,
+   Ctrl/Cmd + Entrée ou un clic à côté valide, Échap annule. Sert à créer
+   (outil Texte) et à modifier (double-clic, barre de sélection, menu). */
+let textEdit = null;
+const oneLine = (t) => (t || '').replace(/\n/g, ' ↵ ');   // aperçu dans un champ d'une ligne
+function openTextEditor(it, p = it) {
+  closeTextEditor(true);
+  const k = canvas.getBoundingClientRect().width / curW(), at = toScreen(p.x, p.y);
+  const box = document.createElement('div');
+  box.className = 'tb-textedit';
+  box.innerHTML = '<textarea rows="1" wrap="off" spellcheck="false" aria-label="Texte" placeholder="Texte…"></textarea>'
+    + `<small>${matchMedia('(pointer: coarse)').matches ? 'Retour : à la ligne · touchez à côté pour valider'
+      : 'Entrée : à la ligne · Ctrl/⌘ + Entrée : valider · Échap : annuler'}</small>`;
+  const ta = box.firstChild;
+  ta.value = it?.text || '';
+  ta.style.font = `600 ${Math.max(14, (it?.size || 22) * k)}px ${it?.font || state.textFont}`;
+  ta.style.color = it?.color || state.drawColor;
+  const fit = () => {   // la zone grandit avec le texte, sans retour automatique
+    const lines = ta.value.split('\n');
+    ctx.save(); ctx.font = ta.style.font;
+    ta.style.width = `${Math.max(90, ...lines.map(l => ctx.measureText(l).width)) + 28}px`;
+    ctx.restore();
+    ta.rows = lines.length;
+    // Toujours dans l'écran, même posée près d'un bord.
+    box.style.left = `${at.x}px`;
+    const r = box.getBoundingClientRect();
+    box.style.left = `${at.x + Math.max(8 - r.left, Math.min(0, innerWidth - 8 - r.right))}px`;
+  };
+  ta.addEventListener('input', fit);
+  ta.addEventListener('keydown', ev => {
+    ev.stopPropagation();   // pas de raccourci du tableau pendant la saisie
+    if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); closeTextEditor(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); closeTextEditor(false); }
+  });
+  ta.addEventListener('blur', () => closeTextEditor(true));
+  box.style.top = `${at.y}px`;
+  document.body.appendChild(box);
+  fit();
+  textEdit = { box, ta, it, p: { x: p.x, y: p.y } };
+  ta.focus(); ta.select();
+}
+function closeTextEditor(save) {
+  const ed = textEdit; if (!ed) return;
+  textEdit = null; ed.box.remove();
+  const text = ed.ta.value.replace(/\s+$/, '');
+  if (!save || !text.trim() || text === ed.it?.text) return;   // vide : rien de créé, l'ancien texte reste
+  if (ed.it) { pushHistory(); ed.it.text = text; }
+  else state.items.push({ id: nid(), type: 'text', x: ed.p.x, y: ed.p.y, text, color: state.drawColor, size: 22, font: state.textFont });
+  commit(); syncSelBar();
+}
+canvas.addEventListener('dblclick', (e) => {
+  if (!CAN_EDIT || state.playing) return;
+  const it = hitItem(getPos(e));
+  if (it?.type === 'text') openTextEditor(it);
+});
 
 $('#tbmRename').addEventListener('input', e => {
   const it = menuTarget; if (!it) return;
   if (it.type === 'player' || it.type === 'opponent') it.number = e.target.value === '' ? null : Number(e.target.value);
-  else if (it.type === 'text') it.text = e.target.value;
   else if (it.type === 'shape') it.label = e.target.value;
   render(); scheduleSave(); syncSelBar();
+});
+$('#tbmRename').addEventListener('click', () => {
+  const it = menuTarget; if (it?.type !== 'text') return;
+  hideMenu(); openTextEditor(it);
 });
 $('#tbmColor').addEventListener('input', e => {
   const it = menuTarget; if (!it) return;
@@ -1364,7 +1493,7 @@ document.getElementById('tbValidate')?.addEventListener('click', () => saveToDB(
 /* Coordonnées écran d'un point du terrain (orientation portrait comprise). */
 function toScreen(x, y) {
   const r = canvas.getBoundingClientRect(), k = r.width / curW();
-  return isPortrait() ? { x: r.left + y * k, y: r.top + (LW - x) * k } : { x: r.left + x * k, y: r.top + y * k };
+  return isPortrait() ? { x: r.left + y * k, y: r.top + (portraitSpan() - x) * k } : { x: r.left + x * k, y: r.top + y * k };
 }
 /* La barre de réglages se pose juste au-dessus de la sélection (ou
    en dessous s'il n'y a pas la place) : on règle l'élément là où il est. */
@@ -1373,6 +1502,11 @@ function positionSelBar() {
   const bar = $('#selBar'), sels = selectedItems();
   if (!bar || bar.classList.contains('hidden') || !sels.length || selBarFrozen) return;
   const pts = sels.flatMap(it => { const b = itemBounds(it); return [toScreen(b.x, b.y), toScreen(b.x + b.w, b.y + b.h)]; });
+  // La poignée de rotation reste visible : la barre se pose au-delà d'elle.
+  if (sels.length === 1 && rotatable(sels[0])) {
+    const one = sels[0], w = localPoint(rotHandle(one), { ...one, rot: -(one.rot || 0) }), s = toScreen(w.x, w.y);
+    pts.push({ x: s.x, y: s.y - 10 }, { x: s.x, y: s.y + 10 });
+  }
   const stage = canvas.parentElement.getBoundingClientRect();
   const minX = Math.min(...pts.map(p => p.x)), maxX = Math.max(...pts.map(p => p.x));
   const minY = Math.min(...pts.map(p => p.y)), maxY = Math.max(...pts.map(p => p.y));
@@ -1428,7 +1562,8 @@ function syncSelBar() {
   $('#propText').classList.toggle('hidden', !hasText);
   if (hasText) {
     const input = $('#selText');
-    if (one.type === 'text') { $('#selTextLabel').textContent = 'Texte'; input.value = one.text || ''; input.placeholder = 'Texte'; }
+    input.readOnly = one.type === 'text';   // un clic ouvre la zone multiligne (openTextEditor)
+    if (one.type === 'text') { $('#selTextLabel').textContent = 'Texte'; input.value = oneLine(one.text); input.placeholder = 'Texte'; }
     else if (isToken) { $('#selTextLabel').textContent = 'N°'; input.value = one.number ?? ''; input.placeholder = '—'; }
     else { $('#selTextLabel').textContent = 'Nom'; input.value = one.label || ''; input.placeholder = 'Nom de la zone'; }
   }
@@ -1447,7 +1582,7 @@ function syncSelBar() {
   if ($('#selImage').classList.contains('hidden')) closeImgMenu();
   // Pivoter n'a de sens que pour ce qui a une orientation (pas un pion rond).
   // Un pion en image (maillot) pivote aussi ; un rond de couleur, non.
-  $('#selRotate').classList.toggle('hidden', !sels.some(x => ['shape', 'equip', 'text', 'logo', 'path'].includes(x.type)
+  $('#selRotate').classList.toggle('hidden', !sels.some(x => rotatable(x)
     || ((x.type === 'player' || x.type === 'opponent') && x.img)));
 
   // Bouton d'angle : réservé aux tracés, il pose ou retire le coude.
@@ -1524,10 +1659,10 @@ $('#selRotate').addEventListener('click', () => {
   const sels = selectedItems(); if (!sels.length) return;
   pushHistory(); sels.forEach(it => rotateItem(it, 90)); commit();
 });
+$('#selText').addEventListener('click', () => { const it = selected(); if (it?.type === 'text') openTextEditor(it); });
 $('#selText').addEventListener('input', e => {
   const it = selected(); if (!it) return;
-  if (it.type === 'text') it.text = e.target.value;
-  else if (it.type === 'player' || it.type === 'opponent') it.number = e.target.value === '' ? null : Number(e.target.value);
+  if (it.type === 'player' || it.type === 'opponent') it.number = e.target.value === '' ? null : Number(e.target.value);
   else if (it.type === 'shape') it.label = e.target.value;
   render(); scheduleSave();
 });
@@ -1850,7 +1985,7 @@ function importLogo(e) {
   const reader = new FileReader();
   reader.onload = ev => {
     const img = new Image();
-    img.onload = () => { pushHistory(); const it = { id: nid(), type: 'logo', x: LW / 2 - 60, y: 40, w: 120, h: 120 * (img.height / img.width), src: ev.target.result, _img: img }; state.items.push(it); commit(); };
+    img.onload = () => { pushHistory(); const it = { id: nid(), type: 'logo', x: viewCenter().x - 60, y: 40, w: 120, h: 120 * (img.height / img.width), src: ev.target.result, _img: img }; state.items.push(it); commit(); };
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file); e.target.value = '';
@@ -2120,7 +2255,7 @@ async function exportVideo() {
   let source = canvas, copyLoop = null;
   if (state.screen) {
     const dpr = window.devicePixelRatio || 1, s = state.screen;
-    const r = isPortrait() ? { x: s.y, y: LW - (s.x + s.w), w: s.h, h: s.w } : { x: s.x, y: s.y, w: s.w, h: s.h };
+    const r = isPortrait() ? { x: s.y, y: portraitSpan() - (s.x + s.w), w: s.h, h: s.w } : { x: s.x, y: s.y, w: s.w, h: s.h };
     source = document.createElement('canvas');
     source.width = Math.round(r.w * dpr); source.height = Math.round(r.h * dpr);
     const g = source.getContext('2d');
@@ -2261,7 +2396,7 @@ function exportClean() {
     const s = state.screen;
     // Conversion coordonnées paysage → pixels canvas (gère l'orientation portrait).
     let cx, cy, cw, ch;
-    if (isPortrait()) { cx = s.y; cy = LW - (s.x + s.w); cw = s.h; ch = s.w; }
+    if (isPortrait()) { cx = s.y; cy = portraitSpan() - (s.x + s.w); cw = s.h; ch = s.w; }
     else { cx = s.x; cy = s.y; cw = s.w; ch = s.h; }
     const out = document.createElement('canvas');
     out.width = Math.max(1, Math.round(cw * dpr));
