@@ -116,6 +116,10 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            team_level, profiles.lecture_club, staff_player_access (exceptions),
                                            RLS des données joueurs, matchs, stockage et corbeille, session_level
                                            (coach de l'équipe en modification), sequence_recipients (rejouable)
+39. supabase/lmfc_v21.sql                  lectures plus rapides, mêmes droits : my_visible_players() et
+                                           my_player_ids() calculés une fois par requête au lieu de player_level()
+                                           par ligne (séquences : 133 → 14 ms sur 2 000 lignes) (rejouable)
+                                           (lmfc_v20.sql : tests de force, branche tests-de-force, pas encore passée)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -708,6 +712,24 @@ l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
 ---
 
 ## 🛠 Développement
+
+**Fluidité** (mesurée : banc du serveur de test à 250 ms par requête, la latence réelle de la base) :
+- **profil en mémoire** (`auth.js`, `requireAuth`) : chaque page repart du profil et des équipes de la page
+  précédente (sessionStorage, par onglet) et les relit en fond ; rôle, club ou équipes changés → la page se
+  recharge. Espace joueur : profil et fiche lus ensemble, même mémoire (`requirePlayer`, `player-nav.js`).
+  Sans attente réseau, `documentParsed()` laisse d'abord les derniers scripts de la page se charger ;
+- **une vague de requêtes** par page : accueil, joueurs, fiche joueur (tout ce qui ne dépend que de
+  l'identifiant part ensemble ; une requête Supabase ne part qu'à son `then`, d'où `Promise.resolve`),
+  bilan (présences dans la requête des séances), Mon club, paramètres, corbeille, objectifs de l'effectif ;
+- **page suivante préparée au survol** (`speculationrules`, `app.js`, Chrome/Edge/Android) : exclues la
+  connexion, la création de séance, le tableau tactique, la lecture d'une vidéo et les liens d'action ; une
+  page préparée n'enregistre rien avant d'être affichée (`whenShown`) ; les liens à mémoire (menu, retour)
+  prennent leur vraie adresse dès le survol ;
+- **retour arrière instantané** (cache du navigateur) : accueil, séances, joueurs et vidéos relisent leurs
+  données en fond (`onRestore`) ; les autres pages se rechargent si on les a quittées depuis plus de 30 s.
+- Moyenne des pages : 831 → 372 ms sur le banc ; fiche joueur : 5 à 6 allers-retours successifs → 2.
+  Fichiers JS/CSS : leur revérification coûte ~50 à 80 ms par page (mesuré) ; laissée telle quelle, un
+  cache plus long risquerait de mélanger deux versions juste après une mise en ligne.
 
 **Journal de temps** (diagnostic, sur le vrai site) : ajouter `?perf=1` à l'adresse d'une page l'active
 pour cet appareil (`?perf=0` l'arrête) ; la console affiche chaque requête à la base avec sa durée,

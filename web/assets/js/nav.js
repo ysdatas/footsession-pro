@@ -94,6 +94,7 @@ async function savePrefsPatch(patch) {
   const { error: e2 } = await sb.from('profiles').update({ prefs }).eq('id', window.CURRENT_PROFILE.id);
   if (e2) throw e2;
   window.CURRENT_PROFILE.prefs = prefs;
+  if (typeof writeAuthCache === 'function') writeAuthCache(window.CURRENT_PROFILE, window.CLUB_TEAMS);
   return prefs;
 }
 

@@ -42,11 +42,10 @@ const trash = { roots: [], kids: new Map(), players: new Map(), people: new Map(
   if (!ctx) return;
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
   if (!isStaffRole(ctx.profile.role)) return showEmpty('La corbeille est réservée au staff.');
-  if (!(await trashReady())) {
-    return showEmpty('La corbeille n’est pas encore activée (prévenez l’administrateur du club). D’ici là, une suppression reste définitive.');
-  }
   bindTrash();
-  await loadTrash();
+  // Vérification et lecture partent ensemble (avant : l'une après l'autre).
+  const [ready] = await Promise.all([trashReady(), loadTrash()]);
+  if (!ready) showEmpty('La corbeille n’est pas encore activée (prévenez l’administrateur du club). D’ici là, une suppression reste définitive.');
 })();
 
 function showEmpty(msg) {

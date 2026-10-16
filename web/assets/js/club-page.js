@@ -110,6 +110,7 @@ async function loadMembers() {
     sb.from('profiles').select('*').eq('club_id', myProfile.club_id).order('nom'),
     sb.from('players').select('id, nom, prenom, auth_user_id, team_id').eq('club_id', myProfile.club_id).order('nom'),
     isAdmin ? sb.from('club_access').select('*').is('claimed_at', null).order('created_at', { ascending: false }) : { data: [] },
+    isAdmin ? loadAccessExceptions() : null,   // club-access.js (avant : après les membres)
   ]);
   if (error || rosterError) {
     list.innerHTML = `<p class="text-danger">${escapeHtml((error || rosterError).message)}</p>`;
@@ -117,7 +118,6 @@ async function loadMembers() {
   }
   roster = players || [];
   membersById = new Map((members || []).map(m => [m.id, m]));
-  if (isAdmin) await loadAccessExceptions();   // club-access.js
   if (access.error) console.warn('Accès indisponibles (migration platform_v2.sql non passée ?) :', access.error.message);
   const pending = access.data || [];
 

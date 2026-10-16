@@ -44,9 +44,9 @@ const DEFAULT_PREFS = {
   // Le tableau tactique est un outil du staff terrain (admin, coach).
   document.getElementById('tableau').classList.toggle('hidden', !canEdit(myProfile.role));
 
-  fillPrefs(await loadPrefs());
-
-  if (myProfile.role === 'admin') await showAdmin();
+  // Préférences et bloc d'administration en même temps (avant : l'un après l'autre).
+  const [prefs] = await Promise.all([loadPrefs(), myProfile.role === 'admin' ? showAdmin() : null]);
+  fillPrefs(prefs);
 })();
 
 /* ---------- Préférences ---------- */
@@ -163,6 +163,7 @@ async function saveAccount() {
     const { error } = await sb.from('profiles').update({ nom }).eq('id', myProfile.id);
     if (error) throw error;
     toast('Compte mis à jour', 'success');
+    clearAuthCache();   // nom changé : la page suivante relit le profil
     setTimeout(() => location.reload(), 700);
   } catch (e) { toast(e.message, 'error'); }
   finally { btn.disabled = false; }

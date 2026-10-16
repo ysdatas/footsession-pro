@@ -608,8 +608,9 @@ function careerDuration(from, to) {
   return [y ? `${y} an${y > 1 ? 's' : ''}` : '', m ? `${m} mois` : ''].filter(Boolean).join(' ');
 }
 
-async function loadCareer() {
-  const { data, error } = await sb.from('player_career').select('*').eq('player_id', player.id);
+/* pending : requête déjà partie au chargement de la page (loadPage). */
+async function loadCareer(pending = null) {
+  const { data, error } = await (pending || sb.from('player_career').select('*').eq('player_id', player.id));
   if (error) {
     careerMissing = true;
     career = [];
@@ -741,7 +742,7 @@ function latestPerPlayer(rows) {
    Un compte joueur n'a pas le droit de lire les lignes des autres : il
    passe par la RPC club_test_averages(), qui ne renvoie que des
    agrégats et applique les mêmes bornes côté base. */
-async function loadClubAverages() {
+async function loadClubAverages(pending = null) {   // pending : moyennes de la pré-saison, demandées d'avance
   const metricKeys = [...PERF_METRICS.map(m => m.key), ...SCORE_LABELS.map(([k]) => k)];
 
   if (isStaff() && !squadLoadFailed) {
@@ -753,7 +754,7 @@ async function loadClubAverages() {
   }
 
   squadTests = [];
-  const { data, error } = await sb.rpc('club_test_averages', { p_stage: stage });
+  const { data, error } = await (pending && stage === 'pre' ? pending : sb.rpc('club_test_averages', { p_stage: stage }));
   if (error) {
     console.warn('club_test_averages indisponible :', error.message);
     clubAverages = null;
@@ -765,23 +766,21 @@ async function loadClubAverages() {
 /* Effectif et tests du club, chargés une fois pour toutes les sessions.
    Réservé au staff : un compte joueur n'a pas le droit de lire les
    lignes des autres et passe par la RPC d'agrégats. */
-async function loadSquad() {
+const squadQueries = (clubId) => Promise.all([
+  sb.from('players').select('id, nom, prenom, numero, team_id').eq('club_id', clubId),
+  sb.from('player_physical_tests').select('*').eq('club_id', clubId),
+]);
+async function loadSquad(pending = null) {
   clubPlayers = []; clubTestsAll = []; squadLoadFailed = false;
   if (!isStaff() || !player) return;
-  const keys = [...PERF_METRICS.map(m => m.key), ...SCORE_LABELS.map(([k]) => k)];
-  // Groupe de référence : l'équipe du joueur (comme le calcul des notes /10).
-  let playersQuery = sb.from('players').select('id, nom, prenom, numero').eq('club_id', player.club_id);
-  if (player.team_id) playersQuery = playersQuery.eq('team_id', player.team_id);
-  const [pr, tr] = await Promise.all([
-    playersQuery,
-    sb.from('player_physical_tests').select('*').eq('club_id', player.club_id),
-  ]);
+  const [pr, tr] = await (pending || squadQueries(player.club_id));
   if (pr.error || tr.error) {
     squadLoadFailed = true;
     console.warn('Effectif du club indisponible :', (pr.error || tr.error).message);
     return;
   }
-  clubPlayers = pr.data || [];
+  // Groupe de référence : l'équipe du joueur (comme le calcul des notes /10).
+  clubPlayers = (pr.data || []).filter(p => !player.team_id || p.team_id === player.team_id);
   const inGroup = new Set(clubPlayers.map(p => p.id));
   // Moyennes du groupe : même saison que celle affichée pour le joueur.
   clubTestsAll = (tr.data || []).filter(t => inGroup.has(t.player_id)
@@ -793,18 +792,19 @@ async function loadSquad() {
    renvoient que les colonnes qui lui sont destinées (pas d'asymétrie,
    de plis cutanés ni de ratio). Tant que la migration n'est pas passée,
    la RPC n'existe pas et l'ancienne lecture directe prend le relais. */
-async function fetchPhysical() {
+async function fetchPhysical(id = player?.id) {
   if (isStaff()) {
     return Promise.all([
-      sb.from('player_physical_measurements').select('*').eq('player_id', player.id).order('id'),
-      sb.from('player_physical_tests').select('*').eq('player_id', player.id).order('id'),
+      sb.from('player_physical_measurements').select('*').eq('player_id', id).order('id'),
+      sb.from('player_physical_tests').select('*').eq('player_id', id).order('id'),
     ]);
   }
   const viaRpc = async (fn, table) => {
     const res = await sb.rpc(fn);
     if (!res.error) return res;
     console.warn(`${fn} indisponible, lecture directe :`, res.error.message);
-    return sb.from(table).select('*').eq('player_id', player.id).order('id');
+    const pid = id ?? player?.id;
+    return pid == null ? res : sb.from(table).select('*').eq('player_id', pid).order('id');
   };
   return Promise.all([
     viaRpc('my_physical_measurements', 'player_physical_measurements'),
@@ -841,25 +841,30 @@ async function loadPage() {
   const params = new URLSearchParams(location.search);
   let playerId = Number(params.get('id') || 0) || null;
 
-  if (ctxProfile.role === 'joueur') {
-    const { data: linked, error: linkErr } = await sb.from('players')
-      .select('id').eq('auth_user_id', ctx.user.id).maybeSingle();
-    // Une erreur de lecture ne doit pas être confondue avec « compte non lié » :
-    // renvoyer silencieusement sur index.html masquait la vraie cause.
-    if (linkErr) return showLoadError('lecture de ta fiche joueur', linkErr);
-    if (!linked) {
-      window.location.href = 'index.html';
-      return;
-    }
-    playerId = linked.id;
-  }
-  if (!playerId) {
+  const asPlayer = ctxProfile.role === 'joueur';
+  if (!asPlayer && !playerId) {
     return showLoadError('identification du joueur',
       { message: 'Aucun joueur ciblé (paramètre ?id= absent et compte non lié à une fiche).' });
   }
+  // Tout ce qui ne dépend que du joueur part en une vague (avant : niveau
+  // d'accès, fiche, données, parcours et effectif, l'un après l'autre).
+  // select('*') : les colonnes d'identité, de ligne et d'équipe n'existent
+  // qu'après leurs migrations ; une liste explicite ferait échouer la page.
+  const go = (q) => (q ? Promise.resolve(q) : null);   // une requête Supabase ne part qu'à son « then »
+  const early = {
+    row: go(asPlayer ? sb.from('players').select('*').eq('auth_user_id', ctx.user.id).maybeSingle()
+                     : sb.from('players').select('*').eq('id', playerId).maybeSingle()),
+    level: go(asPlayer ? { data: null } : sb.rpc('player_level', { p_player: playerId })),
+    physical: fetchPhysical(playerId),
+    career: go(asPlayer ? null : sb.from('player_career').select('*').eq('player_id', playerId)),
+    squad: asPlayer ? null : squadQueries(ctxProfile.club_id),
+    averages: go(asPlayer ? sb.rpc('club_test_averages', { p_stage: 'pre' }) : null),
+    logo: loadClubLogo(),
+  };
+  Object.values(early).forEach(pr => pr?.catch(() => {}));   // erreurs lues là où chaque résultat est attendu
 
   // Joueur ouvert en lecture seule pour ce compte (exception, lecture club : lmfc_v19.sql) : aucun bouton de modification.
-  const { data: level, error: levelErr } = ctxProfile.role === 'joueur' ? { data: null } : await sb.rpc('player_level', { p_player: playerId });
+  const { data: level, error: levelErr } = await early.level;
   if (levelErr) console.warn('Niveau d’accès au joueur indisponible', levelErr.message);
   const readOnly = level === 'lecture';
   canEditPerformance = !readOnly && canEditPerformanceData(ctxProfile.role);
@@ -895,11 +900,12 @@ async function loadPage() {
 
   // Les colonnes d'identité n'existent qu'après player_profile_career.sql :
   // leur absence ne doit pas empêcher d'ouvrir la fiche.
-  // select('*') : les colonnes d'identité, de ligne et d'équipe n'existent
-  // qu'après leurs migrations ; une liste explicite ferait échouer la page.
-  let { data: p, error } = await sb.from('players').select('*').eq('id', playerId).maybeSingle();
+  let { data: p, error } = await early.row;
   identityMissing = !!p && !('date_naissance' in p);
-  if (error) return showLoadError('lecture de la fiche joueur', error);
+  // Une erreur de lecture ne doit pas être confondue avec « compte non lié » :
+  // renvoyer silencieusement sur index.html masquait la vraie cause.
+  if (error) return showLoadError(asPlayer ? 'lecture de ta fiche joueur' : 'lecture de la fiche joueur', error);
+  if (asPlayer && !p) { window.location.href = 'index.html'; return; }
   if (!p) {
     return showLoadError('lecture de la fiche joueur',
       { message: `Aucune fiche lisible pour l'id ${playerId}. Si tu es joueur, vérifie que ton compte est bien associé à une fiche (policy players_read_self).` });
@@ -907,6 +913,8 @@ async function loadPage() {
   player = p;
   if (ctxProfile.role === 'joueur') { setPlayerShellUser(player); applyPlayerVisibility(); }
   else setupVisibilityToggles();
+  // Onglet Vidéos ouvert d'emblée (?tab=videos) : il attendait la fiche et restait sur « Chargement… ».
+  if (!pfVideosMounted && document.querySelector('[data-pf-tab="videos"][aria-selected="true"]')) showTab('videos', false);
 
   // Staff : programme terrain (points forts, axes, exercices) dans l'onglet Fiche.
   // Le joueur a sa page « Objectifs & préventions » pour ça.
@@ -915,7 +923,7 @@ async function loadPage() {
   const lists = { prevention: 'preventionList',
     ...(staffProgram ? { strength: 'strengthList', improvement: 'improvementList' } : {}) };
   const [[mRes, tRes], notesError] = await Promise.all([
-    fetchPhysical(),
+    early.physical || fetchPhysical(),
     initNotes({ player, canEdit: canEditPlans, userId: ctxProfile.id, lists, onError: (m) => notify(m, 'error'),
       canUploadVideo: canManageVideos(ctxProfile.role),
       program: staffProgram ? {
@@ -938,7 +946,7 @@ async function loadPage() {
   }
   setSeasonData(mRes.data || [], tRes.data || []);
 
-  await Promise.all([loadClubLogo(), loadCareer(), loadSquad()]);
+  await Promise.all([early.logo, asPlayer ? null : loadCareer(early.career), loadSquad(early.squad)]);
   renderIdentity();
   renderCareer();
 
@@ -956,7 +964,7 @@ async function loadPage() {
   stage = availableStages.includes('pre') ? 'pre' : (availableStages[0] || 'pre');
   document.getElementById('stageSelect').value = stage;
 
-  await loadClubAverages();
+  await loadClubAverages(early.averages);
   renderRadar();
   renderMeasurements();
 }

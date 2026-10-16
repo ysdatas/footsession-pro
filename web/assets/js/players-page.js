@@ -61,6 +61,7 @@ const pickPlayers = { on: false, ids: new Set() };
   document.getElementById('posteFilter').addEventListener('change', renderGrid);
 
   await loadGrid();
+  onRestore(loadGrid);   // retour arrière : liste relue (app.js)
 })();
 
 function avatarClass(i) { return 'av' + (i % 6); }
@@ -76,17 +77,18 @@ async function loadGrid() {
   try {
     // select('*') : team_id et ligne n'existent qu'après leurs migrations ;
     // une liste explicite ferait échouer la page tant qu'elles manquent.
-    const { data: players, error } = await byPlayerTeam(sb.from('players').select('*').order('nom'));
-    if (error) throw error;
-
-    const ids = players.map(p => p.id);
-    const [photos, mRes, lRes] = await Promise.all([
-      signedUrls('player-photos', players.map(p => p.photo_path)),   // une requête pour toutes les photos (app.js)
-      ids.length
-        ? sb.from('player_physical_measurements').select('player_id, season_key, month_label, measured_at, height_cm, weight_kg').in('player_id', ids)
-        : Promise.resolve({ data: [] }),
+    // Joueurs, mesures et niveaux d'accès en une vague (avant : les joueurs d'abord).
+    // La base ne renvoie que les mesures des joueurs permis ; seules celles des
+    // joueurs affichés servent (latestMeasures, par joueur).
+    const [pRes, mRes, lRes] = await Promise.all([
+      byPlayerTeam(sb.from('players').select('*').order('nom')),
+      sb.from('player_physical_measurements').select('player_id, season_key, month_label, measured_at, height_cm, weight_kg'),
       CAN_EDIT_PLAYERS ? sb.rpc('my_player_levels') : Promise.resolve({ data: [] }),
     ]);
+    if (pRes.error) throw pRes.error;
+    const players = pRes.data || [];
+    // Photos : liens gardés en mémoire d'une page à l'autre (app.js), souvent sans réseau.
+    const photos = await signedUrls('player-photos', players.map(p => p.photo_path));
     if (mRes.error) console.warn('Mesures indisponibles pour la liste des joueurs', mRes.error.message);
     if (lRes.error) console.warn('Niveaux d’accès indisponibles', lRes.error.message);
     readOnlyIds = new Set((lRes.data || []).filter(r => r.niveau !== 'modification').map(r => Number(r.player_id)));

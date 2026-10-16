@@ -84,7 +84,10 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
 
   bindObjectivesTab();
   objBoard.player = Number(CMP_PARAMS.get('player')) || null;
-  await loadData();
+  // Onglet Objectifs ouvert d'emblée : ses données partent avec l'effectif
+  // (avant : après lui). Un échec est réaffiché par l'onglet, qui relit.
+  const objP = cmpTab === 'objectifs' ? loadObjectives().catch(e => console.warn('Objectifs illisibles', e)) : null;
+  await Promise.all([loadData(), objP]);
   switchTab(cmpTab, true);
   if (cmpTab === 'objectifs' && CMP_PARAMS.get('new')) openObjectiveModal(null, objBoard.player);
 })();

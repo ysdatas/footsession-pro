@@ -44,6 +44,8 @@ let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton r
   history.replaceState({ vp: 1, ...view }, '', location.href);
   // Joueurs, vidéos et séquences partent ensemble (avant : les joueurs d'abord).
   await loadVideos(byPlayerTeam(sb.from('players').select('id, nom, prenom, club_id, auth_user_id').order('nom')));
+  // Retour arrière : la vue affichée est relue (app.js).
+  onRestore(() => (view.player ? pvLoad() : loadVideos(byPlayerTeam(sb.from('players').select('id, nom, prenom, club_id, auth_user_id').order('nom')))));
 })();
 
 const fullName = playerFullName;   // app.js

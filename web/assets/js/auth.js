@@ -6,6 +6,31 @@
    de club.
    ============================================================ */
 
+/* ---------- Profil en mémoire (par onglet) ----------
+   Chaque page attendait le profil et les équipes (un aller-retour à la
+   base, 0,25 à 0,5 s) avant de charger ses données. La page repart
+   maintenant de ceux de la page précédente et les relit en fond :
+   rôle, club ou équipes changés → la page se recharge aussitôt ;
+   le reste (nom, préférences, couleur) est simplement mis à jour.
+   Les droits restent ceux de la base (RLS). Vidé à la déconnexion. */
+const AUTH_CACHE = 'lmfc-auth';
+function readAuthCache(uid) {
+  try { const c = JSON.parse(sessionStorage.getItem(AUTH_CACHE) || 'null'); return c?.profile?.id === uid ? c : null; }
+  catch { return null; }
+}
+function writeAuthCache(profile, teams) {
+  try { sessionStorage.setItem(AUTH_CACHE, JSON.stringify({ profile, teams })); } catch { /* stockage indisponible : réseau */ }
+}
+const clearAuthCache = () => { try { sessionStorage.removeItem(AUTH_CACHE); } catch { /* idem */ } };
+/* Sans attente réseau, la page reprendrait la main avant que ses derniers
+   scripts soient chargés (club-access.js après club-page.js…) : on attend
+   la fin de la lecture du document, quelques millisecondes. */
+const documentParsed = () => (document.readyState === 'loading'
+  ? new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true })) : null);
+/* Ce qui décide de ce que la page montre : s'il change, on recharge. */
+const authScope = (p, teams) => JSON.stringify([p.role, p.club_id, p.team_id ?? null, p.team_ids || [],
+  p.prefs?.team_id ?? null, p.clubs?.saison_start ?? null, (teams || []).map(t => t.id)]);
+
 /**
  * À appeler en haut de chaque page protégée.
  * @param {object} opts - { requireClub: bool (défaut true) }
@@ -17,19 +42,41 @@ async function requireAuth(opts = {}) {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.href = 'index.html'; return null; }
 
-  // Profil et équipes partent ensemble : un aller-retour de moins sur chaque page du staff.
-  // (Un compte joueur n'en a pas l'usage ici : la réponse est simplement ignorée.)
-  const [{ data: profile, error }, teamsRes] = await Promise.all([
+  // Profil et équipes partent ensemble. (Un compte joueur n'a pas l'usage des
+  // équipes ici : la réponse est simplement ignorée.)
+  const loadProfile = () => Promise.all([
     sb.from('profiles')
       .select('id, nom, role, club_id, team_id, team_ids, prefs, clubs(nom, color, logo_path, join_code, saison_start)')
       .eq('id', session.user.id).single(),
     sb.from('teams').select('id, nom, sort_order').order('sort_order').order('nom'),
   ]);
-
-  if (error) {
-    console.error('requireAuth: lecture du profil impossible', error);
-    window.location.href = 'index.html';
-    return null;
+  const cached = readAuthCache(session.user.id);
+  let profile, teamsRes;
+  if (cached) {
+    profile = cached.profile;
+    teamsRes = { data: cached.teams, error: null };
+    loadProfile().then(([{ data: p, error }, t]) => {
+      if (error?.code === 'PGRST116') { clearAuthCache(); window.location.href = 'index.html'; return; }   // profil supprimé
+      if (error || !p) return console.warn('Profil non relu (réseau) : la page garde celui en mémoire', error?.message);
+      const teams = t.error ? cached.teams : (t.data || []);
+      writeAuthCache(p, teams);
+      if (authScope(p, teams) !== authScope(cached.profile, cached.teams)) { window.location.reload(); return; }
+      Object.assign(window.CURRENT_PROFILE, p);
+      window.CLUB_TEAMS = teams;
+      if (typeof applyClubColor === 'function' && p.clubs) applyClubColor(p.clubs.color);
+      if (p.role !== 'joueur' && typeof renderNav === 'function') renderNav(p);
+    }).catch(e => console.warn('Profil non relu (réseau)', e));
+    await documentParsed();
+  } else {
+    const [res, t] = await loadProfile();
+    if (res.error) {
+      console.error('requireAuth: lecture du profil impossible', res.error);
+      window.location.href = 'index.html';
+      return null;
+    }
+    profile = res.data;
+    teamsRes = t;
+    if (!t.error) writeAuthCache(profile, t.data || []);
   }
 
   /* Les comptes joueurs sont cantonnés à leur espace : vidéos, lecture,
@@ -87,6 +134,7 @@ async function claimClubAccess() {
 async function logout() {
   if (typeof clearNavMemory === 'function') clearNavMemory();
   if (typeof clearNavCache === 'function') clearNavCache();
+  clearAuthCache();
   await sb.auth.signOut();
   window.location.href = 'index.html';
 }

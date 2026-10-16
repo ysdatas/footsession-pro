@@ -1,7 +1,8 @@
 /* Droits par équipe et par joueur (supabase/lmfc_v19.sql) sur un vrai
    Postgres (PGlite, WASM), RLS active et appels directs à la base :
    qui voit et qui modifie joueurs, vidéos, séquences, données physiques,
-   séances, matchs, stockage et corbeille.
+   séances, matchs, stockage et corbeille. Les lectures passent par les
+   règles de lmfc_v21.sql (mêmes droits, calculés une fois par requête).
    Lancement : npm i --no-save @electric-sql/pglite && node tests/rights-sql.test.mjs
    (sans PGlite installé, le test est ignoré). */
 import { readFileSync } from 'node:fs';
@@ -107,6 +108,11 @@ create policy session_access_read on public.session_access for select using (tru
 const v19 = readFileSync(new URL('../supabase/lmfc_v19.sql', import.meta.url), 'utf8');
 await db.exec(v19);
 await db.exec(v19);   // rejouable
+// lmfc_v21.sql : mêmes droits en lecture, calculés une fois par requête.
+// Toute la matrice ci-dessous tourne sur ces règles.
+const v21 = readFileSync(new URL('../supabase/lmfc_v21.sql', import.meta.url), 'utf8');
+await db.exec(v21);
+await db.exec(v21);   // rejouable
 await db.exec(`
 create trigger guard_profile before update on public.profiles for each row execute function public.guard_profile_membership_changes();
 create policy sessions_read on public.sessions for select using (public.session_level(id, club_id, created_by, acces, team_id) <> 'aucun');

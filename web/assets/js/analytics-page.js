@@ -66,20 +66,17 @@ async function load() {
   if (!range) return toast('Choisissez une plage de dates.', 'error');
 
   try {
-    // Séances de la période avec leurs procédés (le RLS restreint au périmètre autorisé).
+    // Les 6 derniers mois ne dépendent pas de la période : ils partent tout de suite.
+    const monthsP = sessionsPerMonth();
+    monthsP.catch(() => {});   // pas attendue si la période est vide
+    // Séances de la période avec leurs procédés et leurs présences, en une requête
+    // (avant : séances, puis présences, puis les 6 mois). Le RLS restreint au périmètre autorisé.
     const { data: sessions, error } = await sb.from('sessions')
-      .select('id, titre, date_seance, duree_min, principes_jeu, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min)')
+      .select('id, titre, date_seance, duree_min, principes_jeu, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min), attendance(present)')
       .gte('date_seance', range.from).lte('date_seance', range.to)
       .order('date_seance');
     if (error) throw error;
-
-    // Présences sur ces séances.
-    const ids = sessions.map(s => s.id);
-    let attendance = [];
-    if (ids.length) {
-      const { data: att } = await sb.from('attendance').select('session_id, present').in('session_id', ids);
-      attendance = att || [];
-    }
+    const attendance = sessions.flatMap(s => s.attendance || []);
 
     const allProcs = sessions.flatMap(s => s.procedures || []);
     const nbSessions = sessions.length;
@@ -97,7 +94,7 @@ async function load() {
     restoreCharts();
 
     bar('chartCategory', countBy(allProcs, p => p.type_procede), GOLD);
-    line('chartMonths', await sessionsPerMonth());
+    line('chartMonths', await monthsP);
     hbar('chartEspaces', countBy(allProcs, p => p.taille_terrain), GOLD_L);
     hbar('chartVolume', volumePerSession(sessions), '#3aa0ff');
     // Un principe par séance (les anciennes séances le reprennent de leurs procédés).

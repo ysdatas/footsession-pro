@@ -71,6 +71,7 @@ const HOME_DESC = {
     </a>`).join('');
 
   await renderAttention(profile, can);
+  onRestore(() => renderAttention(profile, can));   // retour arrière : « À traiter » relu (app.js)
 })();
 
 /* Une carte « À traiter » : chiffre (s'il y en a un), titre, explication, lien. */
@@ -88,35 +89,39 @@ async function renderAttention(profile, can) {
   const box = document.getElementById('homeAttn');
   const today = new Date().toISOString().slice(0, 10);
   try {
-    const { data: players, error: pErr } = await byPlayerTeam(sb.from('players').select('id'));
-    if (pErr) throw pErr;
-    const ids = (players || []).map(p => p.id);
     const none = Promise.resolve({ data: [], count: 0 });
     const month = monthLabelNow();
-    const measuring = canEditPerformanceData(profile.role) && month && ids.length;
-    const [seqRes, nextRes, objRes, accessRes, measRes] = await Promise.all([
-      can('videos') && ids.length
-        ? sb.from('video_sequences').select('id, player_id, submitted_at, feedback_at').in('player_id', ids).not('submitted_at', 'is', null)
+    const measuring = canEditPerformanceData(profile.role) && month;
+    // Tout part en une vague (avant : les joueurs de l'équipe d'abord, puis le
+    // reste filtré sur eux). La base ne renvoie que les joueurs permis ; le
+    // filtre de l'équipe choisie se fait ici, sur leurs identifiants.
+    const [pRes, seqRes, nextRes, objRes, accessRes, measRes] = await Promise.all([
+      byPlayerTeam(sb.from('players').select('id')),
+      can('videos')
+        ? sb.from('video_sequences').select('id, player_id, submitted_at, feedback_at').not('submitted_at', 'is', null)
         : none,
       can('sessions')
         ? byTeam(sb.from('sessions').select('id, titre, date_seance').gte('date_seance', today).order('date_seance').limit(1))
         : none,
-      can('performance') && ids.length
-        ? sb.from('player_performance_notes').select('id', { count: 'exact', head: true }).in('kind', ['objective', 'prevention']).eq('status', 'active').in('player_id', ids)
+      can('performance')
+        ? sb.from('player_performance_notes').select('player_id').in('kind', ['objective', 'prevention']).eq('status', 'active')
         : none,
       profile.role === 'admin'
         ? sb.from('club_access').select('id', { count: 'exact', head: true }).is('claimed_at', null)
         : none,
       measuring
-        ? sb.from('player_physical_measurements').select('player_id, weight_kg, height_cm, body_fat_pct').in('player_id', ids)
+        ? sb.from('player_physical_measurements').select('player_id, weight_kg, height_cm, body_fat_pct')
             .eq('month_label', month).eq('season_key', seasonKeyFor(null, clubSeasonStartMonth(profile.clubs)))
         : none,
     ]);
+    if (pRes.error) throw pRes.error;
     [seqRes, nextRes, objRes, accessRes, measRes].forEach(r => { if (r.error) console.warn('Accueil : donnée indisponible', r.error); });
+    const ids = (pRes.data || []).map(p => p.id), inTeam = new Set(ids);
+    const mine = (res) => (res.data || []).filter(r => inTeam.has(r.player_id));
 
     const cards = [];
     if (can('videos')) {
-      const toSee = (seqRes.data || []).filter(seqToSee).length;
+      const toSee = mine(seqRes).filter(seqToSee).length;
       cards.push(attnCard({
         href: 'videos.html', icon: 'videos', tone: toSee ? 'urgent' : 'calm',
         value: toSee || null, label: toSee ? `Séquence${toSee > 1 ? 's' : ''} à traiter` : 'Aucune séquence à traiter',
@@ -137,15 +142,15 @@ async function renderAttention(profile, can) {
         }));
     }
     if (can('performance')) {
-      const n = objRes.count || 0;
+      const n = mine(objRes).length;
       cards.push(attnCard({
         href: 'comparaison.html?tab=objectifs', icon: 'target', tone: n ? '' : 'calm',
         value: n || null, label: n ? `Objectif${n > 1 ? 's' : ''} et prévention${n > 1 ? 's' : ''} en cours` : 'Aucun objectif en cours',
         detail: n ? 'Mettre à jour leur statut, en ajouter.' : 'Fixer des objectifs ou des préventions à un ou plusieurs joueurs.',
       }));
     }
-    if (measuring && !measRes.error) {
-      const done = new Set((measRes.data || []).filter(m => m.weight_kg != null || m.height_cm != null || m.body_fat_pct != null).map(m => m.player_id));
+    if (measuring && ids.length && !measRes.error) {
+      const done = new Set(mine(measRes).filter(m => m.weight_kg != null || m.height_cm != null || m.body_fat_pct != null).map(m => m.player_id));
       const missing = ids.filter(id => !done.has(id)).length;
       cards.push(attnCard({
         href: 'comparaison.html?tab=morpho', icon: 'scale', tone: missing ? '' : 'calm',

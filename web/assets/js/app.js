@@ -320,11 +320,16 @@ function latestUrl(pages) {
 }
 function clearNavMemory() { try { sessionStorage.removeItem(NAV_MEM); } catch { /* rien à vider */ } }
 
+/* Page préparée d'avance par le navigateur (lien survolé, voir plus bas) :
+   ce qui ne doit arriver qu'à l'affichage réel attend son activation. */
+const whenShown = (fn) => (document.prerendering
+  ? document.addEventListener('prerenderingchange', () => fn(), { once: true }) : fn());
+
 ['pushState', 'replaceState'].forEach(fn => {
   const orig = history[fn].bind(history);
   history[fn] = (...args) => { const r = orig(...args); rememberUrl(); return r; };
 });
-rememberUrl();
+whenShown(rememberUrl);
 
 /* Champs data-remember : valeur reprise au retour. Une liste remplie
    plus tard (options chargées) se rappelle avec restoreRemembered(). */
@@ -368,7 +373,7 @@ addEventListener('pagehide', () => {
   if (keys.length > 40) keys.slice(0, keys.length - 40).forEach(k => delete m.scroll[k]);
   memWrite(m);
 });
-(() => {
+whenShown(() => {
   const m = memRead();
   if (m.restore !== hereUrl()) return;
   delete m.restore; memWrite(m);
@@ -384,15 +389,23 @@ addEventListener('pagehide', () => {
     if (Date.now() < until) setTimeout(tick, 60);
   };
   setTimeout(tick, 0);
-})();
+});
 
 /* Liens à mémoire : data-mem="rubrique" (menu, résolu par
    window.resolveNavHref) ou data-back (dernière adresse de la page
    visée). Clic du milieu ou Cmd/Ctrl : lien normal. */
+/* Le vrai lien est posé dès le survol (ou le toucher) : la page préparée
+   d'avance est bien celle qui s'ouvrira. */
+const resolveMemLink = (a) => (a.dataset.mem ? window.resolveNavHref?.(a.dataset.mem) : lastUrl(pageOf(a.getAttribute('href'))));
+['pointerover', 'focusin', 'touchstart'].forEach(t => document.addEventListener(t, (e) => {
+  const a = e.target.closest?.('a[data-mem], a[data-back]');
+  const url = a && resolveMemLink(a);
+  if (url && a.getAttribute('href') !== url) a.setAttribute('href', url);
+}, { passive: true }));
 document.addEventListener('click', (e) => {
   const a = e.target.closest?.('a[data-mem], a[data-back]');
   if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-  const url = a.dataset.mem ? window.resolveNavHref?.(a.dataset.mem) : lastUrl(pageOf(a.getAttribute('href')));
+  const url = resolveMemLink(a);
   if (!url) return;
   e.preventDefault();
   const m = memRead(); m.restore = url; memWrite(m);
@@ -451,3 +464,38 @@ function namesList(names, max = 5) {
   const shown = names.slice(0, max).map(n => `• ${n}`).join('\n');
   return names.length > max ? `${shown}\n… et ${names.length - max} autre${names.length - max > 1 ? 's' : ''}` : shown;
 }
+
+/* ---------- Changement de page quasi instantané ----------
+   Chrome, Edge et Android préparent en arrière-plan la page d'un lien
+   survolé ou touché (speculationrules, « moderate ») : au clic, elle
+   s'affiche aussitôt, données comprises. Safari ignore ces règles.
+   Exclues : connexion, séance en création, tableau tactique, lecture
+   d'une vidéo, liens d'action ; une page préparée n'enregistre rien
+   avant d'être affichée (whenShown). */
+if (HTMLScriptElement.supports?.('speculationrules') && !['index', 'onboarding', 'share', 'player-join'].includes(PAGE)) {
+  const rules = document.createElement('script');
+  rules.type = 'speculationrules';
+  rules.textContent = JSON.stringify({ prerender: [{ eagerness: 'moderate', where: { and: [
+    { href_matches: '/*' },
+    { not: { selector_matches: [
+      'a[href*="session-edit"]:not([href*="id="])', 'a[href*="tactical-board"]', 'a[href*="voir-video"]',
+      'a[href*="index"]', 'a[href*="onboarding"]', 'a[href*="/api/"]', 'a[href^="#"]', 'a[href^="javascript"]',
+      'a[data-no-prerender]', 'a[download]', 'a[target]', '#logoutLink',
+    ].join(', ') } },
+  ] } }] });
+  document.head.append(rules);
+}
+
+/* ---------- Retour arrière instantané ----------
+   La page revient telle qu'on l'a laissée (cache du navigateur) ; ses
+   données sont relues en fond par les pages qui le prévoient (onRestore),
+   les autres se rechargent si on les a quittées depuis plus de 30 s. */
+const restoreHandlers = [];
+let leftAt = 0;
+function onRestore(fn) { restoreHandlers.push(fn); }
+addEventListener('pagehide', () => { leftAt = Date.now(); });
+addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  if (!restoreHandlers.length) { if (Date.now() - leftAt > 30000) location.reload(); return; }
+  restoreHandlers.forEach(fn => Promise.resolve().then(fn).catch(err => console.warn('Relecture au retour impossible', err)));
+});

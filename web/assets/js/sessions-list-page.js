@@ -44,6 +44,7 @@ const SORT_DEFAULT_ASC = { date: false, titre: true, equipe: true, travail: fals
   document.getElementById('groupToggle').addEventListener('click', () => { grouped = !grouped; persistView(); syncControls(); render(); });
 
   await loadList();
+  onRestore(loadList);   // retour arrière : liste relue (app.js)
 })();
 
 function restoreView() {

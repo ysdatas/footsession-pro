@@ -49,6 +49,7 @@ function playerNavHref(key) {
 
 const playerSignOut = async () => {
   clearNavMemory();
+  try { sessionStorage.removeItem(PLAYER_CACHE); sessionStorage.removeItem('lmfc-auth'); } catch { /* idem */ }
   await sb.auth.signOut();
   window.location.href = 'index.html';
 };
@@ -95,19 +96,44 @@ function setPlayerShellUser(player) {
 /* Garde des pages du joueur : connecté, compte joueur, fiche liée.
    Un compte staff est renvoyé vers son espace. Renvoie la fiche
    du joueur (select *) ou null (redirection en cours). */
+const PLAYER_CACHE = 'lmfc-player';   // profil et fiche de la page précédente (par onglet)
 async function requirePlayer() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.href = 'index.html'; return null; }
   window.CURRENT_USER = session.user;
-  const { data: profile } = await sb.from('profiles')
-    .select('role, club_id, clubs(nom, color)').eq('id', session.user.id).maybeSingle();
+  const uid = session.user.id;
+  // Profil et fiche ensemble (avant : l'un après l'autre).
+  const load = () => Promise.all([
+    sb.from('profiles').select('role, club_id, clubs(nom, color)').eq('id', uid).maybeSingle(),
+    sb.from('players').select('*').eq('auth_user_id', uid).maybeSingle(),
+  ]);
+  let cached = null;
+  try { cached = JSON.parse(sessionStorage.getItem(PLAYER_CACHE) || 'null'); } catch { /* stockage indisponible */ }
+  if (cached?.uid !== uid) cached = null;
+  let profile, player;
+  if (cached) {
+    // La page démarre sans attendre ; relu en fond, le moindre changement recharge la page.
+    ({ profile, player } = cached);
+    load().then(([p, pl]) => {
+      if (p.error || pl.error) return console.warn('Espace joueur non relu (réseau)', (p.error || pl.error).message);
+      const next = { uid, profile: p.data, player: pl.data };
+      try { sessionStorage.setItem(PLAYER_CACHE, JSON.stringify(next)); } catch { /* idem */ }
+      if (JSON.stringify(next) !== JSON.stringify(cached)) window.location.reload();
+    }).catch(e => console.warn('Espace joueur non relu (réseau)', e));
+    // Sans attente réseau : laisser les derniers scripts de la page se charger.
+    if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
+  } else {
+    const [p, pl] = await load();
+    if (pl.error) throw pl.error;
+    profile = p.data; player = pl.data;
+    if (profile?.role === 'joueur' && player) {
+      try { sessionStorage.setItem(PLAYER_CACHE, JSON.stringify({ uid, profile, player })); } catch { /* idem */ }
+    }
+  }
   if (profile && profile.role !== 'joueur') {
     window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
     return null;
   }
-  const { data: player, error } = await sb.from('players').select('*')
-    .eq('auth_user_id', session.user.id).maybeSingle();
-  if (error) throw error;
   if (!player) { window.location.href = 'index.html'; return null; }
   window.PLAYER_CLUB = profile?.clubs?.nom || '';
   if (typeof applyClubColor === 'function' && profile?.clubs) applyClubColor(profile.clubs.color);
