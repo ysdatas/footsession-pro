@@ -318,7 +318,7 @@
 .eyebrow-row .btn{padding:2px 9px;font-size:var(--fs-xs);font-weight:600;}
 #playerMeta{margin:3px 0 0;font-size:var(--fs-md);color:#d7dbe0;}
 .perf-facts{display:flex;flex-wrap:wrap;align-items:center;row-gap:4px;margin:6px 0 0;font-size:var(--fs-md);font-weight:600;color:#e6e8eb;}
-.perf-facts:empty{display:none;}
+.perf-facts:empty{min-height:1lh;}   /* ligne réservée : âge, pied fort arrivent avec les données */
 /* Séparés par un trait vertical, pas enfermés dans des bulles. */
 .perf-facts span + span{border-left:1px solid rgba(var(--gold-rgb), .4);margin-left:11px;padding-left:11px;}
 
@@ -624,3 +624,17 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .card.is-masked .vis-toggle{color:var(--text-muted,#9da4ae);}
 .pe-other-teams{display:flex;flex-wrap:wrap;gap:0 18px;}
 .pe-other-teams .check{display:flex;color:var(--text-primary);}
+
+/* Mise en page posée par theme.js avant le premier affichage (html[data-pf],
+   html[data-pf-tab]) : rien ne bouge à l'arrivée des scripts, du profil et des
+   données (CLS). Joueur : sa page sans la barre du staff, ses vidéos, son parcours
+   ni les onglets ; staff : onglets et onglet demandé en place, boutons réservés. */
+html[data-pf="self"] .perf-topbar, html[data-pf="self"] .pf-career,
+html[data-pf="self"] #pfPanel-videos, html[data-pf="self"] #pfTabs { display: none; }
+html[data-pf="self"] .pf-panels { display: flex; flex-direction: column; }
+html[data-pf="self"] .pf-panel[data-pf-panel="fiche"] { order: 2; }
+html[data-pf="staff"] .perf-actions { min-height: 37px; }
+html[data-pf="staff"] #pfTabs { display: flex !important; }
+html[data-pf="staff"][data-pf-tab="fiche"] .pf-panel:not([data-pf-panel="fiche"]),
+html[data-pf="staff"][data-pf-tab="performance"] .pf-panel:not([data-pf-panel="performance"]),
+html[data-pf="staff"][data-pf-tab="videos"] .pf-panel:not([data-pf-panel="videos"]) { display: none; }

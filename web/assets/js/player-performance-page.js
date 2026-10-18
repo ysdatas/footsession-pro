@@ -40,6 +40,7 @@ let currentSeason = null;  // saison affichée : la plus récente du joueur
    (is_performance_editor()). */
 const isStaff = () => isStaffRole(ctxProfile?.role);
 
+
 /* Indicateurs internes au staff : jamais montrés au joueur (et jamais
    renvoyés par my_physical_tests() côté base). */
 /* Ce que voit le joueur (players.hidden_sections, lmfc_v7/v8) : un bloc
@@ -1349,6 +1350,7 @@ function showTab(tab, remember) {
     b.tabIndex = on ? 0 : -1;
   });
   document.querySelectorAll('[data-pf-panel]').forEach(p => { p.hidden = p.dataset.pfPanel !== tab; });
+  document.documentElement.dataset.pfTab = tab;   // theme.js / player-performance.css
   if (remember) {
     const u = new URL(location.href);
     u.searchParams.set('tab', tab);

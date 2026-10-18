@@ -736,6 +736,13 @@ l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
   prennent leur vraie adresse dès le survol ;
 - **retour arrière instantané** (cache du navigateur) : accueil, séances, joueurs et vidéos relisent leurs
   données en fond (`onRestore`) ; les autres pages se rechargent si on les a quittées depuis plus de 30 s.
+- **rien ne bouge au chargement** (CLS, Lighthouse < 0,1 sur téléphone et ordinateur) : ce qui arrive avec
+  le profil ou les données a sa place réservée dès la première image. Ligne « Club · équipe » vide dans
+  l'en-tête (`page-kicker`, remplie par `nav.js`), cartes vides à la taille des vraies (`is-skel` : accueil,
+  Mon espace), en-tête d'une séance existante posé dès l'ouverture, champs de la barre Performance réglés
+  pour l'onglet demandé. Fiche joueur : sa mise en page (staff `?id=` ou joueur, onglet demandé) est
+  posée par `theme.js` dans le `<head>` (`html[data-pf]`), car les scripts de fin de page arrivent après le
+  premier affichage sur un réseau lent. Une nouvelle partie remplie après coup doit faire de même ;
 - Moyenne des pages : 831 → 372 ms sur le banc ; fiche joueur : 5 à 6 allers-retours successifs → 2.
   Fichiers JS/CSS : leur revérification coûte ~50 à 80 ms par page (mesuré) ; laissée telle quelle, un
   cache plus long risquerait de mélanger deux versions juste après une mise en ligne.

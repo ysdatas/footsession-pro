@@ -128,14 +128,21 @@ async function loadData() {
     `${n} joueur${n > 1 ? 's' : ''}${cmpSeason ? ` · saison ${cmpSeason}` : ''} · ${allTests.length} session${allTests.length > 1 ? 's' : ''} de tests enregistrée${allTests.length > 1 ? 's' : ''}`;
 }
 
-function switchTab(tab, keepSort = false) {
-  cmpTab = tab;
-  savePageState({ tab });
+/* Onglet actif, champs de la barre et note du bas selon l'onglet. Appliqué
+   aussi dès l'ouverture : la barre ne change plus à l'arrivée des données (CLS). */
+function tabChrome(tab) {
   document.querySelectorAll('#cmpTabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelector('.cmp-metric-field').classList.toggle('hidden', tab !== 'evolution');
   document.querySelector('#cmpStage').closest('.cmp-field').classList.toggle('hidden', tab === 'evolution' || tab === 'objectifs');
   document.querySelector('.cmp-check').classList.toggle('hidden', tab === 'objectifs');
   document.querySelector('.cmp-foot').classList.toggle('hidden', tab === 'objectifs');
+}
+tabChrome(cmpTab);
+
+function switchTab(tab, keepSort = false) {
+  cmpTab = tab;
+  savePageState({ tab });
+  tabChrome(tab);
   // L'onglet se retrouve au rechargement et se partage par lien.
   const u = new URL(location.href);
   if (tab === 'tests') u.searchParams.delete('tab'); else u.searchParams.set('tab', tab);

@@ -137,3 +137,12 @@
 .home-stat small { font-size: var(--fs-sm); color: var(--text-secondary); }
 @media (max-width: 420px) { .home-stats { grid-template-columns: 1fr 1fr; } }
 .home-attn-body strong::first-letter { text-transform: uppercase; }   /* titre saisi (séance) : majuscule comme les autres cartes */
+
+/* Cartes en attente des données (accueil staff et joueur) : la place des vraies
+   est réservée dès la première image, rien ne bouge à leur arrivée (CLS). */
+.home-actions { min-height: 42px; }
+.home-attn-card.is-skel, .home-stat.is-skel { pointer-events: none; }
+.home-stat.is-skel { min-height: 100px; }
+@media (max-width: 640px) { .home-attn-card.is-skel { min-height: 105px; } }
+@media (prefers-reduced-motion: no-preference) { .is-skel { animation: skel-pulse 1.4s ease-in-out infinite; } }
+@keyframes skel-pulse { 50% { opacity: .5; } }

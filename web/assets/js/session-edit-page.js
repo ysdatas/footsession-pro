@@ -9,6 +9,13 @@
 
 const SESSION_ID = new URLSearchParams(location.search).get('id') ? Number(new URLSearchParams(location.search).get('id')) : null;
 const EDITOR_MODE = SESSION_ID ? 'edit' : 'create';
+// Séance existante : l'en-tête final s'affiche dès l'ouverture (titre, sous-titre
+// d'une ligne, exports), pour que rien ne bouge quand la séance arrive (CLS).
+if (EDITOR_MODE === 'edit') {
+  document.getElementById('editorTitle').textContent = 'Modifier la séance';
+  document.getElementById('editorSubtitle').textContent = 'Chargement…';
+  ['btnPdfFull', 'btnPdfCoach'].forEach(id => document.getElementById(id)?.classList.remove('hidden'));
+}
 // Séance déjà créée par un premier enregistrement : les suivants la mettent à jour.
 let savedSessionId = SESSION_ID;
 

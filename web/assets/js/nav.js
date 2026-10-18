@@ -200,7 +200,8 @@ function renderPageKicker(profile, teams = window.CLUB_TEAMS || []) {
   const parts = [profile.clubs?.nom || 'Le Mans FC', team ? team.nom : (teams.length ? 'Toutes les équipes' : null)];
   const text = parts.filter(Boolean).join(' · ');
   const kicker = head.querySelector('.page-kicker');
-  if (kicker) { if (kicker.textContent !== text) kicker.textContent = text; return; }
+  // Ligne réservée dans la page (page-kicker vide) : remplie sur place, rien ne bouge.
+  if (kicker) { if (kicker.textContent !== text) kicker.textContent = text; kicker.removeAttribute('aria-hidden'); return; }
   head.insertAdjacentHTML('afterbegin', `<p class="page-kicker">${escapeHtml(text)}</p>`);
 }
 

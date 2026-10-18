@@ -70,6 +70,9 @@ const HOME_DESC = {
       <span class="home-tile-text"><strong>${escapeHtml(i.label)}</strong><small>${escapeHtml(HOME_DESC[i.key] || '')}</small></span>
     </a>`).join('');
 
+  // Autant de cartes vides que le rôle en affichera (place réservée, rien ne bouge).
+  const expected = [can('videos'), can('sessions'), can('performance'), canEditPerformanceData(profile.role) && monthLabelNow()].filter(Boolean).length;
+  document.getElementById('homeAttn').innerHTML = '<div class="home-attn-card is-skel" aria-hidden="true"></div>'.repeat(expected);
   await renderAttention(profile, can);
   onRestore(() => renderAttention(profile, can));   // retour arrière : « À traiter » relu (app.js)
 })();

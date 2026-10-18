@@ -174,3 +174,8 @@
   #cmpTabs button { flex: 0 0 auto; white-space: nowrap; }
   .page-actions:has(#cmpTabs) { width: 100%; }
 }
+
+/* Chargement : la note du bas reste hors de l'écran tant que le tableau
+   n'est pas là, et le sous-titre garde ses deux lignes sur téléphone (CLS). */
+.cmp-loading { min-height: 100vh; }
+@media (max-width: 640px) { #cmpSub { min-height: 2lh; } }
