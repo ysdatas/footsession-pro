@@ -183,7 +183,7 @@ function renderNoteLists() {
       const title = noteTitle(n);
       // Sans titre, la description sert de titre : on ne la répète pas dessous.
       const body = n.title?.trim() ? n.body : (n.body || '').trim().split('\n').slice(1).join('\n');
-      return `<article class="note-card is-openable${hasStatus(kind) ? ` obj-${objStatusOf(n)}` : ''}" data-note-open="${n.id}" tabindex="0" role="button" aria-label="Ouvrir ${escapeHtml(title)}">
+      return `<article class="note-card is-openable${hasStatus(kind) ? ` obj-${objStatusOf(n)}` : ''}" data-note-open="${n.id}" tabindex="0">
         <div class="note-card-head">
           <h3>${escapeHtml(title)}</h3>
           ${hasStatus(kind) ? objStatusControl(n, noteStore.canEdit) : ''}

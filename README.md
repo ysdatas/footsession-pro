@@ -747,6 +747,11 @@ l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
   Fichiers JS/CSS : leur revérification coûte ~50 à 80 ms par page (mesuré) ; laissée telle quelle, un
   cache plus long risquerait de mélanger deux versions juste après une mise en ligne.
 
+**Accessibilité** (axe-core, WCAG 2.2 AA : aucun défaut sur les 20 pages) : chaque champ a un `<label for>` ou
+un `aria-label` ; les titres ne sautent pas de niveau (une carte sous le `h1` est un `h2`, à la taille d'un h3
+avec `class="as-h3"`, `as-h4` en dessous) ; textes gris à 4,5:1 au moins (`--text-muted`, `--text-secondary`) ;
+`.sr-only` pour un titre lu mais non affiché ; zoom jamais bloqué (`maximum-scale` interdit).
+
 **Journal de temps** (diagnostic, sur le vrai site) : ajouter `?perf=1` à l'adresse d'une page l'active
 pour cet appareil (`?perf=0` l'arrête) ; la console affiche chaque requête à la base avec sa durée,
 et l'heure à laquelle la page est prête (`perfFetch`, `supabase-client.js`).

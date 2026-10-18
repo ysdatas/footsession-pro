@@ -150,6 +150,7 @@ function mountTeamSelect() {
     window.CLUB_TEAMS.map(t => el('option', { value: t.id, selected: t.id === sessionTeamId ? 'selected' : null }, t.nom)));
   input.classList.add('hidden');
   input.after(select);
+  document.querySelector('label[for="f-equipe"]')?.setAttribute('for', 'f-team');   // le libellé suit la liste
   select.addEventListener('change', async () => {
     sessionTeamId = Number(select.value) || null;
     // Les statuts déjà saisis et les invités restent ; la liste suit la nouvelle équipe.
@@ -412,7 +413,7 @@ function procTemplate(p, index) {
       <div class="proc-head-right">
         <span class="proc-badges" data-proc-badges="${p._uid}">${procBadgesHtml(p)}</span>
         <span class="proc-dot"></span>
-        <input class="proc-duree" data-field="duree_min" type="text" inputmode="decimal"
+        <input class="proc-duree" data-field="duree_min" type="text" inputmode="decimal" aria-label="Durée du procédé (min)"
                value="${decStr(hasSequences(p) ? totalMin(p) : (Number(p.duree_min) || 0))}"
                ${hasSequences(p) ? 'readonly title="Calculé : séquences + récupérations"' : ''} ${dis}>
         <span class="proc-unit">min</span>

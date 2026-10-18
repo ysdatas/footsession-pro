@@ -43,9 +43,9 @@ try { applyClubColor(localStorage.getItem(CLUB_COLOR_KEY), { remember: false });
 /* Fiche joueur : sa mise en page dépend de l'adresse (ouverte par le staff avec
    ?id=, ou page du joueur sans id) et de l'onglet demandé. Posée ici, dans le
    <head>, avant le premier affichage : rien ne bouge ensuite (CLS,
-   player-performance.css ; showTab tient data-pf-tab à jour). */
+   player-performance.css ; showTab tient data-pf-shown à jour). */
 if (/\/player-performance(\.html)?$/.test(location.pathname)) {
   const q = new URLSearchParams(location.search);
   document.documentElement.dataset.pf = q.get('id') ? 'staff' : 'self';
-  document.documentElement.dataset.pfTab = ['performance', 'videos'].includes(q.get('tab')) ? q.get('tab') : 'fiche';
+  document.documentElement.dataset.pfShown = ['performance', 'videos'].includes(q.get('tab')) ? q.get('tab') : 'fiche';
 }

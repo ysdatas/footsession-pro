@@ -1350,7 +1350,7 @@ function showTab(tab, remember) {
     b.tabIndex = on ? 0 : -1;
   });
   document.querySelectorAll('[data-pf-panel]').forEach(p => { p.hidden = p.dataset.pfPanel !== tab; });
-  document.documentElement.dataset.pfTab = tab;   // theme.js / player-performance.css
+  document.documentElement.dataset.pfShown = tab;   // theme.js / player-performance.css
   if (remember) {
     const u = new URL(location.href);
     u.searchParams.set('tab', tab);

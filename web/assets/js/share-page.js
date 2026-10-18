@@ -10,12 +10,12 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
 (async () => {
   const token = new URLSearchParams(location.search).get('token');
   const wrap = document.getElementById('shareWrap');
-  if (!token) { wrap.innerHTML = '<div class="empty">Lien de partage invalide.</div>'; return; }
+  if (!token) { wrap.innerHTML = '<h1 class="sr-only">Séance partagée</h1><div class="empty">Lien de partage invalide.</div>'; return; }
 
   try {
     const { data, error } = await sb.rpc('get_shared_session', { p_token: token });
     if (error) throw error;
-    if (!data || !data.session) { wrap.innerHTML = '<div class="empty">Lien de partage invalide ou expiré.</div>'; return; }
+    if (!data || !data.session) { wrap.innerHTML = '<h1 class="sr-only">Séance partagée</h1><div class="empty">Lien de partage invalide ou expiré.</div>'; return; }
 
     const s = data.session, club = data.club || {}, procedures = data.procedures || [], attendance = data.attendance || [];
     document.title = 'LMFC Performance — ' + (s.titre || 'Séance');
@@ -96,6 +96,6 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
       ${sessionTeamsHtml}
       <p class="text-muted" style="text-align:center;margin-top:24px;font-size:var(--fs-sm);">Généré par LMFC Performance</p>`;
   } catch (e) {
-    wrap.innerHTML = `<div class="empty">Erreur de chargement : ${escapeHtml(e.message)}</div>`;
+    wrap.innerHTML = `<h1 class="sr-only">Séance partagée</h1><div class="empty">Erreur de chargement : ${escapeHtml(e.message)}</div>`;
   }
 })();

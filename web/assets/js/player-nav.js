@@ -73,7 +73,7 @@ function renderPlayerShell() {
       '<header class="m-appbar"><a class="m-brand" href="mon-espace.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC&nbsp;<span class="brand-pro">Performance</span></a></header>');
   }
   document.body.insertAdjacentHTML('beforeend',
-    `<nav class="pa-tabbar" aria-label="Espace joueur">${PLAYER_NAV.map(([key, , short, icon]) => {
+    `<nav class="pa-tabbar" aria-label="Raccourcis">${PLAYER_NAV.map(([key, , short, icon]) => {
       const on = key === page;
       return `<a class="pa-tab${on ? ' is-active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${paIc(icon)}<span>${short}</span></a>`;
     }).join('')}</nav>`);

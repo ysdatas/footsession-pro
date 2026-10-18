@@ -28,8 +28,8 @@
     linear-gradient(180deg, #1C1B1D 0%, #151515 100%);
 
   --text-primary:  #F5F5F5;
-  --text-secondary:#8A8A8A;
-  --text-muted:    #4A4A4A;
+  --text-secondary:#959595;   /* 5,2:1 sur les badges (#242424) */
+  --text-muted:    #858585;   /* 4,6:1 sur les cartes (#1C1C1C) ; avant #4A4A4A, 1,9:1 */
 
   --border:        #2A2A2A;
   --border-gold:   rgba(var(--gold-rgb), 0.40);
@@ -718,3 +718,11 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
 /* Nom d'un joueur cliquable (playerLink, app.js) : discret, souligné au survol. */
 .player-link { color: inherit; text-decoration: none; }
 .player-link:hover, .player-link:focus-visible { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Titres au bon niveau pour les lecteurs d'écran (jamais h1 → h3), à la taille
+   d'origine : h2.as-h3 se voit comme un h3, h3.as-h4 comme un h4. */
+h2.as-h3 { font-size: var(--fs-lg); }
+h3.as-h4 { font-size: 1em; }
+.modal h2.as-h3 { margin-bottom: 18px; }
+/* Lu par les lecteurs d'écran, invisible à l'écran. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

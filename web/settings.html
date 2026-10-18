@@ -36,26 +36,26 @@
     <div class="dash-grid">
       <!-- Mon compte -->
       <div class="card">
-        <h3>Mon compte</h3>
-        <div class="field"><label>Nom affiché</label><input id="p-nom" placeholder="Votre nom"></div>
-        <div class="field"><label>Email</label><input id="p-email" disabled></div>
-        <div class="field"><label>Rôle dans le club</label><input id="p-role" disabled></div>
+        <h2 class="as-h3">Mon compte</h2>
+        <div class="field"><label for="p-nom">Nom affiché</label><input id="p-nom" placeholder="Votre nom"></div>
+        <div class="field"><label for="p-email">Email</label><input id="p-email" disabled></div>
+        <div class="field"><label for="p-role">Rôle dans le club</label><input id="p-role" disabled></div>
         <button class="btn btn-primary btn-sm" id="saveAccount" type="button">Enregistrer</button>
       </div>
 
       <!-- Sécurité -->
       <div class="card">
-        <h3>Mot de passe</h3>
+        <h2 class="as-h3">Mot de passe</h2>
         <p class="text-muted" style="font-size:var(--fs-md);">Votre navigateur vous garde connecté : vous n'avez pas à ressaisir votre mot de passe à chaque visite.</p>
-        <div class="field"><label>Nouveau mot de passe (6+ caractères)</label><input id="p-pass" type="password" placeholder="••••••••" autocomplete="new-password"></div>
-        <div class="field"><label>Confirmer</label><input id="p-pass2" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+        <div class="field"><label for="p-pass">Nouveau mot de passe (6+ caractères)</label><input id="p-pass" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+        <div class="field"><label for="p-pass2">Confirmer</label><input id="p-pass2" type="password" placeholder="••••••••" autocomplete="new-password"></div>
         <button class="btn btn-primary btn-sm" id="savePassword" type="button">Changer le mot de passe</button>
       </div>
     </div>
 
     <!-- Menu latéral personnalisé -->
     <div class="card" style="margin-top:18px;">
-      <h3>Mon menu</h3>
+      <h2 class="as-h3">Mon menu</h2>
       <p class="text-muted" style="font-size:var(--fs-md);">Cochez les rubriques à afficher et faites-les glisser pour changer leur ordre. C’est enregistré tout de suite, pour votre compte seulement.</p>
       <div id="menuSelect" data-select-scope="#menuEditor">
         <div class="select-all" role="group" aria-label="Rubriques affichées">
@@ -72,11 +72,11 @@
 
     <!-- Préférences du tableau tactique -->
     <div class="card" id="tableau" style="margin-top:18px;">
-      <h3>Préférences du tableau tactique</h3>
+      <h2 class="as-h3">Préférences du tableau tactique</h2>
       <p class="text-muted" style="font-size:var(--fs-md);">Ces réglages sont appliqués automatiquement à chaque nouveau schéma.</p>
-      <div class="field"><label>Couleur des joueurs</label><input id="pf-jersey" type="color" value="#E03131" aria-label="Couleur des joueurs"></div>
-      <div class="field"><label>Couleur des adversaires</label><input id="pf-opp" type="color" value="#1F6FEB" aria-label="Couleur des adversaires"></div>
-      <div class="field"><label>Couleur des tracés / zones</label><input id="pf-draw" type="color" value="#C9A84C" aria-label="Couleur des tracés"></div>
+      <div class="field"><label for="pf-jersey">Couleur des joueurs</label><input id="pf-jersey" type="color" value="#E03131" aria-label="Couleur des joueurs"></div>
+      <div class="field"><label for="pf-opp">Couleur des adversaires</label><input id="pf-opp" type="color" value="#1F6FEB" aria-label="Couleur des adversaires"></div>
+      <div class="field"><label for="pf-draw">Couleur des tracés / zones</label><input id="pf-draw" type="color" value="#C9A84C" aria-label="Couleur des tracés"></div>
       <div class="field-row">
         <div class="field">
           <label for="pf-token">Taille des pions</label>
@@ -88,7 +88,7 @@
         </div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Vue de terrain par défaut</label>
+        <div class="field"><label for="pf-view">Vue de terrain par défaut</label>
           <select id="pf-view">
             <option value="complet">Complet</option>
             <option value="demi">Demi</option>
@@ -98,7 +98,7 @@
             <option value="demi-portrait">Demi-terrain portrait</option>
           </select>
         </div>
-        <div class="field"><label>Police des textes</label>
+        <div class="field"><label for="pf-font">Police des textes</label>
           <select id="pf-font">
             <option value="Inter, sans-serif">Inter</option>
             <option value="Arial, sans-serif">Arial</option>
@@ -110,7 +110,7 @@
             <option value="Verdana, sans-serif">Verdana</option>
           </select>
         </div>
-        <div class="field"><label>Numéros des pions</label>
+        <div class="field"><label for="pf-numbers">Numéros des pions</label>
           <select id="pf-numbers">
             <option value="1">Affichés</option>
             <option value="0">Masqués</option>
@@ -122,7 +122,7 @@
 
     <!-- Administration (visible pour les admins uniquement) -->
     <div class="card hidden" id="adminCard" style="margin-top:18px;">
-      <h3>Administration du club</h3>
+      <h2 class="as-h3">Administration du club</h2>
       <p class="text-muted" style="font-size:var(--fs-md);">Réservé aux administrateurs.</p>
       <div id="adminStats" class="kpi-grid" style="margin-bottom:14px;"></div>
       <div class="flex gap-sm" style="flex-wrap:wrap;">

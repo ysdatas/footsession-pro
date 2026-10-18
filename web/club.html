@@ -36,7 +36,7 @@
 
     <div class="club-grid">
       <section class="card">
-        <h3>Identité du club</h3>
+        <h2 class="as-h3">Identité du club</h2>
         <div class="club-identity">
           <button class="club-logo-tile" id="logoTile" type="button" disabled aria-label="Changer le logo">
             <img id="logoPreview" class="hidden" alt="">
@@ -48,7 +48,7 @@
               <input id="clubName" disabled>
             </div>
             <div class="field">
-              <label>Couleur du club</label>
+              <label for="clubColor">Couleur du club</label>
               <input id="clubColor" type="color" data-palette="club" aria-label="Couleur du club" disabled>
               <p class="field-hint">Appliquée aussitôt à toute la plateforme et aux PDF, pour tous les comptes du club.</p>
             </div>
@@ -60,7 +60,7 @@
       </section>
 
       <section class="card">
-        <h3>Équipes</h3>
+        <h2 class="as-h3">Équipes</h2>
         <p class="text-muted card-lead">Chaque joueur et chaque séance peut être rattaché à une équipe (N2, U19…). Le sélecteur en haut du menu filtre ensuite les pages. Faites glisser une équipe pour changer l’ordre.</p>
         <div id="teamList" class="team-list"><p class="text-muted">Chargement…</p></div>
         <form id="teamForm" class="team-form hidden">
@@ -71,7 +71,7 @@
     </div>
 
     <section class="card hidden" id="accessCard" style="margin-top:18px;">
-      <h3>Donner un accès</h3>
+      <h2 class="as-h3">Donner un accès</h2>
       <p class="text-muted card-lead">Adresse e-mail + fonction (+ fiche pour un joueur). La personne crée son compte avec cette adresse sur la page de connexion : son accès s’active tout seul.</p>
       <form id="accessForm" class="access-form">
         <input id="accEmail" type="email" required placeholder="prenom.nom@email.com" aria-label="Adresse e-mail" autocomplete="off">
@@ -89,7 +89,7 @@
 
     <section class="card" style="margin-top:18px;">
       <div class="members-head">
-        <h3>Membres du club <span id="memberCount"></span></h3>
+        <h2 class="as-h3">Membres du club <span id="memberCount"></span></h2>
         <input id="memberSearch" type="search" placeholder="Rechercher un membre…" aria-label="Rechercher un membre par son nom" autocomplete="off">
       </div>
       <div id="memberList"><p class="text-muted">Chargement…</p></div>
@@ -99,10 +99,10 @@
   <!-- Accès d'un membre du staff (club-access.js) -->
   <div class="modal-backdrop" id="accessModal" role="dialog" aria-labelledby="amTitle">
     <div class="modal" style="max-width:560px;">
-      <h3 id="amTitle">Accès</h3>
+      <h2 class="as-h3" id="amTitle">Accès</h2>
       <p class="text-muted" id="amTeams"></p>
       <label class="am-readall"><input type="checkbox" id="amReadAll"> <span><strong>Lecture sur toutes les équipes</strong><small>Il consulte tous les joueurs, séances et matchs du club, sans les modifier (sauf ses équipes).</small></span></label>
-      <h4 class="am-h">Exceptions par joueur</h4>
+      <h3 class="as-h4 am-h">Exceptions par joueur</h3>
       <p class="field-hint">Une exception remplace la règle de l’équipe pour ce joueur : « Aucun » le retire, « Lecture » ou « Modification » l’ouvre.</p>
       <div id="amList" class="am-list"></div>
       <div class="am-add">

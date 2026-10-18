@@ -260,7 +260,7 @@ function enhanceColorInputs(root = document) {
       type: 'button', class: 'sw', role: 'radio', title: names[i], 'aria-label': names[i],
       style: `background:${c}`, dataset: { color: c.toLowerCase() }, onclick: () => set(c),
     })));
-    const custom = el('button', { type: 'button', class: 'sw sw-custom', title: 'Autre couleur', 'aria-label': 'Autre couleur',
+    const custom = el('button', { type: 'button', class: 'sw sw-custom', role: 'radio', title: 'Autre couleur', 'aria-label': 'Autre couleur',
       onclick: () => (input.showPicker ? input.showPicker() : input.click()) });
     wrap.append(custom, input);
 

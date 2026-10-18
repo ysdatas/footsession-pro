@@ -62,7 +62,7 @@
 /* Notifications (notifications.html) : même grille que Mon club. */
 .nt-side { display: grid; gap: 18px; }
 .nt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
-.nt-head h4 { margin: 0; font-size: var(--fs-md); }
+.nt-head h4, .nt-head h3 { margin: 0; font-size: var(--fs-md); }
 .nt-players { display: grid; max-height: 420px; overflow-y: auto; margin: 8px 0 14px; border: 1px solid var(--border); border-radius: var(--radius-md); }
 .nt-player { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border); cursor: pointer; text-transform: none; letter-spacing: 0; font-size: var(--fs-md); color: var(--text-primary); }
 .nt-player:last-child { border-bottom: 0; }
@@ -78,8 +78,8 @@
 /* Membres du club : en-tête avec recherche, puis un bloc par groupe (titre
    sur fond distinct, barre de couleur ; rouge pour les joueurs sans fiche). */
 .members-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
-.members-head h3 { margin: 0; }
-.members-head h3 span { color: var(--text-secondary); font-weight: 500; }
+.members-head h3, .members-head h2 { margin: 0; }
+.members-head h3 span, .members-head h2 span { color: var(--text-secondary); font-weight: 500; }
 .members-head input { flex: 0 1 280px; }
 .member-group { margin-top: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
 .member-group > summary {
