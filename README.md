@@ -892,8 +892,15 @@ une connexion échoue sur une adresse non confirmée.
   empêche un utilisateur de modifier son propre `role` ou `club_id`.
 - Écritures sensibles (rôles, liaison de fiche, tracking vidéo) par **RPC**
   `SECURITY DEFINER`, jamais par écriture directe.
-- Échappement systématique des données affichées (`escapeHtml` / `esc`) ; **ne jamais
-  injecter de JSON dans un attribut `onclick`** (un nom de joueur suffit à casser
-  l'attribut).
+- Échappement systématique des données affichées (`escapeHtml` / `esc`).
+- **En-têtes de sécurité** (`web/_headers`, ajoutés par Cloudflare à chaque fichier) : HSTS,
+  `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` et une
+  **politique de contenu (CSP)** stricte. Conséquences pour le code :
+  - **aucun script dans une page** (`<script>…</script>`) ni gestionnaire `onclick="…"`,
+    `onerror="…"` : un fichier `assets/js/…`, et pour les boutons générés `data-do="action"`
+    avec une liste fermée d'actions par page (`EDIT_DO`, `LIST_DO`) ;
+  - toute nouvelle source (CDN, API, police, image d'un autre site) s'ajoute à la CSP de
+    `web/_headers`, sinon le navigateur la bloque sans autre message qu'en console.
+  Vérifié sur le serveur de test, qui applique `web/_headers` : chaque page sans violation.
 - La clé Supabase publiée dans `web/assets/js/supabase-client.js` est la clé
   *publishable* : elle est publique par conception, c'est la RLS qui protège.

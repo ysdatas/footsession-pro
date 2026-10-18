@@ -1,0 +1,16 @@
+# En-têtes de sécurité, ajoutés par Cloudflare à chaque fichier du site
+# (pas aux réponses du Worker /api/…). Audit du 18/10/2026 : Observatoire Mozilla F.
+#
+# Content-Security-Policy : seuls les scripts du site et des deux CDN (jsDelivr,
+# cdnjs) s'exécutent ; aucun script ni gestionnaire onclick="…" dans les pages
+# (les règles speculationrules d'app.js ont leur mot-clé). Données : Supabase
+# (API, temps réel, photos et anciennes vidéos), vidéos R2 par /api (même site),
+# miniatures en data:, fichiers locaux en blob:. Ajouter ici toute nouvelle source.
+# HSTS sans includeSubDomains : www répond encore en http.
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'inline-speculation-rules'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://ygnvijxspkrqhasvjfqg.supabase.co; media-src 'self' blob: https://ygnvijxspkrqhasvjfqg.supabase.co; connect-src 'self' https://ygnvijxspkrqhasvjfqg.supabase.co wss://ygnvijxspkrqhasvjfqg.supabase.co; worker-src 'self' blob:; manifest-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests

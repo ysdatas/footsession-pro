@@ -224,3 +224,6 @@ async function deleteExercise() {
   toast('Exercice supprimé', 'success');
   await reloadProgram();
 }
+
+// Le formulaire du programme ne s'envoie jamais (onsubmit en ligne interdit par la CSP).
+document.getElementById('programForm')?.addEventListener('submit', (e) => e.preventDefault());

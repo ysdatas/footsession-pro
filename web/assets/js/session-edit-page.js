@@ -172,7 +172,7 @@ function renderShare() {
   const area = document.getElementById('shareArea');
   if (shareToken) {
     const url = location.origin + baseUrl('share.html') + '?token=' + shareToken;
-    area.innerHTML = `<input readonly value="${url}" onclick="this.select()" style="margin-bottom:8px;">
+    area.innerHTML = `<input readonly value="${url}" data-do="select" style="margin-bottom:8px;">
       <div class="flex gap-sm"><button class="btn btn-sm" type="button" id="shareCopy">Copier</button>
       ${CAN_WRITE ? '<button class="btn btn-sm btn-danger" type="button" id="shareToggle">Désactiver</button>' : ''}</div>`;
     document.getElementById('shareCopy').addEventListener('click', () => { navigator.clipboard?.writeText(url); toast('Lien copié', 'success'); });
@@ -267,7 +267,7 @@ function showLoadFailure() {
   const main = document.querySelector('main');
   main.insertAdjacentHTML('afterbegin', `<div class="load-failure" role="alert">
     <strong>La séance n’a pas pu être chargée.</strong> Vérifiez la connexion : rien n’a été modifié.
-    <button class="btn btn-primary btn-sm" type="button" onclick="location.reload()">Réessayer</button></div>`);
+    <button class="btn btn-primary btn-sm" type="button" data-do="reload">Réessayer</button></div>`);
   main.querySelectorAll('input, textarea, select, button:not(.load-failure button)').forEach(el => { el.disabled = true; });
 }
 
@@ -367,8 +367,8 @@ async function openLibrary() {
           <div class="lib-name">${escapeHtml(t.nom)}</div>
           <div class="lib-cat">${escapeHtml(t.categorie || '')}</div>
           <div class="lib-actions">
-            <button class="btn btn-sm btn-primary" type="button" onclick="insertTemplate(${t.id})">Insérer</button>
-            <button class="btn btn-sm btn-danger" type="button" onclick="deleteTemplate(${t.id}, this)">Supprimer</button>
+            <button class="btn btn-sm btn-primary" type="button" data-do="insertTemplate" data-arg="${t.id}">Insérer</button>
+            <button class="btn btn-sm btn-danger" type="button" data-do="deleteTemplate" data-arg="${t.id}">Supprimer</button>
           </div>
         </div>
       </div>`).join('');
@@ -410,11 +410,11 @@ function procTemplate(p, index) {
                ${hasSequences(p) ? 'readonly title="Calculé : séquences + récupérations"' : ''} ${dis}>
         <span class="proc-unit">min</span>
         ${CAN_WRITE ? `
-        <button class="proc-btn" type="button" title="Enregistrer comme modèle" onclick="saveAsTemplate('${p._uid}')">☆</button>
-        <button class="proc-btn" type="button" title="Monter"    onclick="moveProc('${p._uid}',-1)">▲</button>
-        <button class="proc-btn" type="button" title="Descendre" onclick="moveProc('${p._uid}',1)">▼</button>
-        <button class="proc-btn danger" type="button" title="Supprimer" onclick="removeProc('${p._uid}')">×</button>` : ''}
-        <button class="proc-btn" type="button" title="Détails" onclick="toggleProc('${p._uid}')">▾</button>
+        <button class="proc-btn" type="button" title="Enregistrer comme modèle" data-do="saveAsTemplate" data-arg="${p._uid}">☆</button>
+        <button class="proc-btn" type="button" title="Monter"    data-do="moveUp" data-arg="${p._uid}">▲</button>
+        <button class="proc-btn" type="button" title="Descendre" data-do="moveDown" data-arg="${p._uid}">▼</button>
+        <button class="proc-btn danger" type="button" title="Supprimer" data-do="removeProc" data-arg="${p._uid}">×</button>` : ''}
+        <button class="proc-btn" type="button" title="Détails" data-do="toggleProc" data-arg="${p._uid}">▾</button>
       </div>
     </div>
     <div class="proc-body">
@@ -464,10 +464,10 @@ const schemaUrl = (path, v) => `${sb.storage.from('schemas').getPublicUrl(path).
 function schemaBoxHtml(p) {
   if (p.id) {
     const draw = !p.image_path ? 'Dessiner le schéma →' : p.has_canvas ? 'Modifier le schéma →' : 'Dessiner à la place →';
-    return `${p.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(p.image_path, p.image_v))}" alt="Schéma du procédé" loading="lazy" onerror="schemaImgFailed(this, '${p._uid}')">` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
-       <button class="btn btn-sm" type="button" onclick="openBoard(${p.id})">${draw}</button>
-       ${CAN_WRITE ? `<button class="btn btn-sm" type="button" onclick="importSchemaImage('${p._uid}')">${p.image_path ? 'Remplacer par une image' : 'Importer une image'}</button>` : ''}
-       ${p.video_id ? `<button class="btn btn-sm" type="button" onclick="openLinkedVideo(${p.video_id})">▶ Vidéo liée</button>` : ''}`;
+    return `${p.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(p.image_path, p.image_v))}" alt="Schéma du procédé" loading="lazy" data-fail-uid="${p._uid}">` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
+       <button class="btn btn-sm" type="button" data-do="openBoard" data-arg="${p.id}">${draw}</button>
+       ${CAN_WRITE ? `<button class="btn btn-sm" type="button" data-do="importSchemaImage" data-arg="${p._uid}">${p.image_path ? 'Remplacer par une image' : 'Importer une image'}</button>` : ''}
+       ${p.video_id ? `<button class="btn btn-sm" type="button" data-do="openLinkedVideo" data-arg="${p.video_id}">▶ Vidéo liée</button>` : ''}`;
   }
   if (!CAN_WRITE) return '<p class="schema-empty">Aucun schéma pour ce procédé.</p>';
   if (p.from_template) {
@@ -479,9 +479,9 @@ function schemaBoxHtml(p) {
   if (meta || started) {
     return `${meta?.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(meta.image_path, meta.at))}" alt="Aperçu du schéma">` : ''}
       <p class="schema-empty">${meta ? 'Schéma prêt : il est rattaché au procédé dès que la séance est enregistrée (titre et date).' : 'Schéma commencé : cliquez « Enregistrer » dans le tableau.'}</p>
-      <button class="btn btn-sm" type="button" onclick="openDraftBoard('${p._uid}')">Modifier le schéma →</button>`;
+      <button class="btn btn-sm" type="button" data-do="openDraftBoard" data-arg="${p._uid}">Modifier le schéma →</button>`;
   }
-  return `<button class="btn btn-sm btn-primary" type="button" onclick="openDraftBoard('${p._uid}')">Dessiner le schéma →</button>
+  return `<button class="btn btn-sm btn-primary" type="button" data-do="openDraftBoard" data-arg="${p._uid}">Dessiner le schéma →</button>
     <p class="schema-empty">Le schéma est rattaché au procédé dès que la séance est enregistrée.</p>`;
 }
 /* Image du schéma illisible (cache, réseau) : un essai par lien signé,
@@ -702,3 +702,29 @@ function updateMeta() {
     + ` · ${fmtMin(total)} min au total`;
   document.getElementById('procCount').textContent = n;
 }
+
+/* Boutons générés : data-do="action" (et data-arg), une seule écoute.
+   La politique de contenu du site (web/_headers) interdit les onclick="…". */
+const EDIT_DO = {
+  select: (b) => b.select(),
+  reload: () => location.reload(),
+  insertTemplate: (b) => insertTemplate(Number(b.dataset.arg)),
+  deleteTemplate: (b) => deleteTemplate(Number(b.dataset.arg), b),
+  saveAsTemplate: (b) => saveAsTemplate(b.dataset.arg),
+  moveUp: (b) => moveProc(b.dataset.arg, -1),
+  moveDown: (b) => moveProc(b.dataset.arg, 1),
+  removeProc: (b) => removeProc(b.dataset.arg),
+  toggleProc: (b) => toggleProc(b.dataset.arg),
+  openBoard: (b) => openBoard(Number(b.dataset.arg)),
+  importSchemaImage: (b) => importSchemaImage(b.dataset.arg),
+  openLinkedVideo: (b) => openLinkedVideo(Number(b.dataset.arg)),
+  openDraftBoard: (b) => openDraftBoard(b.dataset.arg),
+};
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-do]');
+  if (b && Object.hasOwn(EDIT_DO, b.dataset.do)) EDIT_DO[b.dataset.do](b);
+});
+// Image de schéma illisible (onerror en ligne interdit) : l'erreur ne remonte pas, on l'écoute en capture.
+document.addEventListener('error', (e) => {
+  if (e.target instanceof HTMLImageElement && e.target.dataset.failUid) schemaImgFailed(e.target, e.target.dataset.failUid);
+}, true);

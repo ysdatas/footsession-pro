@@ -161,7 +161,7 @@ function renderGrouped(list, searching) {
     }
 
     return `<div class="week-folder ${open ? 'open' : ''}" data-week="${key}">
-      <button class="week-head" type="button" onclick="toggleWeek('${key}')">
+      <button class="week-head" type="button" data-do="toggleWeek" data-arg="${key}">
         <span class="week-chevron">▾</span>
         <span class="week-title">${escapeHtml(titre)}${isCurrent ? ' <span class="badge badge-gold">EN COURS</span>' : ''}</span>
         <span class="week-range">${escapeHtml(plage)}</span>
@@ -195,9 +195,9 @@ function table(list) {
           <td>${(s.procedures || []).length}</td>
           <td style="text-align:right;white-space:nowrap;">
             <a class="btn btn-sm" href="session-edit.html?id=${s.id}">Ouvrir</a>
-            <button class="btn btn-sm" type="button" title="Fiche détaillée" onclick="generateSessionPDF(${s.id})">PDF</button>
-            <button class="btn btn-sm" type="button" title="Tout sur une feuille, pour le staff" onclick="generateCoachPDF(${s.id})">Fiche</button>
-            ${canWrite ? `<button class="btn btn-sm btn-danger" type="button" onclick="deleteSession(${s.id}, this)">Supprimer</button>` : ''}
+            <button class="btn btn-sm" type="button" title="Fiche détaillée" data-do="pdf" data-arg="${s.id}">PDF</button>
+            <button class="btn btn-sm" type="button" title="Tout sur une feuille, pour le staff" data-do="coachPdf" data-arg="${s.id}">Fiche</button>
+            ${canWrite ? `<button class="btn btn-sm btn-danger" type="button" data-do="deleteSession" data-arg="${s.id}">Supprimer</button>` : ''}
           </td>
         </tr>`).join('')}
     </tbody>
@@ -216,3 +216,16 @@ window.deleteSession = async (id, btn) => {
     toast('Séance supprimée.', 'success');
   } catch (e) { toast(e.message, 'error'); }
 };
+
+/* Boutons de la liste : data-do="action" (et data-arg), une seule écoute.
+   La politique de contenu du site (web/_headers) interdit les onclick="…". */
+const LIST_DO = {
+  toggleWeek: (b) => toggleWeek(b.dataset.arg),
+  pdf: (b) => generateSessionPDF(Number(b.dataset.arg)),
+  coachPdf: (b) => generateCoachPDF(Number(b.dataset.arg)),
+  deleteSession: (b) => deleteSession(Number(b.dataset.arg), b),
+};
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-do]');
+  if (b && Object.hasOwn(LIST_DO, b.dataset.do)) LIST_DO[b.dataset.do](b);
+});
