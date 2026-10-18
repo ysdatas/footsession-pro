@@ -19,8 +19,13 @@
    annotation non enregistrée est protégée, tout le montage se défait
    (↶) et se rétablit (↷).
 
+   readOnly (lecteur, consultation seule) : on regarde, image par image,
+   au ralenti, en plein écran, habillage, analyse et retour du staff
+   affichés ; aucune sélection, annotation, option, envoi ni retour, et
+   rien ne s'écrit de soi-même (statut « Vu », miniatures).
+
    mountVideoWorkspace(root, { video, src, player, mode: 'player'|'staff',
-     userId, focusSeq, onChange, backHref, history }) → { video, canLeave }
+     userId, focusSeq, onChange, backHref, history, readOnly }) → { video, canLeave }
    ============================================================ */
 
 const VW_FPS = 25;                 // pas « image par image »
@@ -49,8 +54,10 @@ const VW_ICON = {
 };
 const vwIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${VW_ICON[k]}</svg>`;
 const vwDate = (d) => new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+/* Ce qu'un compte en consultation seule peut faire : regarder. */
+const VW_VIEW_ACTS = new Set(['toggle', 'rate', 'fullscreen', 'frame-back', 'frame-fwd', 'precise', 'to-source', 'sheet-close']);
 
-async function mountVideoWorkspace(root, { video, src, player, mode, userId, focusSeq = null, onChange = null, backHref = null, history: useHistory = false }) {
+async function mountVideoWorkspace(root, { video, src, player, mode, userId, focusSeq = null, onChange = null, backHref = null, history: useHistory = false, readOnly = false }) {
   // Nouveau montage dans le même conteneur (autre séquence, Précédent / Suivant) :
   // l'élément est remplacé, et les écouteurs du montage précédent partent avec
   // lui. Avant, ils restaient : un retour envoyé sur la séquence ouverte partait
@@ -78,19 +85,21 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
             <button class="vw-ctl vw-play" type="button" data-act="toggle" aria-label="Lecture">${vwIc('play')}</button>
             <span class="vw-time"><span data-el="time">0:00</span><span class="vw-time-total" data-el="total"> / 0:00</span></span>
             <span class="vw-spacer"></span>
-            <button class="vw-ctl" type="button" data-act="undo" aria-label="Annuler la dernière opération" title="Annuler" disabled>${vwIc('undo')}</button>
-            <button class="vw-ctl" type="button" data-act="redo" aria-label="Rétablir" title="Rétablir" disabled>${vwIc('redo')}</button>
+            ${readOnly ? '' : `<button class="vw-ctl" type="button" data-act="undo" aria-label="Annuler la dernière opération" title="Annuler" disabled>${vwIc('undo')}</button>
+            <button class="vw-ctl" type="button" data-act="redo" aria-label="Rétablir" title="Rétablir" disabled>${vwIc('redo')}</button>`}
             <button class="vw-ctl vw-rate" type="button" data-act="rate" title="Ralenti">1×</button>
             <button class="vw-ctl" type="button" data-act="fullscreen" aria-label="Plein écran" title="Plein écran">${vwIc('full')}</button>
-            <button class="vw-ctl" type="button" data-act="more" data-el="more" aria-label="Options de la séquence" title="Options">${vwIc('more')}</button>
+            ${readOnly
+              ? `<button class="vw-ctl" type="button" data-act="precise" aria-pressed="false" aria-label="Image par image" title="Image par image">${vwIc('zoom')}</button>`
+              : `<button class="vw-ctl" type="button" data-act="more" data-el="more" aria-label="Options de la séquence" title="Options">${vwIc('more')}</button>`}
           </div>
           <div class="vw-precise hidden" data-el="precise">
             <button class="vw-ctl" type="button" data-act="frame-back" aria-label="Image précédente">${vwIc('prev')}</button>
             <span class="vw-ptime" data-el="ptime">0:00,0</span>
             <button class="vw-ctl" type="button" data-act="frame-fwd" aria-label="Image suivante">${vwIc('next')}</button>
-            <span class="vw-spacer"></span>
+            ${readOnly ? '' : `<span class="vw-spacer"></span>
             <button class="btn btn-sm vw-sel-only" type="button" data-act="set-start">⇤ Début ici</button>
-            <button class="btn btn-sm vw-sel-only" type="button" data-act="set-end">Fin ici ⇥</button>
+            <button class="btn btn-sm vw-sel-only" type="button" data-act="set-end">Fin ici ⇥</button>`}
           </div>
           <div data-el="timeline"></div>
           <div class="vw-actions" data-el="actions"></div>
@@ -150,7 +159,8 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     shell.dataset.view = s ? 'clip' : 'source';
     shell.dataset.ui = w.ui;
     renderHead(); renderActions(); renderSide();
-    $w('[data-el="more"]').classList.toggle('hidden', !s || selecting());
+    $w('[data-el="more"]')?.classList.toggle('hidden', !s || selecting());
+    $w('[data-act="precise"]')?.setAttribute('aria-pressed', String(w.precise));
     $w('[data-el="precise"]').classList.toggle('hidden', !w.precise);
     syncTimeline(); syncHist(); syncTime();
     w.shownKey = null;
@@ -171,7 +181,8 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
       <button type="button" class="back-inline" data-act="to-source">${vwIc('back')}${escapeHtml(video.titre || 'Vidéo source')}</button>
       <div class="vw-kind">${kindHtml(s)}</div>
       ${w.fresh === s.id ? `<div class="vw-created" role="status">${vwIc('check')}<span><strong>Séquence créée.</strong> C’est une nouvelle vidéo : la vidéo source reste intacte.</span></div>` : ''}
-      <label class="vw-titlefield">${vwIc('pen')}<input type="text" data-el="label" value="${escapeHtml(s.label || '')}" maxlength="80" enterkeyhint="done" aria-label="Titre de la séquence"></label>
+      ${readOnly ? `<h1 class="vw-h1">${escapeHtml(s.label || 'Séquence')}</h1>`
+        : `<label class="vw-titlefield">${vwIc('pen')}<input type="text" data-el="label" value="${escapeHtml(s.label || '')}" maxlength="80" enterkeyhint="done" aria-label="Titre de la séquence"></label>`}
       <p class="vw-sub">${fmtDur(r.end - r.start)} · de ${fmtT(r.start)} à ${fmtT(r.end)} dans la vidéo source${s.created_at ? ` · créée le ${escapeHtml(vwDate(s.created_at))}` : ''}</p>`;
   }
   function renderActions() {
@@ -197,6 +208,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
       syncSelText();
       return;
     }
+    if (readOnly) { box.innerHTML = ''; return; }
     if (!s) {
       box.innerHTML = `<button class="btn btn-primary vw-cta" type="button" data-act="select">${vwIc('scissors')}<span>Sélectionner une portion</span></button>
         <p class="vw-cta-hint">La portion choisie devient une nouvelle séquence. La vidéo source ne change pas.</p>`;
@@ -226,6 +238,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
       side.innerHTML = `
         <h3 class="vw-title">Séquences de cette vidéo ${w.seqs.length ? `<span>(${w.seqs.length})</span>` : ''}</h3>
         ${w.seqs.length ? `<div class="vw-clips">${w.seqs.map(clipCard).join('')}</div>`
+          : readOnly ? '<p class="vw-empty">Aucune séquence.</p>'
           : staff ? '<p class="vw-empty">Aucune séquence. « Sélectionner une portion » pour en créer une.</p>'
           : '<ol class="vw-steps"><li>Sélectionne une portion</li><li>Annote ta séquence</li><li>Envoie-la au staff</li></ol>'}`;
       loadThumbs(side);
@@ -239,21 +252,21 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
           <div class="vw-ann">
             <button type="button" class="vw-ann-main" data-frame="${i}"><strong>${rel(f.t)} → ${rel(Math.min(f.t + f.d, r.end))}</strong>
               <span>${escapeHtml([...new Set(f.shapes.map(x => INK_NAMES[x.type] || 'Élément'))].join(', ') || 'Vide')}${f.freeze ? ' · arrêt sur image' : ''}</span></button>
-            ${staff ? '' : `<button type="button" data-frame-edit="${i}" aria-label="Modifier l’annotation">${vwIc('pen')}</button>
+            ${staff || readOnly ? '' : `<button type="button" data-frame-edit="${i}" aria-label="Modifier l’annotation">${vwIc('pen')}</button>
             <button type="button" data-frame-del="${i}" aria-label="Supprimer l’annotation">${vwIc('x')}</button>`}
           </div>`).join('')}</div>`
           : `<p class="vw-muted">${staff ? 'Aucune annotation du joueur.' : 'Mets pause sur un moment, puis « Annoter » : flèche, repère joueur, projecteur, texte…'}</p>`}
       </section>
       <section class="vw-block">
         <div class="vw-block-title">${staff ? 'Analyse du joueur' : 'Mon analyse'}</div>
-        ${staff
+        ${staff || readOnly
           ? `<p class="vw-note">${s.player_note ? escapeHtml(s.player_note).replace(/\n/g, '<br>') : '<span class="vw-muted">Pas encore de commentaire.</span>'}</p>`
           : `<textarea rows="3" data-el="note" placeholder="Ce que tu vois, ce que tu aurais pu faire…">${escapeHtml(s.player_note || '')}</textarea>
              <span class="vw-muted">Enregistrée automatiquement.</span>`}
       </section>
       <section class="vw-block">
         <div class="vw-block-title">Retour du staff</div>
-        ${staff
+        ${staff && !readOnly
           ? `<textarea rows="3" data-el="feedback" placeholder="Votre retour au joueur…">${escapeHtml(s.staff_feedback || '')}</textarea>
              <button class="btn btn-sm btn-primary" type="button" data-act="feedback">Envoyer mon retour</button>`
           : `<p class="vw-note">${s.staff_feedback ? escapeHtml(s.staff_feedback).replace(/\n/g, '<br>') : '<span class="vw-muted">Pas encore de retour.</span>'}</p>`}
@@ -367,6 +380,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
      portion ; vidéo (staff) : passé la première seconde. Refus (droits,
      base pas à jour) : rien ne s'affiche, l'ancienne miniature reste. */
   function keepThumb() {
+    if (readOnly) return;   // consultation seule : rien ne s'écrit
     const s = cur(), t = vid.currentTime;
     const row = s ? (!s.thumb && t >= Number(s.start_sec) - .05 && t <= Number(s.end_sec) ? s : null)
       : (staff && !video.thumb && t >= .5 ? video : null);
@@ -402,6 +416,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   /* ---------- Historique : chaque opération se défait ---------- */
   const hist = { undo: [], redo: [] };
   function syncHist() {
+    if (readOnly) return;
     $w('[data-act="undo"]').disabled = !hist.undo.length;
     $w('[data-act="redo"]').disabled = !hist.redo.length;
   }
@@ -529,14 +544,14 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     w.cur = seq && w.seqs.some(s => s.id === seq) ? seq : null;
     w.ui = ui;
     if (!w.cur && (ui === 'annotate' || ui === 'trim')) w.ui = 'view';
-    if (staff && w.ui === 'annotate') w.ui = 'view';
+    if ((staff && w.ui === 'annotate') || readOnly) w.ui = 'view';
     w.sel = w.ui === 'select' ? initialSelection() : w.ui === 'trim' ? range() : null;
     if (!w.sel) w.precise = false;
     if (w.save !== 'error') w.save = '';
     render();
     const s = cur();
     if (w.cur !== prev) {
-      if (s) { vid.currentTime = Number(s.start_sec); if (staff) markSeen(s); }
+      if (s) { vid.currentTime = Number(s.start_sec); if (staff && !readOnly) markSeen(s); }
       shell.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
     if (w.ui === 'trim') vid.currentTime = w.sel.start;
@@ -568,7 +583,8 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   };
   if (useHistory) window.addEventListener('popstate', onPop);
 
-  /* Le staff ouvre une séquence envoyée : elle passe « Vu » pour le joueur. */
+  /* Le staff ouvre une séquence envoyée : elle passe « Vu » pour le joueur
+     (pas un lecteur : il n'est pas celui qui répond). */
   async function markSeen(s) {
     if (!('seen_at' in s) || !s.submitted_at || (s.seen_at && !isAfter(s.submitted_at, s.seen_at))) return;
     const { data: row, error: err } = await sb.from('video_sequences').update({ seen_at: new Date().toISOString() }).eq('id', s.id).select('*').single();
@@ -609,7 +625,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   /* ---------- Modules : habillage et envoi ---------- */
   const ws = { root, $w, vid, ink, staff, tu, video, src, player, cur, range, frames, run, opFrames,
     patch, showSheet, closeSheet, leave: () => back(w.cur, 'view') };
-  if (!staff) {
+  if (!staff && !readOnly) {
     annot = createAnnotator(ws);
     sender = createSender(ws);
   }
@@ -626,6 +642,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
       w.shownKey = null; ink.setShapes(f.shapes); ink.show(true);
       return;
     }
+    if (readOnly && !VW_VIEW_ACTS.has(e.target.closest('[data-act]')?.dataset.act)) return;   // ni montage ni envoi
     const frameEdit = e.target.closest('[data-frame-edit]');
     if (frameEdit) return go(w.cur, 'annotate', frames()[Number(frameEdit.dataset.frameEdit)]);
     const frameDel = e.target.closest('[data-frame-del]');
@@ -642,6 +659,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     if (act === 'fullscreen') return toggleFullscreen();
     if (act === 'frame-back') return step(-1);
     if (act === 'frame-fwd') return step(1);
+    if (act === 'precise') { w.precise = !w.precise; return render(); }
     if (act === 'undo') return undoOp();
     if (act === 'redo') return redoOp();
     if (act === 'to-source') return back(null, 'view');
@@ -674,10 +692,11 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     }
   });
   root.addEventListener('input', (e) => {
+    if (readOnly) return;
     if (e.target.matches('[data-el="note"]')) { clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 900); }
   });
   root.addEventListener('change', (e) => {
-    const s = cur(); if (!s) return;
+    const s = cur(); if (!s || readOnly) return;
     if (e.target.matches('[data-el="note"]')) return saveNote();
     if (e.target.matches('[data-el="label"]')) {
       const label = e.target.value.trim();
@@ -710,7 +729,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     // Toujours au début de la séquence : l'habillage s'affiche pendant la lecture.
     const open = () => {
       vid.currentTime = Number(s0.start_sec);
-      if (staff) markSeen(s0);
+      if (staff && !readOnly) markSeen(s0);
     };
     if (vid.readyState >= 1) open(); else vid.addEventListener('loadedmetadata', open, { once: true });
   }

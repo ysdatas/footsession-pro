@@ -2,19 +2,20 @@
    Postgres (PGlite, WASM), RLS active et appels directs à la base :
    qui voit et qui modifie joueurs, vidéos, séquences, données physiques,
    séances, matchs, stockage et corbeille. Les lectures passent par les
-   règles de lmfc_v21.sql (mêmes droits, calculés une fois par requête).
+   règles de lmfc_v21.sql (mêmes droits, calculés une fois par requête),
+   et le rôle lecteur de lmfc_v22.sql (tout le club en lecture, aucune écriture).
    Lancement : npm i --no-save @electric-sql/pglite && node tests/rights-sql.test.mjs
-   (sans PGlite installé, le test est ignoré). */
+   (sans PGlite installé, le test échoue : il n'a rien vérifié). */
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 let PGlite;
 try { ({ PGlite } = await import('@electric-sql/pglite')); } catch {
-  console.log('rights-sql : ignoré (npm i --no-save @electric-sql/pglite pour le lancer)');
-  process.exit(0);
+  console.error('rights-sql : PGlite absent, test NON lancé (npm i --no-save @electric-sql/pglite)');
+  process.exit(1);
 }
 const U = (n) => `00000000-0000-0000-0000-0000000000${String(n).padStart(2, '0')}`;
-const ADMIN = U(1), N2 = U(2), U19 = U(3), NONE = U(4), LECT = U(5), PREPA = U(6), JOUEUR = U(7), AUTRE = U(8);
+const ADMIN = U(1), N2 = U(2), U19 = U(3), NONE = U(4), LECT = U(5), PREPA = U(6), JOUEUR = U(7), AUTRE = U(8), SCOUT = U(9);
 const db = new PGlite();
 const q = (s, p) => db.query(s, p);
 
@@ -31,11 +32,13 @@ create table public.teams (id bigint generated always as identity primary key, c
 insert into public.teams (club_id, nom) values (1, 'N2'), (1, 'U19'), (2, 'X');
 create table public.profiles (id uuid primary key, club_id bigint references public.clubs, role text, nom text,
   team_id bigint, team_ids bigint[] not null default '{}');
-insert into auth.users select unnest(array['${ADMIN}','${N2}','${U19}','${NONE}','${LECT}','${PREPA}','${JOUEUR}','${AUTRE}']::uuid[]);
+insert into auth.users select unnest(array['${ADMIN}','${N2}','${U19}','${NONE}','${LECT}','${PREPA}','${JOUEUR}','${AUTRE}','${SCOUT}']::uuid[]);
 insert into public.profiles (id, club_id, role, nom, team_ids) values
   ('${ADMIN}', 1, 'admin', 'Admin', '{}'), ('${N2}', 1, 'coach', 'Coach N2', '{1}'), ('${U19}', 1, 'coach', 'Coach U19', '{2}'),
   ('${NONE}', 1, 'coach', 'Coach sans équipe', '{}'), ('${LECT}', 1, 'coach', 'Coach lecture', '{2}'),
-  ('${PREPA}', 1, 'prepa', 'Prépa N2', '{1}'), ('${JOUEUR}', 1, 'joueur', 'Joueur', '{}'), ('${AUTRE}', 2, 'admin', 'Admin autre', '{}');
+  ('${PREPA}', 1, 'prepa', 'Prépa N2', '{1}'), ('${JOUEUR}', 1, 'joueur', 'Joueur', '{}'), ('${AUTRE}', 2, 'admin', 'Admin autre', '{}'),
+  ('${SCOUT}', 1, 'lecteur', 'Scout', '{1}');
+create table public.club_access (id bigint generated always as identity primary key, club_id bigint, role text);
 create function public.my_club_id() returns bigint language sql stable security definer as $$ select club_id from public.profiles where id = auth.uid() $$;
 create function public.has_role(variadic r text[]) returns boolean language sql stable security definer as $$ select exists (select 1 from public.profiles where id = auth.uid() and role = any(r)) $$;
 create function public.is_club_admin() returns boolean language sql stable security definer as $$ select public.has_role('admin') $$;
@@ -113,6 +116,10 @@ await db.exec(v19);   // rejouable
 const v21 = readFileSync(new URL('../supabase/lmfc_v21.sql', import.meta.url), 'utf8');
 await db.exec(v21);
 await db.exec(v21);   // rejouable
+// lmfc_v22.sql : rôle lecteur ; toute la matrice tourne aussi avec ses règles.
+const v22 = readFileSync(new URL('../supabase/lmfc_v22.sql', import.meta.url), 'utf8');
+await db.exec(v22);
+await db.exec(v22);   // rejouable
 await db.exec(`
 create trigger guard_profile before update on public.profiles for each row execute function public.guard_profile_membership_changes();
 create policy sessions_read on public.sessions for select using (public.session_level(id, club_id, created_by, acces, team_id) <> 'aucun');
@@ -230,4 +237,83 @@ assert.equal((await q(`select count(*)::int as n from public.staff_player_access
 await ko(AUTRE, `insert into public.staff_player_access (profile_id, player_id, club_id, niveau) values ($1, 1, 1, 'modification')`, [N2], 'admin d’un autre club');
 await ko(N2, `insert into public.staff_player_access (profile_id, player_id, club_id, niveau) values ($1, 2, 1, 'modification')`, [N2], 'seul l’admin règle les exceptions');
 
-console.log('rights-sql : OK (joueurs, vidéos, séquences, physique, séances, matchs, stockage, corbeille, garde)');
+/* ---------- 10. Lecteur (scout, lmfc_v22.sql) : tout le club en lecture, aucune écriture ---------- */
+// L'admin lui masque P4 ; une exception « modification » sur P2 reste de la lecture.
+await ok(ADMIN, `insert into public.staff_player_access (profile_id, player_id, club_id, niveau) values ($1, 4, 1, 'aucun'), ($1, 2, 1, 'modification')`, [SCOUT]);
+const visible = (await q('select id from public.players where club_id = 1 and id <> 4 order by id')).rows.map(r => Number(r.id));
+assert.deepEqual(await ids(SCOUT, players), visible, 'lecteur : tout le club (toutes équipes), sauf le joueur masqué');
+assert.deepEqual((await as(SCOUT, () => q('select distinct niveau from public.my_player_levels()'))).rows, [{ niveau: 'lecture' }],
+  'lecteur : lecture partout, même avec une exception « modification » ou une équipe cochée');
+await db.exec(`
+insert into public.player_physical_measurements (club_id, player_id) values (1, 1), (1, 4);
+insert into public.player_performance_notes (club_id, player_id, kind) values (1, 1, 'objectif'), (1, 4, 'objectif');
+insert into public.player_performance_media (club_id, player_id) values (1, 1), (1, 4);
+insert into public.player_programs (club_id, player_id, visible_to_player) values (1, 1, false), (1, 4, false);
+insert into public.program_exercises (club_id, player_id) values (1, 1), (1, 4);
+insert into public.player_career (club_id, player_id) values (1, 1), (1, 4);
+insert into public.player_video_selections (club_id, player_id, video_id) values (1, 1, 1);
+insert into public.video_views (video_id) values (1);
+insert into storage.objects (bucket_id, name) values ('player-videos', '1/1/v.mp4'), ('player-performance-media', '1/1/m.png'), ('player-photos', '1/4/p.jpg');`);
+const playerIds = (sql) => as(SCOUT, async () => [...new Set((await q(sql)).rows.map(r => Number(r.player_id)))].sort((a, b) => a - b));
+for (const t of ['player_videos', 'video_sequences', 'player_video_selections', 'player_physical_tests', 'player_physical_measurements',
+  'player_performance_notes', 'player_performance_media', 'player_programs', 'program_exercises', 'player_career']) {
+  const seen = await playerIds(`select player_id from public.${t}`);
+  assert.ok(seen.includes(1) && !seen.includes(4), `lecteur lit ${t} (P1), pas le joueur masqué : ${seen}`);
+}
+assert.equal(await n(SCOUT, 'select 1 from public.video_views'), 1, 'lecteur : statistiques de visionnage');
+assert.deepEqual((await as(SCOUT, () => q(`select bucket_id, name from storage.objects where bucket_id <> 'logos' order by 1, 2`))).rows.map(r => `${r.bucket_id}:${r.name}`),
+  ['player-performance-media:1/1/m.png', 'player-photos:1/1/a.jpg', 'player-videos:1/1/v.mp4'], 'stockage : photos, médias, vidéos, sans le joueur masqué');
+// Ni séances ni matchs, même avec un réglage nominatif sur une séance.
+await db.exec(`insert into public.session_access values (1, '${SCOUT}', 'modification')`);
+assert.equal(await n(SCOUT, 'select 1 from public.sessions'), 0, 'lecteur : aucune séance');
+assert.equal(await n(SCOUT, 'select 1 from public.matches'), 0, 'lecteur : aucun match');
+assert.equal((await as(SCOUT, () => q('select public.team_level(1) as l'))).rows[0].l, 'aucun');
+// Aucune écriture : modifications et suppressions sans effet, ajouts refusés.
+for (const sql of [`update public.players set nom = 'x' returning id`, `delete from public.players returning id`,
+  `update public.player_videos set titre = 'x' returning id`, `update public.video_sequences set submitted_at = now() returning id`,
+  `update public.video_sequences set label = 'x' returning id`, `delete from public.video_sequences returning id`,
+  `update public.player_physical_tests set stage = 'x' returning id`, `update public.player_performance_notes set kind = 'x' returning id`,
+  `update public.player_programs set visible_to_player = true returning id`, `update public.player_career set club_id = 1 returning id`,
+  `delete from public.player_physical_measurements returning id`, `update storage.objects set name = name returning id`]) {
+  assert.equal(await n(SCOUT, sql), 0, `lecteur sans effet : ${sql}`);
+}
+for (const sql of [`insert into public.players (club_id, nom, team_id) values (1, 'x', 1)`,
+  `insert into public.player_videos (club_id, player_id, titre) values (1, 1, 'x')`,
+  `insert into public.video_sequences (club_id, player_id, video_id, label) values (1, 1, 1, 'x')`,
+  `insert into public.player_video_selections (club_id, player_id, video_id) values (1, 1, 1)`,
+  `insert into public.player_physical_tests (club_id, player_id, stage) values (1, 1, 'pre')`,
+  `insert into public.player_physical_measurements (club_id, player_id) values (1, 1)`,
+  `insert into public.player_performance_notes (club_id, player_id, kind) values (1, 1, 'objectif')`,
+  `insert into public.player_performance_media (club_id, player_id) values (1, 1)`,
+  `insert into public.player_programs (club_id, player_id, visible_to_player) values (1, 1, true)`,
+  `insert into public.program_exercises (club_id, player_id) values (1, 1)`,
+  `insert into public.player_career (club_id, player_id) values (1, 1)`,
+  `insert into public.matches (club_id, team_id, adversaire) values (1, 1, 'x')`,
+  `insert into public.sessions (club_id, team_id, titre) values (1, 1, 'x')`,
+  `insert into public.staff_player_access (profile_id, player_id, club_id, niveau) values ('${SCOUT}', 1, 1, 'modification')`,
+  `insert into storage.objects (bucket_id, name) values ('player-photos', '1/1/s.jpg')`]) {
+  await ko(SCOUT, sql, [], `lecteur refusé : ${sql}`);
+}
+await assert.rejects(as(SCOUT, () => q(`select public.set_player_photo(1, '1/1/x.jpg')`)), /réservée/, 'lecteur : pas de photo');
+// Le filet tient même si une règle trop large apparaît un jour.
+await db.exec(`create policy test_trop_large on public.player_career for insert to authenticated with check (true)`);
+await ko(SCOUT, `insert into public.player_career (club_id, player_id) values (1, 1)`, [], 'règle restrictive : refus malgré une règle ouverte');
+await ok(N2, `insert into public.player_career (club_id, player_id) values (1, 1)`);
+await db.exec(`drop policy test_trop_large on public.player_career`);
+// Chaque table protégée porte les trois règles (sauf son profil et ses abonnements).
+const uncovered = (await q(`select n.nspname || '.' || c.relname as t from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  where c.relrowsecurity and ((n.nspname = 'public' and c.relname not in ('profiles', 'push_subscriptions')) or (n.nspname = 'storage' and c.relname = 'objects'))
+    and (select count(*) from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname
+         and p.policyname in ('lecteur_no_insert', 'lecteur_no_update', 'lecteur_no_delete') and p.permissive = 'RESTRICTIVE') <> 3`)).rows;
+assert.deepEqual(uncovered, [], 'toutes les tables protégées refusent l’écriture au lecteur');
+// Son profil reste modifiable (nom, menu), mais pas son rôle.
+await ok(SCOUT, `update public.profiles set nom = 'Scout LMFC', role = 'admin', team_ids = '{2}' where id = $1`, [SCOUT]);
+assert.deepEqual((await q(`select nom, role from public.profiles where id = $1`, [SCOUT])).rows[0], { nom: 'Scout LMFC', role: 'lecteur' });
+// Hors des listes du staff ; rôle accepté par l'admin et par les accès par e-mail.
+assert.ok(!(await as(ADMIN, () => q('select nom from public.club_staff()'))).rows.some(r => r.nom.startsWith('Scout')), 'club_staff sans le lecteur');
+await ok(ADMIN, `select public.club_set_member_role($1, 'lecteur')`, [SCOUT]);
+await assert.rejects(as(ADMIN, () => q(`select public.club_set_member_role($1, 'joueur')`, [SCOUT])), /Rôle invalide/);
+await q(`insert into public.club_access (club_id, role) values (1, 'lecteur')`);
+await assert.rejects(q(`insert into public.club_access (club_id, role) values (1, 'scout')`), /violates check constraint/);
+
+console.log('rights-sql : OK (joueurs, vidéos, séquences, physique, séances, matchs, stockage, corbeille, garde, lecteur)');

@@ -8,8 +8,8 @@ import assert from 'node:assert/strict';
 
 let PGlite;
 try { ({ PGlite } = await import('@electric-sql/pglite')); } catch {
-  console.log('sessions-v9-sql : ignoré (npm i --no-save @electric-sql/pglite pour le lancer)');
-  process.exit(0);
+  console.error('sessions-v9-sql : PGlite absent, test NON lancé (npm i --no-save @electric-sql/pglite)');
+  process.exit(1);
 }
 const SQL_V5 = readFileSync(new URL('../supabase/lmfc_v5.sql', import.meta.url), 'utf8');
 const SQL_V9 = readFileSync(new URL('../supabase/lmfc_v9.sql', import.meta.url), 'utf8');

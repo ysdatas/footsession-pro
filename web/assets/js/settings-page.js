@@ -113,12 +113,14 @@ function renderMenuEditor(prefs) {
     </li>`).join('');
 }
 
-/* Tout afficher / tout masquer en un enregistrement. L'accueil reste
-   toujours visible : un menu vide ne mènerait plus nulle part. */
+/* Tout afficher / tout masquer en un enregistrement. L'accueil du rôle
+   (Joueurs pour le lecteur) reste toujours visible : un menu vide ne
+   mènerait plus nulle part. */
 document.getElementById('menuSelect').addEventListener('select-all', (e) => {
   e.preventDefault();
+  const home = NAV_ITEMS.find(i => i.href === roleHome(myProfile.role))?.key;
   document.querySelectorAll('#menuEditor li').forEach(li => {
-    const on = e.detail.on || li.dataset.key === 'dashboard';
+    const on = e.detail.on || li.dataset.key === home;
     li.querySelector('input').checked = on;
     li.classList.toggle('is-hidden', !on);
   });

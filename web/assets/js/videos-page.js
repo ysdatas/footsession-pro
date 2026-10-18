@@ -10,6 +10,7 @@
         fiche joueur).
      3. Un contenu s'ouvre dans le poste de travail (video-workspace.js).
    Le retour du téléphone remonte d'un niveau (?player=…).
+   Lecteur : consultation seule (ni envoi, ni retour, ni statut « Vu »).
    Sécurité : RLS (player_videos, video_sequences, video_views).
    ============================================================ */
 
@@ -178,8 +179,10 @@ function render() {
   view.player = null;
   unmountPlayerVideos();
   document.getElementById('videosTitle').textContent = 'Vidéos joueurs';
-  const todo = toSeeOf(seqsCache);
-  document.getElementById('videosSub').textContent = todo.length
+  const todo = toSeeOf(seqsCache), reader = isReader(myProfile.role);
+  document.getElementById('videosSub').textContent = reader
+    ? (todo.length ? `${plural(todo.length, 'séquence envoyée', 'séquences envoyées')} par les joueurs, en attente d’un retour du staff.` : 'Consultation : vidéos et séquences des joueurs du club.')
+    : todo.length
     ? `${plural(todo.length, 'séquence envoyée', 'séquences envoyées')} par vos joueurs à traiter.`
     : 'Rien à traiter pour l’instant : les séquences envoyées par vos joueurs apparaîtront ici.';
 
@@ -195,7 +198,7 @@ function render() {
   box.innerHTML = `
     ${todo.length ? `<section class="vp-section" aria-labelledby="vpTodoTitle">
       <h2 id="vpTodoTitle">À traiter <span class="vw-status is-sent">${todo.length}</span></h2>
-      <p class="pvx-lead">Séquences que vos joueurs vous ont envoyées, en attente de votre retour.</p>
+      <p class="pvx-lead">${reader ? 'Séquences envoyées par les joueurs, en attente d’un retour du staff.' : 'Séquences que vos joueurs vous ont envoyées, en attente de votre retour.'}</p>
       <div class="vp-cards">${todo.map(seqCard).join('')}</div>
     </section>` : ''}
     <section class="vp-section" aria-labelledby="vpPlayersTitle">

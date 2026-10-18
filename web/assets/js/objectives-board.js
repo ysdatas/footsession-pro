@@ -10,6 +10,7 @@
        d'images dans SON dossier (la RLS du stockage lit par joueur).
      - Chaque ligne : statut modifiable sur place, Modifier, Supprimer
        (images comprises).
+   readOnly (lecteur) : la liste et ses filtres, sans aucune action.
    Le joueur d'un point ne change jamais après coup (trigger
    guard_performance_note, lmfc_v3.sql) : pour un autre joueur, on
    en crée un nouveau.
@@ -20,7 +21,7 @@
 
 const OBJ_KINDS = ['objective', 'prevention'];
 const objBoard = {
-  loaded: false, rows: [], media: new Map(), status: 'all', kind: 'all', player: null, editId: null,
+  loaded: false, rows: [], media: new Map(), status: 'all', kind: 'all', player: null, editId: null, readOnly: false,
   draft: { existing: [], pending: [] },
   pick: { on: false, ids: new Set() },   // mode sélection : statut ou suppression groupés
   shown: [],                             // lignes affichées (filtres appliqués) : « Tout sélectionner » porte sur elles
@@ -72,6 +73,7 @@ function renderObjectivesTab() {
   objBoard.shown = shown;
   const pick = objBoard.pick;
   [...pick.ids].forEach(id => { if (!shown.some(r => r.id === id)) pick.ids.delete(id); });   // un filtre retire de la sélection ce qu'il cache
+  const edit = !objBoard.readOnly;
   const pickNoun = objBoard.kind === 'prevention' ? ['prévention', 'préventions', true]
     : objBoard.kind === 'objective' ? ['objectif', 'objectifs', false] : ['élément', 'éléments', false];
 
@@ -85,11 +87,11 @@ function renderObjectivesTab() {
         ${filteredPlayer ? `<button type="button" class="obj-chip on" data-obj-player-clear title="Voir tous les joueurs">${esc(playerName(filteredPlayer))} ✕</button>` : ''}
       </div>
     </div>
-    <div class="obj-new">
+    ${edit ? `<div class="obj-new">
       ${shown.length ? `<button class="btn" type="button" data-obj-pick aria-pressed="${pick.on}">Sélectionner</button>` : ''}
       <button class="btn btn-primary" type="button" data-obj-new data-kind="objective">+ Objectif</button>
       <button class="btn" type="button" data-obj-new data-kind="prevention">+ Prévention</button>
-    </div>
+    </div>` : ''}
   </div>
   ${pick.on ? bulkBarHtml({ n: pick.ids.size, total: shown.length, noun: pickNoun, actions: [
     ...Object.entries(OBJ_STATUS).map(([k, st]) => ({ key: `status:${k}`, label: st.label })),
@@ -99,10 +101,10 @@ function renderObjectivesTab() {
     return `<section class="obj-group">
       <div class="obj-group-head">
         <a href="player-performance.html?id=${pid}" class="obj-player">${esc(playerName(p))}${p.poste ? ` <span>${esc(p.poste)}</span>` : ''}</a>
-        <span class="obj-group-add">
+        ${edit ? `<span class="obj-group-add">
           <button class="btn btn-sm" type="button" data-obj-new="${pid}" data-kind="objective">+ Objectif</button>
           <button class="btn btn-sm" type="button" data-obj-new="${pid}" data-kind="prevention">+ Prévention</button>
-        </span>
+        </span>` : ''}
       </div>
       <div class="obj-list">${list.map(r => {
         const files = (objBoard.media.get(r.id) || []).length;
@@ -128,14 +130,14 @@ function renderObjectivesTab() {
             <span class="obj-meta">Créé le ${esc(new Date(r.created_at).toLocaleDateString('fr-FR'))}${files ? ` · ${files} fichier${files > 1 ? 's' : ''}` : ''}</span>
           </div>
           <div class="obj-actions">
-            ${objStatusControl(r, true)}
-            <button class="btn btn-sm" type="button" data-obj-edit="${r.id}">Modifier</button>
-            <button class="btn btn-sm btn-danger" type="button" data-obj-del="${r.id}" aria-label="Supprimer « ${esc(title)} »">Supprimer</button>
+            ${objStatusControl(r, edit)}
+            ${edit ? `<button class="btn btn-sm" type="button" data-obj-edit="${r.id}">Modifier</button>
+            <button class="btn btn-sm btn-danger" type="button" data-obj-del="${r.id}" aria-label="Supprimer « ${esc(title)} »">Supprimer</button>` : ''}
           </div>
         </article>`;
       }).join('')}</div>
     </section>`;
-  }).join('') : `<div class="empty">${inRoster.length ? 'Aucun élément ne correspond à ce filtre.' : 'Aucun objectif ni prévention pour l’instant. « + Objectif » : choisissez un ou plusieurs joueurs, c’est enregistré sur chaque fiche.'}</div>`}`;
+  }).join('') : `<div class="empty">${inRoster.length ? 'Aucun élément ne correspond à ce filtre.' : `Aucun objectif ni prévention pour l’instant.${edit ? ' « + Objectif » : choisissez un ou plusieurs joueurs, c’est enregistré sur chaque fiche.' : ''}`}</div>`}`;
 }
 
 /* ---------- Fenêtre d'ajout / de modification ---------- */
@@ -451,6 +453,7 @@ function bindObjectivesTab() {
   });
   box.addEventListener('click', (e) => {
     if (cmpTab !== 'objectifs') return;
+    if (objBoard.readOnly && e.target.closest('[data-obj-pick], [data-obj-toggle], [data-bulk], [data-obj-new], [data-obj-edit], [data-obj-del]')) return;
     if (e.target.closest('[data-obj-pick]')) { objBoard.pick.on = !objBoard.pick.on; objBoard.pick.ids.clear(); return render(); }
     const row = e.target.closest('[data-obj-toggle]');
     if (row) return toggleObjPick(Number(row.dataset.objToggle));
@@ -474,6 +477,6 @@ function bindObjectivesTab() {
   });
   box.addEventListener('change', (e) => {
     const sel = e.target.closest('[data-note-status]');
-    if (cmpTab === 'objectifs' && sel) setObjectiveStatus(Number(sel.dataset.noteStatus), sel.value);
+    if (cmpTab === 'objectifs' && sel && !objBoard.readOnly) setObjectiveStatus(Number(sel.dataset.noteStatus), sel.value);
   });
 }

@@ -2,7 +2,7 @@
    LMFC Performance — nav.js
    Menu latéral commun à toutes les pages du staff :
      - rubriques filtrées selon le rôle (et pages interdites
-       redirigées vers le tableau de bord) ;
+       redirigées vers la page d'accueil du rôle) ;
      - ordre et rubriques masquées choisis par chaque utilisateur
        (profiles.prefs.nav, réglable dans Paramètres) ;
      - équipe de travail : celle du compte s'il est rattaché à une équipe
@@ -13,6 +13,7 @@
 
 const STAFF_ROLES = ['admin', 'coach'];            // travail terrain : séances, vidéos, tableau
 const ALL_STAFF   = ['admin', 'coach', 'prepa'];   // + préparateur physique
+const READER      = 'lecteur';                     // scout : consultation seule (lmfc_v22.sql)
 
 /* Paramètres n'est pas une rubrique : on y va par son nom, en bas du
    menu (renderUserMenu). */
@@ -20,12 +21,12 @@ const NAV_ITEMS = [
   { key: 'dashboard',   href: 'dashboard.html',      label: 'Accueil',           roles: ALL_STAFF },
   { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: ALL_STAFF },   // prépa : séances ouvertes (lmfc_v10.sql)
   { key: 'matches',     href: 'matchs.html',         label: 'Retours de match',  roles: ALL_STAFF },   // prépa : lecture (lmfc_v11.sql)
-  { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: ALL_STAFF },
-  { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: ALL_STAFF },
-  { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: STAFF_ROLES },
+  { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: [...ALL_STAFF, READER] },
+  { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: [...ALL_STAFF, READER] },
+  { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: [...STAFF_ROLES, READER] },
   { key: 'tactical',    href: 'tactical-board.html', label: 'Tableau tactique',  roles: STAFF_ROLES },
   { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: STAFF_ROLES },
-  { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: ALL_STAFF },
+  { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: [...ALL_STAFF, READER] },
   { key: 'club',        href: 'club.html',           label: 'Mon club',          roles: ['admin'] },
   { key: 'notifications', href: 'notifications.html', label: 'Notifications',    roles: ['admin'] },   // lmfc_v16.sql
   { key: 'trash',       href: 'trash.html',          label: 'Corbeille',         roles: ALL_STAFF },
@@ -51,14 +52,16 @@ function orderedNavItems(role, prefs) {
     .sort((a, b) => a.rank - b.rank);
 }
 
-/* Faux si la page courante est interdite à ce rôle (redirection lancée). */
+/* Faux si la page courante est interdite à ce rôle (redirection lancée
+   vers sa page d'accueil : le tableau de bord, interdit au lecteur, le
+   renverrait en boucle). */
 function navGuard(profile) {
   const page = currentPageName();
   const key = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;
   const item = NAV_ITEMS.find(i => i.key === key);
   if (!item || item.roles.includes(profile.role)) return true;
   console.warn(`navGuard: page « ${page} » interdite au rôle ${profile.role}`);
-  window.location.replace('dashboard.html');
+  window.location.replace(roleHome(profile.role));   // auth.js
   return false;
 }
 
@@ -136,6 +139,10 @@ function renderNav(profile, teams = window.CLUB_TEAMS || []) {
     document.body.insertAdjacentHTML('afterbegin',
       '<header class="m-appbar"><a class="m-brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC&nbsp;<span class="brand-pro">Performance</span></a></header>');
   }
+  // Le logo mène à l'accueil du rôle (le lecteur n'a pas de tableau de bord).
+  // Pages du joueur : pas d'auth.js, rien à changer.
+  const home = typeof roleHome === 'function' ? roleHome(profile.role) : 'dashboard.html';
+  document.querySelectorAll('#sidebar .brand, .m-brand').forEach(a => { if (a.getAttribute('href') !== home) a.setAttribute('href', home); });
   const page = currentPageName();
   const activeKey = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;
   const html = orderedNavItems(profile.role, profile.prefs)

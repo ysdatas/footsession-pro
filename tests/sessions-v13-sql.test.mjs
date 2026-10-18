@@ -8,8 +8,8 @@ import assert from 'node:assert/strict';
 
 let PGlite;
 try { ({ PGlite } = await import('@electric-sql/pglite')); } catch {
-  console.log('sessions-v13-sql : ignoré (npm i --no-save @electric-sql/pglite pour le lancer)');
-  process.exit(0);
+  console.error('sessions-v13-sql : PGlite absent, test NON lancé (npm i --no-save @electric-sql/pglite)');
+  process.exit(1);
 }
 const db = new PGlite();
 const one = async (s, p) => (await db.query(s, p)).rows[0];

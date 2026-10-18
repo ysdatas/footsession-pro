@@ -120,6 +120,9 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            my_player_ids() calculés une fois par requête au lieu de player_level()
                                            par ligne (séquences : 133 → 14 ms sur 2 000 lignes) (rejouable)
                                            (lmfc_v20.sql : tests de force, branche tests-de-force, pas encore passée)
+40. supabase/lmfc_v22.sql                  rôle lecteur (scout) : lecture de tout le club, ni séances ni matchs,
+                                           can_read_videos(), et trois règles restrictives par table protégée
+                                           (lecteur_no_insert / _update / _delete) : aucune écriture (rejouable)
 ```
 
 ### `lmfc_v7.sql` — garde des profils
@@ -185,9 +188,15 @@ de visionnage n'enregistre rien.**
 | `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, couleur du club, suppression de fiches ; toute la corbeille |
 | `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
 | `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique |
+| `lecteur` | Consultation seule (un scout) : **tous les joueurs du club**, toutes équipes (fiche, parcours, objectifs, préventions, programme, performance, vidéos, séquences, statistiques de visionnage). Ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
 | `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos. Il découpe, sélectionne et annote ses séquences et les envoie au staff. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
 
 `platform_v2.sql` avait fondu `analyste`, `prepa` et `viewer` dans `coach` ; `lmfc_v4.sql` rétablit `prepa`.
+
+**Toute nouvelle table protégée (RLS) doit refuser l'écriture au lecteur** : les trois règles
+restrictives de `lmfc_v22.sql` (`lecteur_no_insert`, `lecteur_no_update`, `lecteur_no_delete`,
+`not (select public.is_lecteur())`), posées par la boucle de cette migration, ne couvrent que les
+tables qui existaient alors. `tests/rights-sql.test.mjs` vérifie que chaque table les porte.
 
 Les droits sont appliqués deux fois : dans l'interface (`auth.js`, `nav.js`) **et** dans la
 base (helpers `can_manage_videos()`, `can_manage_plans()`, `is_performance_editor()`).
@@ -240,7 +249,7 @@ sont calculées au sein de l'équipe du joueur.
 ### Accès : adresse e-mail + fonction (+ fiche joueur)
 
 Plus de codes. L'admin enregistre dans **Mon club → Donner un accès** une adresse e-mail,
-une fonction (joueur, coach, préparateur physique, admin) et, pour un joueur, sa fiche (`club_access`). La
+une fonction (joueur, coach, préparateur physique, lecteur, admin) et, pour un joueur, sa fiche (`club_access`). La
 personne crée son compte avec cette adresse sur `index.html` (page unique de connexion)
 et confirme l'e-mail ; à la connexion, `claim_club_access()` la rattache au club avec son
 rôle et sa fiche. Seule une adresse **confirmée** est acceptée, et un compte déjà membre

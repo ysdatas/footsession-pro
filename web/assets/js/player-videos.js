@@ -8,6 +8,8 @@
         pour celles du joueur, son statut (Brouillon, À traiter, Vu,
         Répondu, Modifié).
    Le circuit est rappelé en tête (« Comment ça marche ? »).
+   Lecteur (consultation seule) : il regarde vidéos et séquences, sans
+   sélection, compilation, envoi, suppression ni retour.
    Utilisé par la fiche joueur (onglet Vidéos) et par la page Vidéos
    joueurs (videos-page.js) :
      mountPlayerVideos(root, { player, profile, onChange, upload })
@@ -28,6 +30,7 @@ const PV = {
 const pvPlural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 const pvName = playerFullName;   // app.js
 const pvDay = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const pvReader = () => isReader(PV.profile?.role);   // auth.js
 /* Créée par le joueur (son compte) ou par le staff. */
 const pvByPlayer = (s) => !!PV.player?.auth_user_id && s.created_by === PV.player.auth_user_id;
 
@@ -141,6 +144,7 @@ function pvVideo(v) {
       ${manage && !PV.pick.on ? `<button class="vp-card-del" type="button" data-pv-del="${v.id}" aria-label="Supprimer la vidéo « ${escapeHtml(v.titre)} »" title="Supprimer la vidéo">✕</button>` : ''}
     </div>
     ${pickVideos ? '' : `<div class="pvx-seqs">${seqs.length ? seqs.map(s => pvSeq(s)).join('')
+      : pvReader() ? '<p class="pvx-noseq">Pas encore de séquence.</p>'
       : '<p class="pvx-noseq">Ouvrez la vidéo, puis « Sélectionner une portion » pour en créer une. Le joueur peut aussi le faire de son côté.</p>'}</div>`}
   </article>`;
 }
@@ -164,13 +168,13 @@ function pvRender() {
       ? [{ key: 'dl', label: 'Télécharger les originaux' }, { key: 'del-videos', label: 'Supprimer', danger: true }]
       : [{ key: 'compile', label: 'Compiler', primary: true }, ...(manage ? [{ key: 'del-seqs', label: 'Supprimer', danger: true }] : [])],
   });
-  const tools = k.on ? '' : `
+  const tools = k.on || pvReader() ? '' : `
     ${PV.seqs.length ? '<button class="btn btn-sm" type="button" data-pv-pick-start="seqs" title="Compiler ou supprimer plusieurs séquences">Sélectionner des séquences</button>' : ''}
     ${manage && PV.videos.length ? '<button class="btn btn-sm" type="button" data-pv-pick-start="videos" title="Supprimer ou télécharger plusieurs vidéos">Sélectionner des vidéos</button>' : ''}
     ${manage && PV.upload ? '<button class="btn btn-sm btn-primary" type="button" data-pv-upload>+ Envoyer des vidéos</button>' : ''}`;
 
   box.innerHTML = `
-    <details class="pvx-flow"${PV.seqs.length ? '' : ' open'}>
+    ${pvReader() ? '' : `<details class="pvx-flow"${PV.seqs.length ? '' : ' open'}>
       <summary>Comment ça marche ?</summary>
       <ol>
         <li><strong>Vous envoyez une vidéo</strong> au joueur (match, entraînement).</li>
@@ -179,12 +183,12 @@ function pvRender() {
         <li><strong>Vous répondez</strong> dans la séquence ; il voit votre retour.</li>
       </ol>
       <p>Vous pouvez aussi créer vos propres séquences (marquées « Staff ») pour les montrer au joueur ou les compiler.</p>
-    </details>
+    </details>`}
 
     <section class="vp-section" aria-labelledby="pvxTodo">
       <h2 id="pvxTodo">À traiter ${todo.length ? `<span class="vw-status is-sent">${todo.length}</span>` : ''}</h2>
       ${todo.length
-        ? `<p class="pvx-lead">Séquences envoyées par ${escapeHtml(pvName(p))}, en attente de votre retour.</p>
+        ? `<p class="pvx-lead">Séquences envoyées par ${escapeHtml(pvName(p))}, en attente ${pvReader() ? 'd’un retour du staff' : 'de votre retour'}.</p>
            <div class="pvx-seqs is-todo">${todo.map(s => pvSeq(s, { withVideo: true })).join('')}</div>`
         : '<p class="vp-empty">Rien à traiter : quand le joueur vous enverra une séquence, elle apparaîtra ici.</p>'}
     </section>
@@ -203,6 +207,7 @@ function pvRender() {
 
 function pvClick(e) {
   if (e.currentTarget !== PV.root) return;
+  if (pvReader() && !e.target.closest('[data-pv-open]')) return;   // consultation : ouvrir, rien d'autre
   const k = PV.pick;
   const picked = e.target.closest('[data-pv-pick]');
   if (picked) {
@@ -363,6 +368,7 @@ async function wsMount(it) {
   document.getElementById('playerVideo')?.pause();
   pvWs.ws = await mountVideoWorkspace(document.getElementById('wsRoot'), {
     video: it.video, src: it.url, player: it.player, mode: 'staff', userId: pvWs.profile.id, focusSeq: it.seqId,
+    readOnly: isReader(pvWs.profile.role),   // lecteur : consultation seule
     onChange: () => { pvWs.dirty = true; },
   });
   // La suivante, si elle vient d'une autre vidéo : lien signé et index chargés d'avance.

@@ -8,6 +8,8 @@
    Tout s'enregistre au changement. Un coach ou un préparateur sans
    équipe, sans lecture club ni exception ne voit rien : sa ligne le
    signale (accessSummary).
+   Lecteur (lmfc_v22.sql) : tout le club en lecture, sans équipes ; ses
+   exceptions ne peuvent que retirer un joueur (« Aucun »).
    Dépend de club-page.js (roster, loadMembers, playerName, fold).
    ============================================================ */
 
@@ -29,21 +31,29 @@ async function loadAccessExceptions() {
 function accessSummary(m) {
   const ex = accessExceptions.get(m.id) || new Map();
   const opened = [...ex.values()].filter(n => n !== 'aucun').length;
-  const staff = !['admin', 'joueur'].includes(m.role);
+  const staff = !['admin', 'joueur', 'lecteur'].includes(m.role);   // le lecteur voit tout le club
   const hasTeams = (window.CLUB_TEAMS || []).length > 0;
   return {
-    bits: [m.lecture_club && 'Lecture sur toutes les équipes', ex.size && `${ex.size} exception${ex.size > 1 ? 's' : ''}`].filter(Boolean),
+    bits: [m.role === 'lecteur' ? 'Tout le club, en lecture' : m.lecture_club && 'Lecture sur toutes les équipes',
+      ex.size && `${ex.size} exception${ex.size > 1 ? 's' : ''}`].filter(Boolean),
     none: staff && hasTeams && !(m.team_ids || []).length && !m.lecture_club && !opened,
   };
 }
 
+const AM_HINT = document.querySelector('#accessModal .field-hint').textContent;
 function openAccessPanel(m) {
   accessMember = m;
+  const reader = m.role === 'lecteur';
   document.getElementById('amTitle').textContent = `Accès de ${m.nom || 'ce membre'}`;
   const teams = (m.team_ids || []).map(teamName).filter(Boolean);
-  document.getElementById('amTeams').textContent = teams.length
+  document.getElementById('amTeams').textContent = reader
+    ? 'Tout le club, en lecture : joueurs, fiches, performance et vidéos, sans séances ni matchs, et sans rien modifier.'
+    : teams.length
     ? `Équipes : ${teams.join(', ')} — leurs joueurs, ${m.role === 'prepa' ? 'données physiques modifiables' : 'en modification'}.`
     : 'Aucune équipe cochée : seuls la lecture club et les exceptions ci-dessous lui donnent accès à des joueurs.';
+  document.querySelector('#accessModal .am-readall').classList.toggle('hidden', reader);
+  document.querySelector('#accessModal .field-hint').textContent = reader
+    ? 'Une exception « Aucun » retire ce joueur de ce qu’il consulte.' : AM_HINT;
   document.getElementById('amReadAll').checked = !!m.lecture_club;
   document.getElementById('amSearch').value = '';
   document.getElementById('amResults').innerHTML = '';
@@ -53,13 +63,15 @@ function openAccessPanel(m) {
 
 function renderAccessList() {
   const ex = accessExceptions.get(accessMember.id) || new Map();
+  // Lecteur : « Aucun » seulement (une ancienne exception reste affichée telle quelle).
+  const niveaux = (niveau) => (accessMember.role === 'lecteur' ? ACCESS_NIVEAUX.filter(([v]) => v === 'aucun' || v === niveau) : ACCESS_NIVEAUX);
   const rows = [...ex].map(([pid, niveau]) => ({ p: roster.find(x => x.id === pid), pid, niveau })).filter(r => r.p)
     .sort((a, b) => playerName(a.p).localeCompare(playerName(b.p), 'fr'));
   document.getElementById('amList').innerHTML = rows.length ? rows.map(({ p, pid, niveau }) => `
     <div class="am-row" data-player="${pid}">
       <span>${escapeHtml(playerName(p))}<small>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}</small></span>
       <select aria-label="Niveau pour ${escapeHtml(playerName(p))}">
-        ${ACCESS_NIVEAUX.map(([v, l]) => `<option value="${v}"${v === niveau ? ' selected' : ''}>${l}</option>`).join('')}
+        ${niveaux(niveau).map(([v, l]) => `<option value="${v}"${v === niveau ? ' selected' : ''}>${l}</option>`).join('')}
       </select>
       <button class="btn btn-sm btn-icon" type="button" data-am-remove aria-label="Retirer l’exception">✕</button>
     </div>`).join('') : '<p class="text-muted am-empty">Aucune exception.</p>';
@@ -109,5 +121,6 @@ document.getElementById('amResults').addEventListener('click', (e) => {
   document.getElementById('amSearch').value = '';
   document.getElementById('amResults').innerHTML = '';
   // Par défaut, l'exception ouvre le joueur en lecture : le cas le plus courant.
-  setException(Number(b.dataset.add), 'lecture');
+  // Le lecteur voit déjà tout le club : son exception retire le joueur.
+  setException(Number(b.dataset.add), accessMember.role === 'lecteur' ? 'aucun' : 'lecture');
 });

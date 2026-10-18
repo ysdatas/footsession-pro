@@ -34,10 +34,11 @@ let clubLogoUrl = null;
 let currentSeason = null;  // saison affichée : la plus récente du joueur
 
 /* Rôles du staff ayant accès à la performance (can_view_performance()
-   côté base) : admin, coach, préparateur physique. Les données physiques
-   ne sont modifiées que par l'admin et le préparateur (is_performance_editor()). */
-const PERF_STAFF_ROLES = ['admin', 'coach', 'prepa'];
-const isStaff = () => PERF_STAFF_ROLES.includes(ctxProfile?.role);
+   côté base) : admin, coach, préparateur physique, et le lecteur, qui
+   consulte la même vue sans rien modifier (isStaffRole, auth.js). Les
+   données physiques ne sont modifiées que par l'admin et le préparateur
+   (is_performance_editor()). */
+const isStaff = () => isStaffRole(ctxProfile?.role);
 
 /* Indicateurs internes au staff : jamais montrés au joueur (et jamais
    renvoyés par my_physical_tests() côté base). */
@@ -863,10 +864,11 @@ async function loadPage() {
   };
   Object.values(early).forEach(pr => pr?.catch(() => {}));   // erreurs lues là où chaque résultat est attendu
 
-  // Joueur ouvert en lecture seule pour ce compte (exception, lecture club : lmfc_v19.sql) : aucun bouton de modification.
+  // Joueur ouvert en lecture seule pour ce compte (exception, lecture club : lmfc_v19.sql ;
+  // lecteur : tout le club en lecture, lmfc_v22.sql) : aucun bouton de modification.
   const { data: level, error: levelErr } = await early.level;
   if (levelErr) console.warn('Niveau d’accès au joueur indisponible', levelErr.message);
-  const readOnly = level === 'lecture';
+  const readOnly = level === 'lecture' || isReader(ctxProfile.role);
   canEditPerformance = !readOnly && canEditPerformanceData(ctxProfile.role);
   canEditPlans = !readOnly && canManagePlans(ctxProfile.role);
   canEditPlayer = !readOnly && canEdit(ctxProfile.role);
@@ -878,6 +880,8 @@ async function loadPage() {
   document.querySelectorAll('.perf-editor-only').forEach(el => el.classList.toggle('hidden', !canEditPerformance));
   document.querySelectorAll('.perf-plans-only').forEach(el => el.classList.toggle('hidden', !canEditPlans));
   document.querySelectorAll('.perf-staff-only').forEach(el => el.classList.toggle('hidden', !isStaff()));
+  // En consultation, ni « Modifier » l'identité ni « + Ajouter » au parcours (le PDF reste).
+  if (readOnly) ['btnEditPlayer', 'btnAddCareer'].forEach(id => document.getElementById(id).classList.add('hidden'));
 
   const back = document.getElementById('backPlayers');
   if (ctxProfile.role === 'joueur') {
@@ -1314,11 +1318,13 @@ function setupVisibilityToggles() {
    et au retour arrière. Les vidéos ne se chargent qu'à la première
    ouverture de leur onglet. */
 const PF_TABS = ['fiche', 'performance', 'videos'];
+/* Vidéos : le staff qui les gère, et le lecteur en consultation (player-videos.js). */
+const canSeeVideosTab = () => canManageVideos(ctxProfile.role) || isReader(ctxProfile.role);
 let pfVideosMounted = false;
 function setupTabs() {
   const nav = document.getElementById('pfTabs');
   nav.classList.remove('hidden');
-  document.getElementById('pfTab-videos').classList.toggle('hidden', !canManageVideos(ctxProfile.role));
+  document.getElementById('pfTab-videos').classList.toggle('hidden', !canSeeVideosTab());
   nav.addEventListener('click', (e) => {
     const t = e.target.closest('[data-pf-tab]');
     if (t) showTab(t.dataset.pfTab, true);
@@ -1335,7 +1341,7 @@ function setupTabs() {
   showTab(asked, false);
 }
 function showTab(tab, remember) {
-  const allowed = PF_TABS.filter(k => k !== 'videos' || canManageVideos(ctxProfile.role));
+  const allowed = PF_TABS.filter(k => k !== 'videos' || canSeeVideosTab());
   if (!allowed.includes(tab)) tab = 'fiche';
   document.querySelectorAll('[data-pf-tab]').forEach(b => {
     const on = b.dataset.pfTab === tab;

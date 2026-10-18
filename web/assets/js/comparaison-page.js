@@ -56,7 +56,7 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
     (myProfile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   document.getElementById('logoutLink').addEventListener('click', e => { e.preventDefault(); logout(); });
 
-  // can_view_performance() côté base : admin, coach, préparateur physique.
+  // can_view_performance() côté base : admin, coach, préparateur physique, lecteur (consultation).
   if (!isStaffRole(myProfile.role)) {
     document.getElementById('cmpSub').textContent = 'Accès réservé au staff.';
     document.getElementById('cmpContent').innerHTML =
@@ -83,13 +83,14 @@ const playerName = p => `${p.prenom || ''} ${p.nom || ''}`.trim() || `Fiche #${p
   document.getElementById('cmpOnlyFlagged').addEventListener('change', e => { cmpOnlyFlagged = e.target.checked; render(); });
 
   bindObjectivesTab();
+  objBoard.readOnly = !canManagePlans(myProfile.role);   // lecteur : objectifs en consultation
   objBoard.player = Number(CMP_PARAMS.get('player')) || null;
   // Onglet Objectifs ouvert d'emblée : ses données partent avec l'effectif
   // (avant : après lui). Un échec est réaffiché par l'onglet, qui relit.
   const objP = cmpTab === 'objectifs' ? loadObjectives().catch(e => console.warn('Objectifs illisibles', e)) : null;
   await Promise.all([loadData(), objP]);
   switchTab(cmpTab, true);
-  if (cmpTab === 'objectifs' && CMP_PARAMS.get('new')) openObjectiveModal(null, objBoard.player);
+  if (cmpTab === 'objectifs' && CMP_PARAMS.get('new') && !objBoard.readOnly) openObjectiveModal(null, objBoard.player);
 })();
 
 async function loadData() {

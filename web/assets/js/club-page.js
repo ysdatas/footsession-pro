@@ -1,7 +1,8 @@
 /* ============================================================
    LMFC Performance — club-page.js
    Page « Mon club » : identité (nom, couleur, logo), équipes,
-   accès par adresse e-mail et membres (admin, coach, préparateur physique, joueur).
+   accès par adresse e-mail et membres (admin, coach, préparateur physique,
+   lecteur, joueur).
    ============================================================ */
 
 let logoFile = null;
@@ -9,6 +10,9 @@ let myProfile = null;
 let roster = [];        // fiches joueurs du club
 let isAdmin = false;
 let membersById = new Map();   // profils du club, par id (panneau « Accès »)
+/* Fonctions proposées (Donner un accès, fonction d'un membre) : le lecteur
+   (scout, lmfc_v22.sql) consulte tout le club sans rien modifier. */
+const ROLE_CHOICES = { ...ROLE_LABELS, lecteur: 'Lecteur (consultation seule)' };
 
 (async () => {
   try {
@@ -127,8 +131,8 @@ async function loadMembers() {
   const fiche = (m) => roster.find(p => p.auth_user_id === m.id);
   const rowHtml = (m) => {
     const linked = fiche(m);
-    // Équipes du compte (lmfc_v14.sql : plusieurs ; avant : une seule).
-    const ids = (m.team_ids?.length ? m.team_ids : [m.team_id]).filter(Boolean);
+    // Équipes du compte (lmfc_v14.sql : plusieurs ; avant : une seule). Lecteur : tout le club, ses équipes ne comptent pas.
+    const ids = m.role === 'lecteur' ? [] : (m.team_ids?.length ? m.team_ids : [m.team_id]).filter(Boolean);
     const teamsTxt = ids.map(teamName).filter(Boolean).join(', ');
     const acc = isAdmin && m.role !== 'joueur' ? accessSummary(m) : { bits: [], none: false };
     const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée')
@@ -136,7 +140,7 @@ async function loadMembers() {
         + (acc.none ? ' <span class="badge badge-red">Aucun accès</span>' : '');
     const self = m.id === myProfile.id;
     // Coach, préparateur : rattachés à une ou plusieurs équipes, ils ne voient qu'elles.
-    const teamSelect = 'team_ids' in m && teams.length && !['joueur', 'admin'].includes(m.role)
+    const teamSelect = 'team_ids' in m && teams.length && !['joueur', 'admin', 'lecteur'].includes(m.role)   // lecteur : tout le club
       ? `<details class="team-multi">
           <summary title="Équipes dont ce compte voit et gère les joueurs">${escapeHtml(teamsTxt || 'Aucune équipe')}</summary>
           <div class="team-multi-list" role="group" aria-label="Équipes du compte">
@@ -147,7 +151,7 @@ async function loadMembers() {
     const controls = isAdmin && !self
       ? `<div class="member-controls" data-id="${m.id}">
           <select class="role-select" aria-label="Fonction">
-            ${Object.keys(ROLE_LABELS).map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
+            ${Object.keys(ROLE_CHOICES).map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_CHOICES[r]}</option>`).join('')}
           </select>
           <select class="player-link-select ${m.role === 'joueur' ? '' : 'hidden'}" aria-label="Fiche joueur">
             <option value="">Choisir le joueur…</option>
@@ -155,7 +159,7 @@ async function loadMembers() {
               `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtml(playerName(p))}</option>`).join('')}
           </select>
           ${teamSelect}
-          ${!['joueur', 'admin'].includes(m.role) ? '<button type="button" class="btn btn-sm" data-rights title="Lecture sur toutes les équipes, exceptions par joueur">Accès</button>' : ''}
+          ${!['joueur', 'admin'].includes(m.role) ? `<button type="button" class="btn btn-sm" data-rights title="${m.role === 'lecteur' ? 'Exceptions par joueur' : 'Lecture sur toutes les équipes, exceptions par joueur'}">Accès</button>` : ''}
           <button type="button" class="btn btn-sm btn-danger" data-remove>Retirer</button>
         </div>`
       : `<span class="badge badge-gold">${self ? 'Vous · ' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
@@ -177,7 +181,7 @@ async function loadMembers() {
 /* Membres rangés : le staff (admin, coach, préparateur), les joueurs dont le
    compte attend sa fiche, puis les joueurs par équipe de leur fiche (ordre
    des équipes du club), enfin ceux sans équipe. Ordre alphabétique partout. */
-const ROLE_RANK = { admin: 0, coach: 1, prepa: 2 };
+const ROLE_RANK = { admin: 0, coach: 1, prepa: 2, lecteur: 3 };
 const fold = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const byName = (a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' });
 function memberGroups(members, fiche, teams) {
@@ -228,6 +232,8 @@ function renderAccess(pending) {
     : '';
 }
 
+// « Donner un accès » : Lecteur, juste avant Administrateur.
+document.getElementById('accRole').querySelector('option[value="admin"]').before(new Option(ROLE_CHOICES.lecteur, 'lecteur'));
 function syncAccessForm() {
   document.getElementById('accPlayer').classList.toggle('hidden', document.getElementById('accRole').value !== 'joueur');
 }
@@ -262,7 +268,7 @@ document.getElementById('pendingList').addEventListener('click', async (e) => {
   await loadMembers();
 });
 
-/* Fonction d’un membre : Admin / Coach / Préparateur directement ; Joueur une fois la fiche choisie. */
+/* Fonction d’un membre : Admin / Coach / Préparateur / Lecteur directement ; Joueur une fois la fiche choisie. */
 document.getElementById('memberList').addEventListener('change', async (e) => {
   const box = e.target.closest('.member-controls'); if (!box) return;
   const profileId = box.dataset.id;

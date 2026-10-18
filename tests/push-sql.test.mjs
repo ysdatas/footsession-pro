@@ -9,8 +9,8 @@ import assert from 'node:assert/strict';
 
 let PGlite;
 try { ({ PGlite } = await import('@electric-sql/pglite')); } catch {
-  console.log('push-sql : ignoré (npm i --no-save @electric-sql/pglite pour le lancer)');
-  process.exit(0);
+  console.error('push-sql : PGlite absent, test NON lancé (npm i --no-save @electric-sql/pglite)');
+  process.exit(1);
 }
 const U = (n) => `00000000-0000-0000-0000-00000000000${n}`;
 const ADMIN = U(1), COACH = U(2), JOUEUR = U(4), J2 = U(5), AUTRE = U(9), SANS = U(8);

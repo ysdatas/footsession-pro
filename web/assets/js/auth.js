@@ -117,12 +117,14 @@ async function requireAuth(opts = {}) {
   return { user: session.user, profile };
 }
 
-/* Page d'accueil selon le compte : espace joueur, tableau de bord du
-   staff, ou création de club pour un compte qui n'a encore aucun accès. */
+/* Page d'accueil selon le compte : espace joueur, liste des joueurs du
+   lecteur, tableau de bord du staff, ou création de club pour un compte
+   qui n'a encore aucun accès. */
 function homeFor(profile) {
   if (!profile?.club_id) return 'onboarding.html';
-  return profile.role === 'joueur' ? 'mon-espace.html' : 'dashboard.html';
+  return roleHome(profile.role);
 }
+const roleHome = (role) => ({ joueur: 'mon-espace.html', lecteur: 'players.html' }[role] || 'dashboard.html');
 
 /* Rattache le compte au club si l'administrateur a enregistré son adresse
    e-mail (Mon club → Accès). Sans effet sinon. */
@@ -139,25 +141,28 @@ async function logout() {
   window.location.href = 'index.html';
 }
 
-/* Quatre comptes (lmfc_v4.sql) : admin, coach, prepa (préparateur
-   physique), joueur. L'interface masque, la RLS refuse.
-     admin  : tout, plus la gestion du club ;
-     coach  : séances, joueurs, vidéos, objectifs ; consulte la
-              performance sans modifier les données physiques ;
-     prepa  : données physiques, tests, import Excel, objectifs et
-              préventions ; ni vidéos ni séances. */
+/* Cinq comptes (lmfc_v4.sql, lmfc_v22.sql) : admin, coach, prepa
+   (préparateur physique), lecteur, joueur. L'interface masque, la RLS refuse.
+     admin   : tout, plus la gestion du club ;
+     coach   : séances, joueurs, vidéos, objectifs ; consulte la
+               performance sans modifier les données physiques ;
+     prepa   : données physiques, tests, import Excel, objectifs et
+               préventions ; ni vidéos ni séances ;
+     lecteur : (scout) consulte tout le club, joueurs, performance,
+               vidéos ; ni séances ni matchs ; n'écrit rien. */
 const STAFF_ALL = ['admin', 'coach', 'prepa'];
-const isStaffRole = (role) => STAFF_ALL.includes(role);
+const isStaffRole = (role) => STAFF_ALL.includes(role) || role === 'lecteur';
+const isReader = (role) => role === 'lecteur';
 function canEdit(role) {                       // séances, fiches joueurs, schémas
   return ['admin', 'coach'].includes(role);
 }
 const canEditPerformanceData = (role) => ['admin', 'prepa'].includes(role);
 const canManageVideos        = (role) => ['admin', 'coach'].includes(role);
 const canManagePlans         = (role) => STAFF_ALL.includes(role);
-const canSeeVideoStats       = (role) => ['admin', 'coach'].includes(role);
+const canSeeVideoStats       = (role) => ['admin', 'coach', 'lecteur'].includes(role);
 const canChangePlayerPhoto   = (role) => canEdit(role) || canEditPerformanceData(role);
 
-const ROLE_LABELS = { admin: 'Administrateur', coach: 'Coach', prepa: 'Préparateur physique', joueur: 'Joueur' };
+const ROLE_LABELS = { admin: 'Administrateur', coach: 'Coach', prepa: 'Préparateur physique', lecteur: 'Lecteur', joueur: 'Joueur' };
 
 /* Photo d'un joueur : RPC set_player_photo (lmfc_v4.sql), seule écriture
    permise au préparateur sur la fiche. Sans la migration : mise à jour

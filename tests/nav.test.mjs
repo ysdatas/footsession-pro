@@ -15,6 +15,8 @@ const window = {
 // Page déjà chargée, sans menu : le dessin depuis la mémoire (renderNavFromCache) n'a rien à faire.
 const document = { readyState: 'complete', querySelector: () => null };
 const ctx = vm.createContext({ window, document, console, Number, Set, Map, JSON });
+// auth.js d'abord, comme dans les pages : rôles et page d'accueil de chaque compte.
+vm.runInContext(readFileSync('web/assets/js/auth.js', 'utf8'), ctx);
 vm.runInContext(readFileSync('web/assets/js/nav.js', 'utf8'), ctx);
 const run = (code) => vm.runInContext(code, ctx);
 const keys = (role, prefs) => run(`orderedNavItems(${JSON.stringify(role)}, ${JSON.stringify(prefs)})`)
@@ -32,6 +34,9 @@ for (const k of ['dashboard', 'players', 'performance', 'sessions', 'matches', '
 for (const k of ['videos', 'tactical', 'analytics', 'club']) assert.ok(!prepa.includes(k), `prépa : pas de ${k}`);
 // Un joueur n'a aucune rubrique du staff.
 assert.equal(keys('joueur', {}).length, 0, 'joueur : pas de menu staff');
+
+// Lecteur (scout, lmfc_v22.sql) : joueurs, performance, vidéos et FAQ, rien d'autre.
+assert.equal(keys('lecteur', {}).join(), 'players,performance,videos,faq', 'lecteur : menu de consultation');
 
 // Ordre et masquage choisis par l'utilisateur.
 const prefs = { nav: { order: ['players', 'dashboard', 'sessions'], hidden: ['analytics'] } };
@@ -55,6 +60,37 @@ assert.equal(run(`navGuard({ role: 'prepa' })`), true);
 window.location.pathname = '/videos';
 assert.equal(run(`navGuard({ role: 'prepa' })`), false, 'prépa : pas de Vidéos');
 redirected = null;
+
+// Lecteur : une page interdite le renvoie sur Joueurs, sa page d'accueil
+// (le tableau de bord lui est interdit : y renvoyer tournerait en boucle).
+for (const page of ['dashboard', 'sessions', 'session-edit', 'matchs', 'tactical-board', 'analytics', 'club', 'notifications', 'trash']) {
+  window.location.pathname = `/${page}`;
+  redirected = null;
+  assert.equal(run(`navGuard({ role: 'lecteur' })`), false, `lecteur : pas de ${page}`);
+  assert.equal(redirected, 'players.html', `lecteur : ${page} renvoie sur Joueurs`);
+}
+for (const page of ['players', 'player-performance', 'comparaison', 'videos', 'faq', 'settings']) {
+  window.location.pathname = `/${page}`;
+  redirected = null;
+  assert.equal(run(`navGuard({ role: 'lecteur' })`), true, `lecteur : ${page} permise`);
+  assert.equal(redirected, null, `lecteur : ${page} sans redirection`);
+}
+window.location.pathname = '/club';
+run(`navGuard({ role: 'coach' })`);
+assert.equal(redirected, 'dashboard.html', 'staff : toujours renvoyé au tableau de bord');
+redirected = null;
+// Page d'accueil après connexion (auth.js).
+assert.equal(run(`homeFor({ role: 'lecteur', club_id: 1 })`), 'players.html');
+assert.equal(run(`homeFor({ role: 'coach', club_id: 1 })`), 'dashboard.html');
+assert.equal(run(`homeFor({ role: 'joueur', club_id: 1 })`), 'mon-espace.html');
+assert.equal(run(`homeFor({ role: 'lecteur', club_id: null })`), 'onboarding.html');
+// Droits côté interface : le lecteur consulte (vue staff, statistiques de
+// visionnage) mais aucun helper d'écriture ne le laisse passer.
+assert.equal(run(`isStaffRole('lecteur') && isReader('lecteur') && canSeeVideoStats('lecteur')`), true);
+for (const f of ['canEdit', 'canEditPerformanceData', 'canManageVideos', 'canManagePlans', 'canChangePlayerPhoto']) {
+  assert.equal(run(`${f}('lecteur')`), false, `lecteur : pas de ${f}`);
+}
+assert.equal(run(`isReader('coach')`), false);
 
 // Équipe courante : seulement si elle existe encore dans le club.
 window.CURRENT_PROFILE.prefs.team_id = 5;
