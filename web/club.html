@@ -17,6 +17,7 @@
   <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
+  <!-- Page réservée à l'admin (nav.js) : ses commandes sont visibles dès le départ, rien ne bouge au chargement (CLS). -->
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
@@ -56,7 +57,7 @@
           </div>
         </div>
         <input id="clubLogoFile" type="file" accept="image/*" hidden>
-        <button class="btn btn-primary hidden" id="saveClub" type="button">Enregistrer</button>
+        <button class="btn btn-primary" id="saveClub" type="button">Enregistrer</button>
         <p class="text-muted hidden" id="viewerNote" style="font-size:var(--fs-sm);">Seul l'administrateur du club peut modifier ces informations.</p>
       </section>
 
@@ -64,14 +65,14 @@
         <h2 class="as-h3">Équipes</h2>
         <p class="text-muted card-lead">Chaque joueur et chaque séance peut être rattaché à une équipe (N2, U19…). Le sélecteur en haut du menu filtre ensuite les pages. Faites glisser une équipe pour changer l’ordre.</p>
         <div id="teamList" class="team-list"><p class="text-muted">Chargement…</p></div>
-        <form id="teamForm" class="team-form hidden">
+        <form id="teamForm" class="team-form">
           <input id="teamName" placeholder="Nom de l'équipe, ex. U19" maxlength="40" required aria-label="Nom de la nouvelle équipe">
           <button class="btn btn-primary btn-sm" type="submit">Ajouter</button>
         </form>
       </section>
     </div>
 
-    <section class="card hidden" id="accessCard" style="margin-top:18px;">
+    <section class="card" id="accessCard" style="margin-top:18px;">
       <h2 class="as-h3">Donner un accès</h2>
       <p class="text-muted card-lead">Adresse e-mail + fonction (+ fiche pour un joueur). La personne crée son compte avec cette adresse sur la page de connexion : son accès s’active tout seul.</p>
       <form id="accessForm" class="access-form">

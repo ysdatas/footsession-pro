@@ -69,7 +69,6 @@ async function requireAuth(opts = {}) {
       if (typeof applyClubColor === 'function' && p.clubs) applyClubColor(p.clubs.color);
       if (p.role !== 'joueur' && typeof renderNav === 'function') renderNav(p);
     }).catch(e => console.warn('Profil non relu (réseau)', e));
-    await documentParsed();
   } else {
     const [res, t] = await loadProfile();
     if (res.error) {
@@ -81,6 +80,10 @@ async function requireAuth(opts = {}) {
     teamsRes = t;
     if (!t.error) writeAuthCache(profile, t.data || []);
   }
+  // Profil en mémoire ou profil arrivé avant la fin du chargement (réseau lent) :
+  // les derniers scripts de la page doivent être là avant qu'elle reprenne la main
+  // (Mon club : club-access.js après club-page.js).
+  await documentParsed();
 
   /* Les comptes joueurs sont cantonnés à leur espace : vidéos, lecture,
      liaison de compte et leur propre fiche Performance (en lecture seule,

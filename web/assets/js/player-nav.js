@@ -120,8 +120,6 @@ async function requirePlayer() {
       try { sessionStorage.setItem(PLAYER_CACHE, JSON.stringify(next)); } catch { /* idem */ }
       if (JSON.stringify(next) !== JSON.stringify(cached)) window.location.reload();
     }).catch(e => console.warn('Espace joueur non relu (réseau)', e));
-    // Sans attente réseau : laisser les derniers scripts de la page se charger.
-    if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
   } else {
     const [p, pl] = await load();
     if (pl.error) throw pl.error;
@@ -130,6 +128,9 @@ async function requirePlayer() {
       try { sessionStorage.setItem(PLAYER_CACHE, JSON.stringify({ uid, profile, player })); } catch { /* idem */ }
     }
   }
+  // Avec ou sans mémoire, les derniers scripts de la page doivent être chargés
+  // avant qu'elle reprenne la main (réseau lent : la fiche peut arriver avant eux).
+  if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
   if (profile && profile.role !== 'joueur') {
     window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
     return null;
