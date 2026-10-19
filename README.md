@@ -804,7 +804,10 @@ node tests/sessions-v9-sql.test.mjs tests/sessions-v12-sql.test.mjs tests/sessio
   « À traiter » téléchargeaient **15,2 Mo** et s'affichaient en **3,1 s**. Désormais chaque vidéo
   et chaque séquence garde une image fixe (`thumb`, `lmfc_v18.sql`) : la vidéo sur le fichier au
   moment de l'envoi (`fileThumb`, rien ne transite), la séquence la première fois qu'elle passe
-  dans le lecteur (`keepThumb`, `video-workspace.js` ; reprise après un nouveau découpage). Liste
+  dans le lecteur (`keepThumb`, `video-workspace.js` ; reprise après un nouveau découpage). Vidéos
+  d'avant `lmfc_v18` (442 sur 447 au 19/10/2026) : la première vignette affichée à un membre du staff
+  qui gère les vidéos garde son image (`keepFirstFrame`, `video-status.js`, seulement si `thumb` est
+  encore vide) ; ensuite, joueurs compris, plus aucun extrait de ~3 Mo n'est relu. Liste
   et miniatures : **0,44 s, 0 Mo de vidéo**. Joueurs, vidéos et séquences partent ensemble
   (`SEQ_LIST_COLS` sans les miniatures, chargées pour les seules séquences affichées) ; les liens
   de lecture se signent en fond, prêts avant le clic. Ouvrir une séquence : ~0,5 s (index du MP4

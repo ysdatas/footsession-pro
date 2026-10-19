@@ -56,11 +56,13 @@ function nextSeqLabel(seqs) {
    Image fixe gardée avec la vidéo ou la séquence (thumb, lmfc_v18.sql) :
    rien à télécharger. Sans elle, l'image de la vidéo source à l'instant t
    (#t=… : le navigateur lit l'index et quelques images de la source,
-   plusieurs Mo par miniature d'après la mesure du lot 2). */
-function thumbHtml(url, t, badge = '', thumb = null) {
+   plusieurs Mo par miniature d'après la mesure du lot 2). keep
+   (« player_videos:12 ») : cette image-là est gardée comme miniature dès
+   qu'elle arrive, une fois pour toutes (vidéos d'avant lmfc_v18, staff). */
+function thumbHtml(url, t, badge = '', thumb = null, keep = null) {
   const src = url ? `${url}#t=${Math.max(.05, Number(t) || 0).toFixed(2)}` : '';
   const img = thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">`
-    : src ? `<video muted playsinline preload="none" tabindex="-1" aria-hidden="true" data-src="${escapeHtml(src)}"></video>` : '';
+    : src ? `<video muted playsinline preload="none" tabindex="-1" aria-hidden="true" data-src="${escapeHtml(src)}"${keep ? ` data-keep-thumb="${escapeHtml(keep)}"` : ''}></video>` : '';
   return `<span class="vthumb">${img}${badge ? `<span class="vthumb-badge">${escapeHtml(badge)}</span>` : ''}</span>`;
 }
 /* Miniature de l'image affichée par une vidéo : JPEG 320 px (~15 Ko).
@@ -93,8 +95,26 @@ function fileThumb(file, at = 1) {
    chargée à part pour les seules séquences affichées. */
 const SEQ_LIST_COLS = 'id, club_id, player_id, video_id, label, start_sec, end_sec, drawings, player_note, selected, submitted_at, staff_feedback, feedback_by, feedback_at, seen_at, edited_at, created_by, created_at, updated_at';
 let thumbObserver = null;
+/* Vignette d'une vidéo sans miniature (data-keep-thumb) : l'image affichée
+   est enregistrée (~15 Ko), et les prochains affichages, joueur compris, ne
+   relisent plus la vidéo (~3 Mo). Seulement si elle est encore vide. */
+const KEEP_THUMB_TABLES = ['player_videos', 'video_sequences'];
+function keepFirstFrame(v) {
+  const [table, id] = (v.dataset.keepThumb || '').split(':');
+  if (!KEEP_THUMB_TABLES.includes(table) || !(Number(id) > 0)) return;
+  const save = () => {
+    if (!v.dataset.keepThumb) return;
+    const thumb = grabThumb(v);
+    if (!thumb) return;
+    v.removeAttribute('data-keep-thumb');
+    sb.from(table).update({ thumb }).eq('id', Number(id)).is('thumb', null)
+      .then(({ error }) => { if (error) console.warn('Miniature non enregistrée', error.message); });
+  };
+  v.addEventListener('loadeddata', save, { once: true });
+  v.addEventListener('seeked', save, { once: true });
+}
 function loadThumbs(root = document) {
-  const start = (v) => { v.preload = 'metadata'; v.src = v.dataset.src; v.removeAttribute('data-src'); };
+  const start = (v) => { keepFirstFrame(v); v.preload = 'metadata'; v.src = v.dataset.src; v.removeAttribute('data-src'); };
   if (!thumbObserver && 'IntersectionObserver' in window) {
     thumbObserver = new IntersectionObserver((entries) => entries.forEach(en => {
       if (!en.isIntersecting) return;

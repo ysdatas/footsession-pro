@@ -134,7 +134,7 @@ function pvVideo(v) {
       <button type="button" class="pvx-video-open${pickVideos ? ' is-pickable' : ''}" ${pickVideos
         ? `data-pv-pick="${v.id}" aria-pressed="${on}"` : `data-pv-open="${v.id}"`}>
         ${pickVideos ? `<span class="vp-pick" aria-hidden="true">${on ? '✓' : ''}</span>` : ''}
-        ${thumbHtml(PV.urls.get(v.id), 1, 'Vidéo', v.thumb)}
+        ${thumbHtml(PV.urls.get(v.id), 1, 'Vidéo', v.thumb, manage && !v.thumb ? `player_videos:${v.id}` : null)}
         <span class="pvx-video-body">
           <strong>${escapeHtml(v.titre || 'Vidéo')}</strong>
           <span class="pvx-seq-meta">Envoyée le ${escapeHtml(pvDay(v.created_at))} · ${escapeHtml(pvViews(v))}</span>
