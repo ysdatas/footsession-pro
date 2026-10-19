@@ -146,3 +146,9 @@
 @media (max-width: 640px) { .home-attn-card.is-skel { min-height: 105px; } }
 @media (prefers-reduced-motion: no-preference) { .is-skel { animation: skel-pulse 1.4s ease-in-out infinite; } }
 @keyframes skel-pulse { 50% { opacity: .5; } }
+#homeDate { min-height: 1lh; }   /* date posée par le script : ligne réservée (CLS) */
+/* Selon le rôle retenu (theme.js, html[data-role]) : l'admin a 4 boutons (deux
+   lignes sur téléphone), l'admin et le préparateur une 4ᵉ carte (mesures). */
+.home-attn-card.is-skel-extra { display: none; }
+html[data-role="admin"] .home-attn-card.is-skel-extra, html[data-role="prepa"] .home-attn-card.is-skel-extra { display: flex; }
+@media (max-width: 640px) { html[data-role="admin"] .home-actions { min-height: 92px; } }

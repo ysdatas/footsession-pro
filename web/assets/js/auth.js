@@ -18,10 +18,13 @@ function readAuthCache(uid) {
   try { const c = JSON.parse(sessionStorage.getItem(AUTH_CACHE) || 'null'); return c?.profile?.id === uid ? c : null; }
   catch { return null; }
 }
+/* Le rôle est aussi retenu sur l'appareil (lmfc-role) : theme.js le pose sur
+   <html> avant le premier affichage, pour réserver la place des boutons et
+   cartes de l'accueil (CLS, dashboard.css). Rien de sensible : le rôle seul. */
 function writeAuthCache(profile, teams) {
-  try { sessionStorage.setItem(AUTH_CACHE, JSON.stringify({ profile, teams })); } catch { /* stockage indisponible : réseau */ }
+  try { sessionStorage.setItem(AUTH_CACHE, JSON.stringify({ profile, teams })); localStorage.setItem('lmfc-role', profile.role); } catch { /* stockage indisponible : réseau */ }
 }
-const clearAuthCache = () => { try { sessionStorage.removeItem(AUTH_CACHE); } catch { /* idem */ } };
+const clearAuthCache = () => { try { sessionStorage.removeItem(AUTH_CACHE); localStorage.removeItem('lmfc-role'); } catch { /* idem */ } };
 /* Sans attente réseau, la page reprendrait la main avant que ses derniers
    scripts soient chargés (club-access.js après club-page.js…) : on attend
    la fin de la lecture du document, quelques millisecondes. */

@@ -49,3 +49,7 @@ if (/\/player-performance(\.html)?$/.test(location.pathname)) {
   document.documentElement.dataset.pf = q.get('id') ? 'staff' : 'self';
   document.documentElement.dataset.pfShown = ['performance', 'videos'].includes(q.get('tab')) ? q.get('tab') : 'fiche';
 }
+
+/* Rôle du dernier compte connecté sur cet appareil (auth.js) : l'accueil réserve
+   d'emblée la place de ses boutons et de ses cartes (CLS, dashboard.css). */
+try { const role = localStorage.getItem('lmfc-role'); if (role) document.documentElement.dataset.role = role; } catch { /* stockage bloqué */ }

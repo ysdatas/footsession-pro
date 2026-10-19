@@ -742,7 +742,12 @@ l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
   Mon espace), en-tête d'une séance existante posé dès l'ouverture, champs de la barre Performance réglés
   pour l'onglet demandé. Fiche joueur : sa mise en page (staff `?id=` ou joueur, onglet demandé) est
   posée par `theme.js` dans le `<head>` (`html[data-pf]`), car les scripts de fin de page arrivent après le
-  premier affichage sur un réseau lent. Une nouvelle partie remplie après coup doit faire de même ;
+  premier affichage sur un réseau lent. Une nouvelle partie remplie après coup doit faire de même.
+  Le rôle du dernier compte connecté est retenu sur l'appareil (`lmfc-role`, `auth.js`) et posé par
+  `theme.js` (`html[data-role]`) : l'accueil de l'admin réserve ses deux lignes de boutons et sa 4ᵉ carte ;
+- **police Inter hébergée sur le site** (`assets/fonts`, licence `Inter-OFL.txt`), préchargée par chaque
+  page, `font-display: optional` (pas de permutation qui ferait bouger le texte) : plus d'aller-retour vers
+  Google Fonts avant le premier affichage (~0,8 s sur téléphone d'après l'audit) ;
 - Moyenne des pages : 831 → 372 ms sur le banc ; fiche joueur : 5 à 6 allers-retours successifs → 2.
   Fichiers JS/CSS : leur revérification coûte ~50 à 80 ms par page (mesuré) ; laissée telle quelle, un
   cache plus long risquerait de mélanger deux versions juste après une mise en ligne.
