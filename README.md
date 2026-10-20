@@ -323,7 +323,18 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   titre posé sur la page, filet gris amorcé d'un trait rouge ; ligne « club · équipe » au-dessus du
   titre (`renderPageKicker`, `nav.js`). Le rouge marque où l'on est (rubrique du menu, onglet, trait
   devant les rubriques, `--red-ui`), l'or ce que l'on peut faire (boutons principaux). Menu à icônes
-  (`NAV_IC`, `nav.js`) ; accueil : en-tête bordeaux et bandeau de chiffres sans phrases d'explication.
+  (`NAV_IC`, `nav-mobile.js`) ; accueil : en-tête bordeaux et bandeau de chiffres sans phrases d'explication.
+  Contrôles (`main.css`) : boutons 36 px (30 petit, 44 au doigt) avec état appuyé et anneau de focus or,
+  libellés en casse normale, liste déroulante fléchée, unité dans le champ (`.input-unit`), croix de
+  fermeture ajoutée à chaque fenêtre (`app.js`, sauf `data-no-x`), familles de champs (`.form-kicker`).
+- **Téléphone (staff)** — onglets en bas (`nav-mobile.js`, `renderTabbar`) : les quatre premières
+  rubriques du menu de chacun + « Menu » (le reste), comme l'espace joueur ; pas sur le tableau
+  tactique. Un champ par ligne dans les formulaires ; procédés repliés sans leurs outils.
+- **Bilan & Analytics** (`analytics-page.js`, `analytics-charts.js`) — « Rythme » (séances par mois,
+  temps par séance) et « Contenu » (types en barre découpée, principes, formats, terrains en
+  classements) ; la valeur en tête en or, chaque barre porte son chiffre. Les saisies équivalentes
+  sont comptées ensemble (« 7c7 » = « 7v7 », « 40 x 35 » = « 40 m / 35 m » : `label-norm.js`,
+  `tests/label-norm.test.mjs`) ; la base n'est pas réécrite.
 - **Paramètres** — ce n'est pas une rubrique du menu : un clic sur son nom, en bas du menu,
   propose un seul lien, « Paramètres » (`renderUserMenu`, `nav.js`). La déconnexion est l'icône
   à côté du nom.
@@ -718,7 +729,7 @@ l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
 | Fiche Performance (rubriques et période au choix, préventions comprises) | Performance d'un joueur | `perf-export.js` |
 | Séance complète (récapitulatif, un procédé par page) | Séances, séance | `pdf-generator.js` |
 | Fiche coach (4 procédés par page) | Séances, séance | `pdf-coach.js` |
-| Bilan (chiffres clés, graphiques redessinés pour le papier) | Bilan & Analytics | `analytics-page.js` |
+| Bilan (chiffres clés, graphiques redessinés pour le papier) | Bilan & Analytics | `analytics-page.js`, `analytics-charts.js` |
 | Fiche tactique (une image par étape) | Tableau tactique | `tactical-board-ui.js` |
 
 ---
