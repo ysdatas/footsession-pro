@@ -46,8 +46,11 @@
   --red-rgb:       200, 16, 46;
   --red-deep:      #8E0E1A;
   --red-ui:        #E8394F;   /* repère rouge sur fond noir (onglet, rubrique) : 4,8:1 */
-  /* Fond des en-têtes (fiches, encarts) : aplat, sans halo ni dégradé. */
-  --hero-bg:       var(--bg-surface);
+  /* Liseré du club (rouge puis or), posé en filet de 1 px : une couche de
+     fond « var(--liseret) top / 100% 1px no-repeat ». */
+  --liseret: linear-gradient(90deg, var(--red) 0%, var(--red) 42%, var(--gold) 58%, var(--gold) 100%);
+  /* Fond des en-têtes (fiches, encarts) : aplat, liseré fin en haut. */
+  --hero-bg:       var(--liseret) top / 100% 1px no-repeat, var(--bg-surface);
 
   --text-primary:  #F5F5F5;
   --text-secondary:#959595;   /* 5,2:1 sur les badges (#242424) */
@@ -307,7 +310,10 @@ select { appearance: none; cursor: pointer; }
 .page-head {
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: 16px 20px; margin-bottom: 22px; flex-wrap: wrap; padding: 2px 0 18px;
-  border-bottom: 1px solid var(--border);
+  /* Filet gris sous l'en-tête, amorcé par un court trait rouge. */
+  background:
+    linear-gradient(var(--red-ui), var(--red-ui)) left bottom / 48px 2px no-repeat,
+    linear-gradient(var(--border), var(--border)) left bottom / 100% 1px no-repeat;
 }
 .page-head h1, .pv-head h1 { margin: 0 0 2px; font-size: clamp(1.5rem, 2.4vw, 1.875rem); font-weight: 600; letter-spacing: -.01em; line-height: 1.2; overflow-wrap: anywhere; }
 .page-head .subtitle, .pv-head .subtitle { color: var(--text-secondary); font-size: var(--fs-md); margin: 0; }
@@ -321,6 +327,11 @@ select { appearance: none; cursor: pointer; }
 .section-kicker {
   margin: 0 0 12px; color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 600;
   letter-spacing: .06em; text-transform: uppercase;
+}
+/* Petit trait rouge devant les titres de rubrique. */
+.section-kicker::before, .home-section > h2::before {
+  content: ''; display: inline-block; width: 12px; height: 2px; margin-right: 8px; vertical-align: middle;
+  background: var(--red-ui);
 }
 @media (max-width: 560px) {
   .page-head { padding: 0 0 16px; margin-bottom: 16px; }
@@ -349,7 +360,7 @@ select { appearance: none; cursor: pointer; }
 .modal-backdrop.open { display: flex; }
 .modal {
   position: relative; margin: auto;
-  background: var(--bg-card); border: 1px solid #333;
+  background: var(--liseret) top / 100% 1px no-repeat, var(--bg-card); border: 1px solid #333;
   border-radius: var(--radius-lg); width: 100%; max-width: 460px; min-width: 0;
   padding: 24px; box-shadow: var(--shadow);
 }

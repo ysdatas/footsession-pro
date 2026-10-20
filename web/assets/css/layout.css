@@ -9,7 +9,7 @@
 .sidebar {
   position: fixed; top: 0; left: 0; bottom: 0;
   width: var(--sidebar-w);
-  background: var(--bg-primary);
+  background: var(--liseret) top / 100% 1px no-repeat, var(--bg-primary);
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   padding: 22px 14px;
@@ -118,7 +118,7 @@
   .m-appbar {
     display: flex; align-items: center; position: fixed; top: 0; left: 0; right: 0; z-index: 45;
     height: 56px; padding: 0 16px 0 68px;
-    background: rgba(10,10,10,.82); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+    background: var(--liseret) top / 100% 1px no-repeat, rgba(10,10,10,.82); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
     border-bottom: 1px solid var(--border);
     font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.02em;
   }

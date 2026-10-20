@@ -62,13 +62,13 @@
    Accueil (dashboard-page.js) : où je suis, ce qui m'attend,
    où aller. Une colonne sur téléphone.
    ============================================================ */
-/* En-tête : aplat bordeaux du club, texte clair, actions à droite. */
+/* En-tête : bordeaux sombre du club, liseré rouge et or, actions à droite. */
 .home-hero {
-  --hero-red: #6B0C17;
-  position: relative;
+  position: relative; overflow: hidden;
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
   padding: 22px 24px; margin-bottom: 20px; border-radius: var(--radius-lg);
-  background: var(--hero-red); color: #fff;
+  border: 1px solid rgba(var(--red-rgb), .35);
+  background: var(--liseret) top / 100% 1px no-repeat, #24090E; color: #fff;
 }
 .home-crest { width: 56px; height: 56px; object-fit: contain; }
 .home-hero-text { flex: 1; min-width: 200px; }
@@ -77,8 +77,8 @@
 .home-kicker { margin: 0 0 2px; color: var(--gold-light); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .home-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .home-actions .btn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; }
-.home-hero .btn:not(.btn-primary) { background: rgba(0,0,0,.22); border-color: rgba(255,255,255,.26); color: #fff; }
-.home-hero .btn:not(.btn-primary):hover { background: rgba(0,0,0,.36); border-color: rgba(255,255,255,.45); }
+.home-hero .btn:not(.btn-primary) { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.18); color: #fff; }
+.home-hero .btn:not(.btn-primary):hover { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.34); }
 .home-hero .btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .home-section { margin-bottom: 24px; }
 .home-section h2 { margin-bottom: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; font-size: var(--fs-xs); font-weight: 600; }
