@@ -103,6 +103,8 @@ html, body { margin: 0; padding: 0; }
 /* Même largeur utile sur toutes les pages, qu'elles défilent ou non : la place
    de la barre de défilement est toujours réservée (pas de saut d'une page à l'autre). */
 html { overflow-y: auto; scrollbar-gutter: stable; }   /* Chrome : la réserve demande un défilement déclaré */
+/* Contrôles natifs (calendrier, heure, cases, barres de défilement) en version sombre. */
+:root { color-scheme: dark; accent-color: var(--gold); }
 body {
   font-family: var(--font-main);
   background: var(--bg-primary);
@@ -120,6 +122,8 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
+/* Au toucher : pas de flash gris du navigateur, l'état :active des contrôles suffit. */
+a, button, label, summary, select, input { -webkit-tap-highlight-color: transparent; }
 img { max-width: 100%; display: block; }
 ul { margin: 0; padding: 0; list-style: none; }
 
@@ -160,18 +164,25 @@ p  { margin: 0 0 .8em; }
 .card.is-active,
 .card.gold { border-color: var(--border-gold); }
 
-/* ----- Boutons ----- */
+/* ----- Boutons -----
+   Trois hauteurs : 36 px (normal), 30 px (petit), 44 px au doigt.
+   Chaque bouton répond : survol, appui (enfoncé d'1 px), focus clavier (anneau or). */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 16px;
+  min-height: 36px; padding: 7px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-card);
   color: var(--text-primary);
-  font-size: var(--fs-md); font-weight: 500;
-  transition: var(--transition);
+  font-size: var(--fs-md); font-weight: 500; line-height: 1.2;
+  transition: background-color var(--dur-micro) ease, border-color var(--dur-micro) ease,
+              color var(--dur-micro) ease, transform var(--dur-micro) ease, opacity var(--dur-micro) ease;
+  -webkit-user-select: none; user-select: none;
 }
 .btn:hover { background: var(--bg-hover); border-color: #3a3a3a; }
+.btn:active:not(:disabled) { transform: translateY(1px); background: #2c2c2c; }
+.btn:focus-visible, .back-pill:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.btn .ic { width: 16px; height: 16px; flex: 0 0 auto; }
 
 /* Retour à une liste (« Tous les joueurs ») : bien visible, en haut à gauche,
    assez grand pour le doigt, distinct des liens du menu. */
@@ -190,6 +201,7 @@ p  { margin: 0 0 .8em; }
   font-weight: 600;
 }
 .btn-primary:hover { background: var(--gold-light); border-color: var(--gold-light); }
+.btn-primary:active:not(:disabled) { background: #C99A0C; border-color: #C99A0C; }
 
 .btn-ghost { background: transparent; }
 .btn-ghost:hover { background: var(--bg-hover); }
@@ -197,7 +209,7 @@ p  { margin: 0 0 .8em; }
 .btn-danger { color: var(--danger); border-color: rgba(244,67,54,.35); }
 .btn-danger:hover { background: rgba(244,67,54,.12); }
 
-.btn-sm { padding: 6px 11px; font-size: var(--fs-sm); }
+.btn-sm { min-height: 30px; padding: 5px 10px; font-size: var(--fs-sm); }
 /* Bouton bascule enfoncé (« Sélectionner » actif). */
 .btn[aria-pressed="true"] { border-color: var(--gold-border); color: var(--gold); background: rgba(var(--gold-rgb), .1); }
 /* Tout sélectionner / Tout désélectionner (app.js : selectAllHtml). */
@@ -232,38 +244,74 @@ p  { margin: 0 0 .8em; }
 }
 .btn-icon { padding: 8px; width: 36px; height: 36px; justify-content: center; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .btn:active:not(:disabled) { transform: none; } }
 
 /* ----- Champs ----- */
 /* Téléphone : 16 px minimum, sinon Safari zoome toute la page au focus. */
 @media (pointer: coarse) { input, select, textarea { font-size: 16px !important; } }
+/* Libellés en casse normale : lus d'un coup d'œil, sans crier. */
 label, .field-label {
   display: block;
-  font-size: var(--fs-xs); font-weight: 600;
-  letter-spacing: .04em; text-transform: uppercase;
+  font-size: var(--fs-sm); font-weight: 500;
+  letter-spacing: 0; text-transform: none;
   color: var(--text-secondary);
   margin-bottom: 6px;
 }
 input, select, textarea {
   width: 100%; min-width: 0;
-  padding: 10px 12px;
+  min-height: 38px; padding: 8px 12px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: inherit; font-size: var(--fs-md);
-  transition: var(--transition);
+  transition: border-color var(--dur-micro) ease, box-shadow var(--dur-micro) ease, background-color var(--dur-micro) ease;
 }
+input[type="checkbox"], input[type="radio"], input[type="range"], input[type="color"] { min-height: 0; }
 input::placeholder, textarea::placeholder { color: var(--text-muted); }
+input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus), textarea:hover:not(:disabled):not(:focus) { border-color: #3a3a3a; }
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--border-gold);
-  box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .12);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
 }
-textarea { resize: vertical; min-height: 70px; }
+input:disabled, select:disabled, textarea:disabled { opacity: .6; cursor: not-allowed; }
+/* Valeur calculée (récapitulatif…) : lisible, visiblement non modifiable. */
+input[readonly] { background: transparent; border-style: dashed; color: var(--text-secondary); }
+input[readonly]:focus { border-color: var(--border); box-shadow: none; }
+textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+/* Liste déroulante : une flèche, pour qu'on la reconnaisse. */
 select { appearance: none; cursor: pointer; }
+select:not([multiple]):not([size]) {
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23959595' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 14px;
+}
+select option { background: var(--bg-card); color: var(--text-primary); }
+/* Choix de fichier natif : même allure qu'un petit bouton. */
+input[type="file"] { padding: 6px; cursor: pointer; color: var(--text-secondary); font-size: var(--fs-sm); }
+input[type="file"]::file-selector-button {
+  margin-right: 10px; padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-card); color: var(--text-primary); font: 500 var(--fs-sm)/1.2 var(--font-main); cursor: pointer;
+}
+input[type="file"]::file-selector-button:hover { background: var(--bg-hover); }
+/* Valeur avec unité (s, cm, kg…) : l'unité reste dans le champ, à droite. */
+.input-unit { position: relative; display: block; margin-top: 6px; }
+.input-unit > input { margin: 0; padding-right: 44px; }
+.input-unit > span {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none;
+  font-size: var(--fs-sm); color: var(--text-muted);
+}
 
+/* Famille de champs dans un formulaire (« Match », « Score »…) : petit titre gris, trait rouge. */
+.form-kicker {
+  display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; font-size: var(--fs-xs); font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary);
+}
+.form-kicker::before { content: ''; width: 12px; height: 2px; background: var(--red-ui); }
+.form-kicker span { letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--text-muted); }
 .field { margin-bottom: 14px; }
-.field-hint { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.4; }
+.field-hint { margin: 6px 0 0; font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.4; }
 .field-row { display: flex; gap: 14px; flex-wrap: wrap; }
 .field-row > .field { flex: 1; min-width: 140px; }
 
@@ -341,12 +389,15 @@ select { appearance: none; cursor: pointer; }
 }
 
 /* ----- Segmented control (filtres) ----- */
-.segmented { display: inline-flex; flex-wrap: wrap; max-width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 3px; }
+.segmented { display: inline-flex; flex-wrap: wrap; gap: 2px; max-width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 3px; }
 .segmented button {
-  border: none; background: transparent; color: var(--text-secondary);
-  padding: 6px 14px; border-radius: 7px; font-size: var(--fs-sm); font-weight: 500;
+  min-height: 30px; border: 1px solid transparent; background: transparent; color: var(--text-secondary);
+  padding: 5px 14px; border-radius: var(--radius-sm); font-size: var(--fs-sm); font-weight: 500;
+  transition: background-color var(--dur-micro) ease, color var(--dur-micro) ease;
 }
-.segmented button.active { background: var(--bg-hover); color: var(--gold); border: 1px solid var(--gold-border); }
+.segmented button:hover { color: var(--text-primary); background: var(--bg-hover); }
+.segmented button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.segmented button.active, .segmented button[aria-pressed="true"] { background: #2E2E2E; color: var(--text-primary); border-color: #3a3a3a; }
 
 /* ----- Modal ----- */
 /* Une fenêtre plus haute que l'écran défile dans son voile, au lieu de
@@ -366,11 +417,22 @@ select { appearance: none; cursor: pointer; }
 }
 @media (max-width: 560px) {
   .modal { padding: 20px 16px; }
-  .modal-actions { flex-wrap: wrap; }
+  .modal-actions { flex-wrap: wrap; margin: 20px -16px -20px; padding: 12px 16px; }
   .modal-actions .btn { flex: 1 1 auto; justify-content: center; }
 }
 .modal h3 { margin-bottom: 18px; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+/* Pied de fenêtre : séparé du formulaire, boutons à droite, l'action principale en dernier. */
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin: 22px -24px -24px; padding: 14px 24px; border-top: 1px solid var(--border); background: var(--bg-surface); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+/* Croix de fermeture (app.js : ajoutée à chaque fenêtre). */
+.modal-x {
+  position: absolute; top: 12px; right: 12px; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); cursor: pointer;
+}
+.modal-x:hover { background: var(--bg-hover); color: var(--text-primary); }
+.modal-x:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.modal-x .ic { width: 18px; height: 18px; pointer-events: none; }
+.modal:has(> .modal-x) > h2:first-of-type, .modal:has(> .modal-x) > h3:first-of-type { padding-right: 36px; }
+@media (pointer: coarse) { .modal-x { width: 44px; height: 44px; top: 6px; right: 6px; } }
 
 /* ----- Toast ----- */
 #toast-stack {
@@ -744,3 +806,4 @@ h3.as-h4 { font-size: 1em; }
 .modal h2.as-h3 { margin-bottom: 18px; }
 /* Lu par les lecteurs d'écran, invisible à l'écran. */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.modal > h2 + .form-kicker, .modal > .modal-x + h2 + .form-kicker { margin-top: 6px; }

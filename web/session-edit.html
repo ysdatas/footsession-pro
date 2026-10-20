@@ -63,7 +63,7 @@
     <div class="card attendance open" style="margin-top:18px;">
       <button class="attendance-head" id="attendanceToggle" type="button">
         <span>Présences &amp; statuts <span class="badge" id="presentCount">0 présent</span></span>
-        <span class="chevron">▾</span>
+        <span class="chevron"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
       </button>
       <div id="attendanceBody" class="attendance-body">
         <div class="roster-tools" id="rosterTools">
@@ -113,7 +113,7 @@
       <button class="attendance-head" id="bilanToggle" type="button">
         <span>Bilan individuel <span class="badge" id="bilanCount"></span></span>
         <span class="bilan-bar" id="bilanBar" aria-hidden="true"></span>
-        <span class="chevron">▾</span>
+        <span class="chevron"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
       </button>
       <div id="bilanBody" class="attendance-body">
         <div class="bilan-filters" role="group" aria-label="Filtrer le bilan">
@@ -156,7 +156,7 @@
   </main>
 
   <!-- Vrai conflit d'enregistrement (session-autosave.js) -->
-  <div class="modal-backdrop" id="conflictModal" role="dialog" aria-labelledby="conflictTitle">
+  <div class="modal-backdrop" id="conflictModal" role="dialog" aria-labelledby="conflictTitle" data-no-x>
     <div class="modal" style="max-width:480px;">
       <h2 class="as-h3" id="conflictTitle">Séance modifiée par quelqu’un d’autre</h2>
       <p class="text-muted">Une autre personne (ou un autre onglet) a enregistré cette séance pendant que vous la modifiiez. Rien n’a été écrasé.</p>

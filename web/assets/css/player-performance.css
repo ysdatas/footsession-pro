@@ -669,3 +669,11 @@ html[data-pf="staff"][data-pf-shown="videos"] .pf-panel:not([data-pf-panel="vide
 .pf-tabs [aria-selected="true"]{background:none;color:var(--text-primary);border-bottom-color:var(--red-ui);}
 /* Parcours en attente des données : la hauteur de « Aucun club renseigné » est réservée (CLS). */
 #careerList:empty{min-height:46px;}
+
+/* Fenêtres de saisie : les champs regroupés par famille (vitesse, 505…), unité dans le champ. */
+.form-group{margin:4px 0 12px;padding:0;border:0;min-width:0;}
+.form-group > legend{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:0;font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);}
+.form-group > legend::before{content:'';width:12px;height:2px;background:var(--red-ui);}
+.form-group .form-grid{margin-bottom:0;}
+.form-grid .input-unit{margin-top:0;}
+.form-grid label{color:var(--text-secondary);}

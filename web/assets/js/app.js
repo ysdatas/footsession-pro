@@ -118,8 +118,22 @@ function closeModal(id) { document.getElementById(id)?.classList.remove('open');
 document.addEventListener('click', (e) => {
   // data-busy : une opération en cours (un envoi) garde la fenêtre ouverte.
   if (e.target.classList?.contains('modal-backdrop') && !e.target.hasAttribute('data-busy')) e.target.classList.remove('open');
-  if (e.target.dataset?.close) closeModal(e.target.dataset.close);
+  const closer = e.target.closest?.('[data-close]');
+  if (closer) closeModal(closer.dataset.close);
+  const x = e.target.closest?.('.modal-x');
+  const box = x?.closest('.modal-backdrop');
+  if (box && !box.hasAttribute('data-busy')) box.classList.remove('open');
 });
+/* Croix de fermeture en haut à droite de chaque fenêtre (sauf data-no-x : un
+   choix est attendu). Posée une fois, au chargement de la page. */
+function addModalCloseButtons() {
+  $$('.modal-backdrop:not([data-no-x]) > .modal').forEach(m => {
+    if (m.querySelector(':scope > .modal-x')) return;
+    m.insertAdjacentHTML('afterbegin', '<button type="button" class="modal-x" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>');
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addModalCloseButtons);
+else addModalCloseButtons();
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') $$('.modal-backdrop.open:not([data-busy])').forEach(m => m.classList.remove('open'));
 });

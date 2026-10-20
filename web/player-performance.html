@@ -262,9 +262,9 @@
           <option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option>
           <option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option>
         </select></label>
-        <label>Taille (cm)<input type="number" step="0.1" id="m-height"></label>
-        <label>Poids (kg)<input type="number" step="0.1" id="m-weight"></label>
-        <label>Masse grasse (%)<input type="number" step="0.1" id="m-fat"></label>
+        <label>Taille<span class="input-unit"><input type="number" step="0.1" id="m-height" inputmode="decimal"><span>cm</span></span></label>
+        <label>Poids<span class="input-unit"><input type="number" step="0.1" id="m-weight" inputmode="decimal"><span>kg</span></span></label>
+        <label>Masse grasse<span class="input-unit"><input type="number" step="0.1" id="m-fat" inputmode="decimal"><span>%</span></span></label>
       </div>
       <div class="modal-actions">
         <button class="btn" data-close="measureModal" type="button">Annuler</button>
@@ -278,17 +278,23 @@
     <div class="modal modal-wide">
       <h2 class="as-h3">Ajouter une session de tests</h2>
       <p class="text-muted modal-lead">Un champ vide ne change rien. Moyenne, asymétrie 505 et ratio de gainage sont calculés.</p>
-      <div class="form-grid">
+      <div class="form-grid form-grid-2">
         <label>Session<select id="manualStage"><option value="pre">Pré-saison</option><option value="mid">Mi-saison</option><option value="end">Fin de saison</option></select></label>
         <label>Date<input type="date" id="manualTestDate"></label>
-        <label>Sprint 10 m (s)<input type="number" step="0.01" id="t-sprint10"></label>
-        <label>505 gauche (s)<input type="number" step="0.001" id="t-505g"></label>
-        <label>505 droit (s)<input type="number" step="0.001" id="t-505d"></label>
-        <label>Sprint 40 m (s)<input type="number" step="0.01" id="t-sprint40"></label>
-        <label>30-15 VIFT (km/h)<input type="number" step="0.1" id="t-vift"></label>
-        <label>Shirado (s)<input type="number" step="1" id="t-shirado"></label>
-        <label>Sorensen (s)<input type="number" step="1" id="t-sorensen"></label>
       </div>
+      <fieldset class="form-group"><legend>Vitesse</legend><div class="form-grid form-grid-2">
+        <label>Sprint 10 m<span class="input-unit"><input type="number" step="0.01" id="t-sprint10" inputmode="decimal"><span>s</span></span></label>
+        <label>Sprint 40 m<span class="input-unit"><input type="number" step="0.01" id="t-sprint40" inputmode="decimal"><span>s</span></span></label>
+      </div></fieldset>
+      <fieldset class="form-group"><legend>Changements de direction (505)</legend><div class="form-grid form-grid-2">
+        <label>Pied gauche<span class="input-unit"><input type="number" step="0.001" id="t-505g" inputmode="decimal"><span>s</span></span></label>
+        <label>Pied droit<span class="input-unit"><input type="number" step="0.001" id="t-505d" inputmode="decimal"><span>s</span></span></label>
+      </div></fieldset>
+      <fieldset class="form-group"><legend>Endurance et gainage</legend><div class="form-grid">
+        <label>30-15 VIFT<span class="input-unit"><input type="number" step="0.1" id="t-vift" inputmode="decimal"><span>km/h</span></span></label>
+        <label>Shirado<span class="input-unit"><input type="number" step="1" id="t-shirado" inputmode="numeric"><span>s</span></span></label>
+        <label>Sorensen<span class="input-unit"><input type="number" step="1" id="t-sorensen" inputmode="numeric"><span>s</span></span></label>
+      </div></fieldset>
       <div class="modal-actions">
         <button class="btn" data-close="testModal" type="button">Annuler</button>
         <button class="btn btn-primary" id="btnSaveTest" type="button">Enregistrer les tests</button>

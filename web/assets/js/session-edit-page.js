@@ -400,6 +400,15 @@ window.deleteTemplate = async (id, btn) => {
   } catch (e) { toast(e.message, 'error'); }
 };
 
+/* Icônes des boutons d'un procédé (tracés Lucide, 24 × 24). */
+const PROC_IC = {
+  star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/>',
+  up: '<path d="m18 15-6-6-6 6"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
+};
+const procIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${PROC_IC[k]}</svg>`;
+
 function procTemplate(p, index) {
   const f = (val) => escapeHtml(val ?? '');
   const dis = CAN_WRITE ? '' : 'disabled';
@@ -418,16 +427,19 @@ function procTemplate(p, index) {
                ${hasSequences(p) ? 'readonly title="Calculé : séquences + récupérations"' : ''} ${dis}>
         <span class="proc-unit">min</span>
         ${CAN_WRITE ? `
-        <button class="proc-btn" type="button" title="Enregistrer comme modèle" data-do="saveAsTemplate" data-arg="${p._uid}">☆</button>
-        <button class="proc-btn" type="button" title="Monter"    data-do="moveUp" data-arg="${p._uid}">▲</button>
-        <button class="proc-btn" type="button" title="Descendre" data-do="moveDown" data-arg="${p._uid}">▼</button>
-        <button class="proc-btn danger" type="button" title="Supprimer" data-do="removeProc" data-arg="${p._uid}">×</button>` : ''}
-        <button class="proc-btn" type="button" title="Détails" data-do="toggleProc" data-arg="${p._uid}">▾</button>
+        <span class="proc-tools">
+          <button class="proc-btn" type="button" title="Enregistrer comme modèle" aria-label="Enregistrer comme modèle" data-do="saveAsTemplate" data-arg="${p._uid}">${procIc('star')}</button>
+          <button class="proc-btn" type="button" title="Monter" aria-label="Monter le procédé" data-do="moveUp" data-arg="${p._uid}">${procIc('up')}</button>
+          <button class="proc-btn" type="button" title="Descendre" aria-label="Descendre le procédé" data-do="moveDown" data-arg="${p._uid}">${procIc('down')}</button>
+          <button class="proc-btn danger" type="button" title="Supprimer" aria-label="Supprimer le procédé" data-do="removeProc" data-arg="${p._uid}">${procIc('trash')}</button>
+        </span>` : ''}
+        <button class="proc-btn proc-toggle" type="button" title="Détails" aria-label="Afficher les détails" aria-expanded="${p.expanded ? 'true' : 'false'}" data-do="toggleProc" data-arg="${p._uid}">${procIc('down')}</button>
       </div>
     </div>
     <div class="proc-body">
       <div class="proc-fields">
         <div class="field"><label>Objectif</label><textarea data-field="objectif" placeholder="But de l'exercice…" ${dis}>${f(p.objectif)}</textarea></div>
+        <p class="proc-group">Organisation</p>
         <div class="field-row">
           <div class="field"><label>Type de procédé</label>
             <select data-field="type_procede" ${dis}>
@@ -437,6 +449,7 @@ function procTemplate(p, index) {
           <div class="field"><label>Effectif</label><input data-field="effectif" value="${f(p.effectif)}" placeholder="Ex: 11v11, 5v3…" ${dis}></div>
           <div class="field"><label>Taille terrain</label><input data-field="taille_terrain" value="${f(p.taille_terrain)}" placeholder="Ex: 30×20m" ${dis}></div>
         </div>
+        <p class="proc-group">Temps de jeu</p>
         <div class="field-row">
           <div class="field"><label>Nb séquences</label>
             <input data-field="nb_sequences" type="number" min="1" step="1" value="${p.nb_sequences ?? ''}" placeholder="Ex: 3" ${dis}></div>
@@ -452,7 +465,7 @@ function procTemplate(p, index) {
         <div class="field"><label>Comportements individuels</label><textarea data-field="comportements_individuels" placeholder="Ex: Présenter le pied…" ${dis}>${f(p.comportements_individuels)}</textarea></div>
       </div>
       <div>
-        <label>Schéma tactique</label>
+        <p class="proc-group">Schéma tactique</p>
         <div class="schema-box" data-schema-box>${tac}</div>
         <div class="schema-recap">Procédé ${index + 1} / ${procedures.length} · ${escapeHtml(sequenceLabel(p))}</div>
       </div>

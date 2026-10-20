@@ -57,6 +57,7 @@
   <div class="modal-backdrop" id="matchModal">
     <div class="modal mt-modal">
       <h2 class="as-h3" id="matchModalTitle">Nouveau match</h2>
+      <p class="form-kicker">Match</p>
       <div class="field-row">
         <div class="field"><label for="m-adv">Adversaire</label><input id="m-adv" maxlength="120" required></div>
         <div class="field"><label for="m-date">Date</label><input id="m-date" type="date" required></div>
@@ -67,11 +68,12 @@
           <select id="m-lieu"><option value="">—</option><option value="domicile">Domicile</option><option value="exterieur">Extérieur</option><option value="neutre">Terrain neutre</option></select></div>
         <div class="field hidden" id="m-team-field"><label for="m-team">Équipe</label><select id="m-team"></select></div>
       </div>
+      <p class="form-kicker">Résultat</p>
       <div class="field"><label>Score (nous – eux)</label>
         <div class="mt-score"><input id="m-pour" type="number" min="0" max="99" inputmode="numeric" aria-label="Buts marqués"><span>–</span><input id="m-contre" type="number" min="0" max="99" inputmode="numeric" aria-label="Buts encaissés"></div></div>
       <div class="field"><label for="m-infos">Informations</label><textarea id="m-infos" rows="2" placeholder="Conditions, système, faits de jeu…"></textarea></div>
 
-      <h3 class="as-h4 mt-h">Joueurs <span id="mpCount"></span></h3>
+      <h3 class="form-kicker mt-h">Joueurs <span id="mpCount"></span></h3>
       <div class="mt-tools" id="mpTools">
         <button class="btn btn-sm" type="button" id="btnSquad">Ajouter l’effectif</button>
         <div class="guest-search">
@@ -81,6 +83,7 @@
       </div>
       <div id="mpList" class="mp-list"></div>
 
+      <p class="form-kicker">Bilan</p>
       <div class="field"><label for="m-comment">Commentaire général</label><textarea id="m-comment" rows="3"></textarea></div>
       <div class="field"><label for="m-retenir">À retenir</label><textarea id="m-retenir" rows="2" placeholder="Points à travailler, enseignements…"></textarea></div>
       <div class="modal-actions">

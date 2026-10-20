@@ -162,7 +162,7 @@ function renderGrouped(list, searching) {
 
     return `<div class="week-folder ${open ? 'open' : ''}" data-week="${key}">
       <button class="week-head" type="button" data-do="toggleWeek" data-arg="${key}">
-        <span class="week-chevron">▾</span>
+        <span class="week-chevron"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
         <span class="week-title">${escapeHtml(titre)}${isCurrent ? ' <span class="badge badge-gold">EN COURS</span>' : ''}</span>
         <span class="week-range">${escapeHtml(plage)}</span>
         <span class="week-meta">${items.length} séance${items.length > 1 ? 's' : ''} · ${fmtMin(travail)} min de travail</span>
