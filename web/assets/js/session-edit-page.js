@@ -39,6 +39,7 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   CAN_WRITE = canEdit(myProfile.role);
   // Tout ce qui ne dépend que du compte part en même temps que la séance.
   loadPrincipleSuggestions();
+  loadProcSuggestions();
   const staffReady = loadStaffSuggestions();
   // Séance existante : le droit de la modifier vient de la base (créateur, réglages, équipe).
   if (EDITOR_MODE === 'edit') {
@@ -137,6 +138,21 @@ async function loadPrincipleSuggestions() {
   if (error) return console.warn('Principes de jeu déjà utilisés indisponibles', error);
   const list = [...new Set((data || []).map(r => (r.principes_jeu || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
   document.getElementById('principesList').innerHTML = list.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
+}
+
+/* Effectifs et terrains déjà utilisés par le club, du plus courant au moins
+   courant, écrits comme dans le bilan (label-norm.js) : on choisit « 7v7 »
+   plutôt que d'en créer une variante (« 7c7 », « 7 vs 7 »). */
+async function loadProcSuggestions() {
+  const { data, error } = await sb.from('procedures').select('effectif, taille_terrain')
+    .or('effectif.not.is.null,taille_terrain.not.is.null').order('id', { ascending: false }).limit(1000);
+  if (error) return console.warn('Effectifs et terrains déjà utilisés indisponibles', error);
+  const fill = (id, values, norm) => {
+    document.getElementById(id).innerHTML = countNormalized(values, norm, 30)
+      .map(g => `<option value="${escapeHtml(g.label)}"></option>`).join('');
+  };
+  fill('effectifList', data.map(r => r.effectif), normEffectif);
+  fill('terrainList', data.map(r => r.taille_terrain), normTerrain);
 }
 
 /* Quand le club a des équipes, le champ texte « Équipe » devient une
@@ -447,8 +463,8 @@ function procTemplate(p, index) {
               <option value=""${p.type_procede ? '' : ' selected'}>—</option>
               ${PROC_TYPES.map(t => `<option value="${t}"${p.type_procede === t ? ' selected' : ''}>${t}</option>`).join('')}
             </select></div>
-          <div class="field"><label for="${fid('effectif')}">Effectif</label><input data-field="effectif" id="${fid('effectif')}" value="${f(p.effectif)}" placeholder="Ex: 11v11, 5v3…" ${dis}></div>
-          <div class="field"><label for="${fid('taille_terrain')}">Taille terrain</label><input data-field="taille_terrain" id="${fid('taille_terrain')}" value="${f(p.taille_terrain)}" placeholder="Ex: 30×20m" ${dis}></div>
+          <div class="field"><label for="${fid('effectif')}">Effectif</label><input data-field="effectif" id="${fid('effectif')}" list="effectifList" autocomplete="off" value="${f(p.effectif)}" placeholder="Ex: 11v11, 5v3…" ${dis}></div>
+          <div class="field"><label for="${fid('taille_terrain')}">Taille terrain</label><input data-field="taille_terrain" id="${fid('taille_terrain')}" list="terrainList" autocomplete="off" value="${f(p.taille_terrain)}" placeholder="Ex: 30×20 m" ${dis}></div>
         </div>
         <p class="proc-group">Temps de jeu</p>
         <div class="field-row">

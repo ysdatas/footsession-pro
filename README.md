@@ -334,7 +334,9 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   temps par séance) et « Contenu » (types en barre découpée, principes, formats, terrains en
   classements) ; la valeur en tête en or, chaque barre porte son chiffre. Les saisies équivalentes
   sont comptées ensemble (« 7c7 » = « 7v7 », « 40 x 35 » = « 40 m / 35 m » : `label-norm.js`,
-  `tests/label-norm.test.mjs`) ; la base n'est pas réécrite.
+  `tests/label-norm.test.mjs`) ; la base n'est pas réécrite. À la saisie d'un procédé, « Effectif »
+  et « Taille terrain » proposent ces mêmes écritures, de la plus utilisée par le club à la moins
+  utilisée (`loadProcSuggestions`, `session-edit-page.js`).
 - **Paramètres** — ce n'est pas une rubrique du menu : un clic sur son nom, en bas du menu,
   propose un seul lien, « Paramètres » (`renderUserMenu`, `nav.js`). La déconnexion est l'icône
   à côté du nom.

@@ -4,7 +4,8 @@
    « 7v7 » ; « 40 x 35 », « 40 m / 35 m » ; « Demi terrain »,
    « demi-terrain ») est comptée une seule fois dans les bilans.
    Rien n'est réécrit en base : seul l'affichage regroupe.
-   Utilisé par analytics-page.js ; testé par tests/label-norm.test.mjs.
+   Utilisé par analytics-page.js (bilan) et session-edit-page.js (formats
+   proposés à la saisie) ; testé par tests/label-norm.test.mjs.
    ============================================================ */
 
 /* Effectif : « 7c7 », « 7 vs 7 » → « 7v7 » ; « 17 », « 17 J » → « 17 joueurs » ;
