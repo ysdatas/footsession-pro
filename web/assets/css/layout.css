@@ -31,20 +31,15 @@
   display: flex; align-items: center; gap: 11px;
   padding: 10px 12px; border-radius: var(--radius-md);
   color: var(--text-secondary); font-size: var(--fs-md); font-weight: 500;
-  border-left: 3px solid transparent;
   transition: var(--transition);
 }
 .nav-item:hover { background: var(--bg-surface); color: var(--text-primary); }
-.nav-item.active {
-  background: linear-gradient(90deg, rgba(var(--gold-rgb), .12), rgba(var(--red-rgb), .05) 70%, transparent);
-  color: var(--gold);
-  border-left-color: var(--gold);
-}
+.nav-item.active { background: var(--bg-hover); color: var(--text-primary); }
 .nav-dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: currentColor; opacity: .55; flex-shrink: 0;
 }
-.nav-item.active .nav-dot { opacity: 1; box-shadow: 0 0 8px var(--gold); }
+.nav-item.active .nav-dot { opacity: 1; color: var(--gold); }
 
 /* ----- Sidebar user : un clic ouvre mon compte et mes réglages ----- */
 .sidebar-user {
@@ -65,8 +60,8 @@
 .su-trigger[aria-expanded="true"] .su-caret { transform: rotate(180deg); }
 .avatar {
   width: 38px; height: 38px; border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold) 45%, var(--red) 140%);
-  color: #0A0A0A; font-weight: 800; font-size: var(--fs-md);
+  background: var(--gold);
+  color: var(--on-gold); font-weight: 800; font-size: var(--fs-md);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .su-meta { flex: 1; min-width: 0; }
@@ -80,13 +75,12 @@
 .sidebar-toggle svg, .logout svg { display: block; }
 .user-menu {
   position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 70;
-  display: grid; gap: 2px; padding: 8px 6px 6px;
+  display: grid; gap: 2px; padding: 6px;
   background: #18181a; border: 1px solid var(--border); border-radius: var(--radius-lg);
   box-shadow: var(--elev-float); overflow: hidden;
   animation: um-in var(--dur-panel) var(--ease-out);
 }
 .user-menu[hidden] { display: none; }
-.user-menu::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--stripe); }
 .user-menu [role="menuitem"] {
   display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 10px;
   border: 0; border-radius: 8px; background: transparent; color: var(--text-primary);
@@ -141,7 +135,7 @@
 }
 
 @media (max-width: 560px) {
-  .page-head { flex-direction: column; }
+  .page-head { flex-direction: column; align-items: stretch; }
   :root { --page-pad-x: 12px; }
   .main { padding: calc(56px + 8px) var(--page-pad-x) 40px; }
 }
