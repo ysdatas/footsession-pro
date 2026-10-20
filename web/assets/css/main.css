@@ -45,6 +45,7 @@
   --red:           #C8102E;
   --red-rgb:       200, 16, 46;
   --red-deep:      #8E0E1A;
+  --red-ui:        #E8394F;   /* repère rouge sur fond noir (onglet, rubrique) : 4,8:1 */
   /* Fond des en-têtes (fiches, encarts) : aplat, sans halo ni dégradé. */
   --hero-bg:       var(--bg-surface);
 

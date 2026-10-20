@@ -62,62 +62,71 @@
    Accueil (dashboard-page.js) : où je suis, ce qui m'attend,
    où aller. Une colonne sur téléphone.
    ============================================================ */
+/* En-tête : aplat bordeaux du club, texte clair, actions à droite. */
 .home-hero {
-  position: relative; overflow: hidden;
+  --hero-red: #6B0C17;
+  position: relative;
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-  padding: 2px 0 20px; margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
+  padding: 22px 24px; margin-bottom: 20px; border-radius: var(--radius-lg);
+  background: var(--hero-red); color: #fff;
 }
 .home-crest { width: 56px; height: 56px; object-fit: contain; }
 .home-hero-text { flex: 1; min-width: 200px; }
-.home-hero-text h1 { margin: 0 0 2px; }
-.home-hero-text .subtitle { margin: 0; }
-.home-kicker { margin: 0 0 2px; color: var(--gold); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.home-hero-text h1 { margin: 0 0 2px; color: #fff; }
+.home-hero-text .subtitle { margin: 0; color: #F2D7DA; }
+.home-kicker { margin: 0 0 2px; color: var(--gold-light); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .home-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .home-actions .btn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; }
-.home-section { margin-bottom: 28px; }
-.home-section h2 { margin-bottom: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; font-size: var(--fs-xs); font-weight: 600; }
+.home-hero .btn:not(.btn-primary) { background: rgba(0,0,0,.22); border-color: rgba(255,255,255,.26); color: #fff; }
+.home-hero .btn:not(.btn-primary):hover { background: rgba(0,0,0,.36); border-color: rgba(255,255,255,.45); }
+.home-hero .btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.home-section { margin-bottom: 24px; }
+.home-section h2 { margin-bottom: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; font-size: var(--fs-xs); font-weight: 600; }
 
-.home-attn { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+/* « À traiter » : un seul bandeau de chiffres, cases séparées par un filet. */
+.home-attn {
+  display: flex; flex-wrap: wrap;   /* la dernière ligne s'étire : jamais de case vide */
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); overflow: hidden;
+}
 .home-attn-card {
-  display: flex; gap: 14px; align-items: flex-start; min-height: 112px; padding: 16px;
-  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-card);
-  transition: border-color var(--dur-micro) ease, transform var(--dur-micro) ease;
+  display: flex; flex-direction: column; gap: 6px; flex: 1 1 170px; min-width: 0; min-height: 112px; padding: 14px 16px;
+  box-shadow: 1px 0 0 var(--border), 0 1px 0 var(--border);
+  transition: background var(--dur-micro) ease;
 }
-.home-attn-card:hover { border-color: #3a3a3a; background: var(--bg-hover); }
-.home-attn-card.is-urgent { border-color: rgba(var(--red-rgb), .6); }
-.home-attn-card.is-calm .home-attn-value { color: var(--text-secondary); }
-.home-attn-ic {
-  display: grid; place-items: center; flex: 0 0 auto; width: 36px; height: 36px; border-radius: var(--radius-md);
-  background: var(--bg-hover); color: var(--text-secondary);
-}
-.home-attn-card.is-urgent .home-attn-ic { background: rgba(var(--red-rgb), .16); color: #FF6B7D; }
-.home-attn-body { display: grid; gap: 2px; min-width: 0; }
-.home-attn-value { font: 500 var(--fs-2xl)/1.1 var(--font-num); letter-spacing: -.02em; color: var(--text-primary); }
+.home-attn-card:hover { background: var(--bg-hover); }
+.home-attn-card:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.home-attn-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.home-attn-head strong { font-size: var(--fs-sm); font-weight: 500; color: var(--text-secondary); }
+.home-attn-head .ic { width: 16px; height: 16px; flex: 0 0 auto; color: var(--text-muted); }
+.home-attn-value { font: 500 var(--fs-2xl)/1.1 var(--font-num); letter-spacing: -.02em; color: var(--text-primary); overflow-wrap: anywhere; }
+.home-attn-card small { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.35; overflow-wrap: anywhere; }
+.home-attn-card small::first-letter { text-transform: uppercase; }   /* titre saisi (séance) */
+.home-attn-card.is-calm .home-attn-value { color: var(--text-muted); }
+/* À traiter : le chiffre passe au rouge clair, un repère rouge dans le coin. */
 .home-attn-card.is-urgent .home-attn-value { color: #FF6B7D; }
-.home-attn-body strong { font-size: var(--fs-md); overflow-wrap: anywhere; }
-.home-attn-body small { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.4; }
+.home-attn-card.is-urgent .home-attn-head .ic { color: #FF6B7D; }
 
 .home-account { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; align-items: start; }
 .home-account .field-hint { margin: -4px 0 14px; }
-.home-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+/* Accès rapides : icône + nom, rien d'autre. */
+.home-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
 .home-tile {
-  display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 14px;
   border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-surface);
+  font-size: var(--fs-md); font-weight: 500;
   transition: border-color var(--dur-micro) ease, background var(--dur-micro) ease;
 }
+.home-tile .ic { color: var(--text-secondary); transition: color var(--dur-micro) ease; }
 .home-tile:hover { border-color: #3a3a3a; background: var(--bg-card); }
-.home-tile:hover .home-tile-ic { color: var(--gold); }
-.home-tile-ic { display: grid; place-items: center; flex: 0 0 auto; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--bg-hover); color: var(--text-secondary); transition: color var(--dur-micro) ease; }
-.home-tile-text { display: grid; min-width: 0; }
-.home-tile-text strong { font-size: var(--fs-md); }
-.home-tile-text small { color: var(--text-secondary); font-size: var(--fs-sm); }
+.home-tile:hover .ic { color: var(--gold); }
 @media (max-width: 640px) {
-  .home-hero { padding: 0 0 16px; gap: 12px; }
+  .home-hero { padding: 18px 16px; gap: 12px; }
   .home-crest { width: 44px; height: 44px; }
   .home-actions { width: 100%; }
   .home-actions .btn { flex: 1 1 auto; justify-content: center; }
-  .home-attn-card { min-height: 0; }
+  .home-attn-card { flex-basis: 40%; min-height: 104px; padding: 12px 14px; }
+  .home-attn-value { font-size: var(--fs-xl); }
+  .home-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Accueil du joueur (mon-espace.html) : même signature, ses chiffres. */
@@ -132,14 +141,12 @@
 .home-stat strong { font: 500 var(--fs-xl)/1.3 var(--font-num); color: var(--text-primary); }
 .home-stat small { font-size: var(--fs-sm); color: var(--text-secondary); }
 @media (max-width: 420px) { .home-stats { grid-template-columns: 1fr 1fr; } }
-.home-attn-body strong::first-letter { text-transform: uppercase; }   /* titre saisi (séance) : majuscule comme les autres cartes */
 
 /* Cartes en attente des données (accueil staff et joueur) : la place des vraies
    est réservée dès la première image, rien ne bouge à leur arrivée (CLS). */
 .home-actions { min-height: 42px; }
 .home-attn-card.is-skel, .home-stat.is-skel { pointer-events: none; }
 .home-stat.is-skel { min-height: 100px; }
-@media (max-width: 640px) { .home-attn-card.is-skel { min-height: 105px; } }
 @media (prefers-reduced-motion: no-preference) { .is-skel { animation: skel-pulse 1.4s ease-in-out infinite; } }
 @keyframes skel-pulse { 50% { opacity: .5; } }
 #homeDate { min-height: 1lh; }   /* date posée par le script : ligne réservée (CLS) */

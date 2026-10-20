@@ -29,17 +29,16 @@
 .nav:hover, .nav:focus-within { scrollbar-color: rgba(255,255,255,.18) transparent; }
 .nav-item {
   display: flex; align-items: center; gap: 11px;
-  padding: 10px 12px; border-radius: var(--radius-md);
+  padding: 9px 12px; border-radius: var(--radius-md);
   color: var(--text-secondary); font-size: var(--fs-md); font-weight: 500;
   transition: var(--transition);
 }
+.nav-item .ic { width: 18px; height: 18px; flex: 0 0 auto; stroke-width: 1.8; }
+.nav-item > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-item:hover { background: var(--bg-surface); color: var(--text-primary); }
-.nav-item.active { background: var(--bg-hover); color: var(--text-primary); }
-.nav-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: currentColor; opacity: .55; flex-shrink: 0;
-}
-.nav-item.active .nav-dot { opacity: 1; color: var(--gold); }
+/* Rubrique ouverte : la couleur du club (rouge), l'or reste aux actions. */
+.nav-item.active { background: rgba(var(--red-rgb), .16); color: #fff; }
+.nav-item.active .ic { color: var(--red-ui); }
 
 /* ----- Sidebar user : un clic ouvre mon compte et mes réglages ----- */
 .sidebar-user {

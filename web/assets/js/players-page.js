@@ -241,7 +241,7 @@ function renderGrid() {
   }
   const drag = canDragLines();
   const groups = [...PLAYER_LINES, { key: null, label: 'À classer' }];
-  wrap.innerHTML = (drag ? '<p class="lines-hint">Glissez un joueur d’une rubrique à l’autre pour changer sa ligne.</p>' : '')
+  wrap.innerHTML = (drag ? '<p class="lines-hint">Glisser un joueur pour changer sa ligne.</p>' : '')
     + groups.map(g => {
       const members = shown.filter(p => lineOf(p) === g.key);
       // Rubriques vides : gardées comme zones de dépôt, sauf pendant une recherche.

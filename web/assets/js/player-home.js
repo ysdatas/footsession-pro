@@ -23,14 +23,12 @@ const PH_IC = {
   activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
 };
 const phIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${PH_IC[k]}</svg>`;
+/* Une case « Pour toi » : libellé court, chiffre, précision éventuelle (même gabarit que l'accueil du staff). */
 const phCard = ({ href, icon, value, label, detail, tone = '' }) => `
   <a class="home-attn-card${tone ? ` is-${tone}` : ''}" href="${href}">
-    <span class="home-attn-ic">${phIc(icon)}</span>
-    <span class="home-attn-body">
-      ${value != null ? `<span class="home-attn-value">${value}</span>` : ''}
-      <strong>${label}</strong>
-      ${detail ? `<small>${detail}</small>` : ''}
-    </span>
+    <span class="home-attn-head"><strong>${label}</strong>${phIc(icon)}</span>
+    <span class="home-attn-value">${value ?? '—'}</span>
+    ${detail ? `<small>${detail}</small>` : ''}
   </a>`;
 const plural = (n, one, many = `${one}s`) => (n > 1 ? many : one);
 const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
@@ -49,12 +47,10 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${player.prenom ? `, ${player.prenom}` : ''}`;
   document.getElementById('homeTiles').innerHTML = [
-    ['player-performance.html', 'activity', 'Ma performance', 'Tests, radar, poids et masse grasse'],
-    ['mes-videos.html', 'video', 'Mes vidéos', 'Vidéos du staff, mes séquences'],
-    ['mon-programme.html', 'target', 'Objectifs & préventions', 'Objectifs, préventions, exercices'],
-  ].map(([href, ic, label, desc]) => `<a class="home-tile" href="${href}">
-      <span class="home-tile-ic">${phIc(ic)}</span>
-      <span class="home-tile-text"><strong>${label}</strong><small>${desc}</small></span></a>`).join('');
+    ['player-performance.html', 'activity', 'Ma performance'],
+    ['mes-videos.html', 'video', 'Mes vidéos'],
+    ['mon-programme.html', 'target', 'Objectifs & préventions'],
+  ].map(([href, ic, label]) => `<a class="home-tile" href="${href}">${phIc(ic)}<span>${label}</span></a>`).join('');
 
   const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes] = await Promise.all([
     player.team_id ? sb.from('teams').select('nom').eq('id', player.team_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -77,36 +73,28 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
 function renderAttention(videos, seqs, notes, exercises) {
   const cards = [];
   const fresh = videos.filter(v => daysAgo(v.created_at) <= 7);
-  cards.push(videos.length
-    ? phCard({ href: 'mes-videos.html', icon: 'video', tone: fresh.length ? 'urgent' : '',
-        value: fresh.length || videos.length,
-        label: fresh.length ? `${plural(fresh.length, 'Nouvelle vidéo', 'Nouvelles vidéos')} cette semaine` : `${plural(videos.length, 'Vidéo')} du staff`,
-        detail: `Dernière : ${escapeHtml(videos[0].titre || 'Vidéo')}` })
-    : phCard({ href: 'mes-videos.html', icon: 'video', tone: 'calm', label: 'Aucune vidéo pour l’instant',
-        detail: 'Les vidéos de ton staff arriveront ici.' }));
+  cards.push(phCard({ href: 'mes-videos.html', icon: 'video', tone: fresh.length ? 'urgent' : (videos.length ? '' : 'calm'),
+    value: fresh.length || videos.length, label: fresh.length ? 'Nouvelles vidéos' : 'Vidéos du staff',
+    detail: videos.length ? escapeHtml(videos[0].titre || 'Vidéo') : '' }));
 
   const answered = seqs.filter(s => s.staff_feedback).sort((a, b) => String(b.feedback_at || '').localeCompare(String(a.feedback_at || '')));
   const waiting = seqs.filter(s => s.submitted_at && !s.staff_feedback);
+  const quote = (t) => `« ${escapeHtml(t.length > 50 ? `${t.slice(0, 47)}…` : t)} »`;
   cards.push(answered.length
     ? phCard({ href: 'mes-videos.html?tab=seqs', icon: 'chat', tone: daysAgo(answered[0].feedback_at || 0) <= 7 ? 'urgent' : '',
-        value: answered.length, label: `${plural(answered.length, 'Retour')} du staff`,
-        detail: `« ${escapeHtml(answered[0].staff_feedback.length > 70 ? `${answered[0].staff_feedback.slice(0, 67)}…` : answered[0].staff_feedback)} »` })
-    : phCard({ href: 'mes-videos.html?tab=seqs', icon: 'chat', tone: 'calm', value: waiting.length || null,
-        label: waiting.length ? plural(waiting.length, 'Séquence envoyée', 'Séquences envoyées') : 'Aucun retour pour l’instant',
-        detail: waiting.length ? 'En attente du retour de ton staff.' : 'Sélectionne tes séquences et envoie-les au staff.' }));
+        value: answered.length, label: 'Retours du staff', detail: quote(answered[0].staff_feedback) })
+    : phCard({ href: 'mes-videos.html?tab=seqs', icon: 'chat', tone: 'calm', value: waiting.length,
+        label: 'Séquences envoyées', detail: waiting.length ? 'En attente de retour' : '' }));
 
   const active = notes.filter(n => (n.kind === 'objective' || n.kind === 'prevention') && (n.status || 'active') === 'active');
   const prev = active.filter(n => n.kind === 'prevention').length;
   cards.push(phCard({ href: 'mon-programme.html', icon: 'target', tone: active.length ? '' : 'calm',
-    value: active.length || null,
-    label: active.length ? `${plural(active.length, 'Objectif')} en cours` : 'Aucun objectif en cours',
-    detail: active.length ? (prev ? `Dont ${prev} ${plural(prev, 'prévention')}.` : 'Fixés par ton staff.') : 'Tes objectifs et préventions apparaîtront ici.' }));
+    value: active.length, label: 'Objectifs en cours', detail: prev ? `dont ${prev} ${plural(prev, 'prévention')}` : '' }));
 
   if (exercises?.length) {
     const todo = exercises.filter(e => !e.done_at).length;
     cards.push(phCard({ href: 'mon-programme.html#exercices', icon: 'check', tone: todo ? '' : 'calm',
-      value: todo || null, label: todo ? `${plural(todo, 'Exercice')} à faire` : 'Programme à jour',
-      detail: `${exercises.length - todo} fait${exercises.length - todo > 1 ? 's' : ''} sur ${exercises.length}.` }));
+      value: todo, label: 'Exercices à faire', detail: `${exercises.length - todo} sur ${exercises.length} faits` }));
   }
   document.getElementById('homeAttn').innerHTML = cards.join('');
 }

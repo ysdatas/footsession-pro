@@ -64,9 +64,9 @@ function renderPlayerShell() {
   const sidebar = document.getElementById('sidebar');
   sidebar.querySelector('.brand')?.setAttribute('href', 'mon-espace.html');
   sidebar.querySelector('.nav').setAttribute('aria-label', 'Espace joueur');
-  sidebar.querySelector('.nav').innerHTML = PLAYER_NAV.map(([key, long]) => {
+  sidebar.querySelector('.nav').innerHTML = PLAYER_NAV.map(([key, long, , icon]) => {
     const on = key === page;
-    return `<a class="nav-item${on ? ' active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}><span class="nav-dot"></span>${long}</a>`;
+    return `<a class="nav-item${on ? ' active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${paIc(icon)}<span>${long}</span></a>`;
   }).join('');
   if (!document.querySelector('.m-appbar')) {
     document.body.insertAdjacentHTML('afterbegin',
