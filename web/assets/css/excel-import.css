@@ -75,7 +75,7 @@
 .xi-source-file, .xi-source-target { display: grid; gap: 1px; min-width: 0; }
 .xi-source-file strong { overflow-wrap: anywhere; }
 .xi-source small { color: var(--text-secondary); font-size: var(--fs-xs); }
-.xi-source-k { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.xi-source-k { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
 .xi-sheets { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--fs-xs); }
 .xi-sheets .is-ok { color: #8CE99A; }
 .xi-sheets .is-missing { color: var(--text-secondary); }

@@ -8,8 +8,7 @@
   display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;
   margin-bottom:16px;
 }
-.cmp-field{display:grid;gap:5px;font-size:var(--fs-xs);font-weight:700;
-  text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);}
+.cmp-field{display:grid;gap:6px;font-size:var(--fs-sm);font-weight:500;color:var(--text-secondary);}
 .cmp-field select,.cmp-field input{
   min-height:38px;min-width:190px;font-size:var(--fs-md);
   text-transform:none;letter-spacing:0;font-weight:400;
@@ -119,11 +118,16 @@
   font-size: var(--fs-sm); font-weight: 600;
 }
 .obj-chip span { font-size: var(--fs-xs); }
-.obj-chip:hover { border-color: var(--gold-border); color: var(--text-primary); }
-.obj-chip.on { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .1); }
+.obj-chip:hover { border-color: #3a3a3a; color: var(--text-primary); }
+.obj-chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.obj-chip.on { border-color: #4a4a4a; color: var(--text-primary); background: #2E2E2E; }
+/* « + Objectif / + Prévention » par joueur : discrets, plus nets au survol du groupe. */
+.obj-group-add .btn { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.obj-group:hover .obj-group-add .btn, .obj-group-add .btn:focus-visible { color: var(--text-primary); border-color: var(--border); }
+.obj-group-add .btn:hover { background: var(--bg-hover); }
 .obj-group { margin-bottom: 18px; }
 .obj-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.obj-player { font-size: var(--fs-lg); font-weight: 700; }
+.obj-player { font-size: var(--fs-lg); font-weight: 600; }
 .obj-player span { font-size: var(--fs-xs); font-weight: 600; color: var(--text-secondary); margin-left: 6px; }
 .obj-player:hover { color: var(--gold); }
 .obj-list { display: grid; gap: 8px; }

@@ -206,8 +206,10 @@ p  { margin: 0 0 .8em; }
 .btn-ghost { background: transparent; }
 .btn-ghost:hover { background: var(--bg-hover); }
 
-.btn-danger { color: var(--danger); border-color: rgba(244,67,54,.35); }
-.btn-danger:hover { background: rgba(244,67,54,.12); }
+/* Supprimer : présent sans crier ; le rouge s'affirme au survol. */
+.btn-danger { color: #ff8a80; background: transparent; border-color: transparent; }
+.btn-danger:hover { background: rgba(244,67,54,.12); border-color: rgba(244,67,54,.35); }
+.btn-danger:active:not(:disabled) { background: rgba(244,67,54,.2); }
 
 .btn-sm { min-height: 30px; padding: 5px 10px; font-size: var(--fs-sm); }
 /* Bouton bascule enfoncé (« Sélectionner » actif). */
@@ -417,12 +419,12 @@ input[type="file"]::file-selector-button:hover { background: var(--bg-hover); }
 }
 @media (max-width: 560px) {
   .modal { padding: 20px 16px; }
-  .modal-actions { flex-wrap: wrap; margin: 20px -16px -20px; padding: 12px 16px; }
+  .modal-actions { flex-wrap: wrap; }
   .modal-actions .btn { flex: 1 1 auto; justify-content: center; }
 }
 .modal h3 { margin-bottom: 18px; }
 /* Pied de fenêtre : séparé du formulaire, boutons à droite, l'action principale en dernier. */
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin: 22px -24px -24px; padding: 14px 24px; border-top: 1px solid var(--border); background: var(--bg-surface); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); }
 /* Croix de fermeture (app.js : ajoutée à chaque fenêtre). */
 .modal-x {
   position: absolute; top: 12px; right: 12px; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;

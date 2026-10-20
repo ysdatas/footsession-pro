@@ -34,7 +34,7 @@
   background: var(--bg-hover); color: var(--text-secondary);
 }
 .vw-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.vw-status.is-sent     { background: rgba(31, 111, 235, .16); color: #7fb0ff; }
+.vw-status.is-sent     { background: rgba(255, 255, 255, .08); color: #E0E0E0; }
 .vw-status.is-seen     { background: rgba(76, 175, 80, .14); color: #8fd694; }
 .vw-status.is-modified { background: rgba(255, 152, 0, .16); color: #ffb74d; }
 .vw-status.is-answered { background: rgba(76, 175, 80, .22); color: #a5e3a9; }
@@ -306,7 +306,7 @@ body.pa-body:has(.vw[data-ui="select"]) .pa-tabbar, body.pa-body:has(.vw[data-ui
 .vw-tools button.on { border-color: var(--gold); background: rgba(var(--gold-rgb), .16); color: var(--gold-light); }
 @media (max-width: 520px) { .vw-tools button span { display: none; } .vw-tools button { min-height: 44px; } }
 .vw-draw-ctx { min-height: 40px; }
-.vw-ctx-label { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--gold); }
+.vw-ctx-label { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); }
 .vw-draw-ctx .btn .ic { width: 14px; height: 14px; }
 .vw-inkcolors { display: inline-flex; gap: 8px; }
 .vw-inkcolors button { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--bg-card); box-shadow: 0 0 0 1px rgba(255, 255, 255, .2); padding: 0; }
@@ -551,7 +551,14 @@ body.pa-body:has(.vw.is-annotating) { padding-bottom: env(safe-area-inset-bottom
    Vidéos d'un joueur, rangées par vidéo (player-videos.js)
    ============================================================ */
 .pvx-flow { margin: 0 0 18px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); }
-.pvx-flow summary { cursor: pointer; font-weight: 600; color: var(--gold); min-height: 28px; display: flex; align-items: center; }
+.pvx-flow { padding: 4px 14px; }
+.pvx-flow summary { cursor: pointer; font-weight: 500; font-size: var(--fs-sm); color: var(--text-secondary); min-height: 36px; display: flex; align-items: center; gap: 8px; list-style: none; }
+.pvx-flow summary::-webkit-details-marker { display: none; }
+.pvx-flow summary::after { content: '+'; margin-left: auto; font-size: var(--fs-lg); color: var(--text-muted); }
+.pvx-flow[open] summary::after { content: '−'; }
+.pvx-flow summary:hover { color: var(--text-primary); }
+.pvx-flow summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: var(--radius-sm); }
+.pvx-flow[open] { padding-bottom: 10px; }
 .pvx-flow ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0 6px; padding: 0; list-style: none; counter-reset: pvx; }
 .pvx-flow li { counter-increment: pvx; position: relative; padding: 10px 10px 10px 42px; border-radius: var(--radius-md); background: var(--bg-surface); font-size: var(--fs-sm); line-height: 1.4; color: var(--text-secondary); }
 .pvx-flow li::before {

@@ -165,10 +165,21 @@
 }
 /* Téléphone : le nom du procédé garde toute la ligne, durée et boutons passent dessous. */
 @media (max-width: 640px) {
-  .proc-head { flex-wrap: wrap; gap: 8px 10px; padding: 12px; }
+  /* Ligne 1 : numéro, nom, dépli. Ligne 2 : pastilles, durée, outils. */
+  .proc-head { position: relative; flex-wrap: wrap; gap: 8px 10px; padding: 10px 56px 10px 12px; }
   .proc-name { flex: 1 1 calc(100% - 40px); min-width: 0; }
-  .proc-head-right { width: 100%; flex-wrap: wrap; justify-content: flex-end; }
+  .proc-head-right { width: calc(100% + 44px); flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  .proc-dot { display: none; }
+  .proc-unit { margin-right: 2px; }
   .proc-badges { margin-right: auto; }
+  .proc-toggle { position: absolute; top: 10px; right: 10px; }
+  .proc-tools .proc-btn { width: 36px; height: 36px; }
+  /* Replié, la liste reste compacte : les outils apparaissent une fois le procédé ouvert. */
+  .proc:not(.expanded) .proc-tools { display: none; }
+  /* « Procédés (7) » au-dessus, les deux boutons côte à côte en dessous. */
+  .editor-section > .flex-between { flex-wrap: wrap; gap: 10px; }
+  .editor-section > .flex-between .page-actions { width: 100%; }
+  .editor-section > .flex-between .page-actions .btn { flex: 1 1 0; justify-content: center; }
 }
 
 /* ---------- Équipes de travail (chasubles) ---------- */
@@ -357,6 +368,7 @@
   color: var(--text-secondary); font: 500 var(--fs-sm)/1.2 var(--font-main); cursor: default;
 }
 .save-status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); flex: none; }
+.save-status[hidden] { display: none; }   /* pas de pastille vide avant le chargement de la séance */
 .save-status[data-state="pending"] { --dot: var(--text-muted); }
 .save-status[data-state="saving"] { --dot: var(--gold); }
 .save-status[data-state="saving"]::before { animation: save-pulse 1s ease-in-out infinite; }

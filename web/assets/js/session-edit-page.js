@@ -413,12 +413,13 @@ function procTemplate(p, index) {
   const f = (val) => escapeHtml(val ?? '');
   const dis = CAN_WRITE ? '' : 'disabled';
   const tac = schemaBoxHtml(p);
+  const fid = (k) => `pf-${p._uid}-${k}`;   // libellé relié à son champ (lecteurs d'écran)
 
   return `
   <div class="proc ${p.expanded ? 'expanded' : ''}" data-uid="${p._uid}">
     <div class="proc-head">
       <span class="proc-num">${index + 1}</span>
-      <input class="proc-name" data-field="nom" value="${f(p.nom)}" placeholder="Nom du procédé" ${dis}>
+      <input class="proc-name" data-field="nom" aria-label="Nom du procédé" value="${f(p.nom)}" placeholder="Nom du procédé" ${dis}>
       <div class="proc-head-right">
         <span class="proc-badges" data-proc-badges="${p._uid}">${procBadgesHtml(p)}</span>
         <span class="proc-dot"></span>
@@ -438,31 +439,31 @@ function procTemplate(p, index) {
     </div>
     <div class="proc-body">
       <div class="proc-fields">
-        <div class="field"><label>Objectif</label><textarea data-field="objectif" placeholder="But de l'exercice…" ${dis}>${f(p.objectif)}</textarea></div>
+        <div class="field"><label for="${fid('objectif')}">Objectif</label><textarea data-field="objectif" id="${fid('objectif')}" placeholder="But de l'exercice…" ${dis}>${f(p.objectif)}</textarea></div>
         <p class="proc-group">Organisation</p>
         <div class="field-row">
-          <div class="field"><label>Type de procédé</label>
-            <select data-field="type_procede" ${dis}>
+          <div class="field"><label for="${fid('type_procede')}">Type de procédé</label>
+            <select data-field="type_procede" id="${fid('type_procede')}" ${dis}>
               <option value=""${p.type_procede ? '' : ' selected'}>—</option>
               ${PROC_TYPES.map(t => `<option value="${t}"${p.type_procede === t ? ' selected' : ''}>${t}</option>`).join('')}
             </select></div>
-          <div class="field"><label>Effectif</label><input data-field="effectif" value="${f(p.effectif)}" placeholder="Ex: 11v11, 5v3…" ${dis}></div>
-          <div class="field"><label>Taille terrain</label><input data-field="taille_terrain" value="${f(p.taille_terrain)}" placeholder="Ex: 30×20m" ${dis}></div>
+          <div class="field"><label for="${fid('effectif')}">Effectif</label><input data-field="effectif" id="${fid('effectif')}" value="${f(p.effectif)}" placeholder="Ex: 11v11, 5v3…" ${dis}></div>
+          <div class="field"><label for="${fid('taille_terrain')}">Taille terrain</label><input data-field="taille_terrain" id="${fid('taille_terrain')}" value="${f(p.taille_terrain)}" placeholder="Ex: 30×20m" ${dis}></div>
         </div>
         <p class="proc-group">Temps de jeu</p>
         <div class="field-row">
-          <div class="field"><label>Nb séquences</label>
-            <input data-field="nb_sequences" type="number" min="1" step="1" value="${p.nb_sequences ?? ''}" placeholder="Ex: 3" ${dis}></div>
-          <div class="field"><label>Durée séquence (min)</label>
-            <input data-field="duree_sequence_min" type="text" inputmode="decimal" value="${decStr(p.duree_sequence_min)}" placeholder="Ex: 1,5" ${dis}></div>
-          <div class="field"><label>Récup (min)</label>
-            <input data-field="temps_recup_min" type="text" inputmode="decimal" value="${decStr(p.temps_recup_min)}" placeholder="Ex: 0,5" ${dis}></div>
-          <div class="field"><label>Récapitulatif</label>
-            <input value="${escapeHtml(sequenceLabel(p))}" readonly tabindex="-1"
+          <div class="field"><label for="${fid('nb_sequences')}">Nb séquences</label>
+            <input data-field="nb_sequences" id="${fid('nb_sequences')}" type="number" min="1" step="1" value="${p.nb_sequences ?? ''}" placeholder="Ex: 3" ${dis}></div>
+          <div class="field"><label for="${fid('duree_sequence_min')}">Durée séquence (min)</label>
+            <input data-field="duree_sequence_min" id="${fid('duree_sequence_min')}" type="text" inputmode="decimal" value="${decStr(p.duree_sequence_min)}" placeholder="Ex: 1,5" ${dis}></div>
+          <div class="field"><label for="${fid('temps_recup_min')}">Récup (min)</label>
+            <input data-field="temps_recup_min" id="${fid('temps_recup_min')}" type="text" inputmode="decimal" value="${decStr(p.temps_recup_min)}" placeholder="Ex: 0,5" ${dis}></div>
+          <div class="field"><label for="${fid('recap')}">Récapitulatif</label>
+            <input id="${fid('recap')}" value="${escapeHtml(sequenceLabel(p))}" readonly tabindex="-1"
                    title="Travail ${fmtMin(workMin(p))}' · récup ${fmtMin(recupMin(p))}' · total ${fmtMin(totalMin(p))}'"></div>
         </div>
-        <div class="field"><label>Consignes</label><textarea data-field="consignes" placeholder="Instructions détaillées…" ${dis}>${f(p.consignes)}</textarea></div>
-        <div class="field"><label>Comportements individuels</label><textarea data-field="comportements_individuels" placeholder="Ex: Présenter le pied…" ${dis}>${f(p.comportements_individuels)}</textarea></div>
+        <div class="field"><label for="${fid('consignes')}">Consignes</label><textarea data-field="consignes" id="${fid('consignes')}" placeholder="Instructions détaillées…" ${dis}>${f(p.consignes)}</textarea></div>
+        <div class="field"><label for="${fid('comportements_individuels')}">Comportements individuels</label><textarea data-field="comportements_individuels" id="${fid('comportements_individuels')}" placeholder="Ex: Présenter le pied…" ${dis}>${f(p.comportements_individuels)}</textarea></div>
       </div>
       <div>
         <p class="proc-group">Schéma tactique</p>

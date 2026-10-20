@@ -178,10 +178,10 @@
 .trend-tick{font-size:11px;fill:currentColor;opacity:.55;}
 .trend-tick-right{text-anchor:start;}
 .trend-line{stroke-width:2;fill:none;stroke-linecap:round;}
-.trend-line.weight,.trend-dot.weight{stroke:#4a9de0;}
-.trend-line.fat,.trend-dot.fat{stroke:#e06aa8;}
+/* Une courbe par bande, chacune nommée : une seule couleur suffit (l'or). */
+.trend-line.weight,.trend-dot.weight,.trend-line.fat,.trend-dot.fat{stroke:var(--gold);}
 .trend-line.endurance,.trend-dot.endurance{stroke:var(--gold);}
-.trend-dot{stroke-width:2;fill:#0f1215;}
+.trend-dot{stroke-width:2;fill:var(--bg-card);}
 
 /* ---------- Panneau latéral ---------- */
 
@@ -467,12 +467,9 @@
 .radar-compare-dot { fill: #4a9de0; }
 .legend-compare { background: #4a9de0; }
 .score-vs { display: block; font-style: normal; font-size: var(--fs-xs); font-weight: 650; color: #4a9de0; margin-top: 1px; }
-.trend-name{font-size:13px;font-weight:700;}
-.trend-name.weight{fill:#4a9de0;}
-.trend-name.fat{fill:#e06aa8;}
+.trend-name{font-size:13px;font-weight:600;fill:var(--text-primary);}
 .trend-value{font-size:12px;font-weight:650;fill:currentColor;}
-.trend-dot.weight{fill:#4a9de0;}
-.trend-dot.fat{fill:#e06aa8;}
+.trend-dot.weight,.trend-dot.fat{fill:var(--gold);}
 .squad-hint{font-size:var(--fs-xs);color:var(--text-muted,#9da4ae);margin-top:3px;font-weight:400;}
 /* ----- Points : carte cliquable, vignettes, édition des images ----- */
 .note-card.is-openable{cursor:pointer;transition:border-color .15s,background .15s;}
@@ -614,7 +611,7 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .vis-chip{min-height:30px;padding:4px 11px;border-radius:999px;border:1px solid var(--border);background:transparent;
   color:var(--text-muted,#9da4ae);font:600 var(--fs-xs)/1.2 var(--font-main);cursor:pointer;
   text-decoration:line-through;text-decoration-color:rgba(255,255,255,.35);}
-.vis-chip[aria-pressed="true"]{border-color:var(--gold-border);background:rgba(var(--gold-rgb),.12);color:var(--gold);text-decoration:none;}
+.vis-chip[aria-pressed="true"]{border-color:#4a4a4a;background:#2E2E2E;color:var(--text-primary);text-decoration:none;}
 .vis-chip:hover:not(:disabled){border-color:var(--gold);}
 .vis-chip:disabled{opacity:.45;cursor:default;}
 .vis-chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}

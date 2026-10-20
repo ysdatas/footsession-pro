@@ -174,7 +174,7 @@ function pvRender() {
     ${manage && PV.upload ? '<button class="btn btn-sm btn-primary" type="button" data-pv-upload>+ Envoyer des vidéos</button>' : ''}`;
 
   box.innerHTML = `
-    ${pvReader() ? '' : `<details class="pvx-flow"${PV.seqs.length ? '' : ' open'}>
+    ${pvReader() ? '' : `<details class="pvx-flow">
       <summary>Comment ça marche ?</summary>
       <ol>
         <li><strong>Vous envoyez une vidéo</strong> au joueur (match, entraînement).</li>
