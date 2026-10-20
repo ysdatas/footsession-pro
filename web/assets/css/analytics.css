@@ -2,9 +2,21 @@
    LMFC Performance — analytics.css
    ============================================================ */
 
+.charts-area { margin-top: 24px; }
+/* Titres de partie (« Rythme », « Contenu des séances ») : plus grands que ceux des graphiques. */
+.charts-area > .section-kicker { margin: 28px 0 12px; font-size: 1.125rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-primary); }
+.charts-area > .section-kicker:first-child { margin-top: 0; }
 .charts-grid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
 }
+/* Titre d'un graphique : ce qu'il montre, puis l'unité en gris. */
+.chart-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 12px; font-size: var(--fs-md); font-weight: 600; }
+.chart-title span { font-size: var(--fs-sm); font-weight: 400; color: var(--text-secondary); }
+/* Types de procédés : une barre découpée, légende chiffrée dessous. */
+.chart-split { margin-bottom: 12px; }
+.chart-box.chart-box-split { height: 96px; }
+@media (min-width: 1440px) { .charts-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 881px) and (max-width: 1439px) { .charts-grid-3 > :last-child { grid-column: 1 / -1; } }
 .chart-card h3, .chart-card h2 { margin-bottom: 14px; }
 .chart-box { position: relative; height: 260px; }
 
@@ -34,6 +46,17 @@
 }
 #analyticsKpis .kpi-label { margin: 0; font-size: var(--fs-sm); font-weight: 500; color: var(--text-secondary); }
 #analyticsKpis .kpi-num, #analyticsKpis .kpi.gold .kpi-num { color: var(--text-primary); }
-.chart-card h2 { font-size: var(--fs-md); font-weight: 600; }
 .chart-box { height: 280px; }
+@media (max-width: 640px) {
+  .chart-box { height: 240px; }
+  .chart-card { padding: 14px; }
+}
 @media (max-width: 640px) { #analyticsKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Téléphone : les quatre périodes sur une ligne, à parts égales ; les dates l'une sous l'autre. */
+@media (max-width: 640px) {
+  #periodSwitch { display: flex; width: 100%; }
+  #periodSwitch button { flex: 1 1 0; padding-inline: 6px; }
+  #customRange:not(.hidden) { flex-wrap: wrap; width: 100%; }
+  #customRange input { flex: 1 1 130px; }
+}
+@media (max-width: 640px) { #analyticsKpis .kpi-num { font-size: var(--fs-xl); } }

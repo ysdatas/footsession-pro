@@ -4,15 +4,8 @@
    reçoit que les séances du club de l'utilisateur connecté.
    ============================================================ */
 
-// Couleur du club (theme.js) : les graphiques suivent l'interface.
-const CSS_VARS = getComputedStyle(document.documentElement);
-const GOLD = CSS_VARS.getPropertyValue('--gold').trim() || '#E8B20E';
-const GOLD_L = CSS_VARS.getPropertyValue('--gold-light').trim() || '#F6D35B';
-// Une seule série par graphique : une seule couleur (l'or du club), pas d'arc-en-ciel.
-// Grille discrète, textes dans les gris de l'interface (--text-secondary).
-const GRID = 'rgba(255,255,255,.07)', TXT = '#959595', SURFACE = '#1C1C1C';
+let CHARTS_HTML = '';
 
-let charts = {};
 let currentPeriod = 'month';
 let myProfile = null;
 
@@ -27,6 +20,7 @@ let myProfile = null;
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
   if (window.Chart) setChartDefaults();
+  CHARTS_HTML = document.getElementById('chartsArea').innerHTML;   // pour revenir après « pas de données »
 
   document.querySelectorAll('#periodSwitch button').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('#periodSwitch button').forEach(x => x.classList.remove('active'));
@@ -89,25 +83,15 @@ async function load() {
     if (nbSessions === 0 && nbProcedures === 0) { showEmpty(); return; }
     restoreCharts();
 
-    bar('chartCategory', countBy(allProcs, p => p.type_procede), GOLD);
-    line('chartMonths', await monthsP);
-    hbar('chartEspaces', countBy(allProcs, p => p.taille_terrain), GOLD);
-    hbar('chartVolume', volumePerSession(sessions), GOLD);
+    // Saisies équivalentes regroupées (« 7c7 » = « 7v7 », label-norm.js).
+    split('chartCategory', countNormalized(allProcs.map(p => p.type_procede)));
+    columns('chartMonths', await monthsP);
+    hbar('chartVolume', volumePerSession(sessions), ' min');
     // Un principe par séance (les anciennes séances le reprennent de leurs procédés).
-    // Barres horizontales : les noms longs se lisent sans pencher la tête.
-    hbar('chartPrincipes', countBy(sessions, s => sessionPrinciple(s, s.procedures)), GOLD);
-    hbar('chartEffectifs', countBy(allProcs, p => p.effectif), GOLD);
+    hbar('chartPrincipes', countNormalized(sessions.map(s => sessionPrinciple(s, s.procedures))));
+    hbar('chartEffectifs', countNormalized(allProcs.map(p => p.effectif), normEffectif));
+    hbar('chartEspaces', countNormalized(allProcs.map(p => p.taille_terrain), normTerrain));
   } catch (e) { toast(e.message, 'error'); }
-}
-
-/** Compte les occurrences d'un champ texte, trié décroissant, top 8. */
-function countBy(rows, getter) {
-  const counts = {};
-  rows.forEach(r => {
-    const v = (getter(r) || '').trim();
-    if (v) counts[v] = (counts[v] || 0) + 1;
-  });
-  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, c]) => ({ label, c }));
 }
 
 /** Volume de travail (temps ballon) par séance, top 8. */
@@ -142,81 +126,17 @@ function showEmpty() {
 }
 function restoreCharts() {
   const area = document.getElementById('chartsArea');
-  if (area.querySelector('.chart-card')) return;
-  area.innerHTML = `
-    <div class="card chart-card"><h2 class="as-h3">Répartition par type de procédé</h2><div class="chart-box"><canvas id="chartCategory"></canvas></div></div>
-    <div class="card chart-card"><h2 class="as-h3">Séances par mois (6 mois)</h2><div class="chart-box"><canvas id="chartMonths"></canvas></div></div>
-    <div class="card chart-card"><h2 class="as-h3">Espaces de jeu utilisés</h2><div class="chart-box"><canvas id="chartEspaces"></canvas></div></div>
-    <div class="card chart-card"><h2 class="as-h3">Volume par séance (min)</h2><div class="chart-box"><canvas id="chartVolume"></canvas></div></div>
-    <div class="card chart-card"><h2 class="as-h3">Principes de jeu récurrents</h2><div class="chart-box"><canvas id="chartPrincipes"></canvas></div></div>
-    <div class="card chart-card"><h2 class="as-h3">Effectifs utilisés</h2><div class="chart-box"><canvas id="chartEffectifs"></canvas></div></div>`;
+  if (!area.querySelector('.chart-card')) area.innerHTML = CHARTS_HTML;
 }
 function destroyAll() { Object.values(charts).forEach(c => c?.destroy()); charts = {}; }
-
-/* ---------- Constructeurs de graphiques ---------- */
-const labelsOf = rows => rows.map(r => r.label);
-const valuesOf = rows => rows.map(r => Number(r.c));
-
-function make(id, config) {
-  charts[id]?.destroy();
-  const el = document.getElementById(id);
-  if (el) charts[id] = new Chart(el, config);
-}
-const noLegend = { plugins: { legend: { display: false } }, maintainAspectRatio: false };
-
-/* Apparence commune : police de l'interface, info-bulle sombre, chiffres en Plex Mono. */
-function setChartDefaults() {
-  Chart.defaults.color = TXT;
-  Chart.defaults.font.family = "'IBM Plex Sans', -apple-system, sans-serif";
-  Chart.defaults.font.size = 12;
-  Chart.defaults.borderColor = GRID;
-  Object.assign(Chart.defaults.plugins.tooltip, {
-    backgroundColor: '#242424', borderColor: '#3a3a3a', borderWidth: 1, cornerRadius: 6, padding: 10,
-    titleColor: '#F5F5F5', bodyColor: '#F5F5F5', displayColors: false,
-    titleFont: { weight: '600' }, bodyFont: { family: "'IBM Plex Mono', ui-monospace, monospace" },
-  });
-}
-// Axe des catégories : sans grille ; axe des valeurs : grille discrète, depuis zéro.
-const catAxis = { grid: { display: false }, border: { color: '#2A2A2A' }, ticks: { color: TXT } };
-const valAxis = { beginAtZero: true, grid: { color: GRID }, border: { display: false }, ticks: { precision: 0, color: TXT } };
-// Barres fines, bout arrondi côté valeur, ancrées sur la ligne de base.
-const barSet = (rows, color, thick) => ({
-  data: valuesOf(rows), backgroundColor: color, hoverBackgroundColor: GOLD_L,
-  borderRadius: 4, borderSkipped: 'start', maxBarThickness: thick, categoryPercentage: .72,
-});
-
-function bar(id, rows, color) {
-  make(id, {
-    type: 'bar',
-    data: { labels: labelsOf(rows), datasets: [barSet(rows, color, 40)] },
-    options: { ...noLegend, scales: { x: catAxis, y: valAxis } },
-  });
-}
-function hbar(id, rows, color) {
-  make(id, {
-    type: 'bar',
-    data: { labels: labelsOf(rows), datasets: [barSet(rows, color, 20)] },
-    options: { ...noLegend, indexAxis: 'y', scales: { y: catAxis, x: valAxis } },
-  });
-}
-/* Courbe : segments droits (pas d'arrondi qui invente des valeurs), points cerclés du fond. */
-function line(id, rows) {
-  make(id, {
-    type: 'line',
-    data: { labels: labelsOf(rows), datasets: [{
-      data: valuesOf(rows), borderColor: GOLD, borderWidth: 2, fill: false, tension: 0,
-      pointBackgroundColor: GOLD, pointBorderColor: SURFACE, pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6 }] },
-    options: { ...noLegend, interaction: { mode: 'index', intersect: false }, scales: { x: catAxis, y: valAxis } },
-  });
-}
 
 /* ---------- Export PDF du bilan ----------
    Mise en page commune (pdf-kit.js). Les graphiques sont redessinés pour
    le papier (fond blanc, texte sombre), pas copiés de l'écran sombre. */
 const PRINT_CHARTS = [
-  ['chartCategory', 'Répartition par type de procédé'], ['chartMonths', 'Séances par mois (6 mois)'],
-  ['chartEspaces', 'Espaces de jeu utilisés'], ['chartVolume', 'Volume par séance (min)'],
-  ['chartPrincipes', 'Principes de jeu récurrents'], ['chartEffectifs', 'Effectifs utilisés'],
+  ['chartMonths', 'Séances par mois (6 mois)'], ['chartVolume', 'Temps de travail par séance (min)'],
+  ['chartCategory', 'Types de procédés'], ['chartPrincipes', 'Principes de jeu'],
+  ['chartEffectifs', 'Formats de jeu'], ['chartEspaces', 'Tailles de terrain'],
 ];
 function chartForPrint(id) {
   const ch = charts[id];
@@ -232,7 +152,8 @@ function chartForPrint(id) {
     type: ch.config.type,
     data: { labels: [...(ch.data.labels || [])], datasets: ch.data.datasets.map(d => ({ ...d, ...(d.pointBorderColor ? { pointBorderColor: '#ffffff' } : {}) })) },
     options: { ...o, responsive: false, animation: false, devicePixelRatio: 1, maintainAspectRatio: false, scales,
-      plugins: { ...o.plugins, legend: { ...o.plugins?.legend, labels: { ...o.plugins?.legend?.labels, color: '#374151', font, boxWidth: 22 } } } },
+      plugins: { ...o.plugins, legend: { ...o.plugins?.legend, labels: { ...o.plugins?.legend?.labels, color: '#374151', font, boxWidth: 22 } },
+        valueLabels: { ...o.plugins?.valueLabels, color: '#374151', size: 20 } } },
     plugins: [{ id: 'papier', beforeDraw: (chart) => { const g = chart.ctx; g.save(); g.fillStyle = '#fff'; g.fillRect(0, 0, chart.width, chart.height); g.restore(); } }],
   });
   const url = c.toDataURL('image/jpeg', 0.92);

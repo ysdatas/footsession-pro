@@ -32,27 +32,6 @@ const NAV_ITEMS = [
   { key: 'trash',       href: 'trash.html',          label: 'Corbeille',         roles: ALL_STAFF },
 ];
 
-/* Icônes du menu et de l'accueil (tracés Lucide, 24 × 24, trait 2). */
-const NAV_IC = {
-  dashboard: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
-  sessions: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
-  matches: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 12h6M9 16h6"/>',
-  players: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
-  performance: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-  videos: '<path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.41V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
-  tactical: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/>',
-  analytics: '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
-  faq: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
-  club: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
-  notifications: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
-  trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
-  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
-  key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
-  scale: '<path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0zM19 7l-3 7a4 4 0 0 0 6 0z"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-};
-const navIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${NAV_IC[k] || NAV_IC.plus}</svg>`;
-
 /* Pages sans entrée de menu : rubrique qu'elles « allument ». */
 const NAV_PARENT = { 'player': 'players', 'player-performance': 'players', 'session-edit': 'sessions' };
 
@@ -179,6 +158,7 @@ function renderNav(profile, teams = window.CLUB_TEAMS || []) {
   renderUserMenu(profile);
   if (changed) restoreNavScroll(nav);   // après l'équipe et le bloc « moi », qui réduisent la hauteur du menu
   renderPageKicker(profile, teams);
+  if (typeof renderTabbar === 'function') renderTabbar(orderedNavItems(profile.role, profile.prefs).filter(i => !i.hidden), activeKey);   // nav-mobile.js
   if (profile === window.CURRENT_PROFILE || window.CURRENT_PROFILE?.id === profile.id) saveNavCache(profile, teams);
 }
 

@@ -316,6 +316,8 @@ input[type="file"]::file-selector-button:hover { background: var(--bg-hover); }
 .field-hint { margin: 6px 0 0; font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.4; }
 .field-row { display: flex; gap: 14px; flex-wrap: wrap; }
 .field-row > .field { flex: 1; min-width: 140px; }
+/* Téléphone : un champ par ligne, rien de tronqué (dates, listes, exemples). */
+@media (max-width: 560px) { .field-row { flex-direction: column; gap: 0; } .field-row > .field { min-width: 0; } }
 
 /* ----- Badges & puces ----- */
 .badge {
@@ -706,6 +708,13 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
   .pa-tab.is-active { color: var(--gold); }
   body.pa-body, body[data-shell="player"] { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   body.pa-body #toast-stack { bottom: calc(84px + env(safe-area-inset-bottom)); }
+  /* Staff : cinq onglets (quatre rubriques + Menu), la même place réservée en bas. */
+  .m-tabbar { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding-inline: 4px; }
+  .m-tabbar .pa-tab { min-width: 0; padding: 0 2px; border: 0; background: none; font-family: inherit; cursor: pointer; }
+  .m-tabbar .pa-tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-tabbar .pa-tab:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+  body.app:not(:has(.tb-page)) { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  body:has(.m-tabbar) #toast-stack { bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
 
 /* Toasts : pleine largeur sur téléphone, au-dessus du pouce. */

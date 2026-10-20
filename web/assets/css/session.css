@@ -369,6 +369,7 @@
 }
 .save-status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); flex: none; }
 .save-status[hidden] { display: none; }   /* pas de pastille vide avant le chargement de la séance */
+@media (max-width: 980px) { body:has(.m-tabbar) .save-status { bottom: calc(80px + env(safe-area-inset-bottom)); } }   /* au-dessus des onglets du bas */
 .save-status[data-state="pending"] { --dot: var(--text-muted); }
 .save-status[data-state="saving"] { --dot: var(--gold); }
 .save-status[data-state="saving"]::before { animation: save-pulse 1s ease-in-out infinite; }
@@ -440,3 +441,5 @@
 .conflict-choices { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: var(--fs-sm); line-height: 1.5; }
 /* Bouton à côté d'un champ de recherche : même hauteur que le champ. */
 .roster-tools .btn, .mt-tools .btn { min-height: 38px; }
+.list-toolbar > input[type="search"] { max-width: 320px; }
+@media (max-width: 640px) { .list-toolbar > input[type="search"] { max-width: none; flex: 1 1 100%; } }
