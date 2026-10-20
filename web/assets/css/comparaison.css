@@ -33,14 +33,14 @@
 .cmp-alert{
   border:1px solid rgba(224,112,112,.35);
   background:rgba(224,112,112,.08);
-  border-radius:12px;padding:12px 15px;margin-bottom:14px;
+  border-radius:var(--radius-lg);padding:12px 15px;margin-bottom:14px;
 }
 .cmp-alert strong{display:block;font-size:var(--fs-md);margin-bottom:4px;color:#e79090;}
 .cmp-alert p{margin:0;font-size:var(--fs-sm);line-height:1.5;color:var(--text-secondary);}
 
 /* ---------- Tableau ---------- */
 .cmp-table-wrap{
-  overflow-x:auto;border:1px solid var(--border,#293038);border-radius:14px;
+  overflow-x:auto;border:1px solid var(--border,#293038);border-radius:var(--radius-lg);
   background:var(--bg-card,#14171a);
   scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent;
 }
@@ -118,7 +118,7 @@
   border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary);
   font-size: var(--fs-sm); font-weight: 600;
 }
-.obj-chip span { font-size: var(--fs-xs); opacity: .8; }
+.obj-chip span { font-size: var(--fs-xs); }
 .obj-chip:hover { border-color: var(--gold-border); color: var(--text-primary); }
 .obj-chip.on { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .1); }
 .obj-group { margin-bottom: 18px; }
@@ -131,7 +131,7 @@
   display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: var(--radius-md);
   background: var(--bg-surface); border: 1px solid var(--border);
 }
-.obj-row.obj-achieved { border-left: 3px solid #69DB7C; }
+.obj-row.obj-achieved { border-color: rgba(105,219,124,.45); }
 .obj-row.obj-missed strong { color: var(--text-secondary); }
 .obj-main { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .obj-main strong { overflow-wrap: anywhere; }
@@ -161,7 +161,7 @@
 /* Types (objectif / prévention), ajout rapide par joueur. */
 .obj-filters { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .obj-kinds { flex-wrap: wrap; align-self: flex-start; }
-.obj-kinds button span, .obj-kind-pick button span { font-size: var(--fs-xs); opacity: .75; margin-left: 2px; }
+.obj-kinds button span, .obj-kind-pick button span { font-size: var(--fs-xs); margin-left: 2px; }
 .obj-new { display: flex; gap: 8px; flex-wrap: wrap; }
 .obj-group-add { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .obj-main .badge { justify-self: start; }

@@ -310,7 +310,7 @@ function ensureVideoModals() {
         <label>Fichiers vidéo (MP4 conseillé)</label>
         <label class="file-pick"><input type="file" id="v-file" accept="video/*" multiple>
           <span class="btn btn-sm">+ Choisir des vidéos</span></label>
-        <p class="field-hint">Sélectionnez-en plusieurs d’un coup dans vos fichiers. Le titre de chaque vidéo reprend le nom du fichier : modifiable avant l’envoi.</p>
+        <p class="field-hint">Plusieurs fichiers possibles. Titre = nom du fichier, modifiable avant l’envoi.</p>
       </div>
       <div class="upl-list" id="v-files"></div>
       <div class="field"><label for="v-desc">Description <span class="label-opt">(facultative, commune aux vidéos)</span></label><textarea id="v-desc" rows="2"></textarea></div>

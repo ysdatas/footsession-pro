@@ -30,7 +30,7 @@
 .av5 { background: #2E2E32; color: var(--gold-light) !important; }
 
 .pc-actions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}
-.pc-photo{width:42px;height:42px;border-radius:12px;object-fit:cover;flex:0 0 42px;border:1px solid var(--border);}
+.pc-photo{width:42px;height:42px;border-radius:var(--radius-lg);object-fit:cover;flex:0 0 42px;border:1px solid var(--border);}
 .player-card{overflow:hidden;}
 
 .players-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -82,7 +82,7 @@
 }
 .player-row:last-child { border-bottom: 0; }
 .player-row:hover, .player-row:focus-visible { background: var(--bg-hover); outline: none; }
-.player-row:focus-visible { box-shadow: inset 3px 0 0 var(--gold); }
+.player-row:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .pr-avatar, .pr-photo { width: 36px; height: 36px; border-radius: var(--radius-md); flex: 0 0 auto; }
 .pr-avatar { display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 800; color: #0A0A0A; }
 .pr-photo { object-fit: cover; border: 1px solid var(--border); }

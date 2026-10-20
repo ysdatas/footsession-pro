@@ -6,7 +6,7 @@
 
 /* En-tête */
 .fiche-hero { display: flex; align-items: center; gap: 18px; margin-bottom: 16px; flex-wrap: wrap; }
-.fiche-avatar, .fiche-photo { width: 76px; height: 76px; border-radius: 18px; flex: 0 0 76px; font-size: var(--fs-2xl); }
+.fiche-avatar, .fiche-photo { width: 76px; height: 76px; border-radius: var(--radius-lg); flex: 0 0 76px; font-size: var(--fs-2xl); }
 .fiche-photo { object-fit: cover; border: 1px solid var(--border); }
 .fiche-hero-text { flex: 1; min-width: 200px; }
 .fiche-hero-text h1 { margin: 0; font-size: var(--fs-2xl); letter-spacing: -.02em; }
@@ -57,7 +57,7 @@
 .score-bars { display: grid; gap: 11px; }
 .score-bar { display: grid; grid-template-columns: 90px 1fr 38px; align-items: center; gap: 10px; font-size: var(--fs-md); }
 .score-bar .track { height: 8px; background: var(--bg-surface); border-radius: 999px; overflow: hidden; }
-.score-bar .fill { display: block; height: 100%; background: linear-gradient(90deg, #9c7f30, var(--gold)); }
+.score-bar .fill { display: block; height: 100%; background: var(--gold); }
 .score-bar strong { text-align: right; }
 
 /* Parcours */
@@ -80,7 +80,7 @@
 }
 
 /* Photo : clic sur l'avatar (staff). */
-.fiche-avatar-btn { position: relative; padding: 0; border: 0; background: none; border-radius: 18px; overflow: hidden; cursor: default; flex: 0 0 76px; }
+.fiche-avatar-btn { position: relative; padding: 0; border: 0; background: none; border-radius: var(--radius-lg); overflow: hidden; cursor: default; flex: 0 0 76px; }
 .fiche-avatar-btn.is-editable { cursor: pointer; }
 .fiche-avatar-edit {
   position: absolute; inset: auto 0 0 0; padding: 4px; font-size: var(--fs-xs); font-weight: 600;
@@ -103,7 +103,7 @@
 @media (max-width: 560px) {
   .fiche-hero.hero-surface { padding: 18px 16px; gap: 14px; }
   .fiche-hero-text h1 { font-size: 1.45rem; line-height: 1.2; }
-  .fiche-avatar, .fiche-photo { width: 60px; height: 60px; flex-basis: 60px; border-radius: 14px; font-size: var(--fs-xl); }
+  .fiche-avatar, .fiche-photo { width: 60px; height: 60px; flex-basis: 60px; border-radius: var(--radius-lg); font-size: var(--fs-xl); }
   .fiche-actions { width: 100%; }
   .fiche-actions .btn { flex: 1 1 0; justify-content: center; }
 }

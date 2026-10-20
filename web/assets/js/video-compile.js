@@ -322,7 +322,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
           <a class="btn btn-primary" href="${st.url}" download="${escapeHtml(st.blob.name)}">Télécharger</a>
           ${ids.length > 1 && canManageVideos(profile.role) ? `<button class="btn" type="button" id="vcSave" ${st.blob.size > VIDEO_MAX_BYTES ? 'disabled title="Trop volumineuse pour être ajoutée"' : ''}>Ajouter aux vidéos de ${escapeHtml(name)}</button>` : ''}
         </div>
-        <small class="text-muted">Téléchargée seulement, rien n’est stocké. « Ajouter aux vidéos » la range dans l’espace de ce joueur : lui seul et le staff la voient.</small>`;
+        <small class="text-muted">Téléchargée, rien n’est stocké. « Ajouter aux vidéos » la range chez ce joueur (visible par lui et le staff).</small>`;
       $c('#vcDone').classList.remove('hidden');
       $c('#vcSave')?.addEventListener('click', () => saveToPlayer(ids));
     } catch (e) {

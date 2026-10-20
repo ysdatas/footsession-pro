@@ -123,7 +123,7 @@
       <!-- Panneau flottant : il se pose sur le terrain sans le réduire -->
       <aside class="glass tb-drawer hidden" id="tbDrawer" aria-live="polite">
         <section class="tb-pane" data-pane="equip">
-          <h3 class="tb-pane-title">Matériel <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h3>
+          <h2 class="tb-pane-title">Matériel <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h2>
           <p class="tb-card-hint">Choisissez, puis cliquez sur le terrain pour poser.</p>
           <div id="equipGroup" class="tb-equip-groups">
             <div class="tb-equip-title">Cônes</div><div class="tb-equip-grid"><button class="tb-tool tb-equip" data-tool="equip-cone" data-color="#F76707" title="Cône orange"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#F76707"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#c85f1c"/></svg><span>Orange</span></button><button class="tb-tool tb-equip" data-tool="equip-cone" data-color="#FAB005" title="Cône jaune"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#FAB005"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#c98d00"/></svg><span>Jaune</span></button><button class="tb-tool tb-equip" data-tool="equip-cone" data-color="#1F6FEB" title="Cône bleu"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#1F6FEB"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#1753b3"/></svg><span>Bleu</span></button><button class="tb-tool tb-equip" data-tool="equip-cone" data-color="#E03131" title="Cône rouge"><svg class="eqi" viewBox="0 0 16 16"><polygon points="8,2 13,13 3,13" fill="#E03131"/><rect x="5" y="8" width="6" height="1.8" fill="#fff"/><ellipse cx="8" cy="13" rx="5" ry="1.4" fill="#a61e1e"/></svg><span>Rouge</span></button></div>
@@ -137,7 +137,7 @@
         </section>
 
         <section class="tb-pane" data-pane="pitch">
-          <h3 class="tb-pane-title">Terrain <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h3>
+          <h2 class="tb-pane-title">Terrain <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h2>
           <div class="tb-pane-grid" id="viewGroup">
             <button class="tb-tool active" data-view="complet">Complet</button>
             <button class="tb-tool" data-view="demi">Demi-terrain</button>
@@ -162,7 +162,7 @@
         </section>
 
         <section class="tb-pane" data-pane="export">
-          <h3 class="tb-pane-title">Exporter <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h3>
+          <h2 class="tb-pane-title">Exporter <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h2>
           <div class="tb-crop">
             <span id="cropStatus">Plein terrain</span>
             <button class="tb-tool" id="screenBtn" type="button" title="Tracer la zone à exporter">Cadrer une zone</button>
@@ -177,13 +177,13 @@
         </section>
 
         <section class="tb-pane" data-pane="video">
-          <h3 class="tb-pane-title">Vidéo liée <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h3>
+          <h2 class="tb-pane-title">Vidéo liée <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h2>
           <p class="tb-card-hint" id="videoPaneHint">Associez une vidéo déjà présente sur la plateforme : pas besoin de la réimporter.</p>
           <input type="search" id="videoSearch" placeholder="Rechercher une vidéo ou un joueur" aria-label="Rechercher une vidéo">
           <div class="tb-video-list" id="videoList"><p class="tb-card-hint">Chargement…</p></div>
         </section>
         <section class="tb-pane" data-pane="clips">
-          <h3 class="tb-pane-title">Clips <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h3>
+          <h2 class="tb-pane-title">Clips <button type="button" class="glass-btn tb-pane-x" data-close-pane aria-label="Fermer le panneau"><svg class="ic"><use href="#i-x"/></svg></button></h2>
           <p class="tb-card-hint">Un clip = une animation (ses étapes). Plusieurs clips peuvent partager le même terrain. Tout se défait avec ↶.</p>
           <div class="tb-clip-list" id="clipList"></div>
           <label class="tb-field">Nom du clip affiché<input type="text" id="clipName" maxlength="40" autocomplete="off"></label>
@@ -302,7 +302,7 @@
   <!-- Fiche tactique : titre et consignes avant le PDF -->
   <div class="modal-backdrop" id="sheetModal">
     <div class="modal modal-wide">
-      <h3>Fiche tactique</h3>
+      <h2 class="as-h3">Fiche tactique</h2>
       <div class="field"><label for="sheetTitle">Titre</label><input id="sheetTitle" autocomplete="off"></div>
       <div class="field"><label for="sheetGoal">Objectif</label><textarea id="sheetGoal" rows="2"></textarea></div>
       <div class="field"><label for="sheetText">Consignes / organisation</label><textarea id="sheetText" rows="5"></textarea></div>

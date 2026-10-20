@@ -6,14 +6,9 @@ body.auth {
   display: flex; align-items: flex-start; justify-content: center;
   min-height: 100vh; min-height: 100dvh;
   padding: max(28px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
-  /* Symétrie : halo rouge à gauche, halo or à droite, même intensité perçue. */
-  background:
-    radial-gradient(640px 640px at 0% 50%, rgba(var(--red-rgb), .24), transparent 70%),
-    radial-gradient(640px 640px at 100% 50%, rgba(var(--gold-rgb), .15), transparent 70%),
-    var(--bg-primary);
+  /* Noir uni, liseré du club (1 px) en haut de l'écran. */
+  background: var(--liseret) top / 100% 1px no-repeat fixed, var(--bg-primary);
 }
-/* Liseré du club en haut de l'écran. */
-body.auth::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 4px; background: var(--stripe); z-index: 2; }
 
 /* ---------- Page d'accueil : blason, nom de l'application, connexion ---------- */
 body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre, sans défilement */
@@ -27,30 +22,29 @@ body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre
 .landing-pitch { position: absolute; left: 50%; top: -22px; width: min(1040px, 100vw); height: 140px; transform: translateX(-50%); z-index: -1; pointer-events: none; }
 .landing-pitch::before {
   content: ''; position: absolute; left: 50%; top: 0; width: 140px; height: 140px; transform: translateX(-50%);
-  border-radius: 50%; border: 1px solid rgba(255,255,255,.07);
-  box-shadow: 0 0 0 34px rgba(255,255,255,.012), 0 0 70px rgba(var(--red-rgb), .08) inset;
+  border-radius: 50%; border: 1px solid rgba(255,255,255,.08);
 }
 .landing-pitch::after {
   content: ''; position: absolute; left: 0; right: 0; top: 70px; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(var(--red-rgb), .5) 18%, rgba(255,255,255,.08) 42%, rgba(255,255,255,.08) 58%, rgba(var(--gold-rgb), .45) 82%, transparent);
+  background: rgba(255,255,255,.08);
 }
-.landing-crest { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 10px 24px rgba(0,0,0,.5)); }
+.landing-crest { width: 96px; height: 96px; object-fit: contain; }
 .landing-brand {
   display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%;
-  margin: 18px 0 0; font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.01em;
+  margin: 18px 0 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: 0;
 }
 .landing-brand .brand-pro { top: -2px; }
 .lp-line { flex: 1; height: 1px; max-width: 90px; }
-.lp-line:first-child { background: linear-gradient(90deg, transparent, var(--red)); }
-.lp-line:last-child { background: linear-gradient(90deg, var(--gold), transparent); }
-.landing-club { margin: 4px 0 0; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-secondary); }
+.lp-line:first-child { background: var(--red); }
+.lp-line:last-child { background: var(--gold); }
+.landing-club { margin: 4px 0 0; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
 /* Devise du club : une signature discrète sous la connexion. */
-.landing-motto { margin: -4px 0 0; font-size: var(--fs-xs); font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: rgba(255,255,255,.42); text-align: center; }
+.landing-motto { margin: -4px 0 0; font-size: var(--fs-xs); font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--text-secondary); text-align: center; }
 @media (max-width: 560px) {
   .landing { gap: 20px; }
   .landing-crest { width: 80px; height: 80px; }
   .landing-pitch { top: -20px; height: 120px; }
-  .landing-pitch::before { width: 120px; height: 120px; box-shadow: 0 0 0 24px rgba(255,255,255,.012), 0 0 60px rgba(var(--red-rgb), .08) inset; }
+  .landing-pitch::before { width: 120px; height: 120px; }
   .landing-pitch::after { top: 60px; }
   .lp-line { max-width: 56px; }
 }
@@ -58,16 +52,11 @@ body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre
 .auth-card {
   position: relative; overflow: hidden;
   width: 100%; max-width: 400px;
-  background: var(--bg-card);
+  /* Liseré rouge et or du club (comme le menu), en filet de 1 px. */
+  background: var(--liseret) top / 100% 1px no-repeat, var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 36px 32px;
-  box-shadow: var(--shadow), var(--shadow-gold);
-}
-/* Liseré rouge et or du club (comme le menu). */
-.auth-card::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: var(--stripe);
 }
 .auth-title { margin: 0 0 4px; text-align: center; font-size: var(--fs-xl); }
 @media (max-width: 480px) { .auth-card { padding: 28px 20px; } }

@@ -80,7 +80,7 @@
 /* ---------- Onglets et filtres ---------- */
 .vp-tabs {
   display: flex; gap: 4px; padding: 4px; margin-bottom: 14px; overflow-x: auto; scrollbar-width: none;
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
 }
 .vp-tabs::-webkit-scrollbar { display: none; }
 .vp-tabs [role="tab"] {
@@ -250,7 +250,8 @@ body.pa-body:has(.vw[data-ui="select"]) .pa-tabbar, body.pa-body:has(.vw[data-ui
 /* Sélection : plus haute, portion dorée et poignées de 44 px. */
 .vt[data-mode="select"] .vt-track {
   height: 60px; border-color: var(--gold-border);
-  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 24px), var(--bg-surface);
+  /* Graduation de la frise : un trait toutes les 24 px. */
+  background: linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px) 0 0 / 24px 100%, var(--bg-surface);
 }
 .vt[data-mode="select"] .vt-fill, .vt[data-mode="select"] .vt-segs { display: none; }
 .vt[data-mode="select"] .vt-range {
@@ -392,7 +393,7 @@ body.pa-body:has(.vw.is-annotating) { padding-bottom: env(safe-area-inset-bottom
 }
 @media (min-width: 761px) {
   .vw-sheet-backdrop { align-items: center; }
-  .vw-sheet { border-radius: 20px; border-bottom: 1px solid var(--gold-border); padding-bottom: 18px; }
+  .vw-sheet { border-radius: var(--radius-lg); border-bottom: 1px solid var(--gold-border); padding-bottom: 18px; }
   .vw-sheet-grip { display: none; }
 }
 .vw-sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .22); margin: 2px auto 0; }
@@ -450,7 +451,7 @@ body.pa-body:has(.vw.is-annotating) { padding-bottom: env(safe-area-inset-bottom
 }
 .vp-player:hover { border-color: var(--gold-border); }
 .vp-player:active { transform: scale(.99); }
-.vp-avatar { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; background: rgba(var(--gold-rgb), .14); color: var(--gold); font-weight: 700; font-size: var(--fs-sm); }
+.vp-avatar { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--radius-lg); flex-shrink: 0; background: rgba(var(--gold-rgb), .14); color: var(--gold); font-weight: 700; font-size: var(--fs-sm); }
 .vp-player-main { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .vp-player-main strong { font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vp-player-main span { font-size: var(--fs-sm); color: var(--text-secondary); }

@@ -52,18 +52,18 @@
             <div class="field">
               <label for="clubColor">Couleur du club</label>
               <input id="clubColor" type="color" data-palette="club" aria-label="Couleur du club" disabled>
-              <p class="field-hint">Appliquée aussitôt à toute la plateforme et aux PDF, pour tous les comptes du club.</p>
+              <p class="field-hint">Appliquée à toute la plateforme et aux PDF.</p>
             </div>
           </div>
         </div>
         <input id="clubLogoFile" type="file" accept="image/*" hidden>
         <button class="btn btn-primary" id="saveClub" type="button">Enregistrer</button>
-        <p class="text-muted hidden" id="viewerNote" style="font-size:var(--fs-sm);">Seul l'administrateur du club peut modifier ces informations.</p>
+        <p class="text-muted hidden" id="viewerNote" style="font-size:var(--fs-sm);">Modifiable par l'administrateur seulement.</p>
       </section>
 
       <section class="card">
         <h2 class="as-h3">Équipes</h2>
-        <p class="text-muted card-lead">Chaque joueur et chaque séance peut être rattaché à une équipe (N2, U19…). Le sélecteur en haut du menu filtre ensuite les pages. Faites glisser une équipe pour changer l’ordre.</p>
+        <p class="text-muted card-lead">Le sélecteur du menu filtre les pages par équipe. Glisser pour changer l’ordre.</p>
         <div id="teamList" class="team-list"><p class="text-muted">Chargement…</p></div>
         <form id="teamForm" class="team-form">
           <input id="teamName" placeholder="Nom de l'équipe, ex. U19" maxlength="40" required aria-label="Nom de la nouvelle équipe">
@@ -74,7 +74,7 @@
 
     <section class="card" id="accessCard" style="margin-top:18px;">
       <h2 class="as-h3">Donner un accès</h2>
-      <p class="text-muted card-lead">Adresse e-mail + fonction (+ fiche pour un joueur). La personne crée son compte avec cette adresse sur la page de connexion : son accès s’active tout seul.</p>
+      <p class="text-muted card-lead">E-mail + fonction (+ fiche pour un joueur). La personne crée son compte avec cette adresse : l’accès s’active seul.</p>
       <form id="accessForm" class="access-form">
         <input id="accEmail" type="email" required placeholder="prenom.nom@email.com" aria-label="Adresse e-mail" autocomplete="off">
         <select id="accRole" aria-label="Fonction">
@@ -105,7 +105,7 @@
       <p class="text-muted" id="amTeams"></p>
       <label class="am-readall"><input type="checkbox" id="amReadAll"> <span><strong>Lecture sur toutes les équipes</strong><small>Il consulte tous les joueurs, séances et matchs du club, sans les modifier (sauf ses équipes).</small></span></label>
       <h3 class="as-h4 am-h">Exceptions par joueur</h3>
-      <p class="field-hint">Une exception remplace la règle de l’équipe pour ce joueur : « Aucun » le retire, « Lecture » ou « Modification » l’ouvre.</p>
+      <p class="field-hint">Remplace la règle de l’équipe pour ce joueur.</p>
       <div id="amList" class="am-list"></div>
       <div class="am-add">
         <input type="search" id="amSearch" placeholder="Ajouter un joueur…" autocomplete="off" aria-label="Ajouter une exception pour un joueur">

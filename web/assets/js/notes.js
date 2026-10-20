@@ -281,7 +281,7 @@ function mountNoteModal() {
         <div id="noteImages" class="note-images-edit"></div>
         <label class="file-pick"><input id="noteFiles" type="file" accept="${NOTE_FILE_ACCEPT}" multiple>
           <span class="btn btn-sm">+ Ajouter des images ou un PDF</span></label>
-        <small class="field-hint">Ils s’affichent tout de suite ici ; chaque image a sa légende, chaque PDF son nom.</small>
+        <small class="field-hint">Chaque image a sa légende, chaque PDF son nom.</small>
       </div>
       <div class="modal-actions">
         <button class="btn" data-close="noteModal" type="button">Annuler</button>

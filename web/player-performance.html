@@ -182,10 +182,9 @@
   <!-- Fiche joueur -->
   <div class="modal-backdrop" id="playerEditModal">
     <div class="modal modal-wide">
-      <h3>Modifier la fiche joueur</h3>
+      <h2 class="as-h3">Modifier la fiche joueur</h2>
       <p class="text-muted modal-lead">
-        Ces informations complètent ce que fournit l’Excel du préparateur, qui ne les contient pas.
-        L’import s’appuie sur le <strong>nom de famille</strong> : le modifier change la correspondance avec le classeur.
+        L’import Excel s’appuie sur le <strong>nom de famille</strong> : le modifier change la correspondance.
       </p>
       <div class="form-grid form-grid-2">
         <label>Prénom<input id="pe-prenom" type="text" autocomplete="off"></label>
@@ -222,7 +221,7 @@
   <!-- Exercice du programme terrain -->
   <div class="modal-backdrop" id="programModal">
     <div class="modal modal-wide">
-      <h3 id="programModalTitle">Nouvel exercice</h3>
+      <h2 id="programModalTitle" class="as-h3">Nouvel exercice</h2>
       <form id="programForm" class="fiche-form prog-form">
         <label>Séance<input name="seance" list="seanceList" placeholder="Ex. Séance 1 — Renforcement" autocomplete="off"></label>
         <label>Titre<input name="title" required placeholder="Ex. Gainage latéral" autocomplete="off"></label>
@@ -255,9 +254,8 @@
   <!-- Mesure physique -->
   <div class="modal-backdrop" id="measureModal">
     <div class="modal">
-      <h3>Ajouter une mesure</h3>
-      <p class="text-muted modal-lead">Une seule ligne par mois : si ce mois existe déjà (import Excel compris),
-        les valeurs saisies la complètent ou la corrigent. Un champ laissé vide ne change rien.</p>
+      <h2 class="as-h3">Ajouter une mesure</h2>
+      <p class="text-muted modal-lead">Une ligne par mois : la saisie complète ou corrige ce mois. Un champ vide ne change rien.</p>
       <div class="form-grid form-grid-2">
         <label>Date<input type="date" id="m-date"></label>
         <label>Mois<select id="m-month">
@@ -278,9 +276,8 @@
   <!-- Session de tests -->
   <div class="modal-backdrop" id="testModal">
     <div class="modal modal-wide">
-      <h3>Ajouter une session de tests</h3>
-      <p class="text-muted modal-lead">La saisie complète la session : un champ laissé vide ne modifie pas la valeur existante.
-        Moyenne et asymétrie 505 et ratio de gainage sont calculés automatiquement.</p>
+      <h2 class="as-h3">Ajouter une session de tests</h2>
+      <p class="text-muted modal-lead">Un champ vide ne change rien. Moyenne, asymétrie 505 et ratio de gainage sont calculés.</p>
       <div class="form-grid">
         <label>Session<select id="manualStage"><option value="pre">Pré-saison</option><option value="mid">Mi-saison</option><option value="end">Fin de saison</option></select></label>
         <label>Date<input type="date" id="manualTestDate"></label>
@@ -302,7 +299,7 @@
   <!-- Parcours -->
   <div class="modal-backdrop" id="careerModal">
     <div class="modal">
-      <h3 id="careerModalTitle">Ajouter un club</h3>
+      <h2 id="careerModalTitle" class="as-h3">Ajouter un club</h2>
       <input type="hidden" id="c-id">
       <div class="form-grid form-grid-2">
         <label class="span-2">Club<input id="c-club" type="text" placeholder="Ex : Stade Rennais" autocomplete="off"></label>
@@ -323,8 +320,8 @@
     <!-- Export -->
   <div class="modal-backdrop" id="exportModal">
     <div class="modal modal-wide">
-      <h3>Exporter la fiche</h3>
-      <p class="text-muted modal-lead">Cochez ce que vous voulez dans le PDF, généré et téléchargé directement. Les vidéos n’y figurent pas : leur titre rappelle où les regarder.</p>
+      <h2 class="as-h3">Exporter la fiche</h2>
+      <p class="text-muted modal-lead">Cochez le contenu du PDF. Les vidéos n’y figurent pas.</p>
 
       <div class="export-block">
         <div class="export-title">Période</div>

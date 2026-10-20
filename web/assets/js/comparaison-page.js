@@ -319,8 +319,7 @@ function renderEvolution() {
     </tr>`;
   }).join('');
 
-  return `<p class="cmp-hint">Progression = écart entre la première et la dernière session renseignée,
-    orienté dans le sens favorable au joueur. Une session sans mesure reste vide : rien n’est reporté d’une session à l’autre.</p>
+  return `<p class="cmp-hint">Progression : de la première à la dernière session mesurée. Session sans mesure : vide.</p>
   <div class="cmp-table-wrap"><table class="cmp-table">
     <thead><tr>
       ${headerCell('name', 'Joueur')}

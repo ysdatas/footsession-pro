@@ -13,7 +13,7 @@
   border-radius: var(--radius-lg); margin-bottom: 12px; overflow: hidden;
   transition: var(--transition);
 }
-.proc.expanded { border-color: var(--border-gold); box-shadow: var(--shadow-gold); }
+.proc.expanded { border-color: var(--border-gold); }
 
 .proc-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .proc-num {
@@ -91,8 +91,10 @@
 .att-item {
   --st: var(--border);
   display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px;
-  border: 1px solid var(--border); border-left: 4px solid var(--st); border-radius: var(--radius-md); background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface);
 }
+/* Statut de présence : une pastille de sa couleur, à gauche du nom. */
+.att-item::before { content: ''; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--st); }
 .att-main { flex: 1; min-width: 0; }
 .att-name { font-size: var(--fs-md); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .att-meta { font-size: var(--fs-xs); color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
@@ -280,7 +282,7 @@
 .bilan-filters .chip[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .12); }
 .bilan-list { display: grid; gap: 6px; }
 .bilan-row { --bl: var(--border); display: grid; grid-template-columns: minmax(140px, 220px) auto minmax(0, 1fr); gap: 10px; align-items: center;
-  padding: 6px 8px 6px 12px; border: 1px solid var(--border); border-left: 4px solid var(--bl); border-radius: var(--radius-md); background: var(--bg-surface); }
+  padding: 6px 8px 6px 12px; border: 1px solid var(--bl); border-radius: var(--radius-md); background: var(--bg-surface); }
 .bilan-row.bl-plus  { --bl: var(--success); background: rgba(76,175,80,.07); }
 .bilan-row.bl-egal  { --bl: #9E9E9E; }
 .bilan-row.bl-moins { --bl: var(--danger); background: rgba(244,67,54,.07); }
@@ -346,7 +348,7 @@
 .pitch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-secondary); }
 .pitch-head small { font-weight: 500; color: var(--text-muted); }
 .mini-pitch { position: relative; aspect-ratio: 68 / 105; border-radius: var(--radius-md); overflow: hidden;
-  background: repeating-linear-gradient(180deg, #1f6b3b 0 10%, #23733f 10% 20%); touch-action: none; }
+  background: #1f6b3b; touch-action: none; }
 .pitch-lines { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: rgba(255,255,255,.55); stroke-width: .5; }
 .pitch-hint { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
 .pitch-token { position: absolute; display: grid; justify-items: center; gap: 1px; padding: 0; border: 0; background: none;

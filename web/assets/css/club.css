@@ -84,10 +84,12 @@
 .member-group { margin-top: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
 .member-group > summary {
   display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; list-style: none;
-  background: var(--bg-surface); border-left: 4px solid var(--gold);
-  font-size: var(--fs-md); font-weight: 700; color: var(--text-primary);
+  background: var(--bg-surface);
+  font-size: var(--fs-md); font-weight: 600; color: var(--text-primary);
 }
-.member-group.is-warn > summary { border-left-color: var(--danger); }
+/* Repère du groupe : petit carré or (rouge s'il y a un souci). */
+.member-group > summary::before { content: ''; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 2px; background: var(--gold); }
+.member-group.is-warn > summary::before { background: var(--danger); }
 .member-group[open] > summary { border-bottom: 1px solid var(--border); }
 .member-group > summary::-webkit-details-marker { display: none; }
 .member-group > summary::after { content: '▾'; margin-left: auto; color: var(--text-secondary); transition: transform var(--dur-micro) ease; }

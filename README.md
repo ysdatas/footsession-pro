@@ -6,7 +6,7 @@
 > `footsession-*` (les changer déconnecterait tout le monde).
 
 Gestion des séances d'entraînement et suivi individuel des joueurs, pour la cellule
-vidéo / coaching d'un club. Design sobre noir / gris / doré, police Inter.
+vidéo / coaching d'un club. Design sobre façon outil d'analyse : noir, rouge et or du club, polices IBM Plex Sans et IBM Plex Mono (chiffres).
 
 ---
 
@@ -317,10 +317,13 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   fonction · équipe), **À traiter** (séquences vidéo à regarder, prochaine séance, objectifs et
   préventions en cours, joueurs sans mesure ce mois-ci pour l'admin et le prépa, accès en attente
   pour l'admin) et **Accès rapides** (rubriques du rôle, dans l'ordre de son menu).
-- **Signature visuelle** — l'en-tête « Bonjour » de l'accueil est repris sur chaque page :
-  `.page-head` (staff), `.pv-head` (joueur), `.hero-surface` (fiches) dans `main.css` — liseré
-  rouge et or à parts égales (`--stripe`), halos rouge à gauche / or à droite (`--hero-bg`),
-  blason en filigrane, ligne « club · équipe » au-dessus du titre (`renderPageKicker`, `nav.js`).
+- **Signature visuelle** (redesign d'octobre 2026, ancien design : étiquette git `design-v1`) —
+  aplats sans halo ni dégradé ; liseré rouge et or de 1 px (`--liseret`, posé en couche de fond) en
+  haut du menu, des encarts (`--hero-bg`), des fenêtres et de la connexion ; `.page-head` (staff) :
+  titre posé sur la page, filet gris amorcé d'un trait rouge ; ligne « club · équipe » au-dessus du
+  titre (`renderPageKicker`, `nav.js`). Le rouge marque où l'on est (rubrique du menu, onglet, trait
+  devant les rubriques, `--red-ui`), l'or ce que l'on peut faire (boutons principaux). Menu à icônes
+  (`NAV_IC`, `nav.js`) ; accueil : en-tête bordeaux et bandeau de chiffres sans phrases d'explication.
 - **Paramètres** — ce n'est pas une rubrique du menu : un clic sur son nom, en bas du menu,
   propose un seul lien, « Paramètres » (`renderUserMenu`, `nav.js`). La déconnexion est l'icône
   à côté du nom.
@@ -745,7 +748,7 @@ l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
   premier affichage sur un réseau lent. Une nouvelle partie remplie après coup doit faire de même.
   Le rôle du dernier compte connecté est retenu sur l'appareil (`lmfc-role`, `auth.js`) et posé par
   `theme.js` (`html[data-role]`) : l'accueil de l'admin réserve ses deux lignes de boutons et sa 4ᵉ carte ;
-- **police Inter hébergée sur le site** (`assets/fonts`, licence `Inter-OFL.txt`), préchargée par chaque
+- **polices IBM Plex hébergées sur le site** (`assets/fonts`, licence `IBMPlex-OFL.txt`), Plex Sans préchargée par chaque
   page, `font-display: optional` (pas de permutation qui ferait bouger le texte) : plus d'aller-retour vers
   Google Fonts avant le premier affichage (~0,8 s sur téléphone d'après l'audit) ;
 - Moyenne des pages : 831 → 372 ms sur le banc ; fiche joueur : 5 à 6 allers-retours successifs → 2.

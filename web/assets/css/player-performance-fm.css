@@ -88,7 +88,7 @@ body.fp-fm-page { background: var(--bg-primary); }
   display: grid;
   grid-template-columns: repeat(2, minmax(0,1fr));
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--bg-surface);
 }
@@ -124,7 +124,7 @@ body.fp-fm-page { background: var(--bg-primary); }
 
 .fp-fm-page .measurement-table {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--bg-surface);
 }
@@ -160,7 +160,7 @@ body.fp-fm-page { background: var(--bg-primary); }
 .fp-fm-page .note-card {
   border: 1px solid var(--border);
   background: var(--bg-surface);
-  border-radius: 13px;
+  border-radius: var(--radius-lg);
   padding: 14px;
 }
 
@@ -255,7 +255,7 @@ body.fp-fm-page { background: var(--bg-primary); }
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: var(--radius-lg);
   background: var(--bg-surface);
   transition: .18s ease;
 }
@@ -369,7 +369,7 @@ body.fp-fm-page { background: var(--bg-primary); }
 
 .fp-video-empty {
   border: 1px dashed #303840;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 30px 18px;
   text-align: center;
   color: var(--text-secondary);
