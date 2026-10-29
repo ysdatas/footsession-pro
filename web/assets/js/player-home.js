@@ -2,8 +2,9 @@
    LMFC Performance — player-home.js (mon-espace.html)
    Accueil du joueur, même signature que l'accueil du staff :
      - « Bonjour, Prénom », date, club · poste · équipe ;
-     - « Pour toi en ce moment » : vidéos reçues, retours du staff,
-       objectifs et préventions en cours, exercices à faire ;
+     - « Pour toi en ce moment » : RPE de la séance à noter (rpe.js,
+       lmfc_v29.sql), vidéos reçues, retours du staff, objectifs et
+       préventions en cours, exercices à faire ;
      - « Mes derniers chiffres » : poids, masse grasse, dernière
        session de tests (RPC my_physical_* : jamais les indicateurs
        réservés au staff) ;
@@ -52,7 +53,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     ['mon-programme.html', 'target', 'Objectifs & préventions'],
   ].map(([href, ic, label]) => `<a class="home-tile" href="${href}">${phIc(ic)}<span>${label}</span></a>`).join('');
 
-  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes] = await Promise.all([
+  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes] = await Promise.all([
     player.team_id ? sb.from('teams').select('nom').eq('id', player.team_id).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('player_videos').select('id, titre, created_at').eq('player_id', player.id).order('created_at', { ascending: false }),
     sb.from('video_sequences').select('id, label, staff_feedback, feedback_at, submitted_at').eq('player_id', player.id),
@@ -60,18 +61,47 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     sb.from('program_exercises').select('id, done_at').eq('player_id', player.id),
     sb.rpc('my_physical_measurements'),
     sb.rpc('my_physical_tests'),
+    sb.rpc('my_rpe_sessions'),
   ]);
   [vRes, sRes, nRes, eRes, mRes, tRes].forEach(r => { if (r.error) console.warn('Mon espace : donnée indisponible', r.error.message); });
 
   document.getElementById('clubLine').textContent =
     [window.PLAYER_CLUB || 'Le Mans FC', player.poste, teamRes.data?.nom].filter(Boolean).join(' · ');
 
+  if (rRes.error && rRes.error.code !== 'PGRST202') console.warn('Mon espace : RPE indisponible', rRes.error.message);
+  phRpe = rRes.data || [];
+  document.getElementById('homeAttn').addEventListener('click', openRpeFromCard);
   renderAttention(vRes.data || [], sRes.data || [], nRes.data || [], eRes.error ? null : (eRes.data || []));
   renderStats(mRes.data || [], tRes.data || [], player.hidden_sections || []);
 })();
 
+/* RPE : la séance à noter (la plus récente sans réponse), sinon la dernière notée. */
+let phRpe = [];
+const phDay = (iso) => { const d = Math.round((new Date(new Date().toDateString()) - new Date(`${iso}T00:00`)) / 864e5);
+  return d === 0 ? 'aujourd’hui' : d === 1 ? 'hier' : `il y a ${d} jours`; };
+function rpeCardHtml() {
+  const todo = phRpe.filter(s => s.rpe == null), s = todo[0] || phRpe[0];
+  if (!s) return '';
+  return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" href="calendrier.html" data-rpe="${s.session_id}">
+    <span class="home-attn-head"><strong>${todo.length ? 'Note ton effort' : 'Ton effort'}</strong>${phIc('activity')}</span>
+    <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
+    <small>${escapeHtml(s.titre)} · ${phDay(s.date_seance)}${todo.length > 1 ? ` · ${todo.length} séances à noter` : ''}</small>
+  </a>`;
+}
+function openRpeFromCard(e) {
+  const a = e.target.closest('[data-rpe]');
+  const s = a && phRpe.find(x => x.session_id === Number(a.dataset.rpe));
+  if (!s) return;
+  e.preventDefault();
+  openRpeSheet({ session: { id: s.session_id, titre: s.titre, date: s.date_seance }, value: s.rpe, onSaved: (v) => {
+    s.rpe = v;
+    a.outerHTML = rpeCardHtml();
+  } });
+}
+
 function renderAttention(videos, seqs, notes, exercises) {
   const cards = [];
+  if (phRpe.length) cards.push(rpeCardHtml());
   const fresh = videos.filter(v => daysAgo(v.created_at) <= 7);
   cards.push(phCard({ href: 'mes-videos.html', icon: 'video', tone: fresh.length ? 'urgent' : (videos.length ? '' : 'calm'),
     value: fresh.length || videos.length, label: fresh.length ? 'Nouvelles vidéos' : 'Vidéos du staff',

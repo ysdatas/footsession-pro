@@ -55,7 +55,7 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
   if (!CAN_WRITE) {
-    ['f-titre', 'f-principe', 'f-date', 'f-equipe', 'f-duree'].forEach(id => { document.getElementById(id).disabled = true; });
+    ['f-titre', 'f-principe', 'f-date', 'f-heure', 'f-equipe', 'f-duree'].forEach(id => { document.getElementById(id).disabled = true; });
     document.getElementById('btnAddProc').classList.add('hidden');
     document.getElementById('btnAddProc2').classList.add('hidden');
     document.getElementById('btnLibrary')?.classList.add('hidden');
@@ -117,6 +117,7 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   }
   startAutosave(loadedSession);
   initSessionLibrary();   // vidéos de la bibliothèque (session-library.js)
+  initSessionRpe();       // RPE des joueurs (session-rpe.js)
 })();
 
 /* Séance enregistrée : titre, exports et partage disponibles. */
@@ -251,6 +252,7 @@ async function loadSession() {
 
     document.getElementById('f-titre').value = s.titre || '';
     document.getElementById('f-date').value = s.date_seance || '';
+    document.getElementById('f-heure').value = s.heure ? s.heure.slice(0, 5) : '';   // lmfc_v28.sql
     document.getElementById('f-equipe').value = s.equipe || '';
     sessionTeamId = s.team_id ?? null;
     document.getElementById('f-duree').value = decStr(s.duree_min ?? 90);
@@ -339,84 +341,7 @@ function addProcedure(data = {}, schema = null) {
   updateMeta();
 }
 
-/* ---------- Schémas : procédés enregistrés comme modèles réutilisables ----------
-   (bouton « Schémas » ; la bibliothèque vidéo, elle, est dans session-library.js) */
-const TPL_FIELDS = ['nom', 'duree_min', 'objectif', 'effectif', 'taille_terrain',
-  'consignes', 'principes_jeu', 'comportements_individuels', 'temps_recup_min',
-  'type_procede', 'nb_sequences', 'duree_sequence_min'];
-
-window.saveAsTemplate = async (uid) => {
-  syncFromDom();
-  const p = procedures.find(x => x._uid === uid); if (!p) return;
-  const nom = prompt('Nom du modèle :', p.nom || 'Exercice'); if (!nom) return;
-  const data = {}; TPL_FIELDS.forEach(k => data[k] = p[k]);
-  data.principes_jeu = procPrinciple(p, { principes_jeu: document.getElementById('f-principe').value });
-  try {
-    let image_path = null;
-    if (p.image_path) {
-      image_path = `${myProfile.club_id}/templates/${Date.now()}.png`;
-      const { error: copyErr } = await sb.storage.from('schemas').copy(p.image_path, image_path);
-      if (copyErr) image_path = null;   // pas bloquant : le modèle reste utile sans image
-    }
-    // Le dessin suit le modèle : inséré dans une autre séance, il reste modifiable.
-    const { data: sch } = p.id && p.has_canvas
-      ? await sb.from('tactical_schemas').select('canvas_json').eq('procedure_id', p.id).maybeSingle() : { data: null };
-    const { error } = await sb.from('exercise_templates').insert({
-      // La catégorie du modèle reprend le type du procédé (jeu / exercice / situation),
-      // ce qui donne aux schémas un classement utile.
-      club_id: myProfile.club_id, nom, categorie: p.type_procede || null, data, image_path, canvas_json: sch?.canvas_json || null,
-    });
-    if (error) throw error;
-    toast('Modèle enregistré dans les schémas', 'success');
-  } catch (e) { toast(e.message, 'error'); }
-};
-
-async function openLibrary() {
-  openModal('libraryModal');
-  const list = document.getElementById('libraryList');
-  list.innerHTML = '<p class="text-muted">Chargement…</p>';
-  try {
-    const { data: templates, error } = await sb.from('exercise_templates').select('id, nom, categorie, image_path').order('created_at', { ascending: false });
-    if (error) throw error;
-    if (!templates.length) { list.innerHTML = '<p class="text-muted">Aucun schéma enregistré. Cliquez sur ☆ sur un procédé, ou sur « Ajouter aux schémas » dans le tableau tactique (Exporter).</p>'; return; }
-
-    const withUrls = await Promise.all(templates.map(async t => {
-      if (!t.image_path) return { ...t, url: null };
-      const { data } = await sb.storage.from('schemas').createSignedUrl(t.image_path, 3600);
-      return { ...t, url: data?.signedUrl || null };
-    }));
-
-    list.innerHTML = withUrls.map(t => `
-      <div class="library-card">
-        ${t.url ? `<img src="${t.url}" alt="">` : '<div class="lib-noimg">Sans schéma</div>'}
-        <div class="lib-body">
-          <div class="lib-name">${escapeHtml(t.nom)}</div>
-          <div class="lib-cat">${escapeHtml(t.categorie || '')}</div>
-          <div class="lib-actions">
-            <button class="btn btn-sm btn-primary" type="button" data-do="insertTemplate" data-arg="${t.id}">Insérer</button>
-            <button class="btn btn-sm btn-danger" type="button" data-do="deleteTemplate" data-arg="${t.id}">Supprimer</button>
-          </div>
-        </div>
-      </div>`).join('');
-  } catch (e) { list.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`; }
-}
-window.insertTemplate = async (id) => {
-  try {
-    const { data: tpl, error } = await sb.from('exercise_templates').select('nom, data, image_path, canvas_json').eq('id', id).single();
-    if (error) throw error;
-    addProcedure({ nom: tpl.nom, ...tpl.data }, tpl);
-    closeModal('libraryModal');
-    toast('Procédé ajouté depuis les schémas', 'success');
-  } catch (e) { toast(e.message, 'error'); }
-};
-window.deleteTemplate = async (id, btn) => {
-  if (!confirm(`Supprimer ce modèle ?${await trashNote()}`)) return;
-  try {
-    const { error } = await sb.from('exercise_templates').delete().eq('id', id);
-    if (error) throw error;
-    btn.closest('.library-card').remove();
-  } catch (e) { toast(e.message, 'error'); }
-};
+/* Schémas enregistrés (fenêtre « Schémas », ☆ d'un procédé) : session-templates.js. */
 
 /* Icônes des boutons d'un procédé (tracés Lucide, 24 × 24). */
 const PROC_IC = {
@@ -749,9 +674,6 @@ function updateMeta() {
 const EDIT_DO = {
   select: (b) => b.select(),
   reload: () => location.reload(),
-  insertTemplate: (b) => insertTemplate(Number(b.dataset.arg)),
-  deleteTemplate: (b) => deleteTemplate(Number(b.dataset.arg), b),
-  saveAsTemplate: (b) => saveAsTemplate(b.dataset.arg),
   moveUp: (b) => moveProc(b.dataset.arg, -1),
   moveDown: (b) => moveProc(b.dataset.arg, 1),
   removeProc: (b) => removeProc(b.dataset.arg),

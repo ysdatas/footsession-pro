@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="assets/css/session.css">
   <link rel="stylesheet" href="assets/css/dashboard.css">
   <link rel="stylesheet" href="assets/css/library.css">
+  <link rel="stylesheet" href="assets/css/rpe.css">
   <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
@@ -50,6 +51,8 @@
           <input id="f-principe" list="principesList" placeholder="Ex: Conservation, transitions…" autocomplete="off"></div>
         <div class="field"><label for="f-date">Date</label>
           <input id="f-date" type="date"></div>
+        <div class="field"><label for="f-heure">Heure</label>
+          <input id="f-heure" type="time"></div>
       </div>
       <datalist id="principesList"></datalist>
       <div class="field-row">
@@ -131,6 +134,15 @@
       </div>
     </div>
 
+    <!-- RPE des joueurs : leur perception de l'effort (session-rpe.js, lmfc_v29.sql) -->
+    <div class="card attendance open hidden" id="srpeCard" style="margin-top:18px;">
+      <button class="attendance-head" id="srpeToggle" type="button">
+        <span>RPE des joueurs <span class="badge" id="srpeCount"></span></span>
+        <span class="chevron"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+      </button>
+      <div id="srpeBody" class="attendance-body"></div>
+    </div>
+
     <div class="card" style="margin-top:18px;">
       <h2 class="as-h3" id="notesTitle">Commentaire général de la séance</h2>
       <textarea id="f-notes" rows="3" aria-labelledby="notesTitle" placeholder="Niveau général, points à retenir pour la suite…"></textarea>
@@ -175,14 +187,31 @@
     </div>
   </div>
 
-  <!-- Schémas : procédés enregistrés comme modèles (☆) -->
+  <!-- Schémas : procédés enregistrés comme modèles (☆), recherche et tags (session-templates.js) -->
   <div class="modal-backdrop" id="libraryModal">
-    <div class="modal" style="max-width:620px;">
-      <div class="flex-between" style="margin-bottom:14px;">
-        <h2 class="as-h3" style="margin:0;">Schémas enregistrés</h2>
-        <button class="btn btn-sm" type="button" data-close="libraryModal">Fermer</button>
+    <div class="modal tpl-modal">
+      <h2 class="as-h3">Schémas enregistrés</h2>
+      <div class="lib-toolbar">
+        <input type="search" id="tplQ" class="lib-search" placeholder="Rechercher un schéma par son nom" aria-label="Rechercher un schéma par son nom" autocomplete="off">
+        <select id="tplCat" aria-label="Type de procédé"><option value="">Tous les types</option></select>
       </div>
+      <div class="lib-filters hidden" id="tplTagRow">
+        <div class="lib-tagfilter" id="tplTagFilter"></div>
+        <div class="segmented" role="group" aria-label="Plusieurs tags">
+          <button type="button" data-tpl-mode="all" aria-pressed="true">Tous les tags</button>
+          <button type="button" data-tpl-mode="any" aria-pressed="false">Au moins un</button></div>
+        <button class="btn btn-sm" type="button" id="tplTagsManage">Gérer les tags</button>
+      </div>
+      <p class="lib-status" id="tplStatus" role="status" aria-live="polite"></p>
       <div id="libraryList" class="library-grid"><p class="text-muted">Chargement…</p></div>
+    </div>
+  </div>
+  <!-- Tags du club, partagés avec la bibliothèque vidéo (library-tags.js) -->
+  <div class="modal-backdrop" id="libTagsModal">
+    <div class="modal lib-modal">
+      <h2 class="as-h3">Tags du club</h2>
+      <p class="text-muted">Partagés par les schémas et la bibliothèque vidéo. Renommer ou fusionner change tout ce qui les porte.</p>
+      <div id="libTagsBody"><p class="text-muted">Chargement…</p></div>
     </div>
   </div>
 
@@ -225,6 +254,9 @@
   <script src="assets/js/library.js"></script>
   <script src="assets/js/library-tags.js"></script>
   <script src="assets/js/session-edit-page.js"></script>
+  <script src="assets/js/session-templates.js"></script>
   <script src="assets/js/session-library.js"></script>
+  <script src="assets/js/rpe.js"></script>
+  <script src="assets/js/session-rpe.js"></script>
 </body>
 </html>

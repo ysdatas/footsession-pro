@@ -1,0 +1,53 @@
+/* ============================================================
+   LMFC Performance — RPE après la séance (rpe.js, session-rpe.js)
+   Saisie du joueur : dix touches de 44 px au moins, une couleur par
+   valeur (du vert au rouge), la réponse choisie entourée.
+   ============================================================ */
+.rpe-modal { max-width: 440px; }
+.rpe-session { margin: -6px 0 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
+.rpe-q { margin: 0 0 10px; font-weight: 600; }
+.rpe-scale { display: grid; gap: 6px; }
+.rpe-opt {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 46px; padding: 4px 12px 4px 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary);
+  font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.rpe-opt b { display: grid; place-items: center; height: 38px; border-radius: var(--radius-sm); background: var(--rpe); color: #0A0A0A; font: 600 1.1rem/1 var(--font-num); }
+.rpe-opt:hover { border-color: var(--rpe); }
+.rpe-opt[aria-pressed="true"] { border-color: var(--rpe); box-shadow: inset 0 0 0 1px var(--rpe); background: var(--bg-hover); font-weight: 600; }
+.rpe-opt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.rpe-help { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+.rpe-status { min-height: 1.5em; margin: 8px 0 0; font-weight: 600; }
+.rpe-of { margin-left: 2px; font-size: var(--fs-sm); color: var(--text-secondary); }
+
+/* Fiche d'une séance dans le calendrier (joueur) */
+.cal-rpe { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cal-rpe p { flex: 1 1 200px; margin: 0; }
+
+/* Évolution d'un joueur (fiche) */
+.rpe-trend-sum { margin: 0 0 12px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.rpe-cols { display: flex; align-items: flex-end; gap: 6px; min-height: 150px; overflow-x: auto; padding-bottom: 2px; }
+.rpe-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 0 0 30px; }
+.rpe-col-v { font: 500 var(--fs-xs)/1 var(--font-num); color: var(--text-primary); }
+.rpe-col-bar { width: 100%; height: var(--h); border-radius: 4px 4px 0 0; background: var(--rpe); }
+.rpe-col-d { font: 400 10px/1 var(--font-num); color: var(--text-secondary); }
+.rpe-note { margin: 8px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+
+/* Bloc de la séance (staff) */
+.srpe-sum { margin: 0 0 10px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.srpe-sum strong { color: var(--text-primary); font-family: var(--font-num); font-weight: 500; }
+.srpe-list { display: grid; gap: 4px; margin-bottom: 12px; }
+.srpe-row { display: grid; grid-template-columns: minmax(110px, 1.2fr) minmax(80px, 2fr) 26px minmax(90px, 1fr) auto; align-items: center; gap: 10px; min-height: 36px; }
+.srpe-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srpe-bar { height: 10px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; }
+.srpe-bar span { display: block; width: var(--w); height: 100%; border-radius: inherit; background: var(--rpe); }
+.srpe-v { font-family: var(--font-num); font-weight: 500; text-align: right; }
+.srpe-l { font-size: var(--fs-xs); color: var(--text-secondary); }
+.srpe-miss-h { margin: 0 0 6px; font-size: var(--fs-sm); font-weight: 600; }
+.srpe-miss { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.srpe-help { margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+@media (max-width: 600px) {
+  .srpe-row { grid-template-columns: minmax(0, 1fr) 26px auto; row-gap: 4px; }
+  .srpe-bar { grid-column: 1 / -1; grid-row: 2; }
+  .srpe-l { display: none; }
+}

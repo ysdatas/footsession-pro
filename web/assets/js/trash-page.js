@@ -33,6 +33,7 @@ const CHILD_WORDS = {
   player_physical_measurements: ['mesure', 'mesures'], player_physical_tests: ['session de tests', 'sessions de tests'],
   program_exercises: ['exercice du programme', 'exercices du programme'], player_career: ['club du parcours', 'clubs du parcours'],
   player_programs: ['ancienne prévention', 'anciennes préventions'], club_access: ['accès en attente', 'accès en attente'],
+  exercise_template_tags: ['tag', 'tags'],
 };
 
 const trash = { roots: [], kids: new Map(), players: new Map(), people: new Map(), picked: new Set() };

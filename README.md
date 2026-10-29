@@ -131,6 +131,20 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            supprimer), recherche, procedures.library_version_id (version figée),
                                            partage refusé si la séance est vue par quelqu'un sans accès à la vidéo,
                                            lien public sans la bibliothèque, suppression protégée (rejouable)
+44. supabase/lmfc_v26.sql                  tags des schémas enregistrés (exercise_template_tags) : les tags de la
+                                           bibliothèque vidéo, comptés, fusionnés et supprimés avec les schémas ;
+                                           lecture staff, écriture admin et coachs, corbeille (rejouable)
+45. supabase/lmfc_v27.sql                  matchs : heure, stade, import du calendrier FFF (ext_source, ext_id
+                                           unique par club, ext_data = dernière valeur importée, ext_synced_at) ;
+                                           droits inchangés (rejouable)
+46. supabase/lmfc_v28.sql                  calendrier : sessions.heure, club_events (événements d'une équipe ou du
+                                           club ; lecture staff par équipe et joueurs concernés, écriture admin et
+                                           coachs de l'équipe), my_calendar() pour le joueur (sans notes du staff),
+                                           corbeille avec l'équipe (rejouable)
+47. supabase/lmfc_v29.sql                  RPE après la séance : session_rpe (1 à 10, un par joueur et par séance,
+                                           saisi par / corrigé par), rpe_set() seule écriture (joueur : ses séances,
+                                           jour même à J+2 ; staff du joueur : correction marquée), my_rpe_sessions(),
+                                           rpe_history() ; ni autres joueurs ni lecteur ; corbeille (rejouable)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -225,7 +239,7 @@ de visionnage n'enregistre rien.**
 | `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
 | `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique. Bibliothèque vidéo : consulte ce qu'on lui ouvre (`lmfc_v24.sql`) |
 | `lecteur` | Consultation seule (un scout) : **tous les joueurs du club**, toutes équipes (fiche, parcours, objectifs, préventions, programme, performance, vidéos, séquences, statistiques de visionnage). Ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
-| `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos. Il découpe, sélectionne et annote ses séquences et les envoie au staff. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
+| `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos, son calendrier (séances, matchs et événements de ses équipes, sans les notes du staff). Il découpe, sélectionne et annote ses séquences et les envoie au staff ; il note son RPE après chaque séance (`lmfc_v29.sql`). Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen, les statistiques de visionnage ni le RPE des autres |
 
 `platform_v2.sql` avait fondu `analyste`, `prepa` et `viewer` dans `coach` ; `lmfc_v4.sql` rétablit `prepa`.
 
@@ -508,7 +522,41 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   compétition, lieu, score, informations, commentaire général, à retenir) et ses joueurs
   (« Ajouter l'effectif » ou recherche dans le club ; statut, minutes, buts, passes, + / = / −,
   commentaire). Onglet **Par joueur** : totaux et frise de ses matchs. Tout le staff consulte,
-  admin et coachs saisissent.
+  admin et coachs saisissent. Heure et stade (`lmfc_v27.sql`) ; `matchs.html?id=…` ouvre un match.
+  **Importer depuis la FFF** (`matchs-fff.js`, `fff-import.js`) : la FFF n'ouvre pas d'API aux clubs
+  (vérifié en octobre 2026 : requêtes serveur refusées, feuilles de match fermées depuis 2024, API
+  annoncée comme fermée prochainement). Le staff copie la page du club sur epreuves.fff.fr (tout
+  sélectionner, copier) et la colle : rencontres reconnues (date, heure, stade, compétition, journée,
+  équipes, score ou forfait), notre côté trouvé seul (sinon « Nous : … » à choisir), aperçu par
+  compétition, état de chaque ligne (Nouveau, Mis à jour, À jour, Gardé). Une rencontre = une clé
+  (saison, compétition, journée ou tour, domicile, extérieur ; plateaux : la date) : un report met à
+  jour, jamais de doublon (index unique). Un champ modifié par le staff n'est plus remplacé ;
+  commentaire, informations, à retenir et joueurs ne sont jamais touchés. Pas de joueurs importés
+  (feuilles de match fermées). Sans la FFF, la saisie manuelle reste entière. Tests :
+  `tests/fff-import.test.mjs` (texte réel de la page, `tests/fixtures-fff-calendrier.txt`),
+  `tests/matches-sql.test.mjs`.
+- **Calendrier** (`calendrier.html`, `calendrier-page.js`, `calendar-utils.js`, `calendar.css`, `lmfc_v28.sql`) —
+  staff (menu, après Joueurs : les quatre onglets du téléphone ne bougent pas) et joueurs (onglet
+  « Agenda »). Rien n'est recopié : séances (`date_seance`, `heure`) et matchs (`date_match`, `heure`)
+  sont lus dans leurs tables, une date changée se voit aussitôt ; les autres événements sont dans
+  `club_events` (une équipe, ou tout le club). Vues Mois (6 semaines, hauteur fixe ; points et détail
+  du jour sur téléphone), Semaine, À venir (60 jours) ; filtre Séances / Matchs / Événements (mémorisé
+  sur l'appareil) ; équipe = sélecteur du menu (et ce qui concerne tout le club). Staff : une séance ouvre
+  l'éditeur, un match sa fiche (`matchs.html?id=`). Joueur : `my_calendar()` (ses équipes, ses invitations ;
+  date, heure, titre, lieu, score, jamais les notes de séance ni les informations du match) et une fiche
+  résumée. « + Événement » : admin (tout le club ou une équipe), coachs (leurs équipes) ; la base refuse le
+  reste. Tests : `tests/calendar-sql.test.mjs`, `tests/calendar-utils.test.mjs`.
+- **RPE après la séance** (`rpe.js`, `session-rpe.js`, `rpe.css`, `lmfc_v29.sql`) — perception de l'effort
+  du joueur, de 1 à 10 (libellés CR-10, couleur du vert au rouge). Joueur : carte « Note ton effort » en
+  tête de **Mon espace** (séances de ses équipes ou où il est invité, du jour même à J+2) et bouton dans
+  la fiche d'une séance du **Calendrier** ; dix touches, un geste, enregistré aussitôt ; modifiable dans le
+  délai, plus après une correction du staff. Staff : bloc **RPE des joueurs** dans la séance (réponses sur
+  participants, moyenne, plus bas, plus haut, une barre par joueur, « Sans réponse », « noté absent »),
+  correction ou saisie à la place du joueur, toujours marquées « saisi par le staff » ; **RPE après les
+  séances** sur la fiche du joueur (onglet Performance, 20 dernières séances, vu aussi par le joueur).
+  Séparé du bilan du staff ; aucun calcul de charge ni alerte tant que le staff n'en a pas fixé les
+  règles. Un joueur noté absent peut quand même répondre (la présence est « absent » par défaut tant que
+  l'appel n'est pas fait) : le bloc le signale. Test : `tests/rpe-sql.test.mjs`.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne
@@ -754,7 +802,13 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   Dans une séance, « Schémas » → « Insérer » crée le procédé avec le texte du modèle ET
   son schéma : aperçu tout de suite, copie de l'image et du dessin au premier enregistrement
   (`attachTemplateSchema`, `session-edit-page.js`), modifiable ensuite dans le tableau. Un modèle
-  créé par ☆ depuis un procédé garde aussi son dessin.
+  créé par ☆ depuis un procédé garde aussi son dessin. La fenêtre « Schémas »
+  (`session-templates.js`) cherche par nom (casse et accents ignorés), par type et par tags (« Tous
+  les tags » / « Au moins un »), critères combinés ; « + tag » sur une carte. Les tags sont ceux de
+  la bibliothèque vidéo (`lmfc_v26.sql`) : jamais deux de même clé, « Gérer les tags » (renommer,
+  fusionner, supprimer) vaut pour les deux. Ils classent le modèle sans toucher à son dessin ni aux
+  séances. Sans la migration, la fenêtre marche comme avant, sans tags. Tests :
+  `tests/templates-tags-sql.test.mjs`, `tests/templates-logic.test.mjs`.
 - **Raccourcis** : `Ctrl+Z` annuler, `Suppr` supprimer l'élément sélectionné.
 - **Sauvegarde** : auto en LocalStorage (30 s) ; « Enregistrer » (panneau Exporter) enregistre le JSON en
   base ; **Valider ce schéma** enregistre l'image dans le procédé et revient à la séance.

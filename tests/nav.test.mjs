@@ -35,6 +35,11 @@ for (const k of ['videos', 'tactical', 'analytics', 'club']) assert.ok(!prepa.in
 // Un joueur n'a aucune rubrique du staff.
 assert.equal(keys('joueur', {}).length, 0, 'joueur : pas de menu staff');
 
+// Calendrier (lmfc_v28.sql) : tout le staff, jamais le lecteur ; après les quatre onglets du
+// téléphone, qui restent Accueil, Séances, Matchs, Joueurs.
+for (const role of ['admin', 'coach', 'prepa']) assert.ok(keys(role, {}).includes('calendar'), `${role} : Calendrier`);
+assert.equal(keys('coach', {}).slice(0, 4).join(), 'dashboard,sessions,matches,players', 'onglets du téléphone inchangés');
+
 // Lecteur (scout, lmfc_v22.sql) : joueurs, performance, vidéos et FAQ, rien d'autre.
 assert.equal(keys('lecteur', {}).join(), 'players,performance,videos,faq', 'lecteur : menu de consultation');
 

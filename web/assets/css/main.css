@@ -692,7 +692,7 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
 .pa-tabbar { display: none; }
 @media (max-width: 980px) {
   .pa-tabbar {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px;   /* autant de colonnes que d'onglets */
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 44;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
     background: rgba(12,12,12,.9); -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
@@ -705,6 +705,7 @@ select.obj-status { width: auto; min-height: 32px; padding: 4px 26px 4px 10px; c
   }
   .pa-tab:active { background: rgba(255,255,255,.06); }
   .pa-tab .ic { width: 22px; height: 22px; }
+  .pa-tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pa-tab.is-active { color: var(--gold); }
   body.pa-body, body[data-shell="player"] { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   body.pa-body #toast-stack { bottom: calc(84px + env(safe-area-inset-bottom)); }

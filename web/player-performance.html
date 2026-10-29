@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="assets/css/excel-import.css">
   <link rel="stylesheet" href="assets/css/player.css">
   <link rel="stylesheet" href="assets/css/videos.css">
+  <link rel="stylesheet" href="assets/css/rpe.css">
   <script src="assets/js/theme.js"></script>
 </head>
 <body class="app fp-fm-page">
@@ -165,6 +166,12 @@
           </div>
           <div id="trendChart" class="trend-chart"></div>
           <div id="measurementHistory"></div>
+        </section>
+
+        <!-- RPE après les séances : perception de l'effort du joueur (rpe.js, lmfc_v29.sql) -->
+        <section class="card hidden" id="rpeCard">
+          <div class="section-head"><div><h2>RPE après les séances</h2></div></div>
+          <div id="rpeTrend" class="rpe-trend"></div>
         </section>
       </section>
 
@@ -405,6 +412,7 @@
   <script src="assets/js/video-compile.js"></script>
   <script src="assets/js/video-fastcompile.js"></script>
   <script src="assets/js/player-videos.js"></script>
+  <script src="assets/js/rpe.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/excel-match.js"></script>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>LMFC Performance — Calendrier</title>
+  <link rel="preload" href="assets/fonts/plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/calendar.css">
+  <link rel="stylesheet" href="assets/css/rpe.css">
+  <script src="assets/js/theme.js"></script>
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <nav class="nav" aria-label="Menu principal"></nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div><p class="page-kicker" aria-hidden="true">&nbsp;</p>
+        <h1>Calendrier</h1>
+        <p class="subtitle" id="calStatus" role="status" aria-live="polite">Chargement…</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary hidden" id="calAdd" type="button">+ Événement</button>
+      </div>
+    </div>
+
+    <div class="cal-bar">
+      <div class="cal-nav">
+        <button class="btn btn-sm" type="button" id="calPrev" aria-label="Période précédente">‹</button>
+        <button class="btn btn-sm" type="button" id="calToday">Aujourd’hui</button>
+        <button class="btn btn-sm" type="button" id="calNext" aria-label="Période suivante">›</button>
+        <h2 class="cal-title" id="calTitle">&nbsp;</h2>
+      </div>
+      <div class="segmented" role="group" aria-label="Affichage">
+        <button type="button" data-cal-view="month" aria-pressed="true">Mois</button>
+        <button type="button" data-cal-view="week" aria-pressed="false">Semaine</button>
+        <button type="button" data-cal-view="list" aria-pressed="false">À venir</button>
+      </div>
+      <div class="cal-kinds" role="group" aria-label="Afficher">
+        <button type="button" class="cal-kind-btn k-seance" data-cal-kind="seance" aria-pressed="true">Séances</button>
+        <button type="button" class="cal-kind-btn k-match" data-cal-kind="match" aria-pressed="true">Matchs</button>
+        <button type="button" class="cal-kind-btn k-evenement" data-cal-kind="evenement" aria-pressed="true">Événements</button>
+      </div>
+    </div>
+
+    <div id="calBody" class="cal-body"></div>
+  </main>
+
+  <!-- Fiche résumée (joueur, préparateur) -->
+  <div class="modal-backdrop" id="calDetailModal">
+    <div class="modal">
+      <h2 class="as-h3" id="calDetailTitle">&nbsp;</h2>
+      <div id="calDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Événement du club : ajout, modification (admin, coachs de l'équipe ; la base décide) -->
+  <div class="modal-backdrop" id="calEventModal">
+    <div class="modal">
+      <h2 class="as-h3" id="calEventTitle">Nouvel événement</h2>
+      <div class="field"><label for="ev-titre">Titre</label><input id="ev-titre" maxlength="120" required placeholder="Ex : Réunion des parents, stage, tournoi…"></div>
+      <div class="field-row">
+        <div class="field"><label for="ev-date">Date</label><input id="ev-date" type="date" required></div>
+        <div class="field"><label for="ev-heure">Heure</label><input id="ev-heure" type="time"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="ev-team">Pour</label><select id="ev-team"></select></div>
+        <div class="field"><label for="ev-lieu">Lieu</label><input id="ev-lieu" maxlength="120"></div>
+      </div>
+      <div class="field"><label for="ev-notes">Informations</label><textarea id="ev-notes" rows="3" maxlength="1000" placeholder="Visibles par les joueurs concernés"></textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger hidden" id="ev-delete" type="button">Supprimer</button>
+        <span class="cal-spacer"></span>
+        <button class="btn" type="button" data-close="calEventModal">Annuler</button>
+        <button class="btn btn-primary" id="ev-save" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav-mobile.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/player-nav.js"></script>
+  <script src="assets/js/calendar-utils.js"></script>
+  <script src="assets/js/rpe.js"></script>
+  <script src="assets/js/calendrier-page.js"></script>
+</body>
+</html>

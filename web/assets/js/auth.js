@@ -95,7 +95,7 @@ async function requireAuth(opts = {}) {
      ses vidéos. */
   const currentPage = (window.location.pathname.split('/').pop() || '')
     .replace(/\.html$/i, '') || 'index';
-  const PLAYER_PAGES = ['mon-espace', 'mes-videos', 'voir-video', 'player-performance', 'mon-programme'];
+  const PLAYER_PAGES = ['mon-espace', 'mes-videos', 'voir-video', 'player-performance', 'mon-programme', 'calendrier'];
   if (profile.role === 'joueur' && !PLAYER_PAGES.includes(currentPage)) {
     console.warn(`requireAuth: page « ${currentPage} » interdite au rôle joueur, renvoi sur son espace`);
     window.location.replace(homeFor(profile));

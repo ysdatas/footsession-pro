@@ -1,6 +1,8 @@
 /* Retours de match (supabase/lmfc_v11.sql) sur un vrai Postgres (PGlite,
    WASM), RLS active : le staff lit, admin et coachs écrivent, le joueur
-   ne voit rien ; club vérifié ; corbeille avec les joueurs du match.
+   ne voit rien ; club vérifié ; corbeille avec les joueurs du match ;
+   matchs importés de la FFF (lmfc_v27.sql) : heure, stade, une seule fois
+   par club, droits inchangés.
    Lancement : npm i --no-save @electric-sql/pglite && node tests/matches-sql.test.mjs
    (sans PGlite installé, le test est ignoré). */
 import { readFileSync } from 'node:fs';
@@ -61,6 +63,8 @@ await db.exec(read('lmfc_v5.sql'));
 await db.exec(read('lmfc_v9.sql'));
 await db.exec(read('lmfc_v11.sql'));
 await db.exec(read('lmfc_v11.sql'));   // rejouable
+await db.exec(read('lmfc_v27.sql'));
+await db.exec(read('lmfc_v27.sql'));   // rejouable
 await db.exec(`grant usage on all sequences in schema public to authenticated;`);
 
 const as = async (uid, fn) => {
@@ -106,4 +110,26 @@ assert.ok(root, 'match visible dans la corbeille du coach');
 await as(COACH, () => q(`select public.trash_restore($1)`, [[root.id]]));
 assert.equal(Number((await one(`select count(*) n from public.match_players where match_id = $1`, [m.id])).n), 2, 'joueurs restaurés');
 
-console.log('matches-sql : OK (5 scénarios)');
+// 6) Import FFF (lmfc_v27.sql) : une rencontre une seule fois par club ; matchs saisis non concernés.
+const ext = { date_match: '2026-11-07', heure: '18:00', competition: 'N2 - Senior', adversaire: 'FONTENAY VENDEE', lieu: 'exterieur' };
+const imp = await as(COACH, () => one(`insert into public.matches (club_id, team_id, adversaire, date_match, heure, stade, competition, lieu,
+  ext_source, ext_id, ext_data, ext_synced_at) values (1, 1, 'FONTENAY VENDEE', '2026-11-07', '18:00', 'Stade Massabielle', 'N2 - Senior', 'exterieur',
+  'fff', '2026-2027|N2 SENIOR|JOURNEE 7|FONTENAY VENDEE|LE MANS FC 2', $1, now()) returning id, heure`, [ext]));
+assert.equal(imp.heure, '18:00:00', 'heure du match');
+await assert.rejects(as(ADMIN, () => q(`insert into public.matches (club_id, adversaire, date_match, ext_source, ext_id)
+  values (1, 'Doublon', '2026-11-07', 'fff', '2026-2027|N2 SENIOR|JOURNEE 7|FONTENAY VENDEE|LE MANS FC 2')`)), /duplicate|unique/, 'même rencontre, même club : refusée');
+await q(`insert into public.matches (club_id, adversaire, date_match, ext_source, ext_id) values (2, 'Autre club', '2026-11-07', 'fff', '2026-2027|N2 SENIOR|JOURNEE 7|FONTENAY VENDEE|LE MANS FC 2')`);
+await as(COACH, () => q(`insert into public.matches (club_id, team_id, adversaire, date_match) values (1, 1, 'Amical A', '2026-11-11'), (1, 1, 'Amical B', '2026-11-11')`));
+await assert.rejects(q(`insert into public.matches (club_id, adversaire, date_match, ext_source) values (1, 'X', '2026-11-12', 'fff')`), /check/, 'source sans identifiant');
+await assert.rejects(q(`insert into public.matches (club_id, adversaire, date_match, ext_source, ext_id) values (1, 'X', '2026-11-12', 'ffr', 'x')`), /check/, 'source inconnue');
+await as(COACH, () => q(`update public.matches set adversaire = 'Fontenay', commentaire = 'Bloc bas' where id = $1`, [imp.id]));
+assert.equal((await one(`select ext_data->>'adversaire' a from public.matches where id = $1`, [imp.id])).a, 'FONTENAY VENDEE', 'valeur importée gardée à part');
+assert.equal((await as(JOUEUR, () => q(`select id from public.matches where ext_id is not null`))).rows.length, 0, 'joueur : rien');
+await assert.rejects(as(PREPA, () => q(`update public.matches set heure = '20:00' where id = $1 returning id`, [imp.id])).then(r => { if (!r.rows.length) throw new Error('row-level security : rien modifié'); }),
+  /row-level security/, 'préparateur : pas de modification');
+await as(COACH, () => q(`delete from public.matches where id = $1`, [imp.id]));
+const root2 = await as(COACH, () => one(`select id from public.trash where tbl = 'matches' and row_id = $1`, [imp.id]));
+await as(COACH, () => q(`select public.trash_restore($1)`, [[root2.id]]));
+assert.equal((await one(`select ext_id from public.matches where id = $1`, [imp.id])).ext_id, '2026-2027|N2 SENIOR|JOURNEE 7|FONTENAY VENDEE|LE MANS FC 2', 'restauré avec sa source');
+
+console.log('matches-sql : OK (6 scénarios)');

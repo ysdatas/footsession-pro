@@ -5,7 +5,7 @@
      en bas avec la déconnexion).
    - Téléphone : barre du haut avec le blason, menu repliable, et
      onglets en bas, à portée de pouce.
-   Rubriques : Accueil · Performance · Vidéos · Objectifs.
+   Rubriques : Accueil · Calendrier · Performance · Vidéos · Objectifs.
    Les pages 100 % joueur portent <body data-shell="player"> : la
    coque s'affiche dès le chargement. La page Performance, partagée
    avec le staff, l'affiche seulement pour un compte joueur.
@@ -15,12 +15,14 @@
 
 const PLAYER_NAV = [
   ['mon-espace', 'Accueil', 'Accueil', 'home'],
-  ['player-performance', 'Ma performance', 'Performance', 'activity'],
+  ['calendrier', 'Calendrier', 'Agenda', 'calendar'],
+  ['player-performance', 'Ma performance', 'Perf.', 'activity'],
   ['mes-videos', 'Mes vidéos', 'Vidéos', 'video'],
   ['mon-programme', 'Objectifs & préventions', 'Objectifs', 'target'],
 ];
 const PA_ICON = {
   home: '<path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
   activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
   video: '<path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.41V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',

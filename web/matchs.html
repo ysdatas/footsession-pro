@@ -34,6 +34,7 @@
         <p class="subtitle" id="matchSub">Chargement…</p>
       </div>
       <div class="page-actions">
+        <button class="btn hidden" id="btnFff" type="button">Importer depuis la FFF</button>
         <button class="btn btn-primary hidden" id="btnNewMatch" type="button">+ Nouveau match</button>
       </div>
     </div>
@@ -57,15 +58,18 @@
   <div class="modal-backdrop" id="matchModal">
     <div class="modal mt-modal">
       <h2 class="as-h3" id="matchModalTitle">Nouveau match</h2>
+      <p class="mt-ext hidden" id="m-ext"></p>
       <p class="form-kicker">Match</p>
       <div class="field-row">
         <div class="field"><label for="m-adv">Adversaire</label><input id="m-adv" maxlength="120" required></div>
         <div class="field"><label for="m-date">Date</label><input id="m-date" type="date" required></div>
+        <div class="field"><label for="m-heure">Heure</label><input id="m-heure" type="time"></div>
       </div>
       <div class="field-row">
         <div class="field"><label for="m-comp">Compétition</label><input id="m-comp" placeholder="Ex : N2, Coupe de France…"></div>
         <div class="field"><label for="m-lieu">Lieu</label>
           <select id="m-lieu"><option value="">—</option><option value="domicile">Domicile</option><option value="exterieur">Extérieur</option><option value="neutre">Terrain neutre</option></select></div>
+        <div class="field"><label for="m-stade">Stade</label><input id="m-stade" maxlength="120"></div>
         <div class="field hidden" id="m-team-field"><label for="m-team">Équipe</label><select id="m-team"></select></div>
       </div>
       <p class="form-kicker">Résultat</p>
@@ -95,6 +99,31 @@
     </div>
   </div>
 
+  <!-- Import du calendrier FFF (matchs-fff.js) -->
+  <div class="modal-backdrop" id="fffModal">
+    <div class="modal fff-modal">
+      <h2 class="as-h3">Importer depuis la FFF</h2>
+      <ol class="fff-help">
+        <li>Ouvrez <a href="https://epreuves.fff.fr/competition/club/537103-le-mans-football-club/club" target="_blank" rel="noopener">la page du club sur epreuves.fff.fr</a>, choisissez le mois.</li>
+        <li>Sélectionnez toute la page (Ctrl+A ou ⌘A), copiez, puis collez ci-dessous.</li>
+        <li>Cochez les compétitions de l’équipe, vérifiez, importez. Rien n’est enregistré avant.</li>
+      </ol>
+      <div class="field-row">
+        <div class="field" id="fffTeamField"><label for="fffTeam">Équipe</label><select id="fffTeam"></select></div>
+      </div>
+      <div class="field"><label for="fffText">Calendrier copié</label>
+        <textarea id="fffText" rows="5" placeholder="Collez ici la page du club (calendrier du mois)"></textarea></div>
+      <div class="fff-actions"><button class="btn" type="button" id="fffAnalyse">Analyser</button></div>
+      <p class="fff-status" id="fffStatus" role="status" aria-live="polite"></p>
+      <div id="fffPreview" class="fff-preview"></div>
+      <div class="modal-actions">
+        <span class="mt-spacer"></span>
+        <button class="btn" type="button" data-close="fffModal">Fermer</button>
+        <button class="btn btn-primary hidden" type="button" id="fffGo">Importer</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
@@ -102,6 +131,8 @@
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
   <script src="assets/js/procedure-time.js"></script>
+  <script src="assets/js/fff-import.js"></script>
   <script src="assets/js/matchs-page.js"></script>
+  <script src="assets/js/matchs-fff.js"></script>
 </body>
 </html>

@@ -4,7 +4,8 @@
    (statut, minutes, buts, passes, + / = / −, commentaire court) et
    l'historique de chaque joueur au fil des matchs.
    Tout le staff consulte ; administrateur et coachs saisissent
-   (la base refuse les autres).
+   (la base refuse les autres). Heure, stade et import du calendrier
+   FFF : lmfc_v27.sql, matchs-fff.js. matchs.html?id=… ouvre un match.
    ============================================================ */
 
 const STATUTS_MATCH = [['titulaire', 'Titulaire'], ['remplacant', 'Remplaçant'], ['non_entre', 'Non entré']];
@@ -47,6 +48,7 @@ const noteHtml = (k) => {
     const btn = document.getElementById('btnNewMatch');
     btn.classList.remove('hidden');
     btn.addEventListener('click', () => openMatch(null));
+    initFffImport();
   }
   initTabs();
   initEditor();
@@ -65,7 +67,19 @@ const noteHtml = (k) => {
 
   await Promise.all([loadPlayers(), loadMatches()]);
   renderPlayerPick();
+  openMatchFromUrl();
 })();
+
+/* matchs.html?id=… (calendrier, liens) : ouvre ce match, même hors de l'équipe choisie. */
+async function openMatchFromUrl() {
+  const id = Number(new URLSearchParams(location.search).get('id'));
+  if (!id) return;
+  const known = matches.find(m => m.id === id);
+  if (known) return openMatch(known);
+  const { data, error } = await sb.from('matches').select('*').eq('id', id).maybeSingle();
+  if (error || !data) return toast(error?.message || 'Match introuvable, ou réservé à une autre équipe.', 'error');
+  openMatch(data);
+}
 
 /* ---------- Onglets « Matchs » / « Par joueur » (mémorisés) ---------- */
 function initTabs() {
@@ -111,7 +125,7 @@ function renderMatches() {
   document.getElementById('matchList').innerHTML = matches.length
     ? `<div class="mt-list">${matches.map(m => {
         const players = m.match_players?.[0]?.count;
-        const sub = [m.competition, LIEUX[m.lieu], !currentTeamId() && teamName(m.team_id)].filter(Boolean).map(escapeHtml).join(' · ');
+        const sub = [m.heure?.slice(0, 5), m.competition, LIEUX[m.lieu], !currentTeamId() && teamName(m.team_id)].filter(Boolean).map(escapeHtml).join(' · ');
         return `<button type="button" class="mt-row" data-match="${m.id}">
           <span class="mt-date">${fmtDateFr(m.date_match)}</span>
           <span class="mt-main"><strong>${escapeHtml(m.adversaire)}</strong>${sub ? `<small>${sub}</small>` : ''}</span>
@@ -135,7 +149,12 @@ async function openMatch(m) {
   editing = { id: m?.id || null, rows: new Map(), removed: new Set(), editable: canEditMatch(m) };
   const set = (id, v) => { document.getElementById(id).value = v ?? ''; };
   set('m-adv', m?.adversaire); set('m-date', m?.date_match || new Date().toISOString().slice(0, 10));
+  set('m-heure', m?.heure?.slice(0, 5)); set('m-stade', m?.stade);
   set('m-comp', m?.competition); set('m-lieu', m?.lieu); set('m-pour', m?.score_pour); set('m-contre', m?.score_contre);
+  const ext = document.getElementById('m-ext');
+  ext.textContent = m?.ext_source === 'fff' ? `Importé de la FFF${m.ext_data?.journee ? ` (${m.ext_data.journee})` : ''}`
+    + `${m.ext_synced_at ? ` le ${fmtDateFr(m.ext_synced_at)}` : ''}. Ce que vous modifiez ici n’est plus remplacé par l’import.` : '';
+  ext.classList.toggle('hidden', !ext.textContent);
   set('m-infos', m?.infos); set('m-comment', m?.commentaire); set('m-retenir', m?.a_retenir);
   const teams = window.CLUB_TEAMS || [];
   document.getElementById('m-team-field').classList.toggle('hidden', !teams.length);
@@ -250,7 +269,8 @@ async function saveMatch() {
   if (!adversaire || !date_match) return toast('Adversaire et date sont obligatoires.', 'error');
   const score = (id) => (val(id) === '' ? null : Math.max(0, Math.round(Number(val(id)))));
   const row = {
-    adversaire, date_match, competition: val('m-comp') || null, lieu: val('m-lieu') || null,
+    adversaire, date_match, heure: val('m-heure') || null, stade: val('m-stade') || null,
+    competition: val('m-comp') || null, lieu: val('m-lieu') || null,
     score_pour: score('m-pour'), score_contre: score('m-contre'), infos: val('m-infos') || null,
     commentaire: val('m-comment') || null, a_retenir: val('m-retenir') || null,
   };

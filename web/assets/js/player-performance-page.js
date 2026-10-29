@@ -918,6 +918,7 @@ async function loadPage() {
   player = p;
   if (ctxProfile.role === 'joueur') { setPlayerShellUser(player); applyPlayerVisibility(); }
   else setupVisibilityToggles();
+  renderRpeTrend(player.id);   // RPE après les séances (rpe.js) : le joueur et le staff qui le suit
   // Onglet Vidéos ouvert d'emblée (?tab=videos) : il attendait la fiche et restait sur « Chargement… ».
   if (!pfVideosMounted && document.querySelector('[data-pf-tab="videos"][aria-selected="true"]')) showTab('videos', false);
 

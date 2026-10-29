@@ -159,6 +159,12 @@
 .lib-name { font-weight: 600; font-size: var(--fs-md); }
 .lib-cat { font-size: var(--fs-xs); color: var(--gold); margin-bottom: 8px; min-height: .8em; }
 .lib-actions { display: flex; gap: 6px; }
+/* Fenêtre « Schémas » : recherche, type, tags (session-templates.js) */
+.tpl-modal { max-width: 720px; }
+.tpl-modal .library-grid { min-height: 120px; }
+.tpl-tags { margin: -2px 0 8px; align-items: center; }
+.tpl-tag-combo { flex: 1 1 120px; min-width: 0; }
+.tpl-tag-combo input { width: 100%; }
 
 @media (max-width: 820px) {
   .proc.expanded .proc-body { grid-template-columns: minmax(0, 1fr); }

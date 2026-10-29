@@ -185,8 +185,10 @@ async function saveAll() {
   const titre = document.getElementById('f-titre').value.trim();
   const date_seance = document.getElementById('f-date').value;
   if (!titre || !date_seance) return 'invalid';
+  const heure = document.getElementById('f-heure').value;
   const sessionRow = {
     titre, date_seance,
+    heure: heure ? `${heure.slice(0, 5)}:00` : null,   // relue « 18:00:00 » : même écriture, pas de faux conflit (adoptOwnWrite)
     principes_jeu: document.getElementById('f-principe').value.trim() || null,
     equipe: document.getElementById('f-equipe').value.trim() || null,
     equipes: [],   // les chasubles vivent sur chaque procédé (procedures.equipes)

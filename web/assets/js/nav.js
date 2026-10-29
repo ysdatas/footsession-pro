@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: ALL_STAFF },   // prépa : séances ouvertes (lmfc_v10.sql)
   { key: 'matches',     href: 'matchs.html',         label: 'Retours de match',  roles: ALL_STAFF },   // prépa : lecture (lmfc_v11.sql)
   { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: [...ALL_STAFF, READER] },
+  { key: 'calendar',    href: 'calendrier.html',     label: 'Calendrier',        roles: ALL_STAFF },   // après les 4 onglets du téléphone (lmfc_v28.sql)
   { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: [...ALL_STAFF, READER] },
   { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: [...STAFF_ROLES, READER] },
   { key: 'library',     href: 'bibliotheque.html',   label: 'Bibliothèque vidéo', roles: ALL_STAFF },   // prépa : ce qu'on lui ouvre (lmfc_v24.sql)
