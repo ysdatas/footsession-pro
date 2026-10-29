@@ -123,7 +123,43 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 40. supabase/lmfc_v22.sql                  rôle lecteur (scout) : lecture de tout le club, ni séances ni matchs,
                                            can_read_videos(), et trois règles restrictives par table protégée
                                            (lecteur_no_insert / _update / _delete) : aucune écriture (rejouable)
+42. supabase/lmfc_v24.sql                  bibliothèque vidéo (1/2) : fichiers (library_files, empreinte SHA-256
+                                           unique par club), procédés (library_items), versions, tags, accès
+                                           nominatifs ; niveaux library_level (aucun / lecture / modification /
+                                           gestion), limites d'octroi, règles lecteur (rejouable)
+43. supabase/lmfc_v25.sql                  bibliothèque vidéo (2/2) : tags (sans doublon, renommer, fusionner,
+                                           supprimer), recherche, procedures.library_version_id (version figée),
+                                           partage refusé si la séance est vue par quelqu'un sans accès à la vidéo,
+                                           lien public sans la bibliothèque, suppression protégée (rejouable)
 ```
+
+### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
+
+- **Séparé** : le fichier R2 (`library_files`, `r2/<club>/lib/<horodatage>.<ext>`, même bucket et
+  même Worker que les vidéos joueurs), le procédé (`library_items` : titre, consignes, statut,
+  accès), ses versions (`library_versions`), les tags (`library_tags`, `library_item_tags`), les
+  exceptions nominatives (`library_access`) et le lien avec la séance (`procedures.library_item_id`,
+  `library_version_id`, `library_titre`). Un même fichier n'est envoyé qu'une fois par club
+  (empreinte), puis réutilisé par plusieurs procédés et séances.
+- **Droits** (`library_level`) : admin → gestion ; créateur (coach) → gestion ; exception
+  nominative ; sinon rôle coché (coachs, préparateurs) **et** équipe commune (aucune = tout le club)
+  → consultation, ou modification pour les coachs si le procédé le permet. Lecteur et joueur :
+  rien. Ajouter : admin et coachs. Hors admin, on n'ouvre une vidéo qu'à ses propres équipes et
+  jamais à tout le club (club sans équipes excepté) ; un fichier ne s'attache à un procédé que si
+  on le lit déjà ou qu'on en donne l'empreinte. Le Worker signe un chemin `lib` seulement si la RLS
+  de `library_files` le montre, et n'efface un fichier que si `library_file_release` l'autorise.
+- **Séance** : un procédé garde la version choisie ; remplacer la vidéo n'y change rien (« Passer à
+  la v3 » sur clic). `guard_procedure_library` refuse un lien si une personne qui voit la séance
+  (`session_level_for`, même règle que `session_level`) ne peut pas lire la vidéo, y compris par
+  l'API directe ; le titre figé est posé par le serveur ; une restauration depuis la corbeille passe.
+  `get_shared_session` ne renvoie rien de la bibliothèque.
+- **Cycle de vie** : archiver (plus proposé aux séances), retirer (absent de la bibliothèque), remettre ;
+  les séances gardent leur vidéo. Suppression définitive (`library_purge_item`, `library_purge_version`)
+  refusée tant qu'une séance ou la corbeille l'utilise ; les fichiers orphelins sont ensuite effacés
+  par le Worker. Pas de corbeille pour la bibliothèque : l'archivage et le retrait en tiennent lieu.
+- Tests : `tests/library-sql.test.mjs` (droits, octroi, tags, recherche, 5 000 procédés),
+  `tests/library-sessions-sql.test.mjs` (séances, corbeille, suppression), `tests/library-logic.test.mjs`
+  (clés de tags), `tests/video-worker.test.mjs` (chemins `lib`).
 
 ### `lmfc_v7.sql` — garde des profils
 
@@ -187,7 +223,7 @@ de visionnage n'enregistre rien.**
 |---|---|
 | `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, couleur du club, suppression de fiches ; toute la corbeille |
 | `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
-| `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique |
+| `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique. Bibliothèque vidéo : consulte ce qu'on lui ouvre (`lmfc_v24.sql`) |
 | `lecteur` | Consultation seule (un scout) : **tous les joueurs du club**, toutes équipes (fiche, parcours, objectifs, préventions, programme, performance, vidéos, séquences, statistiques de visionnage). Ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
 | `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos. Il découpe, sélectionne et annote ses séquences et les envoie au staff. Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen ni les statistiques de visionnage |
 
@@ -535,6 +571,18 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   avec, sous elle, ses séquences marquées **Joueur** ou **Staff** (`created_by`) et, pour celles
   du joueur, leur statut. Sélection de séquences (compiler, supprimer) ou de vidéos (supprimer,
   télécharger les originaux).
+- **Bibliothèque vidéo** (`bibliotheque.html`, `bibliotheque-page.js`, `library*.js`, `library.css` ;
+  admin, coachs, préparateurs) — procédés filmés du club en grille ou en liste, par pages de 48 au
+  défilement ; vignettes lues pour les seules cartes affichées, aucune vidéo chargée avant « Lire ».
+  Recherche (titre, consignes, début d'un tag ; casse et accents ignorés), filtre par tags « Tous les
+  tags » / « Au moins un », Actifs / Archivés / Retirés. « Ajouter un procédé » : vidéo + titre
+  suffisent (empreinte et miniature calculées sur l'appareil ; vidéo déjà présente → pas de second
+  envoi). Fiche (`library-item.js`) : lecture, consignes, tags avec suggestions (`library-tags.js`),
+  versions, séances qui l'utilisent, accès (`library-access.js`), ajouter à une séance
+  (`session-edit.html?id=…&lib=…`). « Gérer les tags » : renommer, fusionner, supprimer.
+  Dans la séance (`session-library.js`) : bouton « Bibliothèque vidéo » (nouveau procédé) et
+  « + Vidéo de la bibliothèque » dans chaque procédé ; avertissement nominatif si le partage est
+  impossible. `?item=<id>` ouvre la fiche.
 - **Vidéo source et séquences** — deux écrans qui ne se mélangent pas (`video-workspace.js`) :
   - **Vidéo source** : la vidéo envoyée, jamais modifiée. « Sélectionner une portion » ouvre
     le mode sélection (`video-timeline.js` : poignées début / fin de 44 px, durée, ▶ relire,
@@ -700,10 +748,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Export** : image de l'étape affichée, images de toutes les étapes, vidéo (MP4 quand le
   navigateur le permet), présentation plein écran avec sa barre (étapes, lecture, quitter).
   « Cadrer une zone » limite l'export ; Échap ou le même bouton annule, « ✕ » retire le cadrage.
-- **Bibliothèque** : « Ajouter à la bibliothèque » (panneau Exporter, admin et coachs) fait du
+- **Schémas** : « Ajouter aux schémas » (panneau Exporter, admin et coachs) fait du
   schéma affiché un modèle d'exercice (`exercise_templates` : nom, image dans
   `schemas/{club}/templates/`, dessin dans `canvas_json`), même en schéma libre, sans séance.
-  Dans une séance, « Bibliothèque » → « Insérer » crée le procédé avec le texte du modèle ET
+  Dans une séance, « Schémas » → « Insérer » crée le procédé avec le texte du modèle ET
   son schéma : aperçu tout de suite, copie de l'image et du dessin au premier enregistrement
   (`attachTemplateSchema`, `session-edit-page.js`), modifiable ensuite dans le tableau. Un modèle
   créé par ☆ depuis un procédé garde aussi son dessin.

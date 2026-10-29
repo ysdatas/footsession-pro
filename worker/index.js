@@ -12,6 +12,10 @@
    vidéo = pouvoir lire sa ligne player_videos ; envoyer ou supprimer
    = can_manage_videos(), le club du chemin est le sien et le compte
    peut modifier le joueur du chemin (player_level, lmfc_v19.sql).
+   Bibliothèque (r2/<club>/lib/…, lmfc_v24.sql) : lire = pouvoir lire
+   sa ligne library_files ; envoyer = can_manage_videos() dans son club ;
+   supprimer = library_file_release(), qui refuse un fichier encore
+   utilisé par un procédé (et donc par une séance).
    Bande passante R2 gratuite : aucune limite de visionnage.
    Configuration (wrangler.jsonc) : binding VIDEOS, vars SUPABASE_URL
    et SUPABASE_KEY (clé publique), secret VIDEO_URL_SECRET (tableau
@@ -24,8 +28,10 @@ import { push } from './push.js';
 const TTL = 6 * 3600;                    // validité d'un lien de lecture (s)
 const MAX_BYTES = 95 * 1024 * 1024;      // le Worker gratuit refuse au-delà de 100 Mo
 const MAX_PATHS = 100;
-// r2/<club_id>/<player_id>/<horodatage>.<ext> : rien d'autre n'entre dans le bucket.
-const KEY_RE = /^r2\/(\d+)\/(\d+)\/\d+\.[a-zA-Z0-9]{1,8}$/;
+// r2/<club_id>/<player_id>/<horodatage>.<ext> (vidéos joueurs) ou
+// r2/<club_id>/lib/<horodatage>.<ext> (bibliothèque) : rien d'autre n'entre dans le bucket.
+const KEY_RE = /^r2\/(\d+)\/(\d+|lib)\/\d+\.[a-zA-Z0-9]{1,8}$/;
+const isLib = (key) => key.match(KEY_RE)[2] === 'lib';
 
 export default {
   async fetch(request, env) {
@@ -60,6 +66,12 @@ async function canManage(request, env, key) {
   if (!token) return false;
   const rpc = (fn, args = {}) => supabase(env, token, `/rest/v1/rpc/${fn}`, { method: 'POST', body: JSON.stringify(args) });
   const [, clubId, playerId] = key.match(KEY_RE);
+  if (playerId === 'lib') {
+    // La base retire la ligne du fichier, ou refuse s'il sert encore.
+    if (request.method === 'DELETE') return (await rpc('library_file_release', { p_path: key })) === true;
+    const [can, club] = await Promise.all([rpc('can_manage_videos'), rpc('my_club_id')]);
+    return can === true && club !== null && String(club) === clubId;
+  }
   const [can, club, level] = await Promise.all([rpc('can_manage_videos'), rpc('my_club_id'), rpc('player_level', { p_player: Number(playerId) })]);
   return can === true && club !== null && String(club) === clubId && level === 'modification';
 }
@@ -84,13 +96,19 @@ async function sign(request, env) {
   if (!token) return fail(401, 'Connexion requise.');
   if (!Array.isArray(paths) || !paths.length || paths.length > MAX_PATHS
       || !paths.every(p => typeof p === 'string' && KEY_RE.test(p))) return fail(400, 'Liste de vidéos invalide.');
-  // La RLS ne renvoie que les vidéos que cet utilisateur a le droit de voir.
-  const q = new URLSearchParams({ select: 'storage_path', storage_path: `in.(${paths.map(p => `"${p}"`).join(',')})` });
-  const rows = await supabase(env, token, `/rest/v1/player_videos?${q}`);
-  if (!rows) return fail(401, 'Session expirée : reconnecte-toi.');
+  // La RLS ne renvoie que les vidéos que cet utilisateur a le droit de voir :
+  // vidéos joueurs d'un côté, fichiers de la bibliothèque de l'autre.
+  const visible = (table, list) => {
+    if (!list.length) return [];
+    const q = new URLSearchParams({ select: 'storage_path', storage_path: `in.(${list.map(p => `"${p}"`).join(',')})` });
+    return supabase(env, token, `/rest/v1/${table}?${q}`);
+  };
+  const [players, library] = await Promise.all([
+    visible('player_videos', paths.filter(p => !isLib(p))), visible('library_files', paths.filter(isLib))]);
+  if (!players || !library) return fail(401, 'Session expirée : reconnecte-toi.');
   const e = Math.floor(Date.now() / 1000) + TTL;
   const urls = {};
-  for (const { storage_path: p } of rows) urls[p] = `/api/videos/file/${p}?e=${e}&s=${await signPart(env, `${p}:${e}`)}`;
+  for (const { storage_path: p } of [...players, ...library]) urls[p] = `/api/videos/file/${p}?e=${e}&s=${await signPart(env, `${p}:${e}`)}`;
   return Response.json({ urls });
 }
 
@@ -158,7 +176,9 @@ async function write(request, env, key) {
 }
 
 async function remove(request, env, key) {
-  if (!(await canManage(request, env, key))) return fail(403, 'Suppression réservée au staff vidéo du club.');
+  if (!(await canManage(request, env, key))) {
+    return fail(403, isLib(key) ? 'Fichier encore utilisé, ou suppression non autorisée.' : 'Suppression réservée au staff vidéo du club.');
+  }
   await env.VIDEOS.delete(key);
   return Response.json({ ok: true });
 }

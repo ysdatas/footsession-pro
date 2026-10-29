@@ -32,11 +32,15 @@ const VIDEOS = {
 
 /* ---------- Faux Supabase : qui voit quoi, qui gère les vidéos ---------- */
 // writes : joueurs que le compte peut modifier (player_level, lmfc_v19.sql).
+// lib : fichiers de la bibliothèque lisibles (library_files) ; release : library_file_release.
+const LIB_PRIVE = 'r2/7/lib/1700000101.mp4', LIB_UTILISE = 'r2/7/lib/1700000102.mp4';
 const USERS = {
-  staff7: { can: true, club: 7, sees: (p) => p.startsWith('r2/7/'), writes: () => true },
-  joueur12: { can: false, club: 7, sees: (p) => p.startsWith('r2/7/12/'), writes: () => false },
-  staff8: { can: true, club: 8, sees: (p) => p.startsWith('r2/8/'), writes: () => true },
-  coachU19: { can: true, club: 7, sees: (p) => p.startsWith('r2/7/'), writes: (id) => id !== 12 },   // joueur 12 : lecture seule
+  staff7: { can: true, club: 7, sees: (p) => p.startsWith('r2/7/'), writes: () => true,
+    lib: (p) => p.startsWith('r2/7/lib/') && p !== LIB_PRIVE, release: (p) => p.startsWith('r2/7/lib/') && p !== LIB_UTILISE },
+  joueur12: { can: false, club: 7, sees: (p) => p.startsWith('r2/7/12/'), writes: () => false, lib: () => false, release: () => false },
+  staff8: { can: true, club: 8, sees: (p) => p.startsWith('r2/8/'), writes: () => true, lib: (p) => p.startsWith('r2/8/lib/'), release: () => false },
+  coachU19: { can: true, club: 7, sees: (p) => p.startsWith('r2/7/'), writes: (id) => id !== 12,   // joueur 12 : lecture seule
+    lib: () => true, release: () => false },
 };
 globalThis.fetch = async (url, init) => {
   const u = new URL(url);
@@ -47,9 +51,12 @@ globalThis.fetch = async (url, init) => {
   if (u.pathname === '/rest/v1/rpc/can_manage_videos') return Response.json(user.can);
   if (u.pathname === '/rest/v1/rpc/my_club_id') return Response.json(user.club);
   if (u.pathname === '/rest/v1/rpc/player_level') return Response.json(user.writes(JSON.parse(init.body).p_player) ? 'modification' : 'lecture');
-  if (u.pathname === '/rest/v1/player_videos') {
+  if (u.pathname === '/rest/v1/rpc/library_file_release') return Response.json(user.release(JSON.parse(init.body).p_path));
+  if (u.pathname === '/rest/v1/player_videos' || u.pathname === '/rest/v1/library_files') {
     const asked = u.searchParams.get('storage_path').match(/"[^"]+"/g).map(s => s.slice(1, -1));
-    return Response.json(asked.filter(user.sees).map(storage_path => ({ storage_path })));
+    assert.ok(asked.every(p => /\/lib\//.test(p) === u.pathname.endsWith('library_files')), 'chaque chemin vérifié sur sa table');
+    const sees = u.pathname.endsWith('library_files') ? user.lib : user.sees;
+    return Response.json(asked.filter(sees).map(storage_path => ({ storage_path })));
   }
   return new Response('inconnu', { status: 404 });
 };
@@ -152,6 +159,24 @@ assert.equal((await call('DELETE', `/api/videos/file/${A}`, { token: 'coachU19' 
 assert.equal((await call('DELETE', `/api/videos/file/${A}`, { token: 'staff7' })).status, 200);
 assert.equal(store.has(A), false);
 assert.equal((await call('GET', url)).status, 404, 'supprimée : introuvable');
+
+/* ---------- Bibliothèque (r2/<club>/lib/…, lmfc_v24.sql) ---------- */
+const L = 'r2/7/lib/1700000100.mp4';
+assert.equal((await put('r2/7/libx/1.mp4', 'staff7', bytes)).status, 400, 'dossier inconnu : refusé');
+assert.equal((await put(L, 'joueur12', bytes)).status, 403, 'un joueur n’envoie rien dans la bibliothèque');
+assert.equal((await put(L, 'staff8', bytes)).status, 403, 'ni le staff d’un autre club');
+for (const k of [L, LIB_PRIVE, LIB_UTILISE]) assert.equal((await put(k, 'staff7', bytes)).status, 201, 'staff vidéo du club : envoi');
+assert.equal((await put('r2/7/lib/1700000103.mp4', 'coachU19', bytes)).status, 201, 'pas de joueur : le droit vidéo du club suffit');
+assert.deepEqual(Object.keys(await urlsOf('staff7', [B, L, LIB_PRIVE])), [B, L], 'lecture : ce que library_files montre');
+assert.deepEqual(Object.keys(await urlsOf('joueur12', [L])), [], 'joueur : rien de la bibliothèque');
+r = await call('GET', (await urlsOf('staff7', [L]))[L], { headers: { range: 'bytes=0-3' } });
+assert.equal(r.status, 206);
+assert.equal(await r.text(), '0123');
+assert.equal((await call('DELETE', `/api/videos/file/${LIB_UTILISE}`, { token: 'staff7' })).status, 403, 'fichier encore utilisé : gardé');
+assert.ok(store.has(LIB_UTILISE));
+assert.equal((await call('DELETE', `/api/videos/file/${L}`, { token: 'coachU19' })).status, 403, 'refus de la base : gardé');
+assert.equal((await call('DELETE', `/api/videos/file/${L}`, { token: 'staff7' })).status, 200);
+assert.equal(store.has(L), false);
 
 /* ---------- Secret oublié : erreur claire, rien ne fuit ---------- */
 const orig = console.error; let logged = '';

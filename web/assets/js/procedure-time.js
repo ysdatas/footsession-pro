@@ -220,6 +220,8 @@ function procFromRow(p, uid) {
     image_v: t.updated_at ? Date.parse(t.updated_at) : null,   // version de l'image (lmfc_v17.sql)
     has_canvas: !!t.canvas_json,   // faux : image importée (importSchemaImage)
     equipes: cleanTeams(p.equipes), staff: Array.isArray(p.staff) ? p.staff : [], filme: p.filme ?? null,
+    // Vidéo de la bibliothèque (lmfc_v25.sql) : liée par session-library.js, jamais renvoyée par procRow.
+    library_item_id: p.library_item_id ?? null, library_version_id: p.library_version_id ?? null, library_titre: p.library_titre || '',
   };
 }
 /* Ligne d'un procédé telle qu'envoyée à la base (et comparée à la dernière enregistrée). */

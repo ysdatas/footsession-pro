@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: [...ALL_STAFF, READER] },
   { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: [...ALL_STAFF, READER] },
   { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: [...STAFF_ROLES, READER] },
+  { key: 'library',     href: 'bibliotheque.html',   label: 'Bibliothèque vidéo', roles: ALL_STAFF },   // prépa : ce qu'on lui ouvre (lmfc_v24.sql)
   { key: 'tactical',    href: 'tactical-board.html', label: 'Tableau tactique',  roles: STAFF_ROLES },
   { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: STAFF_ROLES },
   { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: [...ALL_STAFF, READER] },

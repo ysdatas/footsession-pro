@@ -15,6 +15,7 @@ const NAV_IC = {
   players: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   performance: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   videos: '<path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.41V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+  library: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="m15 14.5 5 3-5 3z"/>',
   tactical: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/>',
   analytics: '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
   faq: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
@@ -30,7 +31,7 @@ const navIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${N
 
 const MENU_IC = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
 /* Noms courts : cinq onglets tiennent sur un téléphone de 360 px. */
-const TAB_SHORT = { matches: 'Matchs', videos: 'Vidéos', tactical: 'Tableau', analytics: 'Bilan', performance: 'Perf.', notifications: 'Notifs', club: 'Club' };
+const TAB_SHORT = { matches: 'Matchs', videos: 'Vidéos', library: 'Biblio.', tactical: 'Tableau', analytics: 'Bilan', performance: 'Perf.', notifications: 'Notifs', club: 'Club' };
 
 function renderTabbar(items, activeKey) {
   // Plein écran (tableau tactique) ou espace joueur (sa propre barre) : rien.

@@ -8,7 +8,7 @@
        (program_exercises.video_id), sans rien réimporter ;
      - fiche tactique PDF : titre, objectif, consignes, schéma
        (une image par étape) et vidéo liée ;
-     - « Ajouter à la bibliothèque » : le schéma affiché devient un
+     - « Ajouter aux schémas » : le schéma affiché devient un
        modèle d'exercice, même hors séance.
    S'appuie sur l'état et les fonctions de tactical-board.js.
    ============================================================ */
@@ -177,13 +177,13 @@ BOOTED.then(async () => {
   if (PROC || EXO_ROW) await loadTbVideos();
 }).catch(e => console.error('tactical-board-ui', e));
 
-/* ---------- Bibliothèque d'exercices ----------
+/* ---------- Schémas (modèles d'exercices) ----------
    Le schéma affiché (même libre, sans séance) devient un modèle
    (exercise_templates) : son image et son dessin. Dans une séance,
-   « Bibliothèque » l'insère comme procédé, schéma compris et modifiable. */
+   « Schémas » l'insère comme procédé, schéma compris et modifiable. */
 BOOTED.then(() => document.getElementById('saveToLibrary').classList.toggle('hidden', !CAN_EDIT));
 document.getElementById('saveToLibrary').addEventListener('click', async (e) => {
-  const nom = prompt('Nom du modèle dans la bibliothèque :', PROC_ROW?.nom || EXO_ROW?.title || '')?.trim();
+  const nom = prompt('Nom du schéma :', PROC_ROW?.nom || EXO_ROW?.title || '')?.trim();
   if (!nom) return;
   const btn = e.currentTarget;
   btn.disabled = true;
@@ -194,9 +194,9 @@ document.getElementById('saveToLibrary').addEventListener('click', async (e) => 
     if (upErr) throw upErr;
     const { error } = await sb.from('exercise_templates').insert({ club_id: CLUB_ID, nom, data: {}, canvas_json: serialize(), image_path: path });
     if (error) throw error;
-    toast(`« ${nom} » ajouté à la bibliothèque : « Bibliothèque » dans une séance pour l’insérer.`, 'success');
+    toast(`« ${nom} » ajouté aux schémas : « Schémas » dans une séance pour l’insérer.`, 'success');
   } catch (err) {
-    console.error('Modèle non ajouté à la bibliothèque', err);
+    console.error('Schéma non ajouté aux modèles', err);
     toast(`Non ajouté : ${err.message}`, 'error');
   } finally { btn.disabled = false; }
 });

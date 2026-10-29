@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>LMFC Performance — Bibliothèque vidéo</title>
+  <link rel="preload" href="assets/fonts/plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/library.css">
+  <script src="assets/js/theme.js"></script>
+</head>
+<body class="app">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <nav class="nav" aria-label="Menu principal"></nav>
+    <div class="sidebar-user">
+      <div class="avatar" id="uAvatar">…</div>
+      <div class="su-meta"><div class="su-name" id="uName">Chargement…</div><div class="su-role" id="uRole"></div></div>
+      <a class="logout" href="#" id="logoutLink" title="Déconnexion" aria-label="Déconnexion"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v14h4M13 14l4-4-4-4M17 10H8"/></svg></a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-head">
+      <div><p class="page-kicker" aria-hidden="true">&nbsp;</p>
+        <h1>Bibliothèque vidéo</h1>
+        <p class="subtitle">Les procédés filmés du club : retrouver, lire, ajouter à une séance.</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn hidden" id="btnLibTags" type="button">Gérer les tags</button>
+        <button class="btn btn-primary hidden" id="btnLibAdd" type="button">+ Ajouter un procédé</button>
+      </div>
+    </div>
+    <!-- Rempli par createLibBrowser (library.js) : recherche, tags, grille ou liste. -->
+    <div id="libBrowser" class="lib-browser"><p class="lib-status">Chargement…</p></div>
+  </main>
+
+  <!-- Ajout : la vidéo et un titre suffisent. -->
+  <div class="modal-backdrop" id="libAddModal">
+    <div class="modal lib-modal">
+      <h2 class="as-h3">Ajouter un procédé</h2>
+      <div class="field"><label for="la-file">Vidéo</label><input type="file" id="la-file" accept="video/*"></div>
+      <div class="field"><label for="la-titre">Titre</label><input id="la-titre" maxlength="200" placeholder="Ex : Rondo 4c2 orientation"></div>
+      <details class="lib-more-fields">
+        <summary>Consignes et tags (facultatif)</summary>
+        <div class="field"><label for="la-desc">Description ou consignes</label><textarea id="la-desc" maxlength="5000"></textarea></div>
+        <div class="field"><span class="field-label" id="la-tags-l">Tags</span><div class="lib-tags" id="la-tags" role="group" aria-labelledby="la-tags-l"></div><div id="la-tagcombo"></div></div>
+      </details>
+      <div class="lib-progress hidden" id="la-progress"><div class="lib-progress-bar"><span id="la-bar"></span></div><p id="la-step" role="status"></p></div>
+      <div class="modal-actions">
+        <button class="btn" type="button" id="la-cancel">Annuler</button>
+        <button class="btn btn-primary" type="button" id="la-submit">Ajouter</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fiche d'un procédé (library-item.js). -->
+  <div class="modal-backdrop" id="libItemModal">
+    <div class="modal lib-modal lib-item-modal"><div id="libItemBody"></div></div>
+  </div>
+
+  <!-- Ajouter à une séance. -->
+  <div class="modal-backdrop" id="libToSessionModal">
+    <div class="modal lib-modal">
+      <h2 class="as-h3">Ajouter à une séance</h2>
+      <p class="text-muted" id="lts-what"></p>
+      <ul class="lib-sessions" id="lts-list"><li class="text-muted">Chargement…</li></ul>
+      <div class="modal-actions"><a class="btn btn-primary" id="lts-new" href="session-edit.html">+ Nouvelle séance avec cette vidéo</a></div>
+    </div>
+  </div>
+
+  <!-- Gestion des tags (library-tags.js). -->
+  <div class="modal-backdrop" id="libTagsModal">
+    <div class="modal lib-modal">
+      <h2 class="as-h3">Tags de la bibliothèque</h2>
+      <p class="text-muted">Partagés par tout le club. Renommer ou fusionner change tous les procédés qui les portent.</p>
+      <div id="libTagsBody"><p class="text-muted">Chargement…</p></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/nav-mobile.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/lightbox.js"></script>
+  <script src="assets/js/video-status.js"></script>
+  <script src="assets/js/library.js"></script>
+  <script src="assets/js/library-tags.js"></script>
+  <script src="assets/js/library-access.js"></script>
+  <script src="assets/js/library-item.js"></script>
+  <script src="assets/js/bibliotheque-page.js"></script>
+</body>
+</html>

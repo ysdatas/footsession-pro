@@ -116,6 +116,7 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
     }));
   }
   startAutosave(loadedSession);
+  initSessionLibrary();   // vidéos de la bibliothèque (session-library.js)
 })();
 
 /* Séance enregistrée : titre, exports et partage disponibles. */
@@ -338,7 +339,8 @@ function addProcedure(data = {}, schema = null) {
   updateMeta();
 }
 
-/* ---------- Bibliothèque d'exercices (modèles réutilisables) ---------- */
+/* ---------- Schémas : procédés enregistrés comme modèles réutilisables ----------
+   (bouton « Schémas » ; la bibliothèque vidéo, elle, est dans session-library.js) */
 const TPL_FIELDS = ['nom', 'duree_min', 'objectif', 'effectif', 'taille_terrain',
   'consignes', 'principes_jeu', 'comportements_individuels', 'temps_recup_min',
   'type_procede', 'nb_sequences', 'duree_sequence_min'];
@@ -361,11 +363,11 @@ window.saveAsTemplate = async (uid) => {
       ? await sb.from('tactical_schemas').select('canvas_json').eq('procedure_id', p.id).maybeSingle() : { data: null };
     const { error } = await sb.from('exercise_templates').insert({
       // La catégorie du modèle reprend le type du procédé (jeu / exercice / situation),
-      // ce qui donne à la bibliothèque un classement utile.
+      // ce qui donne aux schémas un classement utile.
       club_id: myProfile.club_id, nom, categorie: p.type_procede || null, data, image_path, canvas_json: sch?.canvas_json || null,
     });
     if (error) throw error;
-    toast('Modèle enregistré dans la bibliothèque', 'success');
+    toast('Modèle enregistré dans les schémas', 'success');
   } catch (e) { toast(e.message, 'error'); }
 };
 
@@ -376,7 +378,7 @@ async function openLibrary() {
   try {
     const { data: templates, error } = await sb.from('exercise_templates').select('id, nom, categorie, image_path').order('created_at', { ascending: false });
     if (error) throw error;
-    if (!templates.length) { list.innerHTML = '<p class="text-muted">Aucun modèle enregistré. Cliquez sur ☆ sur un procédé, ou sur « Ajouter à la bibliothèque » dans le tableau tactique (Exporter).</p>'; return; }
+    if (!templates.length) { list.innerHTML = '<p class="text-muted">Aucun schéma enregistré. Cliquez sur ☆ sur un procédé, ou sur « Ajouter aux schémas » dans le tableau tactique (Exporter).</p>'; return; }
 
     const withUrls = await Promise.all(templates.map(async t => {
       if (!t.image_path) return { ...t, url: null };
@@ -404,7 +406,7 @@ window.insertTemplate = async (id) => {
     if (error) throw error;
     addProcedure({ nom: tpl.nom, ...tpl.data }, tpl);
     closeModal('libraryModal');
-    toast('Procédé ajouté depuis la bibliothèque', 'success');
+    toast('Procédé ajouté depuis les schémas', 'success');
   } catch (e) { toast(e.message, 'error'); }
 };
 window.deleteTemplate = async (id, btn) => {
@@ -485,6 +487,7 @@ function procTemplate(p, index) {
         <p class="proc-group">Schéma tactique</p>
         <div class="schema-box" data-schema-box>${tac}</div>
         <div class="schema-recap">Procédé ${index + 1} / ${procedures.length} · ${escapeHtml(sequenceLabel(p))}</div>
+        <div data-lib-box="${p._uid}">${libraryBoxHtml(p)}</div>
       </div>
       ${procExtrasHtml(p)}
     </div>

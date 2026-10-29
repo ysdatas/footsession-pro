@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/session.css">
   <link rel="stylesheet" href="assets/css/dashboard.css">
+  <link rel="stylesheet" href="assets/css/library.css">
   <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
@@ -94,7 +95,8 @@
       <div class="flex-between" style="margin:22px 0 12px;">
         <h2 style="margin:0;">Procédés (<span id="procCount">0</span>)</h2>
         <div class="page-actions">
-          <button class="btn" id="btnLibrary" type="button">Bibliothèque</button>
+          <button class="btn" id="btnLibrary" type="button">Schémas</button>
+          <button class="btn hidden" id="btnLibVideo" type="button">Bibliothèque vidéo</button>
           <button class="btn" id="btnAddProc" type="button">+ Ajouter un procédé</button>
         </div>
       </div>
@@ -173,14 +175,33 @@
     </div>
   </div>
 
-  <!-- Modale bibliothèque d'exercices -->
+  <!-- Schémas : procédés enregistrés comme modèles (☆) -->
   <div class="modal-backdrop" id="libraryModal">
     <div class="modal" style="max-width:620px;">
       <div class="flex-between" style="margin-bottom:14px;">
-        <h2 class="as-h3" style="margin:0;">Bibliothèque d'exercices</h2>
+        <h2 class="as-h3" style="margin:0;">Schémas enregistrés</h2>
         <button class="btn btn-sm" type="button" data-close="libraryModal">Fermer</button>
       </div>
       <div id="libraryList" class="library-grid"><p class="text-muted">Chargement…</p></div>
+    </div>
+  </div>
+
+  <!-- Bibliothèque vidéo : choisir la vidéo d'un procédé (session-library.js) -->
+  <div class="modal-backdrop" id="libPickModal">
+    <div class="modal lib-item-modal">
+      <h2 class="as-h3">Bibliothèque vidéo</h2>
+      <div id="libPick" class="lib-browser"><p class="lib-status">Chargement…</p></div>
+    </div>
+  </div>
+  <!-- Vidéo non partageable avec les personnes de la séance -->
+  <div class="modal-backdrop" id="libGapsModal">
+    <div class="modal lib-modal">
+      <h2 class="as-h3">Vidéo non partageable</h2>
+      <div id="libGapsBody"></div>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close="libGapsModal">Compris</button>
+        <button class="btn btn-primary hidden" type="button" id="libGapsOpen">Leur ouvrir la vidéo</button>
+      </div>
     </div>
   </div>
 
@@ -201,6 +222,9 @@
   <script src="assets/js/session-access.js"></script>
   <script src="assets/js/session-pitch.js"></script>
   <script src="assets/js/session-autosave.js"></script>
+  <script src="assets/js/library.js"></script>
+  <script src="assets/js/library-tags.js"></script>
   <script src="assets/js/session-edit-page.js"></script>
+  <script src="assets/js/session-library.js"></script>
 </body>
 </html>

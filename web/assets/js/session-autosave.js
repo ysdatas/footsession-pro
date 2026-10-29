@@ -62,6 +62,7 @@ function flushSave() {
     } while (autosave.again);
     autosave.running = null;
     if (ok) setSaveStatus(dirty ? 'pending' : 'saved');
+    if (ok && !dirty) onSessionSaved();   // vidéos de la bibliothèque en attente (session-library.js)
     return ok && !dirty;
   })();
   return autosave.running;
