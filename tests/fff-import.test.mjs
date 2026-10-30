@@ -37,6 +37,11 @@ assert.equal(find('2026-11-01', 'CHATEAU GONTIER ANC').competition, 'Coupe Pays 
 assert.equal(run(`fffParse('Bienvenue\\nMENU\\n12\\n3\\nFin').matches.length`), 0, 'texte sans rencontre');
 assert.equal(run(`fffParse('SAM 03 XYZ 2026 - 18H00\\nN2 - Senior Journée 4\\nA\\n1\\n0\\nB').matches.length`), 0, 'mois inconnu : rien inventé');
 assert.equal(run(`fffParse('SAM 03 OCT 2026 - 18H00\\nA\\n1\\n0\\nB').skipped`), 1, 'compétition absente : ignorée et comptée');
+// Page « Le match » collée : du texte avant la compétition dépasse les 120 caractères d'un stade (matches_stade_len).
+ctx.MATCH_PAGE = ['SAM 24 OCT 2026 - 15H00', 'Stade Municipal de Bouchemaine', 'Rue du Stade, 49080 Bouchemaine — accès par le parking nord, vestiaires côté tribune, arbitre désigné par le district',
+  'National 3 - Senior Journée 8', 'BOUCHEMAINE ES', '2', '4', 'LE MANS FC', 'Facebook', 'twitter', 'nulllogo ans'].join('\n');
+const page = run('fffParse(MATCH_PAGE)').matches[0];
+assert.deepEqual([page.stade, page.home, page.away, page.score_home, page.heure], [null, 'BOUCHEMAINE ES', 'LE MANS FC', 2, '15:00'], 'stade trop long : écarté, le match reste');
 
 /* ---------- 2. Clé : saison, compétition, journée ou tour, domicile, extérieur ---------- */
 ctx.M = find('2026-11-07', 'FONTENAY VENDEE');

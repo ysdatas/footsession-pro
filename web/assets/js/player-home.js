@@ -2,8 +2,8 @@
    LMFC Performance — player-home.js (mon-espace.html)
    Accueil du joueur, même signature que l'accueil du staff :
      - « Bonjour, Prénom », date, club · poste · équipe ;
-     - « Pour toi en ce moment » : RPE de la séance à noter (rpe.js,
-       lmfc_v29.sql), vidéos reçues, retours du staff, objectifs et
+     - « Pour toi en ce moment » : RPE de la séance à noter, ou où il
+       se note (rpe.js, lmfc_v29.sql), vidéos reçues, retours du staff, objectifs et
        préventions en cours, exercices à faire ;
      - « Mes derniers chiffres » : poids, masse grasse, dernière
        session de tests (RPC my_physical_* : jamais les indicateurs
@@ -70,18 +70,21 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
 
   if (rRes.error && rRes.error.code !== 'PGRST202') console.warn('Mon espace : RPE indisponible', rRes.error.message);
   phRpe = rRes.data || [];
+  phRpeOn = !rRes.error;   // sans lmfc_v29.sql : pas de carte
   document.getElementById('homeAttn').addEventListener('click', openRpeFromCard);
   renderAttention(vRes.data || [], sRes.data || [], nRes.data || [], eRes.error ? null : (eRes.data || []));
   renderStats(mRes.data || [], tRes.data || [], player.hidden_sections || []);
 })();
 
 /* RPE : la séance à noter (la plus récente sans réponse), sinon la dernière notée. */
-let phRpe = [];
+let phRpe = [], phRpeOn = false;
 const phDay = (iso) => { const d = Math.round((new Date(new Date().toDateString()) - new Date(`${iso}T00:00`)) / 864e5);
   return d === 0 ? 'aujourd’hui' : d === 1 ? 'hier' : `il y a ${d} jours`; };
 function rpeCardHtml() {
   const todo = phRpe.filter(s => s.rpe == null), s = todo[0] || phRpe[0];
-  if (!s) return '';
+  // Toujours là : le joueur sait où noter même quand aucune séance n'attend.
+  if (!s) return phCard({ href: 'calendrier.html', icon: 'activity', tone: 'calm', value: '—', label: 'Ton effort (RPE)',
+    detail: `Rien à noter. Après chaque séance, ton effort se note ici (jusqu’à ${RPE_DAYS} jours après).` });
   return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" href="calendrier.html" data-rpe="${s.session_id}">
     <span class="home-attn-head"><strong>${todo.length ? 'Note ton effort' : 'Ton effort'}</strong>${phIc('activity')}</span>
     <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
@@ -101,7 +104,7 @@ function openRpeFromCard(e) {
 
 function renderAttention(videos, seqs, notes, exercises) {
   const cards = [];
-  if (phRpe.length) cards.push(rpeCardHtml());
+  if (phRpeOn) cards.push(rpeCardHtml());
   const fresh = videos.filter(v => daysAgo(v.created_at) <= 7);
   cards.push(phCard({ href: 'mes-videos.html', icon: 'video', tone: fresh.length ? 'urgent' : (videos.length ? '' : 'calm'),
     value: fresh.length || videos.length, label: fresh.length ? 'Nouvelles vidéos' : 'Vidéos du staff',

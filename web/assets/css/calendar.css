@@ -61,6 +61,9 @@
 .cal-kind { font-size: var(--fs-xs); color: var(--k); text-transform: uppercase; letter-spacing: .04em; }
 p.cal-kind { margin: -6px 0 10px; }
 .cal-score { font: 500 var(--fs-md)/1 var(--font-num); color: var(--text-secondary); }
+/* Joueur : séance dont le RPE attend sa réponse */
+.cal-rpe-todo { justify-self: end; padding: 2px 8px; border-radius: 999px; background: var(--gold); color: #0A0A0A; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; }
+.cal-chip-rpe { font-style: normal; font-weight: 700; color: var(--gold); }
 .cal-empty { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
 .cal-body.is-list { min-height: 50vh; }
 
@@ -69,6 +72,9 @@ p.cal-kind { margin: -6px 0 10px; }
 .cal-wday.is-today { border-color: var(--border-gold); }
 .cal-wday .cal-item { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 7px 8px; }
 .cal-wday .cal-score { justify-self: start; font-size: var(--fs-sm); }
+.cal-wday .cal-time:empty { display: none; }   /* sans heure : pas de ligne vide */
+.cal-wday .cal-rpe-todo { justify-self: start; }
+.cal-wday .cal-what strong { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
 
 /* Fiche résumée */
 .cal-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
@@ -83,6 +89,7 @@ p.cal-kind { margin: -6px 0 10px; }
   .cal-wday.is-empty { padding: 6px 8px; }
   .cal-wday.is-empty .cal-day-h { flex: 0 0 auto; margin-right: 8px; color: var(--text-secondary); font-weight: 500; }
   .cal-wday .cal-item { grid-template-columns: 52px minmax(0, 1fr) auto; }
+  .cal-wday .cal-time:empty { display: block; }   /* colonne de l'heure gardée : titres alignés */
 }
 @media (max-width: 640px) {
   /* Téléphone : des points dans la grille, le détail du jour dessous. */

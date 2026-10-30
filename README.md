@@ -555,8 +555,15 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   correction ou saisie à la place du joueur, toujours marquées « saisi par le staff » ; **RPE après les
   séances** sur la fiche du joueur (onglet Performance, 20 dernières séances, vu aussi par le joueur).
   Séparé du bilan du staff ; aucun calcul de charge ni alerte tant que le staff n'en a pas fixé les
-  règles. Un joueur noté absent peut quand même répondre (la présence est « absent » par défaut tant que
-  l'appel n'est pas fait) : le bloc le signale. Test : `tests/rpe-sql.test.mjs`.
+  règles. Un joueur noté absent peut quand même répondre : le bloc le signale. Réponse **attendue**
+  (`rpeExpected`) : le joueur participe, ou sa présence n'est pas encore enregistrée ; seule une absence
+  enregistrée l'exclut. La carte de Mon espace est toujours là (« Rien à noter… » sinon) ; le Calendrier
+  du joueur marque « RPE à noter ». Bloc **Ressenti des joueurs (RPE)** juste sous les présences ; la
+  saisie du staff passe par la même feuille que le joueur (bouton « Effacer »).
+- **Suivi RPE** (`suivi-rpe.html`, `suivi-rpe-page.js`) — staff : grille joueurs × 10 ou 20 dernières
+  séances de l'équipe du menu ; valeur colorée, « ? » réponse attendue qui manque, « abs. », marque
+  « staff » ; moyenne et réponses/attendus par séance ; une case ouvre la saisie du staff. Lecture par
+  la RLS existante, écriture par `rpe_set()`. Tests : `tests/rpe-sql.test.mjs`, `tests/rpe-logic.test.mjs`.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne

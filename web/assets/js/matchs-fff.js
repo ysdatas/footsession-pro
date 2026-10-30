@@ -153,7 +153,8 @@ async function fffImport() {
       ...updates.map(u => sb.from('matches').update(u.row).eq('id', u.id).select('id')),
     ]);
     if (ins.error) {
-      throw new Error(ins.error.code === '23505' ? 'Une de ces rencontres vient d’être importée (par vous ou un collègue) : relancez « Analyser ».' : ins.error.message);
+      throw new Error(ins.error.code === '23505' ? 'Une de ces rencontres vient d’être importée (par vous ou un collègue) : relancez « Analyser ».'
+        : ins.error.code === '23514' ? 'Une valeur de la FFF est trop longue ou invalide : rien n’a été enregistré. Créez ce match à la main.' : ins.error.message);
     }
     const refused = ups.filter(u => u.error || !u.data?.length).length;
     fffMemo(teamId, [...new Set(FFF.rows.filter(r => r.on).map(r => r.m.competition))]);

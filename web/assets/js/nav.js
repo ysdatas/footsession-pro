@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { key: 'matches',     href: 'matchs.html',         label: 'Retours de match',  roles: ALL_STAFF },   // prépa : lecture (lmfc_v11.sql)
   { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: [...ALL_STAFF, READER] },
   { key: 'calendar',    href: 'calendrier.html',     label: 'Calendrier',        roles: ALL_STAFF },   // après les 4 onglets du téléphone (lmfc_v28.sql)
+  { key: 'rpe',         href: 'suivi-rpe.html',      label: 'Suivi RPE',         roles: ALL_STAFF },   // ressenti des joueurs (lmfc_v29.sql)
   { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: [...ALL_STAFF, READER] },
   { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: [...STAFF_ROLES, READER] },
   { key: 'library',     href: 'bibliotheque.html',   label: 'Bibliothèque vidéo', roles: ALL_STAFF },   // prépa : ce qu'on lui ouvre (lmfc_v24.sql)
@@ -42,12 +43,13 @@ function currentPageName() {
 }
 
 /* Rubriques visibles pour ce rôle, dans l'ordre choisi par l'utilisateur.
-   Une rubrique ajoutée plus tard (absente de l'ordre enregistré) garde
-   sa place par défaut au lieu de disparaître. */
+   Une rubrique ajoutée plus tard (absente de l'ordre enregistré) se place
+   juste après celle qui la précède par défaut, au lieu de finir en bas. */
 function orderedNavItems(role, prefs) {
   const order = prefs?.nav?.order || [];
   const hidden = new Set(prefs?.nav?.hidden || []);
-  const rank = (item, i) => { const r = order.indexOf(item.key); return r >= 0 ? r : 1000 + i; };
+  let prev = -1;
+  const rank = (item, i) => { const r = order.indexOf(item.key); if (r >= 0) prev = r; return r >= 0 ? r : prev + (i + 1) / 1000; };
   return NAV_ITEMS
     .map((item, i) => ({ ...item, rank: rank(item, i), hidden: hidden.has(item.key) }))
     .filter(item => item.roles.includes(role))

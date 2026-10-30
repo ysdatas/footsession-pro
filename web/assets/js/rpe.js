@@ -4,7 +4,9 @@
      - RPE_SCALE : 1 à 10, libellés de l'échelle CR-10, une couleur
        du vert (facile) au rouge (maximal) ;
      - openRpeSheet : la saisie du joueur (accueil, calendrier) ; dix
-       grosses touches, un geste, enregistré aussitôt ;
+       grosses touches, un geste, enregistré aussitôt ; avec player, la
+       saisie ou la correction du staff (séance, Suivi RPE), marquée ;
+     - rpeExpected : la réponse est-elle attendue de ce joueur ?
      - renderRpeTrend : l'évolution d'un joueur (fiche, staff et joueur).
    Écriture par rpe_set() seulement : la base vérifie la séance, le délai
    (jusqu'à J+2) et les droits. Aucun calcul de charge, aucune alerte.
@@ -27,8 +29,14 @@ function rpeOpen(iso) {
   return iso >= day(from) && iso <= day(today);
 }
 
-/* Saisie du joueur. session : { id, titre, date } ; onSaved(valeur). */
-function openRpeSheet({ session, value = null, onSaved }) {
+/* Réponse attendue : le joueur participe, ou sa présence n'est pas encore
+   renseignée (row : sa ligne attendance, absente si rien n'est coché).
+   Seule une absence enregistrée l'exclut. participe : procedure-time.js. */
+const rpeExpected = (row) => !row || participe({ ...row, statut: row.statut || (row.present ? 'present' : 'absent') });
+
+/* Saisie. session : { id, titre, date } ; onSaved(valeur, ou null si effacée).
+   player : { id, nom } pour la saisie du staff à la place du joueur. */
+function openRpeSheet({ session, value = null, player = null, onSaved }) {
   if (!document.getElementById('rpeSheet')) {
     document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="rpeSheet">
       <div class="modal rpe-modal" role="dialog" aria-modal="true" aria-labelledby="rpeTitle">
@@ -37,18 +45,27 @@ function openRpeSheet({ session, value = null, onSaved }) {
         <p class="rpe-session" id="rpeSession"></p>
         <p class="rpe-q" id="rpeQ">Comment as-tu ressenti l’effort de toute la séance ?</p>
         <div class="rpe-scale" role="group" aria-labelledby="rpeQ" id="rpeScale"></div>
-        <p class="rpe-help">1 = très, très facile · 10 = effort maximal. Ta réponse va au staff, jamais aux autres joueurs.</p>
+        <p class="rpe-help" id="rpeHelp"></p>
         <p class="rpe-status" id="rpeStatus" role="status" aria-live="polite"></p>
+        <div class="modal-actions hidden" id="rpeStaffActions"><button class="btn btn-danger btn-sm" type="button" id="rpeClear">Effacer ce RPE</button></div>
       </div></div>`);
     document.getElementById('rpeScale').addEventListener('click', (e) => {
       const b = e.target.closest('[data-rpe-v]');
       if (b) rpeSave(Number(b.dataset.rpeV));
     });
+    document.getElementById('rpeClear').addEventListener('click', () => rpeSave(null));
   }
   const sheet = document.getElementById('rpeSheet');
-  sheet.rpe = { session, onSaved };
+  sheet.rpe = { session, player, onSaved };
+  document.getElementById('rpeTitle').textContent = player ? `RPE de ${player.nom}` : 'Ton effort';
+  document.getElementById('rpeQ').textContent = player ? 'Effort ressenti par le joueur sur toute la séance :' : 'Comment as-tu ressenti l’effort de toute la séance ?';
+  document.getElementById('rpeHelp').textContent = player
+    ? 'Saisie du staff à la place du joueur : elle reste marquée « saisi par le staff ».'
+    : '1 = très, très facile · 10 = effort maximal. Ta réponse va au staff, jamais aux autres joueurs.';
+  document.getElementById('rpeStaffActions').classList.toggle('hidden', !(player && value));
   document.getElementById('rpeSession').textContent = [session.titre, session.date && rpeDate(session.date)].filter(Boolean).join(' · ');
-  document.getElementById('rpeStatus').textContent = value ? `Ta réponse : ${value} · ${rpeLabel(value)}. Touche une autre valeur pour la changer.` : '';
+  document.getElementById('rpeStatus').textContent = value
+    ? `${player ? 'RPE actuel' : 'Ta réponse'} : ${value} · ${rpeLabel(value)}. Touche une autre valeur pour la changer.` : '';
   document.getElementById('rpeScale').innerHTML = RPE_SCALE.map(([v, label]) => `<button type="button" class="rpe-opt" data-rpe-v="${v}"
       aria-pressed="${v === Number(value)}" style="--rpe:${rpeColor(v)}"><b>${v}</b><span>${label}</span></button>`).join('');
   openModal('rpeSheet');
@@ -57,10 +74,11 @@ function openRpeSheet({ session, value = null, onSaved }) {
 
 async function rpeSave(v) {
   const sheet = document.getElementById('rpeSheet'), status = document.getElementById('rpeStatus');
-  const { session, onSaved } = sheet.rpe;
+  const { session, player, onSaved } = sheet.rpe;
+  if (sheet.hasAttribute('data-busy')) return;   // un seul envoi à la fois
   sheet.setAttribute('data-busy', '');
   status.textContent = 'Enregistrement…';
-  const { error } = await sb.rpc('rpe_set', { p_session: session.id, p_rpe: v });
+  const { error } = await sb.rpc('rpe_set', player ? { p_session: session.id, p_rpe: v, p_player: player.id } : { p_session: session.id, p_rpe: v });
   sheet.removeAttribute('data-busy');
   if (error) {
     console.error('RPE non enregistré', error);
@@ -68,7 +86,7 @@ async function rpeSave(v) {
     return;
   }
   document.querySelectorAll('#rpeScale .rpe-opt').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.rpeV) === v)));
-  status.textContent = `Enregistré : ${v} · ${rpeLabel(v)}. Merci !`;
+  status.textContent = v == null ? 'RPE effacé.' : `Enregistré : ${v} · ${rpeLabel(v)}${player ? ' (saisi par le staff)' : '. Merci !'}`;
   onSaved?.(v);
   setTimeout(() => { if (sheet.rpe?.session === session) closeModal('rpeSheet'); }, 900);
 }

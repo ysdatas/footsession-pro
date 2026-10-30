@@ -122,6 +122,11 @@
 
       <!-- Performance : radar, tests, suivi physique -->
       <section class="pf-panel" id="pfPanel-performance" data-pf-panel="performance" role="tabpanel" aria-labelledby="pfTab-performance">
+        <!-- RPE après les séances, en tête : le ressenti du joueur (rpe.js, lmfc_v29.sql) -->
+        <section class="card hidden rpe-card-top" id="rpeCard">
+          <div class="section-head"><div><h2>RPE après les séances</h2></div></div>
+          <div id="rpeTrend" class="rpe-trend"></div>
+        </section>
         <div class="dash-grid perf-grid-main">
           <!-- Radar -->
           <section class="card fp-fm-radar-card" data-vis="radar">
@@ -168,11 +173,6 @@
           <div id="measurementHistory"></div>
         </section>
 
-        <!-- RPE après les séances : perception de l'effort du joueur (rpe.js, lmfc_v29.sql) -->
-        <section class="card hidden" id="rpeCard">
-          <div class="section-head"><div><h2>RPE après les séances</h2></div></div>
-          <div id="rpeTrend" class="rpe-trend"></div>
-        </section>
       </section>
 
       <!-- Vidéos : celles du joueur, rangées par vidéo (player-videos.js) -->

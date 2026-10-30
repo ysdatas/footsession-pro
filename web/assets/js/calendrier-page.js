@@ -62,10 +62,12 @@ function calError(e) {
 async function fetchItems(from, to) {
   const score = (r) => (r.score_pour != null && r.score_contre != null ? `${r.score_pour} – ${r.score_contre}` : null);
   if (CAL.asPlayer) {
-    const { data, error } = await sb.rpc('my_calendar', { p_from: from, p_to: to });
+    // Les séances à noter (RPE) marquées dans le calendrier : le joueur les voit sans chercher.
+    const [{ data, error }, todo] = await Promise.all([sb.rpc('my_calendar', { p_from: from, p_to: to }), sb.rpc('my_rpe_sessions')]);
     if (error) throw error;
+    const toRate = new Set((todo.data || []).filter(r => r.rpe == null && !r.corrige).map(r => r.session_id));
     return (data || []).map(r => ({ kind: r.kind, id: r.id, date: r.date_cal, heure: hhmm(r.heure), titre: r.titre,
-      team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes }));
+      team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, rpeTodo: r.kind === 'seance' && toRate.has(r.id) }));
   }
   const [s, m, e] = await Promise.all([
     byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id')).gte('date_seance', from).lte('date_seance', to),
@@ -117,9 +119,9 @@ function calSub(i) {
 function calItemHtml(i) {
   const sub = calSub(i);
   return `<button type="button" class="cal-item k-${i.kind}" data-cal-open="${CAL.items.indexOf(i)}">
-    <span class="cal-time">${i.heure || '—'}</span>
+    <span class="cal-time">${i.heure || ''}</span>
     <span class="cal-what"><span class="cal-kind">${CAL_KINDS[i.kind]}</span><strong>${escapeHtml(calTitleOf(i))}</strong>${sub ? `<small>${escapeHtml(sub)}</small>` : ''}</span>
-    ${i.score ? `<span class="cal-score">${escapeHtml(i.score)}</span>` : ''}
+    ${i.score ? `<span class="cal-score">${escapeHtml(i.score)}</span>` : ''}${i.rpeTodo ? '<span class="cal-rpe-todo">RPE à noter</span>' : ''}
   </button>`;
 }
 
@@ -131,7 +133,7 @@ function calMonthHtml(items) {
     const label = `${calDayLabel(d)}${list.length ? `, ${list.length} élément${list.length > 1 ? 's' : ''}` : ''}`;
     return `<div class="${cls}" data-cal-cell="${d}">
       <button type="button" class="cal-num" data-cal-day="${d}" aria-label="${label}" aria-pressed="${d === CAL.day}"${d === today ? ' aria-current="date"' : ''}>${Number(d.slice(8))}</button>
-      ${list.slice(0, 3).map(i => `<button type="button" class="cal-chip k-${i.kind}" data-cal-open="${CAL.items.indexOf(i)}">${i.heure ? `<b>${i.heure}</b> ` : ''}${escapeHtml(calTitleOf(i))}</button>`).join('')}
+      ${list.slice(0, 3).map(i => `<button type="button" class="cal-chip k-${i.kind}" data-cal-open="${CAL.items.indexOf(i)}">${i.rpeTodo ? '<i class="cal-chip-rpe">RPE</i> ' : ''}${i.heure ? `<b>${i.heure}</b> ` : ''}${escapeHtml(calTitleOf(i))}</button>`).join('')}
       ${list.length > 3 ? `<span class="cal-more">+${list.length - 3}</span>` : ''}
     </div>`;
   }).join('');
@@ -201,7 +203,7 @@ async function calRpe(i) {
     : open ? btn('Noter mon effort', true)
       : `<p class="text-muted">${i.date > calToday() ? 'Tu pourras noter ton effort après la séance.' : 'La saisie est fermée (2 jours après la séance).'}</p>`;
   document.getElementById('calRpeBtn')?.addEventListener('click', () => openRpeSheet({
-    session: { id: i.id, titre: i.titre, date: i.date }, value: data?.rpe, onSaved: () => calRpe(i) }));
+    session: { id: i.id, titre: i.titre, date: i.date }, value: data?.rpe, onSaved: () => { i.rpeTodo = false; renderCal(); calRpe(i); } }));
 }
 
 function openCalEvent(row = null) {

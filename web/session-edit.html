@@ -89,6 +89,15 @@
       </div>
     </div>
 
+    <!-- RPE des joueurs : leur perception de l'effort (session-rpe.js, lmfc_v29.sql) -->
+    <div class="card attendance open hidden" id="srpeCard" style="margin-top:18px;">
+      <button class="attendance-head" id="srpeToggle" type="button">
+        <span>Ressenti des joueurs (RPE) <span class="badge" id="srpeCount"></span></span>
+        <span class="chevron"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+      </button>
+      <div id="srpeBody" class="attendance-body"></div>
+    </div>
+
     <datalist id="staffNames"></datalist>
     <datalist id="staffRoles"></datalist>
     <datalist id="effectifList"></datalist>
@@ -132,15 +141,6 @@
         </div>
         <div id="bilanList" class="bilan-list"></div>
       </div>
-    </div>
-
-    <!-- RPE des joueurs : leur perception de l'effort (session-rpe.js, lmfc_v29.sql) -->
-    <div class="card attendance open hidden" id="srpeCard" style="margin-top:18px;">
-      <button class="attendance-head" id="srpeToggle" type="button">
-        <span>RPE des joueurs <span class="badge" id="srpeCount"></span></span>
-        <span class="chevron"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
-      </button>
-      <div id="srpeBody" class="attendance-body"></div>
     </div>
 
     <div class="card" style="margin-top:18px;">

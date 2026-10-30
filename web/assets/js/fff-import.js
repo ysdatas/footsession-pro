@@ -63,8 +63,10 @@ function fffParse(text) {
     const full = block[comp];
     const round = full.match(FFF_ROUND);
     const status = FFF_STATUS.test(block[next + 1] || '') ? block[next + 1] : null;
+    // Page d'un match collée : du texte s'intercale avant la compétition. Un stade tient en 120 caractères (matches_stade_len).
+    const stade = block.slice(0, comp).join(' ');
     matches.push({
-      date: when.date, heure: when.heure, stade: block.slice(0, comp).join(' ') || null,
+      date: when.date, heure: when.heure, stade: stade && stade.length <= 120 ? stade : null,
       competition: (round ? full.slice(0, round.index) : full).replace(/[\s\-–]+$/, ''), journee: round ? round[1] : null,
       home, away, score_home: scores ? scores[0] : null, score_away: scores ? scores[1] : null, statut: status,
     });

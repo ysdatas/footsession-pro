@@ -46,12 +46,19 @@ assert.equal(keys('lecteur', {}).join(), 'players,performance,videos,faq', 'lect
 // Ordre et masquage choisis par l'utilisateur.
 const prefs = { nav: { order: ['players', 'dashboard', 'sessions'], hidden: ['analytics'] } };
 const mine = keys('admin', prefs);
-assert.equal(mine.slice(0, 3).join(), 'players,dashboard,sessions', 'ordre personnalisé');
+assert.equal(mine.filter(k => ['players', 'dashboard', 'sessions'].includes(k)).join(), 'players,dashboard,sessions', 'ordre personnalisé');
+assert.equal(mine[0], 'players', 'ordre personnalisé : en tête');
 assert.ok(!mine.includes('analytics'), 'rubrique masquée');
 // Paramètres n'est pas une rubrique : on y accède par son nom, en bas du menu.
 assert.ok(!keys('admin', {}).includes('settings'), 'Paramètres hors du menu');
 // Une rubrique absente de l'ordre enregistré (ajoutée plus tard) reste affichée.
 assert.ok(mine.includes('faq'), 'nouvelle rubrique conservée');
+// … juste après celle qui la précède par défaut, pas en bas du menu (ordre enregistré avant Calendrier et Bibliothèque vidéo).
+const saved = { nav: { order: ['dashboard', 'sessions', 'matches', 'players', 'performance', 'videos', 'tactical', 'analytics', 'faq', 'club', 'notifications', 'trash'] } };
+const withNew = keys('admin', saved);
+assert.equal(withNew[withNew.indexOf('players') + 1], 'calendar', 'Calendrier après Joueurs');
+assert.equal(withNew[withNew.indexOf('videos') + 1], 'library', 'Bibliothèque vidéo après Vidéos joueurs');
+assert.equal(withNew.at(-1), 'trash', 'Corbeille reste en bas');
 
 // Page interdite au rôle : renvoi au tableau de bord.
 assert.equal(run(`navGuard({ role: 'coach' })`), false);
