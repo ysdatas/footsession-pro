@@ -65,6 +65,7 @@ let SUBS = [
   { id: 3, user_id: JOUEUR, club: 1, ...ancien }, { id: 4, user_id: ADMIN, club: 1, ...monTel },
 ];
 const received = [];
+const TAKE = {};   // réponses de calendar_notifs_take par jeton
 
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(url);
@@ -89,6 +90,10 @@ globalThis.fetch = async (url, init = {}) => {
   if (!who) return new Response('{"message":"JWT expired"}', { status: 401 });
   const inList = (k) => (u.searchParams.get(k) || '').replace(/^in\.\(|\)$/g, '').split(',');
   if (u.pathname === '/rest/v1/rpc/is_club_admin') return Response.json(who.admin);
+  if (u.pathname === '/rest/v1/rpc/calendar_notifs_take') {   // lmfc_v30.sql : messages préparés par la base, pour CET appelant
+    const mine = TAKE[init.headers.authorization.replace('Bearer ', '')] || { messages: [], more: false };
+    return Response.json(mine);
+  }
   if (u.pathname === '/rest/v1/players') {   // RLS : joueurs du club
     return Response.json(PLAYERS.filter(p => p.club === who.club && p.auth_user_id && inList('id').includes(String(p.id))).map(p => ({ auth_user_id: p.auth_user_id })));
   }
@@ -141,4 +146,21 @@ r = await (await call('POST', '/api/push/send', { token: jwt(ADMIN), body: { ...
 assert.deepEqual(r, { devices: 1, sent: 1, users: 1, gone: 0 });
 assert.deepEqual(received.map(x => x.to), [monTel.endpoint]);
 
-console.log('push-worker : OK (RFC 8291, VAPID, droits, nettoyage)');
+/* ---------- 6. Calendrier (lmfc_v30.sql) : les messages préparés par la base, rien de la page ---------- */
+received.length = 0;
+const COACH = '00000000-0000-0000-0000-000000000002';
+TOKENS[jwt(COACH)] = { admin: false, club: 1 };
+const CAL = { title: '2 séances ajoutées', body: 'Entraînement · du jeu. 07/01 au ven. 08/01', url: 'calendrier.html' };
+TAKE[jwt(COACH)] = { messages: [{ ...CAL, subs: [iphone, android].map((p, i) => ({ id: 1 + i, ...p })) }], more: true };
+assert.equal((await call('POST', '/api/push/calendar')).status, 401, 'sans connexion');
+assert.equal((await call('GET', '/api/push/calendar', { token: jwt(COACH) })).status, 405);
+r = await call('POST', '/api/push/calendar', { token: jwt(COACH), body: { title: 'texte de la page', player_ids: [10] } });
+assert.deepEqual(await r.json(), { devices: 2, sent: 2, more: true }, 'un coach : ses changements, pas besoin d’être admin');
+received.forEach(x => assert.deepEqual(x.msg, CAL, 'texte de la base, jamais celui envoyé par la page'));
+TAKE[jwt(COACH)] = { messages: [{ ...CAL, url: 'https://ailleurs.test/', subs: [{ id: 1, ...iphone }] }], more: false };
+received.length = 0;
+assert.deepEqual(await (await call('POST', '/api/push/calendar', { token: jwt(COACH) })).json(), { devices: 1, sent: 1, more: false });
+assert.equal(received[0].msg.url, 'index.html', 'lien hors du site refusé');
+assert.deepEqual(await (await call('POST', '/api/push/calendar', { token: jwt(JOUEUR) })).json(), { devices: 0, sent: 0, more: false }, 'rien en attente');
+
+console.log('push-worker : OK (RFC 8291, VAPID, droits, nettoyage, calendrier)');

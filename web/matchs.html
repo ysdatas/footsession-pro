@@ -80,6 +80,7 @@
       <h3 class="form-kicker mt-h">Joueurs <span id="mpCount"></span></h3>
       <div class="mt-tools" id="mpTools">
         <button class="btn btn-sm" type="button" id="btnSquad">Ajouter l’effectif</button>
+        <button class="btn btn-sm" type="button" id="btnSheet">Coller la feuille de match</button>
         <div class="guest-search">
           <input id="mpSearch" type="search" placeholder="Ajouter un joueur du club…" autocomplete="off" aria-label="Ajouter un joueur du club">
           <div class="guest-results" id="mpResults"></div>
@@ -124,6 +125,27 @@
     </div>
   </div>
 
+  <!-- Feuille de match collée (match-sheet-ui.js) : préremplit la fiche, rien n'est enregistré avant « Enregistrer » -->
+  <div class="modal-backdrop" id="sheetModal">
+    <div class="modal sheet-modal">
+      <h2 class="as-h3">Feuille de match</h2>
+      <p class="sheet-help">Sur epreuves.fff.fr, ouvrez la rencontre (onglet « Le match »), sélectionnez tout (Ctrl+A ou ⌘A), copiez, puis collez ici.
+        Rien n’est enregistré avant « Enregistrer » dans la fiche du match.</p>
+      <div class="field"><label for="sheetText">Page du match copiée</label><textarea id="sheetText" rows="6"></textarea></div>
+      <div class="sheet-bar">
+        <div class="field"><label for="sheetDuree">Durée du match (min)</label><input id="sheetDuree" type="number" min="1" max="130" inputmode="numeric" placeholder="Ex : 90"></div>
+        <p class="sheet-help">Sert seulement à calculer les minutes jouées à partir des changements. Vide : minutes non remplies.</p>
+        <button class="btn" id="sheetAnalyse" type="button">Analyser</button>
+      </div>
+      <p class="sheet-status" id="sheetStatus" role="status" aria-live="polite"></p>
+      <div id="sheetPreview"></div>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close="sheetModal">Annuler</button>
+        <button class="btn btn-primary hidden" id="sheetApply" type="button">Préremplir la fiche</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/auth.js"></script>
@@ -134,5 +156,7 @@
   <script src="assets/js/fff-import.js"></script>
   <script src="assets/js/matchs-page.js"></script>
   <script src="assets/js/matchs-fff.js"></script>
+  <script src="assets/js/match-sheet.js"></script>
+  <script src="assets/js/match-sheet-ui.js"></script>
 </body>
 </html>

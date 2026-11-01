@@ -390,7 +390,7 @@
 /* Terrain d'effectif (session-pitch.js) : à droite des présences, dessous sur téléphone. */
 .roster-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 16px; align-items: start; }
 .roster-layout .attendance-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-.pitch-panel { position: sticky; top: 12px; display: grid; gap: 8px; }
+.pitch-panel { position: sticky; top: 60px; display: grid; gap: 8px; }   /* sous la barre de rubrique */
 .pitch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-secondary); }
 .pitch-head small { font-weight: 500; color: var(--text-muted); }
 .mini-pitch { position: relative; aspect-ratio: 68 / 105; border-radius: var(--radius-md); overflow: hidden;

@@ -199,6 +199,6 @@ const uncovered = (await q(`select c.relname from pg_class c join pg_namespace n
     and (select count(*) from pg_policies p where p.tablename = c.relname and p.permissive = 'RESTRICTIVE'
          and p.policyname in ('lecteur_no_insert', 'lecteur_no_update', 'lecteur_no_delete')) <> 3`)).rows;
 assert.deepEqual(uncovered, [], 'les trois règles lecteur sur chaque table de la bibliothèque');
-assert.equal((await q(`select count(*)::int n from pg_class where relname like 'library%' and relkind = 'r' and relrowsecurity`)).rows[0].n, 6);
+assert.equal((await q(`select count(*)::int n from pg_class where relname like 'library%' and relkind = 'r' and relrowsecurity`)).rows[0].n, 7);   // + library_folders (lmfc_v31.sql)
 
 console.log('library-sql : OK (création, droits, octroi, fichiers, versions, tags, recherche, 5 000 procédés, lecteur)');

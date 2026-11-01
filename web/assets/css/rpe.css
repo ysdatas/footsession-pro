@@ -85,3 +85,29 @@
   .sr-grid tbody th, .sr-corner { min-width: 110px; max-width: 120px; padding: 4px 8px; }
   .sr-sess { width: 60px; }
 }
+
+/* Suivi RPE : capsules d'équipes (une ligne qui défile sur téléphone ; place réservée, rien ne bouge) */
+.sr-teams { display: flex; gap: 6px; min-height: 38px; margin: 0 0 12px; overflow-x: auto; scrollbar-width: none; }
+.sr-teams::-webkit-scrollbar { display: none; }
+.sr-team { flex: 0 0 auto; min-height: 36px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card);
+  color: var(--text-secondary); font: 600 var(--fs-sm)/1 var(--font-main); cursor: pointer; }
+.sr-team:hover { color: var(--text-primary); background: var(--bg-hover); }
+.sr-team[aria-pressed="true"] { background: rgba(var(--red-rgb), .16); border-color: rgba(var(--red-rgb), .5); color: #fff; }
+.sr-team:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Suivi RPE : tableau de bord (suivi-rpe-dash.js) */
+.sr-kpis { margin-bottom: 12px; }
+.kpi-of { margin-left: 2px; font-size: .6em; color: var(--text-secondary); }
+.sr-charts { margin-bottom: 12px; }
+.sr-block { margin-bottom: 12px; }
+.sr-table-wrap { overflow-x: auto; }
+.sr-table { font-size: var(--fs-sm); }
+.sr-table th, .sr-table td { white-space: nowrap; text-align: right; font-family: var(--font-num); }
+.sr-table th:first-child { text-align: left; font-family: var(--font-main); font-weight: 500; }
+.sr-table tbody th a { color: inherit; }
+.sr-table tbody th .sr-date { margin-right: 6px; }
+.sr-chip { display: inline-block; min-width: 38px; padding: 2px 6px; border-radius: var(--radius-sm); background: var(--rpe); color: #0A0A0A; font-weight: 600; text-align: center; }
+.sr-up { color: var(--danger); }
+.sr-down { color: var(--success); }
+.sr-miss-n { margin-left: 4px; color: var(--gold); font-family: var(--font-main); font-size: var(--fs-xs); }
+.sr-method { max-width: 90ch; margin: 4px 0 0; color: var(--text-secondary); font-size: var(--fs-xs); line-height: 1.5; }

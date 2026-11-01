@@ -65,6 +65,7 @@ await db.exec(read('lmfc_v11.sql'));
 await db.exec(read('lmfc_v11.sql'));   // rejouable
 await db.exec(read('lmfc_v27.sql'));
 await db.exec(read('lmfc_v27.sql'));   // rejouable
+for (const f of ['lmfc_v33.sql', 'lmfc_v33.sql']) await db.exec(read(f));   // cartons et feuille de match, rejouable
 await db.exec(`grant usage on all sequences in schema public to authenticated;`);
 
 const as = async (uid, fn) => {
@@ -132,4 +133,14 @@ const root2 = await as(COACH, () => one(`select id from public.trash where tbl =
 await as(COACH, () => q(`select public.trash_restore($1)`, [[root2.id]]));
 assert.equal((await one(`select ext_id from public.matches where id = $1`, [imp.id])).ext_id, '2026-2027|N2 SENIOR|JOURNEE 7|FONTENAY VENDEE|LE MANS FC 2', 'restauré avec sa source');
 
-console.log('matches-sql : OK (6 scénarios)');
+/* ---------- 7. Feuille de match (lmfc_v33.sql) : cartons, valeurs importées ---------- */
+const m3 = await one(`insert into public.matches (club_id, team_id, adversaire, date_match) values (1, 1, 'AJ AUXERRE', '2026-10-25') returning id`);
+await as(COACH, () => q(`insert into public.match_players (club_id, match_id, player_id, statut, minutes, buts, cartons_jaunes, carton_rouge, ext_data)
+  values (1, $1, 1, 'titulaire', 53, 0, 1, false, '{"statut":"titulaire","minutes":53,"buts":0,"cartons_jaunes":1}')`, [m3.id]));
+assert.deepEqual(await one(`select cartons_jaunes, carton_rouge, ext_data->>'minutes' m from public.match_players where match_id = $1`, [m3.id]),
+  { cartons_jaunes: 1, carton_rouge: false, m: '53' }, 'cartons et valeurs de la feuille enregistrés');
+await assert.rejects(q(`update public.match_players set cartons_jaunes = 3 where match_id = $1`, [m3.id]), /check/, 'deux jaunes au plus');
+await assert.rejects(as(PREPA, () => q(`update public.match_players set cartons_jaunes = 0 where match_id = $1 returning id`, [m3.id]).then(r => { if (!r.rows.length) throw new Error('row-level security'); })),
+  /row-level security/, 'le préparateur ne modifie pas');
+
+console.log('matches-sql : OK (7 scénarios)');

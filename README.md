@@ -145,6 +145,20 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            saisi par / corrigé par), rpe_set() seule écriture (joueur : ses séances,
                                            jour même à J+2 ; staff du joueur : correction marquée), my_rpe_sessions(),
                                            rpe_history() ; ni autres joueurs ni lecteur ; corbeille (rejouable)
+48. supabase/lmfc_v30.sql                  calendrier : séries (sessions.serie_id, club_events.serie_id, une date
+                                           par série), sessions.lieu, statut « non_concerne », joueurs ajoutés ou
+                                           retirés d'un événement (club_event_players), my_event_ok() dans la RLS
+                                           du joueur et my_calendar, calendar_add(), notifications regroupées par
+                                           joueur (calendar_notifs, calendar_notifs_take) (rejouable)
+49. supabase/lmfc_v31.sql                  bibliothèque : dossiers (library_folders, sans doublon), folder_id des
+                                           vidéos (dossier supprimé → sans dossier), library_search et
+                                           library_create_item avec p_folder, library_folders_list() (rejouable)
+50. supabase/lmfc_v32.sql                  GPS : gps_imports (empreinte unique, annulation), gps_rows (valeurs
+                                           brutes et normalisées), gps_player_aliases, gps_settings (indicateurs
+                                           ouverts aux joueurs), my_gps() ; my_physical_* appliquent
+                                           hidden_sections côté base (rejouable)
+51. supabase/lmfc_v33.sql                  retours de match : match_players.cartons_jaunes, carton_rouge,
+                                           ext_data (valeurs lues sur la feuille de match) (rejouable)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -402,6 +416,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   onglet), avec ses champs `data-remember` (recherche, filtres), les questions ouvertes de la FAQ
   et la position dans la page ; les liens `data-back` (« ← Joueurs ») retrouvent la liste telle
   qu'on l'a laissée. `sessionStorage`, vidé à la déconnexion et à la connexion.
+- **Barre de rubrique** (`nav-mobile.js` : `renderContextBar`, `layout.css`) — quand le titre de la page
+  sort de l'écran, la barre du haut affiche « club · équipe » et la rubrique (et la fiche ouverte :
+  « Joueurs · Prénom NOM ») : fixe, elle ne pousse rien ; ordinateur, elle glisse depuis le haut ;
+  téléphone, elle remplace le logo dans la barre existante. Pages staff et joueur.
 - **Menu instantané** (`nav.js`) — le menu, l'équipe, le bloc « moi » et la ligne « club ·
   équipe » sont dessinés dès la fin du chargement de la page à partir du dernier profil connu
   (`localStorage` `lmfc-nav-cache`, même compte seulement, vidé à la déconnexion), puis
@@ -527,14 +545,23 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   (vérifié en octobre 2026 : requêtes serveur refusées, feuilles de match fermées depuis 2024, API
   annoncée comme fermée prochainement). Le staff copie la page du club sur epreuves.fff.fr (tout
   sélectionner, copier) et la colle : rencontres reconnues (date, heure, stade, compétition, journée,
-  équipes, score ou forfait), notre côté trouvé seul (sinon « Nous : … » à choisir), aperçu par
+  équipes, score ou forfait), **notre côté d'après le nom du club** (`clubs.nom` : « LE MANS FC », « LE MANS
+  FC 2 », « LE MANS FOOTBALL CLUB 1 » ; jamais « LE MANS VILLARET AS » ni « LE MANS F.C.S. ») : l'adversaire
+  n'est jamais proposé, une rencontre sans le club est écartée, un derby interne est à choisir ; l'équipe
+  du club proposée match par match d'après la compétition (« N2 », « National 3 », « U17 »…), modifiable ;
+  aperçu par
   compétition, état de chaque ligne (Nouveau, Mis à jour, À jour, Gardé). Une rencontre = une clé
   (saison, compétition, journée ou tour, domicile, extérieur ; plateaux : la date) : un report met à
   jour, jamais de doublon (index unique). Un champ modifié par le staff n'est plus remplacé ;
-  commentaire, informations, à retenir et joueurs ne sont jamais touchés. Pas de joueurs importés
-  (feuilles de match fermées). Sans la FFF, la saisie manuelle reste entière. Tests :
-  `tests/fff-import.test.mjs` (texte réel de la page, `tests/fixtures-fff-calendrier.txt`),
-  `tests/matches-sql.test.mjs`.
+  commentaire, informations, à retenir et joueurs ne sont jamais touchés. Sans la FFF, la saisie
+  manuelle reste entière. **Coller la feuille de match** (`match-sheet.js`, `match-sheet-ui.js`,
+  `lmfc_v33.sql`) : la page « Le match » d'une rencontre jouée (epreuves.fff.fr) préremplit la fiche :
+  score, titulaires, remplaçants entrés ou non, buts (seniors), cartons jaunes et rouges ; noms
+  complets ou « PRÉNOM N. » (jeunes) rapprochés des fiches (reconnu / à confirmer / à choisir / non
+  reconnu) ; minutes calculées seulement si la durée du match est saisie. Rien n'est enregistré avant
+  « Enregistrer » ; les valeurs lues restent dans `ext_data` : une correction à la main s'affiche
+  « FFF · modifié ». Tests : `tests/fff-import.test.mjs` (texte réel de la page,
+  `tests/fixtures-fff-calendrier.txt`), `tests/match-sheet.test.mjs`, `tests/matches-sql.test.mjs`.
 - **Calendrier** (`calendrier.html`, `calendrier-page.js`, `calendar-utils.js`, `calendar.css`, `lmfc_v28.sql`) —
   staff (menu, après Joueurs : les quatre onglets du téléphone ne bougent pas) et joueurs (onglet
   « Agenda »). Rien n'est recopié : séances (`date_seance`, `heure`) et matchs (`date_match`, `heure`)
@@ -544,8 +571,20 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   sur l'appareil) ; équipe = sélecteur du menu (et ce qui concerne tout le club). Staff : une séance ouvre
   l'éditeur, un match sa fiche (`matchs.html?id=`). Joueur : `my_calendar()` (ses équipes, ses invitations ;
   date, heure, titre, lieu, score, jamais les notes de séance ni les informations du match) et une fiche
-  résumée. « + Événement » : admin (tout le club ou une équipe), coachs (leurs équipes) ; la base refuse le
-  reste. Tests : `tests/calendar-sql.test.mjs`, `tests/calendar-utils.test.mjs`.
+  résumée. **« + Ajouter »** (`calendar-edit.js`, `lmfc_v30.sql`) : une **séance** (vraie séance : Séances,
+  éditeur, RPE) ou un **événement** ; **Répéter** chaque semaine ou toutes les 2 semaines, jours cochés,
+  jusqu'à une date (30 juin par défaut) ou un nombre de fois (`calRepeat`, 120 au plus), aperçu avant
+  d'enregistrer ; une date où l'équipe a déjà une séance est sautée (`calendar_add`, une transaction, un
+  double clic ne crée rien de plus). **Participants** : l'équipe par défaut ; décocher retire un joueur
+  (séance : statut « Non concerné » ; événement : `club_event_players`), la recherche en ajoute un d'une
+  autre équipe sans changer son équipe. Modifier ou supprimer un élément d'une série : **cet élément /
+  celui-ci et les suivants / toute la série** (la date ne change que pour un seul). Le joueur ne voit que
+  ses équipes, ses invitations et les matchs dont il est sur la feuille, et jamais un événement dont il
+  est retiré : la règle est dans la base (`my_event_ok`, RLS et `my_calendar`). **Notifications** : chaque
+  ajout, modification ou annulation (événements, séances d'une série) part aux joueurs concernés,
+  **un message par joueur et par série** (`calendar_notifs_take`, Worker `/api/push/calendar`) ; rien
+  pour les séances créées dans l'éditeur hors série. Tests : `tests/calendar-sql.test.mjs`,
+  `tests/calendar-series-sql.test.mjs`, `tests/calendar-utils.test.mjs`, `tests/push-worker.test.mjs`.
 - **RPE après la séance** (`rpe.js`, `session-rpe.js`, `rpe.css`, `lmfc_v29.sql`) — perception de l'effort
   du joueur, de 1 à 10 (libellés CR-10, couleur du vert au rouge). Joueur : carte « Note ton effort » en
   tête de **Mon espace** (séances de ses équipes ou où il est invité, du jour même à J+2) et bouton dans
@@ -560,10 +599,17 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   enregistrée l'exclut. La carte de Mon espace est toujours là (« Rien à noter… » sinon) ; le Calendrier
   du joueur marque « RPE à noter ». Bloc **Ressenti des joueurs (RPE)** juste sous les présences ; la
   saisie du staff passe par la même feuille que le joueur (bouton « Effacer »).
-- **Suivi RPE** (`suivi-rpe.html`, `suivi-rpe-page.js`) — staff : grille joueurs × 10 ou 20 dernières
-  séances de l'équipe du menu ; valeur colorée, « ? » réponse attendue qui manque, « abs. », marque
-  « staff » ; moyenne et réponses/attendus par séance ; une case ouvre la saisie du staff. Lecture par
-  la RLS existante, écriture par `rpe_set()`. Tests : `tests/rpe-sql.test.mjs`, `tests/rpe-logic.test.mjs`.
+- **Suivi RPE** (`suivi-rpe.html`, `suivi-rpe-page.js`, `suivi-rpe-dash.js`, `rpe-stats.js`) — staff :
+  **capsules d'équipes** (celles du compte, toutes s'il n'est pas restreint ; indépendantes du menu
+  « Équipe », `?team=`). **Tableau de bord** : RPE moyen, réponses / attendues, manquantes, charge
+  ressentie moyenne ; RPE moyen par séance (couleurs de l'échelle), charge ressentie par séance, RPE
+  moyen de chaque joueur (du plus élevé au plus faible) ; tableau des séances : durée prévue, travail
+  prévu (procédés), RPE moyen, charge ressentie, écart à la précédente, réponses. **Charge ressentie =
+  RPE × durée totale de la séance (min), en UA** (Foster) ; la charge prévue reste dans ses colonnes et la
+  charge GPS n'y est jamais additionnée. **Détail joueurs** : la grille joueurs × 10 ou 20 dernières
+  séances ; valeur colorée, « ? » réponse attendue qui manque, « abs. », marque « staff » ; une case ouvre
+  la saisie du staff. Lecture par la RLS existante, écriture par `rpe_set()`. Tests :
+  `tests/rpe-sql.test.mjs`, `tests/rpe-logic.test.mjs`, `tests/rpe-stats.test.mjs`.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne
@@ -601,6 +647,25 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   via `tactical-board.html?exercise=ID`). Le joueur voit la même chose dans **Objectifs &
   préventions** (`mon-programme.html`), marque un exercice « fait » et laisse un ressenti (RPC
   `mark_program_exercise`). Liens : `lmfc_v6.sql`.
+- **GPS** (onglet de Performance : `gps-page.js`, `gps-import-ui.js`, `gps-import.js`, `gps.css` ;
+  fiche joueur : `gps-card.js` ; `lmfc_v32.sql`) — **Importer des données GPS** (admin, préparateur) :
+  fichier Catapult (CSV ou Excel) → date (le nom du fichier la donne parfois), équipe, séance du jour →
+  **Analyser** → aperçu → **Valider**. Le moteur part des en-têtes, jamais des positions : dictionnaire
+  d'indicateurs (variantes FR et EN : un autre fournisseur = d'autres variantes) et familles à seuils
+  reconnues quel que soit le seuil (« Dist 15-20km.h », « Dist >25km.h », « D >20 m/min. »,
+  « Nb accélérations >3m.s ») ; unités de l'en-tête et des cellules (km → m, m/s → km/h, s → min,
+  01:04:19 → 64,32 min) ; contrôles (vitesse plausible, Rythme = distance ÷ temps, distance par minute =
+  bande ÷ temps) ; colonnes inconnues signalées, gardées seulement si cochées, sous leur nom ; lignes
+  collectives (« Team Average »…) exclues. Joueurs : nom et prénom → reconnu ; nom seul (« CALODAT ») →
+  à confirmer ; homonymes → à choisir ; les choix sont mémorisés (`gps_player_aliases`). Le même fichier
+  ne s'importe qu'une fois (empreinte) ; rien n'est écrasé ; un import s'**annule** (gardé dans
+  l'historique). Valeurs brutes (`raw`) et normalisées (`metrics`) conservées. Comparatif joueurs ×
+  indicateurs pour une séance ou une période (moyenne), brut ou **par minute** (alerte si les temps de
+  jeu diffèrent de plus de 20 %), sans les gardiens, période précédente. **Visible par les joueurs** :
+  aucun indicateur par défaut ; le joueur ne lit que `my_gps()`. Fiche joueur : carte GPS (dernière
+  séance, évolution, RPE de la même séance à côté, jamais additionné). Tests : `tests/gps-import.test.mjs`
+  (export Catapult réel s'il est dans Téléchargements, sinon `tests/fixtures-gps-catapult.csv`,
+  anonymisé), `tests/gps-sql.test.mjs`.
 - **Performance de l'effectif** (`comparaison.html`) — tests bruts, évolution, données physiques,
   **Objectifs · Préventions** (`objectives-board.js`, `?tab=objectifs&player=…&new=1`) : tous les
   objectifs et préventions de l'effectif par joueur, filtres par type et par statut, ajout pour un
@@ -630,9 +695,12 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   admin, coachs, préparateurs) — procédés filmés du club en grille ou en liste, par pages de 48 au
   défilement ; vignettes lues pour les seules cartes affichées, aucune vidéo chargée avant « Lire ».
   Recherche (titre, consignes, début d'un tag ; casse et accents ignorés), filtre par tags « Tous les
-  tags » / « Au moins un », Actifs / Archivés / Retirés. « Ajouter un procédé » : vidéo + titre
-  suffisent (empreinte et miniature calculées sur l'appareil ; vidéo déjà présente → pas de second
-  envoi). Fiche (`library-item.js`) : lecture, consignes, tags avec suggestions (`library-tags.js`),
+  tags » / « Au moins un », **dossier** (`lmfc_v31.sql`), Actifs / Archivés / Retirés : tout se cumule.
+  « Ajouter une vidéo » : fichier + nom suffisent, dossier, description et tags en plus (empreinte et
+  miniature calculées sur l'appareil ; vidéo déjà présente → pas de second envoi). **Gérer les
+  dossiers** (`library-folders.js`, admin et coachs) : créer (sans doublon « Rondo » / « rondo »),
+  renommer, archiver, supprimer (les vidéos restent, sans dossier ; les séances gardent leurs liens),
+  ranger plusieurs vidéos d'un coup ; le dossier d'une vidéo se change aussi dans sa fiche. Fiche (`library-item.js`) : lecture, consignes, tags avec suggestions (`library-tags.js`),
   versions, séances qui l'utilisent, accès (`library-access.js`), ajouter à une séance
   (`session-edit.html?id=…&lib=…`). « Gérer les tags » : renommer, fusionner, supprimer.
   Dans la séance (`session-library.js`) : bouton « Bibliothèque vidéo » (nouveau procédé) et

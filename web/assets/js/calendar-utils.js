@@ -44,3 +44,24 @@ function calTitle(view, anchor) {
 }
 /* « mardi 3 novembre » */
 const calDayLabel = (iso) => calFmt(iso, { weekday: 'long', day: 'numeric', month: 'long' });
+
+/* Dates d'une série, en heure locale (aucun décalage au changement d'heure) :
+   à partir de start, les jours cochés (0 = lundi … 6 = dimanche), chaque
+   semaine (every 1) ou toutes les 2 semaines (every 2), jusqu'à until
+   inclus ou count dates. CAL_MAX_REPEAT au plus : capped le signale. */
+const CAL_MAX_REPEAT = 120;
+function calRepeat({ start, every = 1, days = [], until = null, count = null }) {
+  const picked = [...new Set(days)].filter(d => d >= 0 && d <= 6).sort((a, b) => a - b);
+  const max = Math.min(count || CAL_MAX_REPEAT, CAL_MAX_REPEAT), dates = [];
+  if (!start || !picked.length || (!until && !count)) return { dates: start ? [start] : [], capped: false };
+  const monday = calMonday(start);
+  for (let w = 0; ; w += every) {
+    for (const d of picked) {
+      const iso = calAddDays(monday, w * 7 + d);
+      if (iso < start) continue;
+      if (until && iso > until) return { dates, capped: false };
+      if (dates.length === max) return { dates, capped: !count || count > CAL_MAX_REPEAT };
+      dates.push(iso);
+    }
+  }
+}

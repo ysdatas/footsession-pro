@@ -23,7 +23,7 @@ async function openLibItem(id) {
   openModal('libItemModal');
   try {
     const [it, lvl, tags, versions, uses, count, staff] = await Promise.all([
-      sb.from('library_items').select('id, titre, description, statut, created_by, created_at, updated_at, current_version_id, acces_roles, acces_teams, acces_niveau').eq('id', id).maybeSingle(),
+      sb.from('library_items').select('*').eq('id', id).maybeSingle(),   // * : folder_id seulement si lmfc_v31.sql est passée
       sb.rpc('library_level', { p_item: id }),
       sb.from('library_item_tags').select('tag_id').eq('item_id', id),
       sb.from('library_versions').select('id, version_no, note, created_at, created_by, library_files(id, storage_path, duree_sec)').eq('item_id', id).order('version_no', { ascending: false }),
@@ -61,6 +61,8 @@ function renderLibItem() {
     <section class="lib-sec" aria-labelledby="li-h1"><h3 class="as-h4" id="li-h1">Description et consignes</h3>
       ${edit ? `<div class="field"><label for="li-titre">Titre</label><input id="li-titre" maxlength="200" value="${escapeHtml(it.titre)}"></div>
         <div class="field"><label for="li-desc">Description ou consignes</label><textarea id="li-desc" maxlength="5000">${escapeHtml(it.description || '')}</textarea></div>
+        ${'folder_id' in it && libFolders.list.length > 1 ? `<div class="field"><label for="li-folder">Dossier</label><select id="li-folder" data-li-folder>
+          <option value="">Sans dossier</option>${libFolderOptions(it.folder_id, { all: false })}</select></div>` : ''}
         <button class="btn btn-sm" type="button" data-li="save">Enregistrer</button>`
         : `<p class="lib-desc">${escapeHtml(it.description || 'Aucune consigne.')}</p>`}
     </section>
@@ -149,7 +151,10 @@ document.getElementById('libItemBody').addEventListener('click', async (e) => {
   } else if (act === 'save') {
     const titre = document.getElementById('li-titre').value.trim();
     if (!titre) return toast('Le titre ne peut pas être vide.', 'error');
-    libChange(sb.from('library_items').update({ titre, description: document.getElementById('li-desc').value.trim() || null }, { count: 'exact' }).eq('id', it.id), 'Enregistré.');
+    const folder = document.getElementById('li-folder');
+    libChange(sb.from('library_items').update({ titre, description: document.getElementById('li-desc').value.trim() || null,
+      ...(folder ? { folder_id: Number(folder.value) || null } : {}) }, { count: 'exact' }).eq('id', it.id), 'Enregistré.');
+    if (folder) loadLibFolders(true);
   } else if (act === 'replace') {
     document.getElementById('li-replace').click();
   } else if (act === 'archive') {

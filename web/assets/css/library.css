@@ -158,3 +158,20 @@ button.lib-tag { cursor: pointer; font-family: inherit; }
   .lib-toolbar select, .lib-tf-combo { flex: 1 1 140px; }
   .lib-tf-quick .lib-tag:nth-child(n+6) { display: none; }   /* téléphone : les 5 tags les plus utilisés */
 }
+
+/* Dossiers (library-folders.js, lmfc_v31.sql) */
+.lib-toolbar select[id$="-folder"] { width: auto; min-width: 170px; }
+.lib-help { margin: -4px 0 12px; color: var(--text-secondary); font-size: var(--fs-sm); }
+.lf-new { display: flex; gap: 8px; margin-bottom: 12px; }
+.lf-new input { flex: 1; }
+.lf-list ul, .lf-videos { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.lf-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.lf-list li input { flex: 1 1 160px; min-height: 34px; padding: 5px 8px; }
+.lf-list li.is-off { opacity: .6; }
+.lf-n { color: var(--text-secondary); font-size: var(--fs-xs); white-space: nowrap; }
+.lf-archived summary { cursor: pointer; margin: 6px 0; color: var(--text-secondary); font-size: var(--fs-sm); }
+.lf-pick { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.lf-videos { max-height: 280px; overflow: auto; }
+.lf-videos label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-sm); text-transform: none; letter-spacing: 0; color: var(--text-primary); }
+.lf-videos input { width: 18px; height: 18px; accent-color: var(--gold); }
+.lf-videos small { margin-left: auto; color: var(--text-secondary); }

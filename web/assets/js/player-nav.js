@@ -74,6 +74,7 @@ function renderPlayerShell() {
     document.body.insertAdjacentHTML('afterbegin',
       '<header class="m-appbar"><a class="m-brand" href="mon-espace.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC&nbsp;<span class="brand-pro">Performance</span></a></header>');
   }
+  if (typeof renderContextBar === 'function') renderContextBar();   // nav-mobile.js
   document.body.insertAdjacentHTML('beforeend',
     `<nav class="pa-tabbar" aria-label="Raccourcis">${PLAYER_NAV.map(([key, , short, icon]) => {
       const on = key === page;

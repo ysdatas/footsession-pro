@@ -133,6 +133,31 @@
   .main { margin-left: 0; padding: calc(56px + 14px) var(--page-pad-x) 50px; }
 }
 
+/* ----- Barre de rubrique (nav-mobile.js : renderContextBar) ----- */
+/* Le titre de la page est sorti de l'écran (body.ctx-on) : la barre du haut dit
+   où l'on est. Fixe : elle ne pousse rien. Ordinateur : 48 px, glisse depuis le
+   haut ; téléphone : la barre de 56 px, la rubrique y remplace le logo. */
+html { scroll-padding-top: 64px; }
+.m-ctx { display: none; flex-direction: column; justify-content: center; min-width: 0; line-height: 1.25; }
+.m-ctx small { color: var(--gold); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.m-ctx strong { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.01em; }
+.m-ctx small, .m-ctx strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-ctx small:empty { display: none; }
+.ctx-on .m-ctx { display: flex; }
+@media (max-width: 980px) { .ctx-on .m-brand { display: none; } }
+@media (min-width: 981px) {
+  .m-appbar {
+    display: flex; align-items: center; position: fixed; top: 0; left: var(--sidebar-w); right: 0; z-index: 45;
+    height: 48px; padding: 0 var(--page-pad-x);
+    background: var(--liseret) top / 100% 1px no-repeat, rgba(10,10,10,.86); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+    border-bottom: 1px solid var(--border);
+    transform: translateY(-100%); visibility: hidden;
+    transition: transform var(--dur-panel) var(--ease-out), visibility var(--dur-panel);
+  }
+  .m-appbar .m-brand { display: none; }
+  .ctx-on .m-appbar { transform: none; visibility: visible; }
+}
+
 @media (max-width: 560px) {
   .page-head { flex-direction: column; align-items: stretch; }
   :root { --page-pad-x: 12px; }
@@ -193,4 +218,4 @@
   .sidebar { padding-top: 66px; width: min(var(--sidebar-w), 86vw); }
   .sidebar.open { box-shadow: 20px 0 50px rgba(0,0,0,.5); }
 }
-@media (prefers-reduced-motion: reduce) { .sidebar, .sidebar-backdrop { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sidebar, .sidebar-backdrop, .m-appbar { transition: none; } }

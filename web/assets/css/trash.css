@@ -3,8 +3,9 @@
    ============================================================ */
 .trash-toolbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 14px;
-  position: sticky; top: 0; z-index: 4; padding: 10px 0; background: var(--bg-primary);
+  position: sticky; top: 48px; z-index: 4; padding: 10px 0; background: var(--bg-primary);   /* sous la barre de rubrique */
 }
+@media (max-width: 980px) { .trash-toolbar { top: 56px; } }
 .trash-toolbar select { width: auto; min-width: 200px; }
 .trash-toolbar .select-all { margin: 0; }
 .trash-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }

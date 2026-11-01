@@ -42,10 +42,25 @@ function loadLibTags(force = false) {
 const libTagChip = (t, { remove = '' } = {}) => `<span class="lib-tag">#${escapeHtml(t.label)}${remove
   ? `<button type="button" class="lib-tag-x" ${remove}="${t.id}" aria-label="Retirer #${escapeHtml(t.label)}">×</button>` : ''}</span>`;
 
+/* ---------- Dossiers (lmfc_v31.sql) : liste partagée, nombre de vidéos visibles ; id 0 = sans dossier ---------- */
+const libFolders = { list: [], ready: null };
+function loadLibFolders(force = false) {
+  if (!libFolders.ready || force) {
+    libFolders.ready = sb.rpc('library_folders_list').then(({ data, error }) => {
+      if (error && error.code !== 'PGRST202') console.warn('Dossiers de la bibliothèque', error.message);
+      libFolders.list = data || [];
+    });
+  }
+  return libFolders.ready;
+}
+const libFolderOptions = (current, { all = true } = {}) => (all ? '<option value="">Tous les dossiers</option>' : '')
+  + libFolders.list.filter(f => (all || f.id !== 0) && (!f.archived || f.id === current)).map(f => `<option value="${f.id}"${f.id === current ? ' selected' : ''}>${escapeHtml(f.nom)}${all ? ` (${f.n})` : ''}</option>`).join('');
+
 /* ---------- Recherche ---------- */
-async function libSearch({ q = '', tags = [], mode = 'all', statut = 'actif', offset = 0, limit = LIB_PAGE } = {}) {
+async function libSearch({ q = '', tags = [], mode = 'all', statut = 'actif', offset = 0, limit = LIB_PAGE, folder = null } = {}) {
   const { data, error } = await sb.rpc('library_search', {
     p_q: q, p_tags: tags, p_mode: mode, p_statut: statut, p_limit: limit, p_offset: offset,
+    ...(folder === null ? {} : { p_folder: folder }),   // sans dossier choisi : l'appel d'avant lmfc_v31.sql
   });
   if (error) throw error;
   return data || [];
@@ -123,10 +138,11 @@ function createLibBrowser(root, opts = {}) {
   const id = root.id || 'lib';
   let view = 'grid';
   try { view = localStorage.getItem(LIB_VIEW) === 'list' ? 'list' : 'grid'; } catch { /* stockage indisponible */ }
-  const st = { q: '', tags: [], mode: 'all', statut: 'actif', rows: [], total: 0, seq: 0, busy: false };
+  const st = { q: '', tags: [], mode: 'all', statut: 'actif', folder: null, rows: [], total: 0, seq: 0, busy: false };
   root.innerHTML = `
     <div class="lib-toolbar">
-      <input type="search" id="${id}-q" class="lib-search" placeholder="Rechercher : titre, consignes, tag…" aria-label="Rechercher un procédé" autocomplete="off">
+      <input type="search" id="${id}-q" class="lib-search" placeholder="Rechercher : titre, consignes, tag…" aria-label="Rechercher une vidéo" autocomplete="off">
+      <select id="${id}-folder" class="hidden" aria-label="Dossier"></select>
       ${opts.pick ? '' : `<select id="${id}-statut" aria-label="Procédés affichés">
         <option value="actif">Actifs</option><option value="archive">Archivés</option>
         ${canManageVideos(window.CURRENT_PROFILE?.role) ? '<option value="retire">Retirés</option>' : ''}</select>`}
@@ -149,7 +165,7 @@ function createLibBrowser(root, opts = {}) {
   const status = () => {
     const n = st.total;
     $id('status').textContent = st.busy && !st.rows.length ? 'Recherche…'
-      : n ? `${st.rows.length < n ? `${st.rows.length} sur ` : ''}${n} procédé${n > 1 ? 's' : ''}` : 'Aucun procédé ne correspond.';
+      : n ? `${st.rows.length < n ? `${st.rows.length} sur ` : ''}${n} vidéo${n > 1 ? 's' : ''}` : 'Aucune vidéo ne correspond.';
     more.classList.toggle('hidden', st.rows.length >= n);
   };
   async function load(reset) {
@@ -157,7 +173,7 @@ function createLibBrowser(root, opts = {}) {
     if (!reset && (st.busy || st.rows.length >= st.total)) return;
     st.busy = true; status();
     try {
-      const rows = await libSearch({ q: st.q, tags: st.tags, mode: st.mode, statut: st.statut, offset: reset ? 0 : st.rows.length });
+      const rows = await libSearch({ q: st.q, tags: st.tags, mode: st.mode, statut: st.statut, folder: st.folder, offset: reset ? 0 : st.rows.length });
       if (seq !== st.seq) return;   // une recherche plus récente est partie
       if (reset) { st.rows = []; results.innerHTML = ''; }
       st.rows.push(...rows);
@@ -174,6 +190,8 @@ function createLibBrowser(root, opts = {}) {
   let typing = 0;
   $id('q').addEventListener('input', (e) => { clearTimeout(typing); typing = setTimeout(() => { st.q = e.target.value; load(true); }, 220); });
   $id('statut')?.addEventListener('change', (e) => { st.statut = e.target.value; load(true); });
+  $id('folder').addEventListener('change', (e) => { st.folder = e.target.value === '' ? null : Number(e.target.value); load(true); });
+  const folders = () => { const sel = $id('folder'); sel.innerHTML = libFolderOptions(st.folder); sel.classList.toggle('hidden', libFolders.list.length < 2); };
   more.addEventListener('click', () => load(false));
   new IntersectionObserver(([en]) => { if (en.isIntersecting) load(false); }, { rootMargin: '400px' }).observe(more.parentElement);
   root.addEventListener('click', (e) => {
@@ -200,8 +218,11 @@ function createLibBrowser(root, opts = {}) {
   const api = {
     reload: () => load(true),
     setTags(ids) { st.tags = ids; load(true); },
+    folder: () => st.folder,
+    async refreshFolders() { await loadLibFolders(true); folders(); },
     focus: () => $id('q').focus(),
   };
+  loadLibFolders().then(folders);
   loadLibTags().catch(e => console.warn('Tags de la bibliothèque', e)).finally(() => {
     if (typeof mountTagFilter === 'function') mountTagFilter($id('tagfilter'), (ids) => api.setTags(ids));   // library-tags.js
     load(true);

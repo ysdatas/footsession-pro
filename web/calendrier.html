@@ -34,7 +34,7 @@
         <p class="subtitle" id="calStatus" role="status" aria-live="polite">Chargement…</p>
       </div>
       <div class="page-actions">
-        <button class="btn btn-primary hidden" id="calAdd" type="button">+ Événement</button>
+        <button class="btn btn-primary hidden" id="calAdd" type="button">+ Ajouter</button>
       </div>
     </div>
 
@@ -68,22 +68,59 @@
     </div>
   </div>
 
-  <!-- Événement du club : ajout, modification (admin, coachs de l'équipe ; la base décide) -->
+  <!-- Ajouter ou modifier (calendar-edit.js) : séance ou événement, une date ou une série ; la base décide (RLS, calendar_add) -->
   <div class="modal-backdrop" id="calEventModal">
-    <div class="modal">
-      <h2 class="as-h3" id="calEventTitle">Nouvel événement</h2>
-      <div class="field"><label for="ev-titre">Titre</label><input id="ev-titre" maxlength="120" required placeholder="Ex : Réunion des parents, stage, tournoi…"></div>
+    <div class="modal ce-modal">
+      <h2 class="as-h3" id="calEventTitle">Ajouter au calendrier</h2>
+      <div class="segmented ce-kind" id="ceKind" role="group" aria-label="Type">
+        <button type="button" data-ce-kind="seance" aria-pressed="true">Séance</button>
+        <button type="button" data-ce-kind="evenement" aria-pressed="false">Événement</button>
+      </div>
+      <p class="ce-hint" id="ceKindHint">Une vraie séance : elle apparaît dans Séances, se complète dans l’éditeur et ouvre le RPE des joueurs.</p>
+      <fieldset class="ce-scope hidden" id="ceScope">
+        <legend>Appliquer à</legend>
+        <label><input type="radio" name="ce-scope" value="one" checked> <span id="ceScopeOne">Cet élément</span></label>
+        <label><input type="radio" name="ce-scope" value="next"> Celui-ci et les suivants</label>
+        <label><input type="radio" name="ce-scope" value="all"> Toute la série</label>
+      </fieldset>
+      <div class="field"><label for="ev-titre">Titre</label><input id="ev-titre" maxlength="120" required placeholder="Ex : Entraînement, réunion des parents, stage…"></div>
       <div class="field-row">
-        <div class="field"><label for="ev-date">Date</label><input id="ev-date" type="date" required></div>
+        <div class="field"><label for="ev-date" id="ev-date-label">Date</label><input id="ev-date" type="date" required></div>
         <div class="field"><label for="ev-heure">Heure</label><input id="ev-heure" type="time"></div>
       </div>
       <div class="field-row">
         <div class="field"><label for="ev-team">Pour</label><select id="ev-team"></select></div>
         <div class="field"><label for="ev-lieu">Lieu</label><input id="ev-lieu" maxlength="120"></div>
       </div>
-      <div class="field"><label for="ev-notes">Informations</label><textarea id="ev-notes" rows="3" maxlength="1000" placeholder="Visibles par les joueurs concernés"></textarea></div>
+      <div class="field ce-only-seance"><label for="ev-duree">Durée (min)</label><input id="ev-duree" type="number" min="1" max="600" step="5" value="90"></div>
+      <div class="field ce-only-evenement"><label for="ev-notes">Informations</label><textarea id="ev-notes" rows="3" maxlength="1000" placeholder="Visibles par les joueurs concernés"></textarea></div>
+      <div class="ce-repeat" id="ceRepeatBox">
+        <div class="field"><label for="ev-repeat">Répéter</label>
+          <select id="ev-repeat"><option value="0">Ne pas répéter</option><option value="1">Chaque semaine</option><option value="2">Toutes les 2 semaines</option></select></div>
+        <div class="ce-repeat-more hidden" id="ceRepeatMore">
+          <fieldset class="ce-days"><legend>Les jours</legend>
+            <label><input type="checkbox" value="0"> Lun</label><label><input type="checkbox" value="1"> Mar</label><label><input type="checkbox" value="2"> Mer</label>
+            <label><input type="checkbox" value="3"> Jeu</label><label><input type="checkbox" value="4"> Ven</label><label><input type="checkbox" value="5"> Sam</label>
+            <label><input type="checkbox" value="6"> Dim</label>
+          </fieldset>
+          <fieldset class="ce-end"><legend>Fin</legend>
+            <label><input type="radio" name="ce-end" value="until" checked> le <input id="ev-until" type="date" aria-label="Dernier jour de la série"></label>
+            <label><input type="radio" name="ce-end" value="count"> après <input id="ev-count" type="number" min="1" max="120" value="10" aria-label="Nombre de fois"> fois</label>
+          </fieldset>
+        </div>
+      </div>
+      <details class="ce-players hidden" id="cePlayers">
+        <summary id="cePlayersSum">Participants</summary>
+        <p class="ce-hint">Toute l’équipe par défaut. Décochez pour retirer un joueur ; ajoutez un joueur d’une autre équipe sans changer son équipe.</p>
+        <div class="ce-team" id="ceTeam"></div>
+        <div class="field"><label for="ceAddInput">Ajouter un joueur</label>
+          <input id="ceAddInput" list="ceAddList" autocomplete="off" placeholder="Nom d’un joueur d’une autre équipe…"><datalist id="ceAddList"></datalist></div>
+        <div class="ce-added" id="ceAdded"></div>
+      </details>
+      <p class="ce-preview" id="cePreview" role="status" aria-live="polite"></p>
       <div class="modal-actions">
         <button class="btn btn-danger hidden" id="ev-delete" type="button">Supprimer</button>
+        <a class="btn hidden" id="ceOpenSession" href="#">Ouvrir la séance</a>
         <span class="cal-spacer"></span>
         <button class="btn" type="button" data-close="calEventModal">Annuler</button>
         <button class="btn btn-primary" id="ev-save" type="button">Enregistrer</button>
@@ -100,6 +137,7 @@
   <script src="assets/js/player-nav.js"></script>
   <script src="assets/js/calendar-utils.js"></script>
   <script src="assets/js/rpe.js"></script>
+  <script src="assets/js/calendar-edit.js"></script>
   <script src="assets/js/calendrier-page.js"></script>
 </body>
 </html>

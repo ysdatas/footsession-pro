@@ -919,6 +919,7 @@ async function loadPage() {
   if (ctxProfile.role === 'joueur') { setPlayerShellUser(player); applyPlayerVisibility(); }
   else setupVisibilityToggles();
   renderRpeTrend(player.id);   // RPE après les séances (rpe.js) : le joueur et le staff qui le suit
+  renderGpsCard(player.id, ctxProfile.role === 'joueur');   // GPS (gps-card.js) : le staff, ou le joueur pour ce qui lui est ouvert
   // Onglet Vidéos ouvert d'emblée (?tab=videos) : il attendait la fiche et restait sur « Chargement… ».
   if (!pfVideosMounted && document.querySelector('[data-pf-tab="videos"][aria-selected="true"]')) showTab('videos', false);
 

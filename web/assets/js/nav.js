@@ -162,6 +162,7 @@ function renderNav(profile, teams = window.CLUB_TEAMS || []) {
   renderUserMenu(profile);
   if (changed) restoreNavScroll(nav);   // après l'équipe et le bloc « moi », qui réduisent la hauteur du menu
   renderPageKicker(profile, teams);
+  if (typeof renderContextBar === 'function') renderContextBar();   // nav-mobile.js
   if (typeof renderTabbar === 'function') renderTabbar(orderedNavItems(profile.role, profile.prefs).filter(i => !i.hidden), activeKey);   // nav-mobile.js
   if (profile === window.CURRENT_PROFILE || window.CURRENT_PROFILE?.id === profile.id) saveNavCache(profile, teams);
 }
@@ -197,11 +198,12 @@ function renderTeamSwitch(nav, profile, teams) {
 }
 
 /* Où suis-je ? Club et équipe de travail, au-dessus du titre de chaque
-   page (même ligne que la date de l'accueil). */
+   page (même ligne que la date de l'accueil). Une page qui montre une autre
+   équipe que celle du menu (Suivi RPE) la donne dans body.dataset.team. */
 function renderPageKicker(profile, teams = window.CLUB_TEAMS || []) {
   const head = document.querySelector('.page-head > div:first-child');
   if (!head) return;
-  const team = teams.find(t => t.id === teamIdOf(profile, teams));
+  const team = teams.find(t => t.id === (Number(document.body.dataset.team) || teamIdOf(profile, teams)));
   const parts = [profile.clubs?.nom || 'Le Mans FC', team ? team.nom : (teams.length ? 'Toutes les équipes' : null)];
   const text = parts.filter(Boolean).join(' · ');
   const kicker = head.querySelector('.page-kicker');

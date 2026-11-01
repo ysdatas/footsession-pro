@@ -101,3 +101,36 @@ p.cal-kind { margin: -6px 0 10px; }
   .cal-title { flex: 1 0 100%; margin: 4px 0 0; order: 5; }
   .cal-nav { flex-wrap: wrap; }
 }
+
+/* Ajouter / modifier (calendar-edit.js) : type, série, participants, portée */
+.ce-modal { max-width: 560px; }
+.ce-kind { margin: 0 0 6px; }
+.ce-hint { margin: 0 0 12px; color: var(--text-secondary); font-size: var(--fs-xs); }
+.ce-modal fieldset { margin: 0 0 12px; padding: 0; border: 0; min-width: 0; }
+.ce-modal legend { margin-bottom: 6px; padding: 0; color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.ce-scope, .ce-end { display: grid; gap: 6px; }
+.ce-scope label, .ce-end label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-md); text-transform: none; letter-spacing: 0; color: var(--text-primary); }
+.ce-scope { padding: 10px 12px !important; border: 1px solid var(--gold-border) !important; border-radius: var(--radius-md); background: #17150f; }
+.ce-end input[type="date"] { width: auto; }
+.ce-end input[type="number"] { width: 72px; }
+.ce-days { display: flex !important; flex-wrap: wrap; gap: 6px; }
+.ce-days legend { width: 100%; }
+.ce-days label { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 40px; margin: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-secondary);
+  font-size: var(--fs-sm); font-weight: 600; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.ce-days input { position: absolute; opacity: 0; pointer-events: none; }
+.ce-days label:has(input:checked) { border-color: var(--gold-border); background: rgba(var(--gold-rgb), .12); color: var(--gold); }
+.ce-days label:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+.ce-players { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.ce-players summary { cursor: pointer; font-weight: 600; font-size: var(--fs-md); }
+.ce-players[open] summary { margin-bottom: 8px; }
+.ce-team { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 4px 12px; max-height: 220px; overflow: auto; margin-bottom: 10px; }
+.ce-team label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-sm); text-transform: none; letter-spacing: 0; color: var(--text-primary); }
+.ce-added { display: flex; flex-wrap: wrap; gap: 6px; }
+.ce-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border: 1px solid var(--gold-border); border-radius: 999px; font-size: var(--fs-sm); }
+.ce-chip small { color: var(--text-secondary); }
+.ce-chip button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.ce-chip button:hover { color: var(--danger); background: var(--bg-hover); }
+.ce-preview { min-height: 1.4em; margin: 4px 0 0; color: var(--gold); font-size: var(--fs-sm); font-weight: 500; }
+.ce-modal input[type="radio"], .ce-modal input[type="checkbox"] { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; accent-color: var(--gold); }
+.ce-end label { flex-wrap: wrap; }

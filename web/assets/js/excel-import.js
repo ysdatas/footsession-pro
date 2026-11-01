@@ -139,7 +139,8 @@ function findPlayerRow(rows, target) {
 
   if (!lastName) return null;
 
-  let surnameOnlyMatch = null;
+  // Nom seul (sans prénom écrit) : candidat ; un autre prénom écrit : un homonyme, jamais lui.
+  const surnameOnly = [];
 
   for (let r = 4; r < rows.length; r++) {
     const row = rows[r] || [];
@@ -179,15 +180,13 @@ function findPlayerRow(rows, target) {
       };
     }
 
-    if (!surnameOnlyMatch) {
-      surnameOnlyMatch = {
-        index: r,
-        name: matchedText || String(target.nom || '').trim()
-      };
+    const extra = normalizeName(matchedText).split(' ').filter(w => w && !lastName.split(' ').includes(w));
+    if (!firstName || !extra.length) {
+      surnameOnly.push({ index: r, name: matchedText || String(target.nom || '').trim() });
     }
   }
 
-  return surnameOnlyMatch;
+  return surnameOnly.length === 1 ? surnameOnly[0] : null;   // plusieurs : rien d'attribué au hasard
 }
 
 function findPlayerSheet(workbook, target) {

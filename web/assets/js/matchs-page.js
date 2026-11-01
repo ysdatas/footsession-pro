@@ -191,9 +191,11 @@ function renderRows() {
   document.getElementById('mpList').innerHTML = rows.length ? rows.map(r => {
     const name = playerName(playerOf(r.player_id));
     return `<div class="mp-row" data-player="${r.player_id}">
-      <span class="mp-name">${playerLink(r.player_id, name, ' target="_blank" rel="noopener" title="Fiche du joueur (nouvel onglet)"')}</span>
+      <span class="mp-name">${playerLink(r.player_id, name, ' target="_blank" rel="noopener" title="Fiche du joueur (nouvel onglet)"')}${r.ext_data
+        ? ` <span class="fff-st${mpEdited(r) ? ' is-warn' : ''}" title="Lu sur la feuille de match FFF">${mpEdited(r) ? 'FFF · modifié' : 'FFF'}</span>` : ''}</span>
       <select data-k="statut" aria-label="Statut de ${escapeHtml(name)}" ${dis}><option value="">—</option>${STATUTS_MATCH.map(([k, l]) => `<option value="${k}"${r.statut === k ? ' selected' : ''}>${l}</option>`).join('')}</select>
-      ${num(r, 'minutes', 130, 'min')}${num(r, 'buts', 20, 'buts')}${num(r, 'passes', 20, 'passes')}
+      ${num(r, 'minutes', 130, 'min')}${num(r, 'buts', 20, 'buts')}${num(r, 'passes', 20, 'passes')}${num(r, 'cartons_jaunes', 2, 'jaune')}
+      <label class="mp-red"><input type="checkbox" data-k="carton_rouge"${r.carton_rouge ? ' checked' : ''} ${dis}><span>rouge</span></label>
       <span class="bilan-notes" role="group" aria-label="Note de ${escapeHtml(name)}">${BILAN_NOTES.map(n =>
         `<button type="button" class="bn bn-${n.key}" data-note="${n.key}" aria-pressed="${r.note === n.key}" title="${n.label}" ${dis}>${n.sign}</button>`).join('')}</span>
       <input class="mp-comment" data-k="commentaire" maxlength="500" value="${escapeHtml(r.commentaire || '')}" placeholder="Commentaire" aria-label="Commentaire sur ${escapeHtml(name)}" ${dis}>
@@ -202,6 +204,8 @@ function renderRows() {
   }).join('') : `<p class="text-muted">Aucun joueur.${editing.editable ? ' « Ajouter l’effectif » ou cherchez un joueur du club.' : ''}</p>`;
 }
 
+/* Ligne préremplie par la feuille de match (lmfc_v33.sql) puis corrigée à la main. */
+const mpEdited = (r) => ['statut', 'minutes', 'buts', 'cartons_jaunes', 'carton_rouge'].some(k => k in r.ext_data && (r[k] ?? null) !== (r.ext_data[k] ?? null));
 function addRow(id) {
   if (editing.rows.has(id)) return;
   editing.removed.delete(id);
@@ -222,6 +226,7 @@ function initEditor() {
     const r = rowOf(e), k = e.target.dataset.k;
     if (!r || !k) return;
     if (k === 'statut' || k === 'commentaire') r[k] = e.target.value || null;
+    else if (k === 'carton_rouge') r[k] = e.target.checked;
     else r[k] = e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value)));
   });
   list.addEventListener('click', (e) => {
@@ -294,10 +299,13 @@ async function saveMatch() {
       if (error) throw error;
       editing.removed.clear();
     }
+    // Cartons et feuille de match (lmfc_v33.sql) : envoyés seulement s'ils servent, la fiche reste utilisable sans la migration.
+    const v33 = [...editing.rows.values()].some(r => r.cartons_jaunes != null || r.carton_rouge || r.ext_data);
     const rows = [...editing.rows.values()].map(r => ({
       club_id: myProfile.club_id, match_id: id, player_id: r.player_id, statut: r.statut || null,
       minutes: r.minutes ?? null, buts: r.buts ?? null, passes: r.passes ?? null, note: r.note || null,
       commentaire: (r.commentaire || '').trim() || null,
+      ...(v33 ? { cartons_jaunes: r.cartons_jaunes ?? null, carton_rouge: r.carton_rouge ?? null, ext_data: r.ext_data ?? null } : {}),
     }));
     if (rows.length) {
       const { error } = await sb.from('match_players').upsert(rows, { onConflict: 'match_id,player_id' });

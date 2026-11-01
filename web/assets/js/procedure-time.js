@@ -167,6 +167,7 @@ const STATUTS = [
   { key: 'blesse',     label: 'Blessé' },
   { key: 'selection',  label: 'Sélection' },
   { key: 'groupe_pro', label: 'Groupe pro' },
+  { key: 'non_concerne', label: 'Non concerné' },   // retiré de cette séance (lmfc_v30.sql) : ne la voit plus, pas de RPE
   { key: 'autre',      label: 'Autre…' },
 ];
 /* Plus proposés (lmfc_v12.sql) : une ancienne séance les garde et les affiche. */

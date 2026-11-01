@@ -5,6 +5,10 @@
      - aperçu par compétition, cases à cocher ; les compétitions
        retenues pour une équipe sont proposées la fois suivante (cet
        appareil seulement) ;
+     - le club est la référence (fffOurSides) : l'adversaire n'est jamais
+       proposé comme « notre équipe », une rencontre sans le club est
+       écartée ; l'équipe du club (N2, U17…) est proposée match par match
+       d'après la compétition, modifiable avant l'import ;
      - état de chaque rencontre : Nouveau, Mis à jour (champs), À jour,
        et ce que le staff a modifié à la main (gardé) ;
      - rien n'est écrit sans validation ; commentaire, informations,
@@ -28,6 +32,9 @@ function fffMemo(teamId, comps) {
   } catch { return []; }
 }
 const fffTeam = () => Number(document.getElementById('fffTeam').value) || null;
+/* Équipe d'une compétition déjà importée pour elle (mémoire de cet appareil). */
+const fffMemoTeam = (comp) => (FFF.teams || []).find(t => fffMemo(t.id).includes(comp))?.id ?? null;
+const fffOk = (r) => r.side && r.side !== 'none';
 
 function openFffImport() {
   const teams = window.CLUB_TEAMS || [];
@@ -37,6 +44,7 @@ function openFffImport() {
   sel.innerHTML = (mine.length ? '' : '<option value="">Sans équipe</option>')
     + mine.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
   if (mine.some(t => t.id === currentTeamId())) sel.value = currentTeamId();
+  FFF.teams = mine;
   document.getElementById('fffTeamField').classList.toggle('hidden', !teams.length);
   document.getElementById('fffText').value = '';
   FFF.rows = [];
@@ -56,9 +64,12 @@ async function fffAnalyse() {
     return;
   }
   status.textContent = 'Recherche des matchs déjà importés…';
-  const sides = fffOurSides(matches);
+  const sides = fffOurSides(matches, myProfile.clubs?.nom || 'Le Mans FC');
   const memo = new Set(fffMemo(fffTeam()));
-  FFF.rows = matches.map((m, i) => ({ m, side: sides[i], key: fffKey(m), on: memo.has(m.competition) && !!sides[i] }));
+  FFF.rows = matches.map((m, i) => {
+    const side = sides[i], guess = side === 'none' ? null : fffGuessTeam(m, FFF.teams) ?? fffMemoTeam(m.competition);
+    return { m, side, key: fffKey(m), team: guess ?? fffTeam(), guessed: guess != null, on: side !== 'none' && !!side && (memo.has(m.competition) || guess != null) };
+  });
   const { data, error } = await sb.from('matches')
     .select('id, team_id, date_match, heure, competition, adversaire, lieu, stade, score_pour, score_contre, ext_id, ext_data')
     .eq('ext_source', 'fff').in('ext_id', FFF.rows.map(r => r.key));
@@ -77,9 +88,10 @@ async function fffAnalyse() {
 
 /* État d'une rencontre pour l'équipe choisie : à écrire ou non, et pourquoi. */
 function fffState(r) {
-  if (!r.side) return { todo: false, html: '<span class="fff-st is-warn">Choisissez notre équipe</span>' };
+  if (r.side === 'none') return { todo: false, html: '<span class="fff-st">Sans Le Mans FC : ignorée</span>' };
+  if (!r.side) return { todo: false, html: '<span class="fff-st is-warn">Deux équipes du club : choisissez la nôtre</span>' };
   const ex = FFF.existing.get(r.key);
-  const other = ex && ex.team_id !== fffTeam() ? ` · rangé en ${escapeHtml(teamName(ex.team_id) || 'sans équipe')}` : '';
+  const other = ex && ex.team_id !== r.team ? ` · rangé en ${escapeHtml(teamName(ex.team_id) || 'sans équipe')}` : '';
   if (!ex) return { todo: true, html: '<span class="fff-st is-new">Nouveau</span>' };
   const { changed, kept } = fffMerge(ex, fffIncoming(r.m, r.side));
   const keptHtml = kept.length ? ` <span class="fff-st is-warn">Gardé (modifié à la main) : ${fffLabels(kept)}</span>` : '';
@@ -92,12 +104,14 @@ function fffRowHtml(r, i) {
   const name = (n, s) => (side === s ? `<strong>${escapeHtml(n)}</strong>` : escapeHtml(n));
   const mid = m.score_home != null ? `${m.score_home} – ${m.score_away}` : m.heure || '–';
   return `<div class="fff-row${r.on ? '' : ' is-off'}">
-    <input type="checkbox" id="fffr-${i}" data-fff-row="${i}"${r.on ? ' checked' : ''}${side ? '' : ' disabled'}>
+    <input type="checkbox" id="fffr-${i}" data-fff-row="${i}"${r.on ? ' checked' : ''}${fffOk(r) ? '' : ' disabled'}>
     <label for="fffr-${i}" class="fff-what">
       <span class="fff-date">${fmtDateFr(m.date)}${m.heure ? ` · ${m.heure}` : ''}${m.journee ? ` · ${escapeHtml(m.journee)}` : ''}</span>
       <span class="fff-teams">${name(m.home, 'home')} <span class="fff-mid">${escapeHtml(mid)}</span> ${name(m.away, 'away')}</span>
       ${m.statut ? `<span class="fff-st is-warn">${escapeHtml(m.statut)}</span>` : ''}
     </label>
+    ${fffOk(r) && (FFF.teams || []).length > 1 ? `<select class="fff-team" data-fff-team="${i}" aria-label="Équipe du club pour ce match">
+      ${FFF.teams.map(t => `<option value="${t.id}"${t.id === r.team ? ' selected' : ''}>${escapeHtml(t.nom)}</option>`).join('')}</select>` : ''}
     <span class="fff-state">${st.html}${side ? '' : `<span class="segmented" role="group" aria-label="Notre équipe">
       <button type="button" data-fff-side="home" data-i="${i}">${escapeHtml(m.home)}</button>
       <button type="button" data-fff-side="away" data-i="${i}">${escapeHtml(m.away)}</button></span>`}</span>
@@ -134,13 +148,13 @@ function renderFff() {
 }
 
 async function fffImport() {
-  const go = document.getElementById('fffGo'), teamId = fffTeam(), now = new Date().toISOString();
+  const go = document.getElementById('fffGo'), now = new Date().toISOString();
   const inserts = [], updates = [];
-  for (const r of FFF.rows.filter(x => x.on && x.side)) {
+  for (const r of FFF.rows.filter(x => x.on && fffOk(x))) {
     const inc = fffIncoming(r.m, r.side);
     const ext_data = { ...inc, journee: r.m.journee, home: r.m.home, away: r.m.away, statut: r.m.statut };
     const ex = FFF.existing.get(r.key);
-    if (!ex) inserts.push({ club_id: myProfile.club_id, team_id: teamId, ...inc, ext_source: 'fff', ext_id: r.key, ext_data, ext_synced_at: now });
+    if (!ex) inserts.push({ club_id: myProfile.club_id, team_id: r.team, ...inc, ext_source: 'fff', ext_id: r.key, ext_data, ext_synced_at: now });
     else {
       const { patch, changed, kept } = fffMerge(ex, inc);
       if (changed.length || kept.length) updates.push({ id: ex.id, row: { ...patch, ext_data, ext_synced_at: now } });
@@ -157,7 +171,7 @@ async function fffImport() {
         : ins.error.code === '23514' ? 'Une valeur de la FFF est trop longue ou invalide : rien n’a été enregistré. Créez ce match à la main.' : ins.error.message);
     }
     const refused = ups.filter(u => u.error || !u.data?.length).length;
-    fffMemo(teamId, [...new Set(FFF.rows.filter(r => r.on).map(r => r.m.competition))]);
+    for (const t of new Set(FFF.rows.filter(r => r.on).map(r => r.team))) fffMemo(t, [...new Set(FFF.rows.filter(r => r.on && r.team === t).map(r => r.m.competition))]);
     closeModal('fffModal');
     toast([`${inserts.length} match${inserts.length > 1 ? 's' : ''} ajouté${inserts.length > 1 ? 's' : ''}`,
       `${updates.length - refused} mis à jour`, refused ? `${refused} refusé${refused > 1 ? 's' : ''} (droits)` : ''].filter(Boolean).join(', '),
@@ -179,14 +193,15 @@ function initFffImport() {
   document.getElementById('fffGo').addEventListener('click', fffImport);
   document.getElementById('fffTeam').addEventListener('change', () => {
     const memo = new Set(fffMemo(fffTeam()));
-    FFF.rows.forEach(r => { r.on = memo.has(r.m.competition) && !!r.side; });
+    FFF.rows.forEach(r => { if (!r.guessed) r.team = fffTeam(); r.on = fffOk(r) && (memo.has(r.m.competition) || r.guessed); });
     renderFff();
   });
   const box = document.getElementById('fffPreview');
   box.addEventListener('change', (e) => {
-    const row = e.target.dataset.fffRow, group = e.target.dataset.fffGroup;
+    const row = e.target.dataset.fffRow, group = e.target.dataset.fffGroup, team = e.target.dataset.fffTeam;
     if (row != null) FFF.rows[Number(row)].on = e.target.checked;
-    if (group != null) FFF.groups[Number(group)].forEach(i => { FFF.rows[i].on = e.target.checked && !!FFF.rows[i].side; });
+    if (group != null) FFF.groups[Number(group)].forEach(i => { FFF.rows[i].on = e.target.checked && fffOk(FFF.rows[i]); });
+    if (team != null) Object.assign(FFF.rows[Number(team)], { team: Number(e.target.value), guessed: true });
     renderFff();
   });
   box.addEventListener('click', (e) => {

@@ -35,23 +35,23 @@
 .chart-box canvas { max-width: 100%; }
 
 /* Chiffres de la période : un seul bandeau, cases séparées d'un filet, libellé au-dessus. */
-#analyticsKpis {
+.kpi-band {
   gap: 0; margin-bottom: 0; overflow: hidden;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card);
 }
-#analyticsKpis .kpi {
+.kpi-band .kpi {
   display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 6px; min-width: 0;
   padding: 14px 16px; border: 0; border-radius: 0; background: none; box-shadow: 1px 0 0 var(--border), 0 1px 0 var(--border);
 }
-#analyticsKpis .kpi-label { margin: 0; font-size: var(--fs-sm); font-weight: 500; color: var(--text-secondary); }
-#analyticsKpis .kpi-num, #analyticsKpis .kpi.gold .kpi-num { color: var(--text-primary); }
+.kpi-band .kpi-label { margin: 0; font-size: var(--fs-sm); font-weight: 500; color: var(--text-secondary); }
+.kpi-band .kpi-num, .kpi-band .kpi.gold .kpi-num { color: var(--text-primary); }
 .chart-box { height: 280px; }
 @media (max-width: 640px) {
   .chart-box { height: 240px; }
   .chart-card { padding: 14px; }
 }
-@media (max-width: 640px) { #analyticsKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .kpi-band { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Téléphone : les quatre périodes sur une ligne, à parts égales ; les dates l'une sous l'autre. */
 @media (max-width: 640px) {
   #periodSwitch { display: flex; width: 100%; }
@@ -59,4 +59,4 @@
   #customRange:not(.hidden) { flex-wrap: wrap; width: 100%; }
   #customRange input { flex: 1 1 130px; }
 }
-@media (max-width: 640px) { #analyticsKpis .kpi-num { font-size: var(--fs-xl); } }
+@media (max-width: 640px) { .kpi-band .kpi-num { font-size: var(--fs-xl); } }

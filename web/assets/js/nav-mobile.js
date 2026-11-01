@@ -53,3 +53,25 @@ function renderTabbar(items, activeKey) {
   }
   if (bar.innerHTML !== html + menu) bar.innerHTML = html + menu;
 }
+
+/* Barre du haut (.m-appbar, insérée par nav.js et player-nav.js) : quand le
+   titre de la page sort de l'écran (body.ctx-on), elle montre où l'on est :
+   « club · équipe » et la rubrique (et la fiche ouverte : joueur, séance).
+   Fixe : elle ne pousse rien. Ordinateur : elle n'apparaît qu'à ce moment ;
+   téléphone : toujours là, la rubrique y remplace le logo. */
+function renderContextBar() {
+  const bar = document.querySelector('.m-appbar'), h1 = document.querySelector('main h1');
+  if (!bar || !h1 || bar.querySelector('.m-ctx')) return;
+  bar.insertAdjacentHTML('beforeend', '<span class="m-ctx" aria-hidden="true"><small></small><strong></strong></span>');
+  const [kicker, title] = bar.querySelectorAll('.m-ctx > *');
+  new IntersectionObserver(([e]) => {
+    const on = !e.isIntersecting && e.boundingClientRect.bottom < 60;
+    if (on) {   // lu à l'affichage : le titre (fiche) et l'équipe arrivent parfois après coup
+      const section = document.querySelector('#sidebar .nav-item.active > span')?.textContent.trim() || '';
+      const page = h1.textContent.trim(), child = typeof NAV_PARENT === 'object' && NAV_PARENT[currentPageName()];
+      title.textContent = child && section ? `${section} · ${page}` : section || page;
+      kicker.textContent = document.querySelector('.page-kicker, .hero-kicker')?.textContent.trim() || '';
+    }
+    document.body.classList.toggle('ctx-on', on);
+  }, { rootMargin: '-56px 0px 0px 0px' }).observe(h1);
+}

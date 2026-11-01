@@ -18,7 +18,7 @@ let allTests = [];      // player_physical_tests, toutes sessions
 let allMeasures = [];   // player_physical_measurements
 const CMP_PARAMS = new URLSearchParams(location.search);
 // Onglet : celui du lien, sinon celui laissé en partant (mémoire de navigation).
-const CMP_TABS = ['tests', 'evolution', 'morpho', 'objectifs'];
+const CMP_TABS = ['tests', 'evolution', 'morpho', 'objectifs', 'gps'];   // gps : gps-page.js (lmfc_v32.sql)
 let cmpTab = [CMP_PARAMS.get('tab'), pageState().tab].find(t => CMP_TABS.includes(t)) || 'tests';
 let cmpStage = 'pre';
 let cmpMetric = 'vift_kmh';
@@ -135,7 +135,8 @@ function tabChrome(tab) {
   document.querySelector('.cmp-metric-field').classList.toggle('hidden', tab !== 'evolution');
   document.querySelector('#cmpStage').closest('.cmp-field').classList.toggle('hidden', tab === 'evolution' || tab === 'objectifs');
   document.querySelector('.cmp-check').classList.toggle('hidden', tab === 'objectifs');
-  document.querySelector('.cmp-foot').classList.toggle('hidden', tab === 'objectifs');
+  document.querySelector('.cmp-foot').classList.toggle('hidden', tab === 'objectifs' || tab === 'gps');
+  document.querySelector('.cmp-toolbar').classList.toggle('hidden', tab === 'gps');   // GPS : sa propre barre
 }
 tabChrome(cmpTab);
 
@@ -388,6 +389,7 @@ function renderMorpho() {
 
 function render() {
   const content = document.getElementById('cmpContent');
+  if (cmpTab === 'gps') { document.getElementById('cmpAlert').innerHTML = ''; return renderGps(content); }
   content.innerHTML =
     cmpTab === 'tests' ? renderTests() :
     cmpTab === 'evolution' ? renderEvolution() :

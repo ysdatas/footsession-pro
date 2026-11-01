@@ -109,6 +109,12 @@ const findRow = vm.runInContext('findPlayerRow', ctx);
 const rowsDS = [[], [], [], [], [1, 'DA SILVA Jean'], [2, 'SILVA Paulo']];
 assert.equal(findRow(rowsDS, { nom: 'Da Silva', prenom: 'Jean' }).index, 4, 'nom composé reconnu');
 assert.equal(findRow(rowsDS, { nom: 'Silva', prenom: 'Paulo' }).index, 5, 'homonyme partiel distingué par le prénom');
+// Homonyme : MARTIN Paul absent de l'onglet ne reçoit jamais la ligne de MARTIN Léo.
+const rowsM = [[], [], [], [], [1, 'MARTIN Léo'], [2, 'DUPONT Jean'], [3, 'BERTIN']];
+assert.equal(findRow(rowsM, { nom: 'Martin', prenom: 'Paul' }), null, 'un autre prénom écrit : pas lui');
+assert.equal(findRow(rowsM, { nom: 'Martin', prenom: 'Léo' }).index, 4);
+assert.equal(findRow(rowsM, { nom: 'Bertin', prenom: 'Simon' }).index, 6, 'nom seul dans l’onglet : retenu');
+assert.equal(findRow([[], [], [], [], [1, 'BERTIN'], [2, 'BERTIN']], { nom: 'Bertin', prenom: 'Simon' }), null, 'deux lignes au nom seul : rien au hasard');
 
 /* ---------- 7) Fusion avec l'existant : une cellule vide n'efface rien ---------- */
 const build = vm.runInContext('buildPlayerImport', ctx);

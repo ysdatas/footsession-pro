@@ -92,4 +92,42 @@ assert.deepEqual(merge('fffMerge(MANUAL, INC)'), { patch: { heure: '18:00' }, ch
   'match saisi à la main puis rattaché : seuls les vides se remplissent');
 assert.ok(!('commentaire' in merge(`fffMerge(SAVED, { ...INC, commentaire: 'x' })`).patch), 'commentaire jamais touché');
 
+
+/* ---------- 5. Le club est la référence (bug « Guingamp ») ---------- */
+const clubSides = run(`fffOurSides(ALL, 'Le Mans FC')`);
+matches.forEach((m, i) => {
+  if (clubSides[i] === 'home' || clubSides[i] === 'away') assert.match(m[clubSides[i]], /^LE MANS (FC|FOOTBALL CLUB)\b/, `${m.home}–${m.away} : le camp du club`);
+});
+assert.equal(clubSides[matches.indexOf(find('2026-10-03', 'LE MANS FC FEM 2'))], 'home', 'Le Mans Villaret AS n’est pas le club');
+// Amicaux : toutes les équipes seniors mélangées ; Guingamp affronte LE MANS FC et LE MANS FC 2.
+ctx.AMICAUX = run(`fffParse(['VEN 02 OCT 2026 - 18H00', 'MATCHS AMICAUX FFF NIVEAU 2 - Senior Journée 1', 'EA GUINGAMP', '-', 'LE MANS FC',
+  'SAM 03 OCT 2026 - 15H00', 'MATCHS AMICAUX FFF NIVEAU 2 - Senior Journée 1', 'EA GUINGAMP', '2', '1', 'LE MANS FC 2',
+  'SAM 10 OCT 2026 - 15H00', 'MATCHS AMICAUX FFF NIVEAU 2 - Senior Journée 2', 'STADE LAVALLOIS', '0', '0', 'EA GUINGAMP',
+  'DIM 11 OCT 2026 - 15H00', 'MATCHS AMICAUX FFF NIVEAU 2 - Senior Journée 2', 'LE MANS FC 2', '1', '1', 'LE MANS FC 3'].join('\\n')).matches`);
+assert.deepEqual(plain(run('fffOurSides(AMICAUX.slice(0, 3))')), ['home', 'home', 'away'], 'sans le nom du club : Guingamp, présent partout, pris pour nous (le bug)');
+assert.deepEqual(plain(run(`fffOurSides(AMICAUX.slice(0, 3), 'Le Mans FC')`)), ['away', 'away', 'none'], 'avec le nom du club : corrigé');
+assert.deepEqual(plain(run(`fffOurSides(AMICAUX, 'Le Mans FC')`)), ['away', 'away', 'none', null],
+  'Le Mans à l’extérieur, rencontre sans le club écartée, derby interne à choisir');
+assert.deepEqual(plain(run(`fffOurSides(AMICAUX, 'LE MANS FOOTBALL CLUB')`)), ['away', 'away', 'none', null], '« Football Club » = « FC »');
+assert.equal(run(`fffIsClub('LE MANS F.C.S.', 'Le Mans FC')`), false, 'Le Mans F.C.S. : un autre club');
+assert.equal(run(`fffIsClub('LE MANS F.C. 2', 'Le Mans FC')`), true);
+ctx.INC2 = run(`fffIncoming(AMICAUX[1], 'away')`);
+assert.deepEqual([ctx.INC2.adversaire, ctx.INC2.lieu, ctx.INC2.score_pour, ctx.INC2.score_contre], ['EA GUINGAMP', 'exterieur', 1, 2], 'adversaire, lieu et score vus du Mans');
+
+/* ---------- 6. Équipe du club d'après la compétition ---------- */
+ctx.TEAMS = [{ id: 1, nom: 'N2' }, { id: 2, nom: 'N3' }, { id: 3, nom: 'U17' }, { id: 4, nom: 'U14' }, { id: 5, nom: 'U15' }];
+const guess = (competition) => run(`fffGuessTeam(${JSON.stringify({ competition })}, TEAMS)`);
+assert.equal(guess('N2 - Senior'), 1);
+assert.equal(guess('National 3 - Senior'), 2, '« National 3 » = N3');
+assert.equal(guess('Régional 2 U17 - U17 - U16'), 3);
+assert.equal(guess('Régional 1 U14 - U15 - U14'), null, 'U14 et U15 cités : à vérifier, rien d’imposé');
+assert.equal(guess('MATCHS AMICAUX FFF NIVEAU 2 - Senior'), null);
+
+/* ---------- 7. Lignes répétées (logo puis nom) ---------- */
+const dup = run(`fffParse(['SAM 05 DEC 2026 - 14H00', 'Régional 1 U14 - U15 - U14 Journée 10', 'ANGERS SCO', 'ANGERS SCO', '14:00', 'LE MANS FC'].join('\\n')).matches[0]`);
+assert.deepEqual([dup.competition, dup.home, dup.away, dup.stade], ['Régional 1 U14 - U15 - U14', 'ANGERS SCO', 'LE MANS FC', null],
+  'la compétition n’est jamais un nom d’équipe');
+const noRound = run(`fffParse(['SAM 05 DEC 2026 - 14H00', 'Régional 1 U14 - U15 - U14', 'Complexe du Grand Étang', 'ANGERS SCO', '14:00', 'LE MANS FC'].join('\\n')).matches[0]`);
+assert.deepEqual([noRound.competition, noRound.home], ['Régional 1 U14 - U15 - U14', 'ANGERS SCO'], 'compétition reconnue même sans journée');
+
 console.log(`fff-import : OK (${matches.length} rencontres, clé, côté, mise à jour)`);

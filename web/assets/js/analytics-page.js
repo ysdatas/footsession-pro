@@ -62,11 +62,11 @@ async function load() {
     // Séances de la période avec leurs procédés et leurs présences, en une requête
     // (avant : séances, puis présences, puis les 6 mois). Le RLS restreint au périmètre autorisé.
     const { data: sessions, error } = await sb.from('sessions')
-      .select('id, titre, date_seance, duree_min, principes_jeu, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min), attendance(present)')
+      .select('id, titre, date_seance, duree_min, principes_jeu, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min), attendance(present, statut)')
       .gte('date_seance', range.from).lte('date_seance', range.to)
       .order('date_seance');
     if (error) throw error;
-    const attendance = sessions.flatMap(s => s.attendance || []);
+    const attendance = sessions.flatMap(s => s.attendance || []).filter(a => a.statut !== 'non_concerne');   // retiré de la séance : hors présence
 
     const allProcs = sessions.flatMap(s => s.procedures || []);
     const nbSessions = sessions.length;

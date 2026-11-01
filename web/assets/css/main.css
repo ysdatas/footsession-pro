@@ -221,7 +221,7 @@ p  { margin: 0 0 .8em; }
 .bulk-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 14px; padding: 10px 12px;
   border: 1px solid var(--gold-border); border-radius: var(--radius-md); background: #17150f;
-  position: sticky; top: 8px; z-index: 6; box-shadow: 0 8px 22px rgba(0,0,0,.35);
+  position: sticky; top: 56px; z-index: 6; box-shadow: 0 8px 22px rgba(0,0,0,.35);   /* sous la barre de rubrique (48 px) */
 }
 @media (max-width: 980px) { .bulk-bar { top: 64px; } }
 .bulk-count { flex: 1 1 210px; font-size: var(--fs-md); }

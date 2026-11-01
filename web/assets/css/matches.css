@@ -120,3 +120,51 @@
   .fff-row { grid-template-columns: 20px minmax(0, 1fr); }
   .fff-state { grid-column: 2; justify-content: flex-start; text-align: left; }
 }
+/* Équipe du club proposée match par match (d'après la compétition), modifiable */
+.fff-row { grid-template-columns: 20px minmax(0, 1fr) auto auto; }
+.fff-team { width: auto; min-width: 72px; padding: 4px 8px; font-size: var(--fs-sm); }
+@media (max-width: 600px) {
+  .fff-row { grid-template-columns: 20px minmax(0, 1fr) auto; }
+  .fff-state { grid-column: 2 / -1; justify-content: flex-start; text-align: left; }
+}
+
+/* Cartons et feuille de match (lmfc_v33.sql, match-sheet-ui.js) */
+.mp-row { grid-template-columns: minmax(120px, 1.2fr) 124px repeat(4, 70px) auto auto minmax(110px, 1.5fr) 28px; }
+.mp-red { display: flex; align-items: center; gap: 4px; margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); text-transform: none; letter-spacing: 0; }
+.mp-red input { width: 16px; height: 16px; min-height: 0 !important; padding: 0 !important; accent-color: var(--danger); }
+.mp-name .fff-st { margin-left: 4px; font-size: 10px; font-weight: 500; }
+@media (max-width: 760px) {
+  .mp-row { grid-template-columns: repeat(5, auto) minmax(0, 1fr) 28px; }
+  .mp-row .mp-name { grid-column: 1 / 6; }
+  .mp-row select { grid-column: 6; }
+  .mp-row .att-remove { grid-column: 7; }
+  .mp-row .mp-red { grid-row: 2; }
+  .mp-row .bilan-notes { grid-column: 6 / 8; }
+}
+.sheet-modal { max-width: 860px; }
+.sheet-help { margin: 0 0 10px; color: var(--text-secondary); font-size: var(--fs-xs); }
+.sheet-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; }
+.sheet-bar .field { margin: 0; flex: 0 0 160px; }
+.sheet-bar .sheet-help { flex: 1 1 200px; margin: 0 0 8px; }
+.sheet-status { margin: 12px 0 8px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.sheet-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; font-size: var(--fs-sm); text-transform: none; letter-spacing: 0; color: var(--text-primary); }
+.sheet-head input, .sheet-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--gold); }
+.sheet-wrap { overflow-x: auto; margin-top: 8px; }
+.sheet-table { font-size: var(--fs-sm); }
+.sheet-table td, .sheet-table th { white-space: nowrap; }
+.sheet-table tr.is-off td:not(:first-child) { opacity: .55; }
+.sheet-table select { min-width: 170px; padding: 4px 28px 4px 8px; font-size: var(--fs-sm); }
+.sheet-num { display: inline-block; min-width: 24px; color: var(--text-secondary); font-family: var(--font-num); }
+.card-y, .card-r { display: inline-block; min-width: 16px; margin-right: 4px; padding: 0 4px; border-radius: 2px; color: #0A0A0A; font: 600 11px/16px var(--font-num); text-align: center; }
+.card-y { background: #F2C200; }
+.card-r { background: var(--danger); color: #fff; }
+/* Téléphone : nom, statut, ✕ ; puis minutes, buts, passes, cartons, + / = / − ; puis le commentaire (sans débordement). */
+@media (max-width: 760px) {
+  .mp-row { display: flex; flex-wrap: wrap; align-items: center; }
+  .mp-row .mp-name { flex: 1 1 140px; }
+  .mp-row select { order: 1; flex: 0 0 auto; width: auto; }
+  .mp-row .att-remove { order: 2; }
+  .mp-row .mp-num, .mp-row .mp-red { order: 3; }
+  .mp-row .bilan-notes { order: 4; margin-left: auto; }
+  .mp-row .mp-comment { order: 5; flex: 1 1 100%; }
+}

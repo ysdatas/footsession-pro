@@ -2,7 +2,10 @@
    LMFC Performance — Worker : notifications sur téléphone (Web Push).
      GET  /api/push/key   → clé publique du serveur (abonnement d'un appareil)
      POST /api/push/send  { title, body, url, player_ids, self }
-   L'envoi est réservé à l'administrateur du club. Joueurs et appareils
+     POST /api/push/calendar  → changements du calendrier faits par l'appelant
+   L'envoi libre est réservé à l'administrateur du club. Celui du
+   calendrier ne prend rien de la page : la base (lmfc_v30.sql) a préparé
+   les messages et les destinataires de SES changements. Joueurs et appareils
    sont lus avec SON jeton : la RLS ne donne que ceux de son club
    (supabase/lmfc_v16.sql). Chaque message est chiffré pour l'appareil
    (RFC 8291, aes128gcm) et signé par la clé du serveur (VAPID,
@@ -31,6 +34,7 @@ const concat = (...parts) => {
 export async function push(request, env, route) {
   if (route === 'key') return request.method === 'GET' ? Response.json({ key: publicKey(env) }) : fail(405, 'Méthode non autorisée.');
   if (route === 'send') return request.method === 'POST' ? send(request, env) : fail(405, 'Méthode non autorisée.');
+  if (route === 'calendar') return request.method === 'POST' ? calendar(request, env) : fail(405, 'Méthode non autorisée.');
   return new Response('Not found', { status: 404 });
 }
 
@@ -67,18 +71,39 @@ async function send(request, env) {
     ? await supabase(env, token, `/rest/v1/push_subscriptions?select=id,user_id,endpoint,p256dh,auth&user_id=in.(${list.join(',')})`) || []
     : [];
   if (subs.length > MAX_DEVICES) return fail(413, 'Trop d’appareils en un seul envoi.');
+  const { results, gone } = await deliver(env, token, subs.map(sub => ({ sub, msg: { title, body, url } })));
+  const ok = subs.filter((_, i) => results[i] === 'ok');
+  return Response.json({ devices: subs.length, sent: ok.length, users: new Set(ok.map(s => s.user_id)).size, gone });
+}
 
-  const key = subs.length && await signingKey(env);
-  const payload = enc(JSON.stringify({ title, body, url }));
+/* Calendrier : un message par joueur, au plus 12 joueurs et 3 appareils
+   chacun par appel (sous les 50 sous-requêtes) ; more : la page rappelle. */
+async function calendar(request, env) {
+  const token = tokenOf(request);
+  if (!token) return fail(401, 'Connexion requise.');
+  publicKey(env);
+  const out = await supabase(env, token, '/rest/v1/rpc/calendar_notifs_take', { method: 'POST', body: JSON.stringify({ p_max: 12 }) });
+  if (!out) return fail(502, 'Notifications du calendrier indisponibles.');
+  const list = (out.messages || []).flatMap(m => (m.subs || []).map(sub => ({ sub,
+    msg: { title: String(m.title).slice(0, 80), body: String(m.body).slice(0, 300), url: URL_RE.test(m.url || '') ? m.url : 'index.html' } })))
+    .slice(0, MAX_DEVICES);
+  const { results } = await deliver(env, token, list);
+  return Response.json({ devices: list.length, sent: results.filter(r => r === 'ok').length, more: !!out.more });
+}
+
+/* Chaque appareil reçoit son message, chiffré pour lui et signé (VAPID).
+   Un appareil désabonné (404, 410) est effacé si le jeton le permet (admin). */
+async function deliver(env, token, list) {
+  const key = list.length && await signingKey(env);
   const headers = new Map();   // une signature par service d'envoi (Apple, Google…)
-  const results = await Promise.all(subs.map(async (s) => {
+  const results = await Promise.all(list.map(async ({ sub: s, msg }) => {
     try {
       const aud = new URL(s.endpoint).origin;
       if (!headers.has(aud)) headers.set(aud, vapidHeader(env, key, aud));
       const r = await fetch(s.endpoint, {
         method: 'POST',
         headers: { authorization: await headers.get(aud), 'content-encoding': 'aes128gcm', 'content-type': 'application/octet-stream', ttl: String(TTL), urgency: 'high' },
-        body: await encrypt(s, payload),
+        body: await encrypt(s, enc(JSON.stringify(msg))),
       });
       if (r.ok) return 'ok';
       if (r.status === 404 || r.status === 410) return 'gone';   // appareil désabonné ou application supprimée
@@ -86,10 +111,9 @@ async function send(request, env) {
     } catch (e) { console.warn('Notification non envoyée', e); }
     return 'fail';
   }));
-  const gone = subs.filter((_, i) => results[i] === 'gone').map(s => s.id);
+  const gone = list.filter((_, i) => results[i] === 'gone').map(x => x.sub.id);
   if (gone.length) await supabase(env, token, `/rest/v1/push_subscriptions?id=in.(${gone.join(',')})`, { method: 'DELETE' });
-  const ok = subs.filter((_, i) => results[i] === 'ok');
-  return Response.json({ devices: subs.length, sent: ok.length, users: new Set(ok.map(s => s.user_id)).size, gone: gone.length });
+  return { results, gone: gone.length };
 }
 
 /* Le jeton a déjà été vérifié par Supabase (is_club_admin) : on lit seulement son « sub ». */

@@ -90,7 +90,7 @@ grant select, insert, update, delete on public.sessions, public.players, public.
   await db.exec(v14.slice(v14.indexOf('drop policy if exists session_access_write'), v14.lastIndexOf('commit;')));
   // Fonctions telles qu'en production depuis lmfc_v22.sql.
   for (const name of ['is_lecteur', 'team_level', 'session_level']) await db.exec(fnFrom('lmfc_v22.sql', name));
-  for (const f of ['lmfc_v24.sql', 'lmfc_v24.sql', 'lmfc_v25.sql', 'lmfc_v25.sql']) await db.exec(read(f));
+  for (const f of ['lmfc_v24.sql', 'lmfc_v24.sql', 'lmfc_v25.sql', 'lmfc_v25.sql', 'lmfc_v31.sql', 'lmfc_v31.sql']) await db.exec(read(f));   // + dossiers (lmfc_v31.sql)
   await db.exec(`grant usage on all sequences in schema public to authenticated;
     grant select, insert, update, delete on public.session_bilans, public.session_access to authenticated;`);
 

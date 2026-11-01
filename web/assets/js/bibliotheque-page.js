@@ -20,11 +20,11 @@ const libPage = { profile: null, browser: null, addTags: [], ctrl: null };
 
   // Boutons du rôle tout de suite (rien ne bouge quand la liste arrive).
   const canAdd = canManageVideos(p.role);
-  ['btnLibAdd', 'btnLibTags'].forEach(id => document.getElementById(id).classList.toggle('hidden', !canAdd));
+  ['btnLibAdd', 'btnLibTags', 'btnLibFolders'].forEach(id => document.getElementById(id).classList.toggle('hidden', !canAdd));
   // Migration pas encore passée : on le dit au lieu d'une liste vide.
   try { await loadLibTags(); } catch (e) {
     console.error('Bibliothèque indisponible', e);
-    ['btnLibAdd', 'btnLibTags'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    ['btnLibAdd', 'btnLibTags', 'btnLibFolders'].forEach(id => document.getElementById(id).classList.add('hidden'));
     document.getElementById('libBrowser').innerHTML = `<div class="empty">${escapeHtml(libError(e))}</div>`;
     return;
   }
@@ -95,6 +95,10 @@ document.getElementById('btnLibAdd').addEventListener('click', () => {
   ['file', 'titre', 'desc'].forEach(k => { $la(k).value = ''; });
   libPage.addTags = [];
   renderAddTags();
+  // Dossier : celui qu'on regarde, sinon aucun (lmfc_v31.sql ; champ caché tant qu'il n'y a pas de dossier).
+  const open = libPage.browser.folder();
+  $la('folder').innerHTML = '<option value="">Sans dossier</option>' + libFolderOptions(open > 0 ? open : null, { all: false });
+  $la('folder-field').classList.toggle('hidden', libFolders.list.length < 2);
   $la('progress').classList.add('hidden');
   $la('submit').disabled = false;
   if (!$la('tagcombo').firstChild) {
@@ -143,11 +147,12 @@ $la('submit').addEventListener('click', async () => {
     step('Enregistrement…');
     const { data: id, error } = await sb.rpc('library_create_item', {
       p_titre: titre, p_file: up.fileId, p_sha256: up.sha, p_description: $la('desc').value.trim() || null,
-      p_tags: libPage.addTags.map(t => t.id),
+      p_tags: libPage.addTags.map(t => t.id), ...($la('folder').value ? { p_folder: Number($la('folder').value) } : {}),
     });
     if (error) throw error;
     closeModal('libAddModal');
-    toast(up.reused ? 'Procédé ajouté : vidéo déjà présente, rien n’a été renvoyé.' : 'Procédé ajouté à la bibliothèque.', 'success');
+    toast(up.reused ? 'Vidéo ajoutée : fichier déjà présent, rien n’a été renvoyé.' : 'Vidéo ajoutée à la bibliothèque.', 'success');
+    libPage.browser.refreshFolders();
     await loadLibTags(true);
     libReload();
     openLibItem(id);

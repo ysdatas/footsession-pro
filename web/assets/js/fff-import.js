@@ -11,7 +11,10 @@
      - fffKey : la rencontre une fois pour toutes (saison, compétition,
        journée ou tour, domicile, extérieur ; sans la date : un report
        met à jour) ;
-     - fffOurSides : notre équipe dans chaque rencontre ;
+     - fffOurSides : notre équipe dans chaque rencontre, d'après le nom du
+       club (« LE MANS FC », « LE MANS FC 2 » ; jamais « LE MANS VILLARET
+       AS ») : l'adversaire n'est jamais pris pour nous ;
+     - fffGuessTeam : l'équipe du club (N2, U17…) d'après la compétition ;
      - fffIncoming / fffMerge : les champs du match et la règle de mise
        à jour (un champ modifié par le staff est gardé).
    ============================================================ */
@@ -34,13 +37,24 @@ function fffDate(line) {
   return { date: `${m[4]}-${pad(month)}-${pad(m[2])}`, heure: m[5] ? `${pad(m[5])}:${m[6]}` : null };
 }
 
+/* Mots d'un nom d'équipe : points supprimés (« F.C. » = « FC »), « FOOTBALL CLUB » = « FC ». */
+const fffWords = (s) => fffNorm(String(s ?? '').replace(/\./g, '')).replace(/\bFOOTBALL CLUB\b/g, 'FC').split(' ').filter(Boolean);
+/* Le nom est-il une équipe du club ? Ses premiers mots sont ceux du club :
+   « LE MANS FC », « LE MANS FC 2 », « LE MANS FC FEM 2 » oui ;
+   « LE MANS F.C.S. », « LE MANS VILLARET AS » non (d'autres clubs). */
+const fffIsClub = (name, club) => { const c = fffWords(club), n = fffWords(name); return c.length > 0 && c.every((w, i) => n[i] === w); };
+/* Ligne de compétition (et pas un nom d'équipe ni une adresse). */
+const FFF_COMP = /journ[ée]e|tour|poule|phase|plateau|senior|\bu\d{2}\b|r[ée]gional|national|district|coupe|championnat|crit[ée]rium|amica|f[ée]minin|futsal|ligue|\b[ldnr]\d\b/i;
+
 /* Rencontres du texte collé. Après la date : [stade], compétition, domicile,
    puis le score (deux nombres), l'heure (« 18:00 ») ou « - », puis
    l'extérieur et un éventuel statut (« FORFAIT GÉNÉRAL »). Rencontre
    d'animation (plateau U10…) : ni score ni heure, la compétition est
    la ligne qui nomme une journée, un tour, une poule ou une phase. */
 function fffParse(text) {
-  const lines = String(text ?? '').split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  // Une ligne répétée à la suite (logo puis nom de l'équipe) ne compte qu'une fois ; jamais un chiffre (score 1 – 1).
+  const lines = String(text ?? '').split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean)
+    .filter((l, i, all) => l !== all[i - 1] || /^\d{1,2}$/.test(l));
   const starts = lines.map((l, i) => (fffDate(l) ? i : -1)).filter(i => i >= 0);
   const matches = [];
   let skipped = 0;
@@ -52,7 +66,10 @@ function fffParse(text) {
       || /^\d{1,2}:\d{2}$/.test(l) || l === '-');
     let comp, home, away, scores = null, next;
     if (k >= 2) {
-      comp = k - 2; home = block[k - 1];
+      // La compétition : la ligne au-dessus du domicile, sinon la plus proche qui ressemble à une compétition.
+      comp = FFF_COMP.test(block[k - 2]) ? k - 2 : block.slice(0, k - 1).findLastIndex(l => FFF_COMP.test(l));
+      if (comp < 0) comp = k - 2;
+      home = block[k - 1];
       if (/^\d{1,2}$/.test(block[k])) { scores = [Number(block[k]), Number(block[k + 1])]; next = k + 2; } else next = k + 1;
       away = block[next];
     } else if (k < 0) {
@@ -82,11 +99,23 @@ const fffSeason = (date) => { const [y, m] = date.split('-').map(Number); return
 const fffKey = (m) => [fffSeason(m.date), fffNorm(m.competition),
   /journ|tour/i.test(m.journee || '') ? fffNorm(m.journee) : m.date, fffNorm(m.home), fffNorm(m.away)].join('|');
 
-/* Notre côté de chaque rencontre : 'home', 'away' ou null (à choisir).
-   1. Dans une compétition, le seul nom présent dans toutes ses rencontres.
-   2. Sinon, un nom déjà reconnu comme nôtre ailleurs dans le texte.
-   3. Sinon, le côté qui commence comme nos noms (« LE MANS … ») quand l'autre non. */
-function fffOurSides(matches) {
+/* Notre côté de chaque rencontre : 'home', 'away', null (à choisir : deux
+   équipes du club) ou 'none' (le club n'y joue pas). Le nom du club décide ;
+   s'il n'apparaît nulle part dans le texte, les règles du texte (secours). */
+function fffOurSides(matches, club = '') {
+  const known = fffWords(club).length > 0 && matches.some(m => fffIsClub(m.home, club) || fffIsClub(m.away, club));
+  const old = known ? [] : fffOurSidesByText(matches);
+  return matches.map((m, i) => {
+    if (!known) return old[i];   // nom du club absent du texte : règles du texte, sans rien imposer de plus
+    const h = fffIsClub(m.home, club), a = fffIsClub(m.away, club);
+    if (h !== a) return h ? 'home' : 'away';
+    return h ? null : 'none';   // deux équipes du club : à choisir ; aucune : pas notre rencontre
+  });
+}
+/* Secours, sans le nom du club : 1. dans une compétition, le seul nom présent
+   dans toutes ses rencontres ; 2. un nom déjà reconnu ailleurs dans le texte ;
+   3. le côté qui commence comme nos noms quand l'autre non. */
+function fffOurSidesByText(matches) {
   const groups = new Map();
   matches.forEach(m => { const g = groups.get(m.competition) || []; g.push(m); groups.set(m.competition, g); });
   const ours = new Set(), side = new Map();
@@ -104,6 +133,15 @@ function fffOurSides(matches) {
     }
     return null;
   });
+}
+
+/* Équipe du club pour une rencontre : celle dont le nom (« N2 », « U17 ») figure
+   dans la compétition (« National 2 » compte pour « N2 »), si une seule ; sinon null. */
+function fffGuessTeam(m, teams) {
+  const comp = fffNorm(m.competition).replace(/\b(NATIONAL|REGIONAL|DISTRICT|LIGUE) (\d)\b/g, (x, w, n) => `${x} ${w[0]}${n}`);
+  const words = new Set(comp.split(' '));
+  const hits = (teams || []).filter(t => { const w = fffNorm(t.nom).split(' ').filter(Boolean); return w.length && w.every(x => words.has(x)); });
+  return hits.length === 1 ? hits[0].id : null;
 }
 
 /* Champs d'un match de la plateforme, vus de notre côté. */

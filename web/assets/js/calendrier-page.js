@@ -9,17 +9,17 @@
      - staff : une séance ouvre l'éditeur, un match sa fiche ; joueur :
        une fiche résumée (my_calendar : jamais les notes du staff) et,
        pour une séance, son RPE (rpe.js, lmfc_v29.sql) ;
-     - événements : ajout et modification par l'admin et les coachs de
-       l'équipe ; la base décide (RLS), la page suit.
-   Dépend de calendar-utils.js, nav.js, auth.js, player-nav.js (joueur).
+     - ajouter une séance ou un événement, seul ou en série, et modifier
+       une série : calendar-edit.js (lmfc_v30.sql) ; la base décide (RLS),
+       la page suit ; les joueurs concernés sont prévenus (calNotify).
+   Dépend de calendar-utils.js, calendar-edit.js, nav.js, auth.js, player-nav.js (joueur).
    ============================================================ */
 
 const CAL_KINDS = { seance: 'Séance', match: 'Match', evenement: 'Événement' };
 const CAL_LIEUX = { domicile: 'Domicile', exterieur: 'Extérieur', neutre: 'Terrain neutre' };
 const CAL_MEMO = 'lmfc-calendar';
 const CAL = { view: 'month', anchor: calToday(), day: calToday(), kinds: new Set(Object.keys(CAL_KINDS)),
-  items: [], seq: 0, profile: null, asPlayer: false, editing: null };
-const calVal = (id) => document.getElementById(id).value.trim();
+  items: [], seq: 0, profile: null, asPlayer: false };
 const hhmm = (t) => (t ? String(t).slice(0, 5) : null);
 
 /* Vue et types affichés : un confort de cet appareil, jamais nécessaire. */
@@ -50,10 +50,11 @@ function calMemo(save) {
   if (CAL.view === 'list') CAL.anchor = calToday();
   bindCal();
   loadCal();
+  if (canEdit(ctx.profile.role)) calNotify();   // changements encore en attente (éditeur de séance, envoi interrompu)
 })();
 
 function calError(e) {
-  if (['42703', '42P01', 'PGRST202', 'PGRST205'].includes(e?.code)) return 'Le calendrier n’est pas encore installé : passez lmfc_v28.sql dans Supabase.';
+  if (['42703', '42P01', 'PGRST202', 'PGRST205'].includes(e?.code)) return 'Le calendrier n’est pas à jour : passez les migrations jusqu’à lmfc_v30.sql dans Supabase.';
   if (e?.code === '42501') return 'Vous ne pouvez pas enregistrer d’événement pour cette équipe.';
   return e?.message || String(e);
 }
@@ -70,7 +71,7 @@ async function fetchItems(from, to) {
       team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, rpeTodo: r.kind === 'seance' && toRate.has(r.id) }));
   }
   const [s, m, e] = await Promise.all([
-    byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id')).gte('date_seance', from).lte('date_seance', to),
+    byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, serie_id, lieu, duree_min')).gte('date_seance', from).lte('date_seance', to),
     byTeam(sb.from('matches').select('id, adversaire, date_match, heure, team_id, lieu, stade, competition, score_pour, score_contre'))
       .gte('date_match', from).lte('date_match', to),
     byTeam(sb.from('club_events').select('*')).gte('date_event', from).lte('date_event', to),
@@ -78,7 +79,7 @@ async function fetchItems(from, to) {
   const failed = [s, m, e].find(r => r.error);
   if (failed) throw failed.error;
   return [
-    ...s.data.map(x => ({ kind: 'seance', id: x.id, date: x.date_seance, heure: hhmm(x.heure), titre: x.titre, team_id: x.team_id })),
+    ...s.data.map(x => ({ kind: 'seance', id: x.id, date: x.date_seance, heure: hhmm(x.heure), titre: x.titre, team_id: x.team_id, lieu: x.lieu, row: x })),
     ...m.data.map(x => ({ kind: 'match', id: x.id, date: x.date_match, heure: hhmm(x.heure), titre: x.adversaire, team_id: x.team_id,
       lieu: x.lieu, stade: x.stade, sub: x.competition, score: score(x) })),
     ...e.data.map(x => ({ kind: 'evenement', id: x.id, date: x.date_event, heure: hhmm(x.heure), titre: x.titre, team_id: x.team_id,
@@ -114,7 +115,7 @@ const calByDay = (items) => items.reduce((m, i) => m.set(i.date, [...(m.get(i.da
 const calTitleOf = (i) => (i.kind === 'match' ? `Match · ${i.titre}` : i.titre);
 function calSub(i) {
   const team = !CAL.asPlayer && !currentTeamId() ? teamName(i.team_id) : '';
-  return [CAL_LIEUX[i.lieu] || (i.kind === 'evenement' ? i.lieu : ''), i.stade, i.sub, team].filter(Boolean).join(' · ');
+  return [i.kind === 'match' ? CAL_LIEUX[i.lieu] : i.lieu, i.stade, i.sub, team].filter(Boolean).join(' · ');
 }
 function calItemHtml(i) {
   const sub = calSub(i);
@@ -176,7 +177,8 @@ function renderCal() {
 /* ---------- Ouvrir un élément ---------- */
 function openCalItem(i) {
   if (!i) return;
-  if (i.kind === 'evenement' && canEdit(CAL.profile.role)) return openCalEvent(i.row);
+  // Événement, ou séance d'une série : la fenêtre de calendar-edit.js ; une séance seule s'ouvre dans l'éditeur.
+  if (canEdit(CAL.profile.role) && (i.kind === 'evenement' || i.row?.serie_id)) return openCalEdit(i);
   if (i.kind !== 'evenement' && !CAL.asPlayer) {
     window.location.href = i.kind === 'seance' ? `session-edit.html?id=${i.id}` : `matchs.html?id=${i.id}`;
     return;
@@ -206,51 +208,6 @@ async function calRpe(i) {
     session: { id: i.id, titre: i.titre, date: i.date }, value: data?.rpe, onSaved: () => { i.rpeTodo = false; renderCal(); calRpe(i); } }));
 }
 
-function openCalEvent(row = null) {
-  const p = CAL.profile, teams = window.CLUB_TEAMS || [], admin = p.role === 'admin';
-  const mine = admin || !(p.team_ids || []).length ? teams : teams.filter(t => p.team_ids.includes(t.id) || t.id === row?.team_id);
-  const set = (id, v) => { document.getElementById(id).value = v ?? ''; };
-  CAL.editing = row?.id || null;
-  document.getElementById('ev-team').innerHTML = (admin || !teams.length ? '<option value="">Tout le club</option>' : '')
-    + mine.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
-  set('ev-titre', row?.titre); set('ev-date', row?.date_event || CAL.day || calToday()); set('ev-heure', hhmm(row?.heure));
-  set('ev-lieu', row?.lieu); set('ev-notes', row?.notes);
-  set('ev-team', row ? row.team_id : currentTeamId() || (admin ? '' : mine[0]?.id));
-  document.getElementById('calEventTitle').textContent = row ? 'Modifier l’événement' : 'Nouvel événement';
-  document.getElementById('ev-delete').classList.toggle('hidden', !row);
-  openModal('calEventModal');
-}
-
-async function saveCalEvent() {
-  const titre = calVal('ev-titre'), date_event = calVal('ev-date');
-  if (!titre || !date_event) return toast('Titre et date sont obligatoires.', 'error');
-  const row = { titre, date_event, heure: calVal('ev-heure') || null, team_id: Number(calVal('ev-team')) || null,
-    lieu: calVal('ev-lieu') || null, notes: calVal('ev-notes') || null };
-  const btn = document.getElementById('ev-save');
-  btn.disabled = true;
-  const q = CAL.editing ? sb.from('club_events').update(row).eq('id', CAL.editing)
-    : sb.from('club_events').insert({ ...row, club_id: CAL.profile.club_id });
-  const { data, error } = await q.select('id');
-  btn.disabled = false;
-  if (error || !data?.length) {
-    if (error) console.error('Événement non enregistré', error);
-    return toast(error ? calError(error) : 'Modification refusée : droits insuffisants.', 'error');
-  }
-  closeModal('calEventModal');
-  toast('Événement enregistré', 'success');
-  CAL.day = date_event;
-  loadCal();
-}
-
-async function deleteCalEvent() {
-  if (!CAL.editing || !confirm('Supprimer cet événement ?\n\nC’est définitif.')) return;
-  const { data, error } = await sb.from('club_events').delete().eq('id', CAL.editing).select('id');
-  if (error || !data?.length) return toast(error ? calError(error) : 'Suppression refusée : droits insuffisants.', 'error');
-  closeModal('calEventModal');
-  toast('Événement supprimé', 'success');
-  loadCal();
-}
-
 /* ---------- Commandes ---------- */
 function calGo(dir) {
   CAL.anchor = dir ? calMove(CAL.view, CAL.anchor, dir) : calToday();
@@ -261,9 +218,8 @@ function bindCal() {
   document.getElementById('calPrev').addEventListener('click', () => calGo(-1));
   document.getElementById('calNext').addEventListener('click', () => calGo(1));
   document.getElementById('calToday').addEventListener('click', () => calGo(0));
-  document.getElementById('calAdd').addEventListener('click', () => openCalEvent());
-  document.getElementById('ev-save').addEventListener('click', saveCalEvent);
-  document.getElementById('ev-delete').addEventListener('click', deleteCalEvent);
+  document.getElementById('calAdd').addEventListener('click', () => openCalAdd());
+  bindCalEdit();
   document.querySelector('.cal-bar').addEventListener('click', (e) => {
     const v = e.target.closest('[data-cal-view]'), k = e.target.closest('[data-cal-kind]');
     if (v && v.dataset.calView !== CAL.view) {
