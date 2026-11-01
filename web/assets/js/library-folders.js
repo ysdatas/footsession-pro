@@ -67,9 +67,9 @@ async function lfDone(promise, ok) {
   return true;
 }
 function lfCreate(nom = lfEl('lfNew').value.trim()) {
-  if (!nom) return;
-  lfDone(sb.from('library_folders').insert({ club_id: window.CURRENT_PROFILE.club_id, nom }).select('id'), `Dossier « ${nom} » créé`)
-    .then(ok => { if (ok && lfEl('lfNew')) lfEl('lfNew').value = ''; });
+  if (!nom) return Promise.resolve(false);
+  return lfDone(sb.from('library_folders').insert({ club_id: window.CURRENT_PROFILE.club_id, nom }).select('id'), `Dossier « ${nom} » créé`)
+    .then(ok => { if (ok && lfEl('lfNew')) lfEl('lfNew').value = ''; return ok; });
 }
 const lfRename = (id, nom) => (nom.trim() ? lfDone(sb.from('library_folders').update({ nom: nom.trim() }).eq('id', id).select('id'), 'Dossier renommé') : lfRender());
 
@@ -79,10 +79,7 @@ async function lfClick(e) {
   const id = Number(b.dataset.id), act = b.dataset.lf;
   b.closest('details')?.removeAttribute('open');
   if (act === 'create') lfCreate();
-  if (act === 'new' || act === 'rename') {
-    const f = libFolders.list.find(x => x.id === id), nom = prompt(f ? 'Nouveau nom du dossier' : 'Nom du nouveau dossier', f?.nom || '')?.trim();
-    if (nom && nom !== f?.nom) (f ? lfRename(id, nom) : lfCreate(nom));
-  }
+  if (act === 'new' || act === 'rename') lfEditTile(b.closest('.lib-folder'), libFolders.list.find(x => x.id === id));
   if (act === 'archive' || act === 'unarchive') {
     lfDone(sb.from('library_folders').update({ archived_at: act === 'archive' ? new Date().toISOString() : null }).eq('id', id).select('id'),
       act === 'archive' ? 'Dossier archivé : il ne s’affiche plus dans les choix, ses vidéos restent.' : 'Dossier réactivé');
@@ -94,6 +91,28 @@ async function lfClick(e) {
   }
   if (act === 'pick') lfOpenPick(id);
   if (act === 'move') lfMove();
+}
+
+/* Nom saisi dans la tuile, comme dans le Finder : Entrée ou clic ailleurs enregistre, Échap annule. */
+function lfEditTile(tile, f) {
+  tile.innerHTML = `<div class="lib-folder-open lib-folder-edit">${f ? LIB_FOLDER_IC : '<span class="lib-folder-ic" aria-hidden="true">+</span>'}
+    <input class="lib-folder-input" maxlength="60" value="${escapeHtml(f?.nom || '')}" placeholder="Nom du dossier" aria-label="${f ? 'Nouveau nom du dossier' : 'Nom du nouveau dossier'}"></div>`;
+  const input = tile.querySelector('input');
+  let done = false;
+  const end = async (save) => {
+    if (done) return;
+    done = true;
+    const nom = input.value.trim();
+    const ok = save && nom && nom !== f?.nom ? await (f ? lfRename(f.id, nom) : lfCreate(nom)) : false;
+    if (!ok) libPage.browser.redraw();   // annulé, inchangé ou refusé : la tuile revient
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); end(true); }
+    if (e.key === 'Escape') { e.stopPropagation(); end(false); }
+  });
+  input.addEventListener('blur', () => end(true));
+  input.focus();
+  input.select();
 }
 
 /* Ranger plusieurs vidéos : celles qui ne sont pas déjà dans ce dossier (200 au plus, les plus récentes). */

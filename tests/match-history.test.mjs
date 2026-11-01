@@ -1,14 +1,15 @@
 /* Effectif des retours de match (web/assets/js/match-history.js, matchSquad) :
    matchs joués, titularisations, minutes, buts, passes, cartons, notes ;
    une valeur jamais saisie reste null (« — »), jamais 0 ; compétitions
-   regroupées (mhCompetitions) et matchs saisis deux fois (mhDuplicates).
+   regroupées (mhCompetitions), matchs saisis deux fois (mhDuplicates) et leur
+   réunion (matchMergePlan, match-merge.js).
    Lancement : node tests/match-history.test.mjs */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const ctx = vm.createContext({ Number, Math, Map, Set, Object, String });
-vm.runInContext(readFileSync('web/assets/js/match-history.js', 'utf8'), ctx);
+for (const f of ['match-history.js', 'match-merge.js']) vm.runInContext(readFileSync(`web/assets/js/${f}`, 'utf8'), ctx);
 const run = (code) => JSON.parse(JSON.stringify(vm.runInContext(code, ctx)));
 const squad = (rows) => JSON.parse(JSON.stringify(vm.runInContext(`matchSquad(${JSON.stringify(rows)})`, ctx)));
 
@@ -47,4 +48,17 @@ const dup = run(`[...mhDuplicates(${JSON.stringify([
   { id: 3, date_match: '2026-11-07', adversaire: 'ST NAZAIRE AF' }, { id: 4, date_match: '2026-10-10', adversaire: 'ST NAZAIRE AF' },
   { id: 5, date_match: '2026-10-17', adversaire: 'COULAINES JS' }, { id: 6, date_match: '2026-10-17', adversaire: 'CARQUEFOU USJA' }])})].map(([id, o]) => [id, o.map(x => x.id)])`);
 assert.deepEqual(dup, [[1, [2]], [2, [1]]], 'seul le match saisi deux fois est signalé');
-console.log('match-history : OK (joués, titularisations, minutes, buts, passes, cartons, notes, valeurs absentes, compétitions, doublons)');
+// Réunion : le match gardé garde ses valeurs, complète ses cases vides ; les joueurs absents passent ; ni équipe ni import FFF copiés.
+const keep = { id: 10, team_id: 1, competition: null, score_pour: 4, score_contre: 2, heure: null, stade: null, lieu: 'exterieur', infos: null, commentaire: null, a_retenir: null, ext_source: null };
+const drop = { id: 11, team_id: 2, competition: 'Coupe Gambardella', score_pour: 3, score_contre: 2, heure: '15:00:00', stade: '', lieu: 'domicile', infos: null, commentaire: 'Bon match', a_retenir: null, ext_source: 'fff', ext_id: 'x' };
+const plan = run(`matchMergePlan(${JSON.stringify(keep)}, ${JSON.stringify([
+  { id: 100, match_id: 10, player_id: 1, statut: 'titulaire', minutes: null, buts: 1, passes: null, note: null, cartons_jaunes: null, carton_rouge: null },
+  { id: 101, match_id: 10, player_id: 2, statut: 'remplacant', minutes: 20, buts: 0, passes: 0, note: 'egal', cartons_jaunes: 0, carton_rouge: false }])},
+  ${JSON.stringify(drop)}, ${JSON.stringify([
+  { id: 200, match_id: 11, player_id: 1, statut: 'remplacant', minutes: 90, buts: 2, passes: 1, note: 'plus', cartons_jaunes: 1, carton_rouge: false },
+  { id: 201, match_id: 11, player_id: 2, statut: null, minutes: null, buts: null, passes: null, note: null, cartons_jaunes: null, carton_rouge: null },
+  { id: 202, match_id: 11, player_id: 3, statut: 'titulaire', minutes: 90, buts: 0, passes: 0, note: null, cartons_jaunes: null, carton_rouge: null }])})`);
+assert.deepEqual(plan.match, { competition: 'Coupe Gambardella', heure: '15:00:00', commentaire: 'Bon match' }, 'cases vides complétées ; score, lieu, équipe, import gardés');
+assert.deepEqual(plan.fills, [{ id: 100, patch: { minutes: 90, passes: 1, note: 'plus', cartons_jaunes: 1, carton_rouge: false } }], 'joueur dans les deux : sa ligne d’ici, complétée (statut et buts gardés)');
+assert.deepEqual(plan.moves, [202], 'joueur absent d’ici : sa ligne passe ; ligne vide de l’autre : rien à faire');
+console.log('match-history : OK (joués, titularisations, minutes, buts, passes, cartons, notes, valeurs absentes, compétitions, doublons, réunion)');

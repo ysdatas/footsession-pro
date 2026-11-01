@@ -143,4 +143,15 @@ await assert.rejects(q(`update public.match_players set cartons_jaunes = 3 where
 await assert.rejects(as(PREPA, () => q(`update public.match_players set cartons_jaunes = 0 where match_id = $1 returning id`, [m3.id]).then(r => { if (!r.rows.length) throw new Error('row-level security'); })),
   /row-level security/, 'le préparateur ne modifie pas');
 
-console.log('matches-sql : OK (7 scénarios)');
+/* ---------- 8. Réunir deux matchs en double (match-merge.js) : la ligne d'un joueur change de match ---------- */
+const dupA = await one(`insert into public.matches (club_id, team_id, adversaire, date_match) values (1, 1, 'BOUCHEMAINE ES', '2026-10-25') returning id`);
+const dupB = await one(`insert into public.matches (club_id, team_id, adversaire, date_match) values (1, 1, 'bouchemaine', '2026-10-25') returning id`);
+const line = await one(`insert into public.match_players (club_id, match_id, player_id, statut) values (1, $1, 2, 'titulaire') returning id`, [dupB.id]);
+const other = await one(`select id from public.matches where club_id = 2 limit 1`);
+await assert.rejects(as(COACH, () => q(`update public.match_players set match_id = $1 where id = $2`, [other.id, line.id])), /row-level security/, 'vers un match d’un autre club : refusé');
+assert.equal((await as(PREPA, () => q(`update public.match_players set match_id = $1 where id = $2 returning id`, [dupA.id, line.id]))).rows.length, 0, 'le préparateur ne déplace rien');
+assert.equal((await as(COACH, () => q(`update public.match_players set match_id = $1 where id = $2 returning id`, [dupA.id, line.id]))).rows.length, 1, 'le coach réunit');
+assert.equal((await as(COACH, () => q(`delete from public.matches where id = $1 returning id`, [dupB.id]))).rows.length, 1, 'puis supprime l’autre');
+assert.equal((await one(`select match_id from public.match_players where id = $1`, [line.id])).match_id, dupA.id, 'la ligne a survécu à la suppression');
+
+console.log('matches-sql : OK (8 scénarios)');

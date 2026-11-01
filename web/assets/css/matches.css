@@ -78,6 +78,10 @@
 
 /* Import du calendrier FFF (matchs-fff.js) */
 .mt-ext { margin: -4px 0 12px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.mt-merge { margin: -4px 0 12px; padding: 10px 12px; border: 1px solid rgba(var(--gold-rgb), .35); border-radius: var(--radius-md); background: rgba(var(--gold-rgb), .06); font-size: var(--fs-sm); }
+.mt-merge p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; }
+.mt-merge p + p { margin-top: 8px; }
+.mt-merge .btn { margin-left: auto; }
 .fff-modal { max-width: 760px; }
 .fff-help { margin: 0 0 14px; padding-left: 20px; font-size: var(--fs-sm); color: var(--text-secondary); display: grid; gap: 4px; }
 .fff-help a { color: var(--gold-light); }

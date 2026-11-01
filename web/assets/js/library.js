@@ -258,6 +258,7 @@ function createLibBrowser(root, opts = {}) {
     setTags(ids) { st.tags = ids; load(true); },
     folder: () => st.folder,
     async refreshFolders() { await loadLibFolders(true); drawFolders(); },
+    redraw: drawFolders,
     focus: () => $id('q').focus(),
   };
   Promise.all([loadLibFolders(), loadLibTags().catch(e => console.warn('Tags de la bibliothèque', e))]).finally(() => {

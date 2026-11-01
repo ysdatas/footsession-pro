@@ -97,7 +97,7 @@ async function loadMatches() {
   const list = document.getElementById('matchList');
   // Doublons cherchés dans tout le club (la RLS limite) : un match saisi dans une équipe, importé dans une autre.
   const [{ data, error }, all] = await Promise.all([byTeam(sb.from('matches').select('*, match_players(count)')).order('date_match', { ascending: false }),
-    sb.from('matches').select('id, team_id, date_match, adversaire')]);
+    sb.from('matches').select('id, team_id, date_match, adversaire, ext_source')]);
   if (error) {
     console.error('Matchs illisibles (lmfc_v11.sql ?)', error);
     list.innerHTML = '<div class="empty">Les retours de match ne sont pas encore disponibles. Prévenez l’administrateur du club.</div>';
@@ -129,7 +129,7 @@ function renderMatches() {
   const team = currentTeam();
   document.getElementById('matchSub').textContent = [`${shown.length} match${shown.length > 1 ? 's' : ''}`,
     shown.length ? `${n('v')} V · ${n('n')} N · ${n('d')} D` : '', team?.nom].filter(Boolean).join(' · ');
-  const dupNote = comp === 'dup' ? '<p class="mt-dup-help">Même date, même adversaire : ouvrez les deux, gardez le bon (joueurs, score) et supprimez l’autre. Tant qu’ils sont deux, un joueur présent dans les deux compte deux matchs.</p>' : '';
+  const dupNote = comp === 'dup' ? '<p class="mt-dup-help">Même date, même adversaire : ouvrez celui à garder (de préférence l’import FFF), puis « Réunir dans ce match ». Tant qu’ils sont deux, un joueur présent dans les deux compte deux matchs.</p>' : '';
   document.getElementById('matchList').innerHTML = shown.length
     ? `${dupNote}<div class="mt-list">${shown.map(m => {
         const twin = dups.get(m.id);
@@ -164,6 +164,9 @@ async function openMatch(m) {
   ext.textContent = m?.ext_source === 'fff' ? `Importé de la FFF${m.ext_data?.journee ? ` (${m.ext_data.journee})` : ''}`
     + `${m.ext_synced_at ? ` le ${fmtDateFr(m.ext_synced_at)}` : ''}. Ce que vous modifiez ici n’est plus remplacé par l’import.` : '';
   ext.classList.toggle('hidden', !ext.textContent);
+  const dup = document.getElementById('m-dup'), twins = (m && editing.editable && dups.get(m.id)) || [];
+  dup.innerHTML = mergeBannerHtml(m, twins);   // match-merge.js
+  dup.classList.toggle('hidden', !twins.length);
   set('m-infos', m?.infos); set('m-comment', m?.commentaire); set('m-retenir', m?.a_retenir);
   const teams = window.CLUB_TEAMS || [];
   document.getElementById('m-team-field').classList.toggle('hidden', !teams.length);
@@ -276,6 +279,23 @@ function initEditor() {
   });
   document.getElementById('m-save').addEventListener('click', saveMatch);
   document.getElementById('m-delete').addEventListener('click', deleteMatch);
+  document.getElementById('m-dup').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-merge]');
+    if (!b || !confirm('Réunir l’autre match dans celui-ci ?\n\nSes joueurs absents d’ici y sont ajoutés ; pour ceux présents dans les deux, les cases vides d’ici sont complétées, comme le score ou la compétition. Puis l’autre match est supprimé (corbeille). Les modifications non enregistrées de cette fenêtre sont perdues.')) return;
+    b.disabled = true;
+    try {
+      const r = await mergeMatches(editing.id, Number(b.dataset.merge));
+      toast(`Matchs réunis : ${r.added} joueur${r.added > 1 ? 's' : ''} ajouté${r.added > 1 ? 's' : ''}, ${r.completed} ligne${r.completed > 1 ? 's' : ''} complétée${r.completed > 1 ? 's' : ''}.`, 'success');
+      await loadMatches();
+      renderSquad();
+      const { data } = await sb.from('matches').select('*').eq('id', editing.id).single();
+      if (data) openMatch(data);
+    } catch (err) {
+      console.error('Réunion des matchs', err);
+      toast(err.message, 'error');
+      b.disabled = false;
+    }
+  });
 }
 
 async function saveMatch() {
