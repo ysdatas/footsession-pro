@@ -123,6 +123,9 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 40. supabase/lmfc_v22.sql                  rôle lecteur (scout) : lecture de tout le club, ni séances ni matchs,
                                            can_read_videos(), et trois règles restrictives par table protégée
                                            (lecteur_no_insert / _update / _delete) : aucune écriture (rejouable)
+41. supabase/lmfc_v23.sql                  mesures physiques (taille, poids, masse grasse, plis : données de
+                                           santé) fermées au lecteur, règle restrictive
+                                           lecteur_no_measurements_read ; tests et radar inchangés (rejouable)
 42. supabase/lmfc_v24.sql                  bibliothèque vidéo (1/2) : fichiers (library_files, empreinte SHA-256
                                            unique par club), procédés (library_items), versions, tags, accès
                                            nominatifs ; niveaux library_level (aucun / lecture / modification /
@@ -254,7 +257,7 @@ de visionnage n'enregistre rien.**
 | `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, couleur du club, suppression de fiches ; toute la corbeille |
 | `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
 | `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique. Bibliothèque vidéo : consulte ce qu'on lui ouvre (`lmfc_v24.sql`) |
-| `lecteur` | Consultation seule (un scout) : **tous les joueurs du club**, toutes équipes (fiche, parcours, objectifs, préventions, programme, performance, vidéos, séquences, statistiques de visionnage). Ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
+| `lecteur` | Consultation seule (un scout) : **tous les joueurs du club**, toutes équipes (fiche, parcours, objectifs, préventions, programme, tests physiques et radar, vidéos, séquences, statistiques de visionnage). Ni mesures physiques (taille, poids, masse grasse : données de santé, `lmfc_v23.sql`), ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
 | `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos, son calendrier (séances, matchs et événements de ses équipes, sans les notes du staff). Il découpe, sélectionne et annote ses séquences et les envoie au staff ; il note son RPE après chaque séance (`lmfc_v29.sql`). Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen, les statistiques de visionnage ni le RPE des autres |
 
 `platform_v2.sql` avait fondu `analyste`, `prepa` et `viewer` dans `coach` ; `lmfc_v4.sql` rétablit `prepa`.

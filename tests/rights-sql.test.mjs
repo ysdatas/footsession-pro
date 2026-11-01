@@ -120,6 +120,10 @@ await db.exec(v21);   // rejouable
 const v22 = readFileSync(new URL('../supabase/lmfc_v22.sql', import.meta.url), 'utf8');
 await db.exec(v22);
 await db.exec(v22);   // rejouable
+// lmfc_v23.sql : mesures physiques (données de santé) fermées au lecteur.
+const v23 = readFileSync(new URL('../supabase/lmfc_v23.sql', import.meta.url), 'utf8');
+await db.exec(v23);
+await db.exec(v23);   // rejouable
 await db.exec(`
 create trigger guard_profile before update on public.profiles for each row execute function public.guard_profile_membership_changes();
 create policy sessions_read on public.sessions for select using (public.session_level(id, club_id, created_by, acces, team_id) <> 'aucun');
@@ -261,11 +265,14 @@ insert into public.player_video_selections (club_id, player_id, video_id) values
 insert into public.video_views (video_id) values (1);
 insert into storage.objects (bucket_id, name) values ('player-videos', '1/1/v.mp4'), ('player-performance-media', '1/1/m.png'), ('player-photos', '1/4/p.jpg');`);
 const playerIds = (sql) => as(SCOUT, async () => [...new Set((await q(sql)).rows.map(r => Number(r.player_id)))].sort((a, b) => a - b));
-for (const t of ['player_videos', 'video_sequences', 'player_video_selections', 'player_physical_tests', 'player_physical_measurements',
+for (const t of ['player_videos', 'video_sequences', 'player_video_selections', 'player_physical_tests',
   'player_performance_notes', 'player_performance_media', 'player_programs', 'program_exercises', 'player_career']) {
   const seen = await playerIds(`select player_id from public.${t}`);
   assert.ok(seen.includes(1) && !seen.includes(4), `lecteur lit ${t} (P1), pas le joueur masqué : ${seen}`);
 }
+// lmfc_v23.sql : poids, taille, masse grasse = données de santé, pas pour le scout.
+assert.equal(await n(SCOUT, 'select 1 from public.player_physical_measurements'), 0, 'lecteur : aucune mesure physique');
+assert.ok(await n(ADMIN, 'select 1 from public.player_physical_measurements where player_id = 1') > 0, 'admin : mesures toujours lisibles');
 assert.equal(await n(SCOUT, 'select 1 from public.video_views'), 1, 'lecteur : statistiques de visionnage');
 assert.deepEqual((await as(SCOUT, () => q(`select bucket_id, name from storage.objects where bucket_id <> 'logos' order by 1, 2`))).rows.map(r => `${r.bucket_id}:${r.name}`),
   ['player-performance-media:1/1/m.png', 'player-photos:1/1/a.jpg', 'player-videos:1/1/v.mp4'], 'stockage : photos, médias, vidéos, sans le joueur masqué');

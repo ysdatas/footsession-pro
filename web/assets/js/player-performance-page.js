@@ -497,7 +497,8 @@ function renderMeasurements() {
 
   drawTrend();
   if (!measurements.length) {
-    wrap.innerHTML = `<div class="empty">Aucune mesure enregistrée.</div>`;
+    // Lecteur : la base lui refuse les mesures (données de santé, lmfc_v23.sql).
+    wrap.innerHTML = `<div class="empty">${isReader(ctxProfile?.role) ? 'Réservé au staff (données de santé).' : 'Aucune mesure enregistrée.'}</div>`;
     return;
   }
 

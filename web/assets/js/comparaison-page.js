@@ -354,7 +354,8 @@ function renderMorpho() {
 
   document.getElementById('cmpAlert').innerHTML = '';
 
-  if (!rows.length) return `<div class="empty">Aucune mesure physique enregistrée.</div>`;
+  // Lecteur : la base lui refuse les mesures (données de santé, lmfc_v23.sql).
+  if (!rows.length) return `<div class="empty">${isReader(myProfile.role) ? 'Réservé au staff (données de santé).' : 'Aucune mesure physique enregistrée.'}</div>`;
 
   const body = sortRows(rows, sortKey).map(r => `
     <tr>
