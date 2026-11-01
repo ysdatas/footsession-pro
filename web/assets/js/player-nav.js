@@ -10,24 +10,17 @@
    coque s'affiche dès le chargement. La page Performance, partagée
    avec le staff, l'affiche seulement pour un compte joueur.
    Contient aussi la garde commune de ces pages (requirePlayer).
-   Dépend de app.js (el, escapeHtml) et nav.js (fillUserBlock).
+   Dépend de app.js (el, escapeHtml), nav-mobile.js (navIc) et nav.js (fillUserBlock).
    ============================================================ */
 
 const PLAYER_NAV = [
-  ['mon-espace', 'Accueil', 'Accueil', 'home'],
-  ['calendrier', 'Calendrier', 'Agenda', 'calendar'],
-  ['player-performance', 'Ma performance', 'Perf.', 'activity'],
-  ['mes-videos', 'Mes vidéos', 'Vidéos', 'video'],
+  ['mon-espace', 'Accueil', 'Accueil', 'dashboard'],
+  ['calendrier', 'Calendrier', 'Calendrier', 'calendar'],
+  ['player-performance', 'Ma performance', 'Perf.', 'performance'],   // noms courts : ceux de la barre du staff (TAB_SHORT)
+  ['mes-videos', 'Mes vidéos', 'Vidéos', 'videos'],
   ['mon-programme', 'Objectifs & préventions', 'Objectifs', 'target'],
 ];
-const PA_ICON = {
-  home: '<path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/>',
-  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
-  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
-  video: '<path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.41V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
-};
-const paIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${PA_ICON[k]}</svg>`;
+// Icônes : celles du menu du staff (NAV_IC, nav-mobile.js), une seule collection.
 const SIDEBAR_HTML = `
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
@@ -68,7 +61,7 @@ function renderPlayerShell() {
   sidebar.querySelector('.nav').setAttribute('aria-label', 'Espace joueur');
   sidebar.querySelector('.nav').innerHTML = PLAYER_NAV.map(([key, long, , icon]) => {
     const on = key === page;
-    return `<a class="nav-item${on ? ' active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${paIc(icon)}<span>${long}</span></a>`;
+    return `<a class="nav-item${on ? ' active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${navIc(icon)}<span>${long}</span></a>`;
   }).join('');
   if (!document.querySelector('.m-appbar')) {
     document.body.insertAdjacentHTML('afterbegin',
@@ -78,7 +71,7 @@ function renderPlayerShell() {
   document.body.insertAdjacentHTML('beforeend',
     `<nav class="pa-tabbar" aria-label="Raccourcis">${PLAYER_NAV.map(([key, , short, icon]) => {
       const on = key === page;
-      return `<a class="pa-tab${on ? ' is-active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${paIc(icon)}<span>${short}</span></a>`;
+      return `<a class="pa-tab${on ? ' is-active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${navIc(icon)}<span>${short}</span></a>`;
     }).join('')}</nav>`);
   const out = document.getElementById('logoutLink');
   if (out && !out.dataset.bound) {

@@ -193,6 +193,7 @@ async function saveAll() {
     equipe: document.getElementById('f-equipe').value.trim() || null,
     equipes: [],   // les chasubles vivent sur chaque procédé (procedures.equipes)
     duree_min: parseDecimal(document.getElementById('f-duree').value) || 0,
+    rpe_attendue: Number(document.getElementById('f-rpe-att').value) || null,   // lmfc_v34.sql
     filmee: sessionFilmee,
     notes: document.getElementById('f-notes').value.trim() || null,
     terrain,   // terrain d'effectif (session-pitch.js, lmfc_v15.sql)

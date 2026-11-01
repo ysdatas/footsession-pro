@@ -195,6 +195,9 @@ assert.equal(await lvl(U19, 1), undefined, 'autre coach : rien (la séance n’e
 assert.equal(await lvl(NONE, 1), undefined);
 assert.equal(await lvl(N2, 2), 'lecture', 'séance sans équipe : lecture pour le staff qui a une équipe');
 assert.equal(await lvl(U19, 3), 'modification', 'créateur');
+await db.exec(`update public.sessions set acces = 'club' where id = 2`);
+assert.equal(await n(JOUEUR, 'select 1 from public.sessions'), 0, 'joueur : aucune séance, même partagée « club » (son calendrier passe par my_calendar)');
+await db.exec(`update public.sessions set acces = 'equipe' where id = 2`);
 await db.exec(`insert into public.session_access values (1, '${U19}', 'modification')`);
 assert.equal(await lvl(U19, 1), 'modification', 'réglage nominatif de la séance');
 assert.equal(await n(PREPA, `update public.sessions set titre = 'x' where id = 1 returning id`), 0, 'lecture : pas de modification par la base');
@@ -207,6 +210,9 @@ assert.equal((await ids(PREPA, 'select id from public.matches')).length, 1, 'pr�
 assert.equal((await ids(U19, 'select id from public.matches')).length, 0, 'coach U19 : pas les matchs N2');
 await ok(N2, `insert into public.match_players (club_id, match_id, player_id) values (1, 1, 1)`);
 await ko(U19, `insert into public.match_players (club_id, match_id, player_id) values (1, 1, 2)`, [], 'joueur ajouté à un match N2');
+// L'historique des matchs est réservé au staff : le joueur P1 ne lit ni le match ni sa propre ligne.
+assert.deepEqual([await n(JOUEUR, 'select 1 from public.matches'), await n(JOUEUR, 'select 1 from public.match_players where player_id = 1')], [0, 0], 'joueur : aucun match, pas même le sien');
+assert.equal(await n(PREPA, 'select 1 from public.match_players where player_id = 1'), 1, 'prépa N2 : lit la ligne de P1');
 
 /* ---------- 7. Stockage (dossier club/joueur) ---------- */
 await ok(N2, `insert into storage.objects (bucket_id, name) values ('player-photos', '1/1/a.jpg')`);

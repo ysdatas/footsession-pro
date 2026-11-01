@@ -20,6 +20,8 @@ const RPE_DAYS = 2;   // = rpe_open() : saisie du jour de la séance à J+2
 const rpeLabel = (v) => RPE_SCALE.find(([n]) => n === Number(v))?.[1] || '';
 const rpeColor = (v) => `hsl(${Math.round(130 - (Number(v) - 1) * 14.4)} 62% 46%)`;
 const rpeFr = (x) => String(Math.round(x * 10) / 10).replace('.', ',');
+/* Écart moyenne déclarée − RPE attendue (lmfc_v34.sql) : « +2,0 », « −1,5 », « 0,0 ». */
+const rpeGapFr = (g) => `${g > 0.04 ? '+' : g < -0.04 ? '−' : ''}${rpeFr(Math.abs(g)).replace(/^(\d+)$/, '$1,0')}`;
 const rpeDate = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');   // sans procedure-time.js
 /* La date ISO d'une séance est-elle dans le délai de saisie du joueur ? (la base tranche) */
 function rpeOpen(iso) {

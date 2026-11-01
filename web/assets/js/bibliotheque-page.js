@@ -28,7 +28,9 @@ const libPage = { profile: null, browser: null, addTags: [], ctrl: null };
     document.getElementById('libBrowser').innerHTML = `<div class="empty">${escapeHtml(libError(e))}</div>`;
     return;
   }
-  libPage.browser = createLibBrowser(document.getElementById('libBrowser'), { onOpen: (r) => openLibItem(r.id) });
+  libPage.browser = createLibBrowser(document.getElementById('libBrowser'), {
+    onOpen: (r) => openLibItem(r.id), manage: canAdd, onDrop: canAdd ? (folder, id) => lfMoveTo(folder, [id]) : null,   // library-folders.js
+  });
   const deep = Number(new URLSearchParams(location.search).get('item'));
   if (deep) openLibItem(deep);
 })();

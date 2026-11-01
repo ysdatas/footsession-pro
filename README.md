@@ -159,6 +159,8 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            hidden_sections côté base (rejouable)
 51. supabase/lmfc_v33.sql                  retours de match : match_players.cartons_jaunes, carton_rouge,
                                            ext_data (valeurs lues sur la feuille de match) (rejouable)
+52. supabase/lmfc_v34.sql                  RPE attendue : sessions.rpe_attendue (1 à 10, facultative), comparée à la
+                                           moyenne déclarée (écart) dans la séance, le Suivi RPE et son PDF (rejouable)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo

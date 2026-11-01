@@ -52,6 +52,19 @@ function nextSeqLabel(seqs) {
   return `Séquence ${Math.max(n, seqs.length) + 1}`;
 }
 
+/* Joueur reconnu dans le nom d'un fichier envoyé (« Eliott-1.mp4 », « barbey_2 »,
+   « Eliott Barbey but ») : prénom et nom, sinon prénom ou nom seul, s'il ne
+   désigne qu'un joueur. Deux Eliott, ou aucun nom : null (à choisir). */
+const vsWords = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/(\d+)/g, ' $1 ').split(/[^a-z0-9]+/).filter(Boolean);
+function playerFromFile(name, players) {
+  const w = vsWords(String(name).replace(/\.[^.]+$/, ''));
+  const has = (s) => { const l = vsWords(s); return l.length > 0 && l.every(x => w.includes(x)); };
+  const hits = players.map(p => ({ p, n: has(p.prenom) + has(p.nom) })).filter(x => x.n);
+  const best = Math.max(0, ...hits.map(x => x.n)), top = hits.filter(x => x.n === best);
+  return top.length === 1 ? top[0].p : null;
+}
+
 /* ---------- Miniatures ----------
    Image fixe gardée avec la vidéo ou la séquence (thumb, lmfc_v18.sql) :
    rien à télécharger. Sans elle, l'image de la vidéo source à l'instant t

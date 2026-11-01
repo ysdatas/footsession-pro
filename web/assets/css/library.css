@@ -160,7 +160,47 @@ button.lib-tag { cursor: pointer; font-family: inherit; }
 }
 
 /* Dossiers (library-folders.js, lmfc_v31.sql) */
-.lib-toolbar select[id$="-folder"] { width: auto; min-width: 170px; }
+.lib-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 4px 0 16px; }
+.lib-folder { position: relative; min-width: 0; }
+.lib-folder-open {
+  display: grid; justify-items: center; gap: 2px; width: 100%; height: 100%; padding: 14px 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card);
+  color: var(--text-primary); font: inherit; text-align: center; cursor: pointer;
+}
+.lib-folder-open:hover { border-color: var(--gold-border); }
+.lib-folder-open:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.lib-folder-ic { width: 52px; height: 44px; margin-bottom: 6px; fill: rgba(var(--red-rgb), .22); stroke: var(--red-ui); stroke-width: 2; stroke-linejoin: round; }
+.lib-folder-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: 600; }
+.lib-folder-n { font-size: var(--fs-xs); color: var(--text-secondary); }
+.lib-folder.is-off .lib-folder-open { opacity: .6; }
+.lib-folder.is-new .lib-folder-open { border-style: dashed; background: transparent; color: var(--text-secondary); }
+.lib-folder.is-new .lib-folder-ic { display: grid; place-items: center; font-size: 30px; line-height: 1; color: var(--text-secondary); }
+.lib-folder-menu { position: absolute; top: 4px; right: 4px; }
+.lib-folder-menu summary {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 6px; list-style: none;
+  color: var(--text-secondary); font-size: 18px; line-height: 1; cursor: pointer;
+}
+.lib-folder-menu summary::-webkit-details-marker { display: none; }
+.lib-folder-menu summary:hover, .lib-folder-menu[open] summary { background: var(--bg-surface); color: var(--text-primary); }
+.lib-folder-pop {
+  position: absolute; top: 32px; right: 0; z-index: 5; display: grid; min-width: 150px; padding: 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: var(--shadow);
+}
+.lib-folder-pop button { padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--text-primary); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.lib-folder-pop button:hover { background: var(--bg-surface); }
+.lib-folder-pop .is-danger { color: var(--danger); }
+.lib-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: var(--fs-md); }
+.lib-crumbs button { padding: 4px 8px; margin-left: -8px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text-secondary); font: inherit; cursor: pointer; }
+.lib-crumbs button:hover { color: var(--text-primary); }
+.lib-crumbs span { color: var(--text-secondary); }
+/* Glisser une vidéo sur un dossier (ordinateur) */
+.lib-card[draggable="true"] { cursor: grab; }
+.is-dragging .lib-folder:not(.is-new) .lib-folder-open, .is-dragging .lib-crumbs button { border-style: dashed; border-color: var(--gold-border); }
+.lib-folder.is-drop .lib-folder-open, .lib-crumbs button.is-drop { border-style: solid; border-color: var(--gold); background: rgba(var(--gold-rgb), .10); }
+@media (max-width: 560px) {
+  .lib-folders { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .lib-folder-menu summary { width: 36px; height: 36px; }
+}
 .lib-help { margin: -4px 0 12px; color: var(--text-secondary); font-size: var(--fs-sm); }
 .lf-new { display: flex; gap: 8px; margin-bottom: 12px; }
 .lf-new input { flex: 1; }

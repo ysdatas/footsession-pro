@@ -39,9 +39,11 @@
       </div>
     </div>
 
+    <!-- Compétitions des matchs de l'équipe (match-history.js) : la liste et l'Effectif suivent le choix -->
+    <div class="mt-comps" id="mtComps" role="group" aria-label="Compétition"></div>
     <div class="mt-tabs" role="tablist" aria-label="Retours de match">
       <button type="button" role="tab" id="tabMatches" aria-selected="true" aria-controls="panelMatches">Matchs</button>
-      <button type="button" role="tab" id="tabPlayer" aria-selected="false" aria-controls="panelPlayer">Par joueur</button>
+      <button type="button" role="tab" id="tabPlayer" aria-selected="false" aria-controls="panelPlayer">Effectif</button>
     </div>
 
     <section id="panelMatches" role="tabpanel" aria-labelledby="tabMatches">
@@ -49,8 +51,8 @@
     </section>
 
     <section id="panelPlayer" role="tabpanel" aria-labelledby="tabPlayer" hidden>
-      <div class="field mt-pick"><label for="playerPick">Joueur</label><select id="playerPick"><option value="">Choisir un joueur…</option></select></div>
-      <div id="playerHistory"></div>
+      <div id="squad"></div>
+      <div id="playerHistory" hidden></div>
     </section>
   </main>
 
@@ -154,6 +156,7 @@
   <script src="assets/js/app.js"></script>
   <script src="assets/js/procedure-time.js"></script>
   <script src="assets/js/fff-import.js"></script>
+  <script src="assets/js/match-history.js"></script>
   <script src="assets/js/matchs-page.js"></script>
   <script src="assets/js/matchs-fff.js"></script>
   <script src="assets/js/match-sheet.js"></script>

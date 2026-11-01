@@ -4,19 +4,21 @@
      - staff : ses séances GPS (imports non annulés), la dernière en
        chiffres, l'évolution d'un indicateur au choix, et la charge
        ressentie (RPE × durée) de la même séance, à côté, jamais additionnée
-       (charge externe mesurée / charge interne ressentie) ;
+       (charge externe mesurée / charge interne ressentie) ; lien vers la
+       vue Joueur de l'onglet GPS de Performance ;
      - joueur : my_gps(), seulement les indicateurs que le staff a ouverts.
    Cachée s'il n'y a rien à montrer (ou si lmfc_v32.sql n'est pas passée).
    Dépend de app.js, rpe.js (rpeDate).
    ============================================================ */
 
-const GC = { rows: [], metric: null, labels: {}, rpe: new Map() };
+const GC = { rows: [], metric: null, labels: {}, rpe: new Map(), link: '' };
 const GC_MAIN = ['distance', 'duree', 'vmax', 'dist_gt25', 'rate_gt20', 'sprints', 'acc_gt3', 'dec_gt3'];
 const gcNum = (v, k) => (v === null || v === undefined ? '—' : (Math.round(v * (k === 'vmax' || k.startsWith('rate') ? 10 : 1)) / (k === 'vmax' || k.startsWith('rate') ? 10 : 1)).toLocaleString('fr-FR'));
 
 async function renderGpsCard(playerId, asPlayer) {
   const card = document.getElementById('gpsCard');
   if (!card) return;
+  GC.link = asPlayer ? '' : `comparaison.html?tab=gps&vue=joueur&joueur=${Number(playerId)}`;   // staff : la vue Joueur de l'onglet GPS
   let rows;
   if (asPlayer) {
     const { data, error } = await sb.rpc('my_gps');
@@ -54,7 +56,8 @@ function gcDraw(keys) {
   const rpe = last.session && GC.rpe.get(last.session);
   document.getElementById('gpsCardBody').innerHTML = `
     <div class="gps-card-head"><p class="text-muted">Dernière séance : <strong>${rpeDate(last.date)}</strong>${last.libelle ? ` · ${escapeHtml(last.libelle)}` : ''} · ${GC.rows.length} séance${GC.rows.length > 1 ? 's' : ''} mesurée${GC.rows.length > 1 ? 's' : ''}</p>
-      <label class="cmp-field">Évolution<select id="gpsMetric">${keys.map(k => `<option value="${k}"${k === GC.metric ? ' selected' : ''}>${escapeHtml(gcLabel(k))}</option>`).join('')}</select></label></div>
+      <label class="cmp-field">Évolution<select id="gpsMetric">${keys.map(k => `<option value="${k}"${k === GC.metric ? ' selected' : ''}>${escapeHtml(gcLabel(k))}</option>`).join('')}</select></label>
+      ${GC.link ? `<a class="btn btn-sm" href="${GC.link}">Tout son GPS →</a>` : ''}</div>
     <div class="gps-last">${shown.map(k => `<div><b>${gcNum(last.metrics[k], k)}</b><span>${escapeHtml(gcLabel(k))}</span></div>`).join('')}</div>
     <div class="gps-bars" role="list" aria-label="${escapeHtml(gcLabel(GC.metric))} séance par séance">${series.map(x => `<div role="listitem" title="${rpeDate(x.d)} : ${gcNum(x.v, GC.metric)}">
       <b>${gcNum(x.v, GC.metric)}</b><i style="--h:${Math.round(x.v / max * 110)}px"></i><small>${rpeDate(x.d).slice(0, 5)}</small></div>`).join('')}</div>

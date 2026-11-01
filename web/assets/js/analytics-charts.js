@@ -38,6 +38,7 @@ const valueLabels = {
     ctx.save();
     ctx.font = `500 ${opts.size || 12}px 'IBM Plex Mono', ui-monospace, monospace`;
     chart.data.datasets.forEach((ds, di) => {
+      if (ds.noValueLabel) return;   // repère (ex. RPE attendue) : pas d'étiquette
       chart.getDatasetMeta(di).data.forEach((el, i) => {
         const v = Number(ds.data[i]);
         if (!v) return;

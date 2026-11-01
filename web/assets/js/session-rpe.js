@@ -28,6 +28,7 @@ async function initSessionRpe() {
   if (!SRPE.bound) {
     SRPE.bound = true;
     document.getElementById('srpeBody').addEventListener('click', editSessionRpe);
+    document.getElementById('f-rpe-att').addEventListener('change', renderSessionRpe);
   }
 }
 
@@ -38,10 +39,13 @@ function renderSessionRpe() {
   const missing = people.filter(p => !p.r && p.exp);
   const vals = answered.map(p => p.r.rpe);
   document.getElementById('srpeCount').textContent = `${answered.length}/${answered.length + missing.length}`;
-  const sum = vals.length
-    ? `${vals.length} réponse${vals.length > 1 ? 's' : ''} · moyenne <strong>${rpeFr(vals.reduce((s, v) => s + v, 0) / vals.length)}</strong>
+  const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+  const att = Number(document.getElementById('f-rpe-att')?.value) || null;   // RPE attendue (lmfc_v34.sql), à part de la charge
+  const sum = (vals.length
+    ? `${vals.length} réponse${vals.length > 1 ? 's' : ''} · moyenne <strong>${rpeFr(avg)}</strong>
        · plus bas <strong>${Math.min(...vals)}</strong> · plus haut <strong>${Math.max(...vals)}</strong>`
-    : 'Aucune réponse pour l’instant.';
+    : 'Aucune réponse pour l’instant.')
+    + (att ? `<br>RPE attendue <strong>${att}</strong>${avg !== null ? ` · écart <strong class="rpe-gap">${rpeGapFr(avg - att)}</strong> (moyenne déclarée − attendue)` : ''}` : '');
   const noPresence = attendance.length && !attendance.some(a => savedAtt.has(a.player_id));
   document.getElementById('srpeBody').innerHTML = `<p class="srpe-sum">${sum}</p>
     ${answered.length ? `<div class="srpe-list">${answered.map(({ a, r, exp }) => `<div class="srpe-row">

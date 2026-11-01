@@ -183,4 +183,12 @@ assert.deepEqual((await one(`select team_ids from public.profiles where id = '${
 await db.exec(`update public.profiles set club_id = null where id = '${COACH_U15}'`);
 assert.deepEqual(await one(`select team_ids, team_id from public.profiles where id = '${COACH_U15}'`), { team_ids: [], team_id: null }, 'compte retiré du club');
 
-console.log('sessions-access-sql : OK (6 scénarios)');
+// 7) lmfc_v34.sql : RPE attendue, 1 à 10, écrite par qui modifie la séance (le joueur : rights-sql, lmfc_v22.sql).
+await db.exec(read('lmfc_v34.sql'));
+await db.exec(read('lmfc_v34.sql'));   // rejouable
+const S7 = (await as(CREATEUR, () => one(`insert into public.sessions (club_id, titre, team_id) values (1, 'Séance attendue', 1) returning id`))).id;
+await as(CREATEUR, () => q('update public.sessions set rpe_attendue = 6 where id = $1', [S7]));
+assert.equal((await one('select rpe_attendue from public.sessions where id = $1', [S7])).rpe_attendue, 6);
+for (const bad of [0, 11]) await assert.rejects(as(CREATEUR, () => q('update public.sessions set rpe_attendue = $2 where id = $1', [S7, bad])), /check constraint/, `RPE attendue ${bad} refusée`);
+
+console.log('sessions-access-sql : OK (7 scénarios)');

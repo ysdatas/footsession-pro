@@ -3,8 +3,9 @@
    Bibliothèque vidéo (supabase/lmfc_v24.sql, lmfc_v25.sql), commun à la
    page Bibliothèque (bibliotheque-page.js) et à l'éditeur de séance
    (session-library.js) : clés de tags, appels à la base, cartes,
-   vignettes lues à la demande, explorateur (recherche + tags « tous » /
-   « au moins un », par pages de 48) et lecture d'une vidéo. Aucune vidéo
+   vignettes lues à la demande, explorateur (dossiers en tuiles, recherche
+   + tags « tous » / « au moins un », par pages de 48) et lecture d'une
+   vidéo. Aucune vidéo
    n'est chargée tant qu'on ne clique pas « Lire ».
    Saisie des tags et gestion : library-tags.js.
    ============================================================ */
@@ -53,6 +54,8 @@ function loadLibFolders(force = false) {
   }
   return libFolders.ready;
 }
+const libFolderName = (id) => libFolders.list.find(f => f.id === (id || 0))?.nom || 'Sans dossier';
+const LIB_FOLDER_IC = '<svg class="lib-folder-ic" viewBox="0 0 48 40" aria-hidden="true"><path d="M3 7a3 3 0 0 1 3-3h12l4 5h20a3 3 0 0 1 3 3v22a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/><path d="M3 14h42"/></svg>';
 const libFolderOptions = (current, { all = true } = {}) => (all ? '<option value="">Tous les dossiers</option>' : '')
   + libFolders.list.filter(f => (all || f.id !== 0) && (!f.archived || f.id === current)).map(f => `<option value="${f.id}"${f.id === current ? ' selected' : ''}>${escapeHtml(f.nom)}${all ? ` (${f.n})` : ''}</option>`).join('');
 
@@ -112,10 +115,10 @@ async function libPlay(path, title) {
 
 /* ---------- Carte d'un procédé ---------- */
 const LIB_STATUT = { archive: 'Archivé', retire: 'Retiré' };
-function libCardHtml(r, { pick = false, hl = 2 } = {}) {
+function libCardHtml(r, { pick = false, hl = 2, drag = false, folder = false } = {}) {
   const tags = (r.tag_ids || []).map(id => libTags.byId.get(id)).filter(Boolean);
-  const meta = [`v${r.version_no || 1}`, libDate(r.updated_at)].filter(Boolean).join(' · ');
-  return `<article class="lib-card" data-lib-id="${r.id}" role="listitem">
+  const meta = [folder && r.folder_id ? libFolderName(r.folder_id) : '', `v${r.version_no || 1}`, libDate(r.updated_at)].filter(Boolean).join(' · ');
+  return `<article class="lib-card" data-lib-id="${r.id}" role="listitem"${drag ? ' draggable="true"' : ''}>
     <button class="lib-card-thumb" type="button" data-lib-open="${r.id}" aria-label="Ouvrir « ${escapeHtml(r.titre)} »">
       ${libThumbHtml(r.file_id, r.duree_sec)}</button>
     <div class="lib-card-body">
@@ -130,9 +133,15 @@ function libCardHtml(r, { pick = false, hl = 2 } = {}) {
   </article>`;
 }
 
-/* ---------- Explorateur : recherche, filtres, grille ou liste ----------
+/* ---------- Explorateur : dossiers, recherche, filtres, grille ou liste ----------
    root : conteneur ; opts.pick (sélecteur de l'éditeur : actifs seulement,
-   bouton « Choisir »), opts.onOpen(row), opts.onPick(row), opts.hl. */
+   bouton « Choisir »), opts.onOpen(row), opts.onPick(row), opts.hl ;
+   opts.manage (tuile « Nouveau dossier » et menu « ⋯ » : boutons data-lf,
+   library-folders.js), opts.onDrop(folderId, itemId) (glisser une vidéo
+   sur un dossier ; 0 = sans dossier).
+   Avec des dossiers : la racine montre leurs tuiles puis les vidéos sans
+   dossier ; un clic ouvre le dossier (fil « Bibliothèque › Rondo »). Une
+   recherche, un tag ou « Archivés » cherche dans toute la bibliothèque. */
 const LIB_VIEW = 'lmfc-lib-view';
 function createLibBrowser(root, opts = {}) {
   const id = root.id || 'lib';
@@ -142,7 +151,6 @@ function createLibBrowser(root, opts = {}) {
   root.innerHTML = `
     <div class="lib-toolbar">
       <input type="search" id="${id}-q" class="lib-search" placeholder="Rechercher : titre, consignes, tag…" aria-label="Rechercher une vidéo" autocomplete="off">
-      <select id="${id}-folder" class="hidden" aria-label="Dossier"></select>
       ${opts.pick ? '' : `<select id="${id}-statut" aria-label="Procédés affichés">
         <option value="actif">Actifs</option><option value="archive">Archivés</option>
         ${canManageVideos(window.CURRENT_PROFILE?.role) ? '<option value="retire">Retirés</option>' : ''}</select>`}
@@ -156,29 +164,57 @@ function createLibBrowser(root, opts = {}) {
         <button type="button" data-lib-mode="all" aria-pressed="true">Tous les tags</button>
         <button type="button" data-lib-mode="any" aria-pressed="false">Au moins un</button></div>
     </div>
+    <nav class="lib-crumbs hidden" id="${id}-crumbs" aria-label="Emplacement"></nav>
+    <div class="lib-folders hidden" id="${id}-folders" role="list" aria-label="Dossiers"></div>
     <p class="lib-status" id="${id}-status" role="status" aria-live="polite">Chargement…</p>
     <div class="lib-results is-${view}" id="${id}-results" role="list"></div>
     <div class="lib-more"><button class="btn hidden" type="button" id="${id}-more">Afficher plus</button></div>`;
   const $id = (s) => document.getElementById(`${id}-${s}`);
   const results = $id('results'), more = $id('more');
+  // Rangement par dossiers : seulement sans recherche, sans tag, sur les actifs.
+  const browse = () => st.statut === 'actif' && !st.q && !st.tags.length && libFolders.list.some(f => f.id !== 0);
+  const folderArg = () => (browse() ? st.folder ?? 0 : null);
 
   const status = () => {
-    const n = st.total;
+    const n = st.total, top = browse() && st.folder === null;
     $id('status').textContent = st.busy && !st.rows.length ? 'Recherche…'
-      : n ? `${st.rows.length < n ? `${st.rows.length} sur ` : ''}${n} vidéo${n > 1 ? 's' : ''}` : 'Aucune vidéo ne correspond.';
+      : n ? `${st.rows.length < n ? `${st.rows.length} sur ` : ''}${n} vidéo${n > 1 ? 's' : ''}${top ? ' sans dossier' : ''}`
+      : top ? '' : browse() ? 'Ce dossier est vide.' : 'Aucune vidéo ne correspond.';
     more.classList.toggle('hidden', st.rows.length >= n);
   };
+  function drawFolders() {
+    if (st.folder !== null && !libFolders.list.some(f => f.id === st.folder)) st.folder = null;   // dossier supprimé
+    const on = browse(), top = on && st.folder === null;
+    const tiles = libFolders.list.filter(f => f.id !== 0 && (opts.manage || !f.archived)).map(f => `
+      <div class="lib-folder${f.archived ? ' is-off' : ''}" role="listitem" data-lib-drop="${f.id}">
+        <button type="button" class="lib-folder-open" data-lib-folder="${f.id}">${LIB_FOLDER_IC}
+          <span class="lib-folder-name">${escapeHtml(f.nom)}</span>
+          <span class="lib-folder-n">${f.archived ? 'Archivé · ' : ''}${f.n} vidéo${f.n > 1 ? 's' : ''}</span></button>
+        ${opts.manage ? `<details class="lib-folder-menu"><summary aria-label="Actions du dossier ${escapeHtml(f.nom)}">⋯</summary>
+          <div class="lib-folder-pop"><button type="button" data-lf="rename" data-id="${f.id}">Renommer</button>
+            <button type="button" data-lf="${f.archived ? 'unarchive' : 'archive'}" data-id="${f.id}">${f.archived ? 'Réactiver' : 'Archiver'}</button>
+            <button type="button" class="is-danger" data-lf="delete" data-id="${f.id}" data-n="${f.n}">Supprimer</button></div></details>` : ''}
+      </div>`).join('');
+    const add = opts.manage ? `<div class="lib-folder is-new" role="listitem"><button type="button" class="lib-folder-open" data-lf="new">
+      <span class="lib-folder-ic" aria-hidden="true">+</span><span class="lib-folder-name">Nouveau dossier</span></button></div>` : '';
+    $id('folders').innerHTML = top ? tiles + add : '';
+    $id('folders').classList.toggle('hidden', !top);
+    $id('crumbs').innerHTML = on && !top ? `<button type="button" data-lib-folder="" data-lib-drop="0">Bibliothèque</button>
+      <span aria-hidden="true">›</span><strong aria-current="location">${escapeHtml(libFolderName(st.folder))}</strong>` : '';
+    $id('crumbs').classList.toggle('hidden', !on || top);
+  }
   async function load(reset) {
     const seq = reset ? ++st.seq : st.seq;
     if (!reset && (st.busy || st.rows.length >= st.total)) return;
     st.busy = true; status();
     try {
-      const rows = await libSearch({ q: st.q, tags: st.tags, mode: st.mode, statut: st.statut, folder: st.folder, offset: reset ? 0 : st.rows.length });
+      const rows = await libSearch({ q: st.q, tags: st.tags, mode: st.mode, statut: st.statut, folder: folderArg(), offset: reset ? 0 : st.rows.length });
       if (seq !== st.seq) return;   // une recherche plus récente est partie
-      if (reset) { st.rows = []; results.innerHTML = ''; }
+      if (reset) { st.rows = []; results.innerHTML = ''; drawFolders(); }
       st.rows.push(...rows);
       st.total = rows.length ? Number(rows[0].total) : st.rows.length;
-      results.insertAdjacentHTML('beforeend', rows.map(r => libCardHtml(r, opts)).join(''));
+      const card = { ...opts, drag: !!opts.onDrop, folder: !browse() };
+      results.insertAdjacentHTML('beforeend', rows.map(r => libCardHtml(r, card)).join(''));
       observeLibThumbs(results);
     } catch (e) {
       console.error('Bibliothèque : recherche', e);
@@ -190,12 +226,11 @@ function createLibBrowser(root, opts = {}) {
   let typing = 0;
   $id('q').addEventListener('input', (e) => { clearTimeout(typing); typing = setTimeout(() => { st.q = e.target.value; load(true); }, 220); });
   $id('statut')?.addEventListener('change', (e) => { st.statut = e.target.value; load(true); });
-  $id('folder').addEventListener('change', (e) => { st.folder = e.target.value === '' ? null : Number(e.target.value); load(true); });
-  const folders = () => { const sel = $id('folder'); sel.innerHTML = libFolderOptions(st.folder); sel.classList.toggle('hidden', libFolders.list.length < 2); };
   more.addEventListener('click', () => load(false));
   new IntersectionObserver(([en]) => { if (en.isIntersecting) load(false); }, { rootMargin: '400px' }).observe(more.parentElement);
   root.addEventListener('click', (e) => {
-    const v = e.target.closest('[data-lib-view]'), m = e.target.closest('[data-lib-mode]');
+    const v = e.target.closest('[data-lib-view]'), m = e.target.closest('[data-lib-mode]'), f = e.target.closest('[data-lib-folder]');
+    if (f) { st.folder = f.dataset.libFolder === '' ? null : Number(f.dataset.libFolder); drawFolders(); load(true); return; }
     if (v) {
       view = v.dataset.libView;
       try { localStorage.setItem(LIB_VIEW, view); } catch { /* idem */ }
@@ -215,17 +250,46 @@ function createLibBrowser(root, opts = {}) {
     else if (pick) opts.onPick?.(pick);
     else if (open) (opts.onOpen || opts.onPick)?.(open);
   });
+  if (opts.onDrop) libDropZones(root, opts.onDrop);
+  // Menu « ⋯ » d'un dossier : un clic ailleurs le ferme.
+  document.addEventListener('click', (e) => root.querySelectorAll('.lib-folder-menu[open]').forEach(d => d.contains(e.target) || d.removeAttribute('open')));
   const api = {
     reload: () => load(true),
     setTags(ids) { st.tags = ids; load(true); },
     folder: () => st.folder,
-    async refreshFolders() { await loadLibFolders(true); folders(); },
+    async refreshFolders() { await loadLibFolders(true); drawFolders(); },
     focus: () => $id('q').focus(),
   };
-  loadLibFolders().then(folders);
-  loadLibTags().catch(e => console.warn('Tags de la bibliothèque', e)).finally(() => {
+  Promise.all([loadLibFolders(), loadLibTags().catch(e => console.warn('Tags de la bibliothèque', e))]).finally(() => {
     if (typeof mountTagFilter === 'function') mountTagFilter($id('tagfilter'), (ids) => api.setTags(ids));   // library-tags.js
     load(true);
   });
   return api;
+}
+
+/* Glisser une carte sur une tuile de dossier (ou sur « Bibliothèque » : sans dossier). */
+function libDropZones(root, onDrop) {
+  const zone = (e) => root.classList.contains('is-dragging') && e.target.closest?.('[data-lib-drop]');
+  const clear = () => root.querySelectorAll('.is-drop').forEach(z => z.classList.remove('is-drop'));
+  root.addEventListener('dragstart', (e) => {
+    const card = e.target.closest?.('[data-lib-id]');
+    if (!card) return;
+    e.dataTransfer.setData('text/plain', card.dataset.libId);
+    e.dataTransfer.effectAllowed = 'move';
+    root.classList.add('is-dragging');
+  });
+  root.addEventListener('dragend', () => { root.classList.remove('is-dragging'); clear(); });
+  root.addEventListener('dragover', (e) => {
+    const z = zone(e);
+    if (!z) return;
+    e.preventDefault();
+    if (!z.classList.contains('is-drop')) { clear(); z.classList.add('is-drop'); }
+  });
+  root.addEventListener('drop', (e) => {
+    const z = zone(e), id = Number(e.dataTransfer.getData('text/plain'));
+    if (!z) return;
+    e.preventDefault();
+    root.classList.remove('is-dragging'); clear();
+    if (id) onDrop(Number(z.dataset.libDrop), id);
+  });
 }

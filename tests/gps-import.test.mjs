@@ -74,4 +74,18 @@ assert.equal(run(`gpsFileDate('S.L. TFC J-2_Full Training.csv')`), null, 'pas de
 assert.equal(run(`gpsFileDate('Seance 29-10-2026 Full.csv')`), '2026-10-29');
 assert.equal(run(`gpsFileDate('2026_10_29_export.xlsx')`), '2026-10-29');
 
-console.log('gps-import : OK (export Catapult, variantes, unités, contrôles, rapprochement)');
+// Indicateurs clés : haute intensité = 20-25 + >25 (calculée), > 25 seul, plus bas seuils, sprints.
+{
+  ctx.T = readFileSync('tests/fixtures-gps-catapult.csv', 'utf8');
+  const keys = run(`(() => { const a = gpsAnalyse(gpsCsvRows(T)), cols = a.columns.filter(c => c.status === 'known'), k = gpsKeyCols(cols);
+    return { s: k.map(c => c.short), k: k.map(c => [c.key, c.label]), v: k.map(c => gpsKeyValue(a.players[0].values, c)) }; })()`);
+  assert.deepEqual(keys.k, [['distance', 'Distance totale'], ['hi20', 'Haute intensité > 20 km/h (calculée)'], ['hi25', 'Distance > 25 km/h'],
+    ['vmax', 'Vitesse maximale'], ['acc_gt3', 'Accélérations > 3 m/s²'], ['dec_gt3', 'Décélérations > 3 m/s²'], ['sprints', 'Sprints']], 'ordre et libellés');
+  assert.deepEqual(keys.v, [4473, 199, 1, 25.5, 8, 16, 0], 'premier joueur : 198 + 1 = 199 m au-dessus de 20 km/h');
+  assert.deepEqual(keys.s, ['Distance', '> 20 km/h', '> 25 km/h', 'Vmax', 'Accél.', 'Décél.', 'Sprints'], 'en-têtes courts');
+  const partial = run(`gpsKeyValue({ dist_20_25: 150 }, gpsKeyCols([{ key: 'dist_20_25', kind: 'distance', band: [20, 25] }, { key: 'dist_gt25', kind: 'distance', band: [25, null] }])[0])`);
+  assert.equal(partial, null, 'bande absente : pas de somme partielle');
+  assert.deepEqual(run(`gpsKeyCols([{ key: 'dist_gt25', kind: 'distance', band: [25, null] }]).map(c => c.key)`), ['hi25'], 'pas de > 20 inventé à partir du > 25');
+}
+
+console.log('gps-import : OK (export Catapult, variantes, unités, contrôles, rapprochement, indicateurs clés)');

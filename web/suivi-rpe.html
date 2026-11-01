@@ -42,13 +42,44 @@
         <div class="segmented" role="group" aria-label="Nombre de séances">
           <button type="button" data-sr-n="10" aria-pressed="true">10 séances</button>
           <button type="button" data-sr-n="20" aria-pressed="false">20 séances</button>
+          <button type="button" data-sr-n="50" aria-pressed="false">50 séances</button>
         </div>
+        <button class="btn" id="btnSrPdf" type="button">Exporter PDF</button>
       </div>
     </div>
     <div class="sr-teams" id="srTeams" role="group" aria-label="Équipe"></div>
     <p class="sr-intro">Le ressenti des joueurs après chaque séance (RPE, 1 à 10), à part du bilan du staff, équipe par équipe.</p>
     <div id="srBody" class="sr-body"></div>
   </main>
+
+  <!-- Export PDF du Suivi RPE (rpe-pdf.js) : le choix est gardé pour la fois suivante. -->
+  <div class="modal-backdrop" id="srPdfModal">
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="srPdfTitle">
+      <h2 class="as-h3" id="srPdfTitle">Exporter le suivi RPE</h2>
+      <p class="text-muted modal-lead" id="srPdfLead">L’équipe et les séances affichées. Cochez le contenu du PDF.</p>
+      <div class="export-block" data-select-scope>
+        <div class="export-title">Contenu</div>
+        <div class="select-all" role="group" aria-label="Sélection du contenu">
+          <button type="button" class="btn btn-sm" data-select-all="1">Tout sélectionner</button>
+          <button type="button" class="btn btn-sm" data-select-all="0">Tout désélectionner</button>
+        </div>
+        <div class="export-sections">
+          <label class="check"><input type="checkbox" name="sr-pdf" value="summary" checked> Synthèse (moyennes, réponses, écart, charge)</label>
+          <label class="check"><input type="checkbox" name="sr-pdf" value="chartRpe" checked> Graphique : RPE déclaré et RPE attendue</label>
+          <label class="check"><input type="checkbox" name="sr-pdf" value="chartLoad" checked> Graphique : charge ressentie par séance</label>
+          <label class="check"><input type="checkbox" name="sr-pdf" value="sessions" checked> Tableau des séances</label>
+          <label class="check"><input type="checkbox" name="sr-pdf" value="players" checked> Résultats individuels (moyennes)</label>
+          <label class="check"><input type="checkbox" name="sr-pdf" value="grid" checked> Détail joueur par séance</label>
+          <label class="check"><input type="checkbox" name="sr-pdf" value="missing" checked> Réponses manquantes et en attente</label>
+          <label class="check"><input type="checkbox" name="sr-pdf" value="method" checked> Méthode de calcul</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" data-close="srPdfModal" type="button">Annuler</button>
+        <button class="btn btn-primary" id="btnSrPdfRun" type="button">Générer le PDF</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
   <script src="assets/js/supabase-client.js"></script>
@@ -62,6 +93,8 @@
   <script src="assets/js/analytics-charts.js"></script>
   <script src="assets/js/rpe-stats.js"></script>
   <script src="assets/js/suivi-rpe-dash.js"></script>
+  <script src="assets/js/pdf-kit.js"></script>
+  <script src="assets/js/rpe-pdf.js"></script>
   <script src="assets/js/suivi-rpe-page.js"></script>
 </body>
 </html>

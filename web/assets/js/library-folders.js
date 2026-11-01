@@ -5,7 +5,9 @@
        restent, sans dossier ; les séances gardent leurs liens) ;
      - « Ranger des vidéos » : cocher plusieurs vidéos et les déplacer
        dans le dossier d'un coup (la base n'accepte que celles qu'on
-       peut modifier, et le dit).
+       peut modifier, et le dit) ;
+     - depuis les tuiles de l'explorateur (library.js) : « Nouveau dossier »,
+       menu « ⋯ » (renommer, archiver, supprimer), vidéo glissée sur un dossier.
    Pas de doublon : « Rondo » et « rondo » sont le même dossier (la base
    refuse, la page l'explique). Dépend de library.js (libFolders,
    loadLibFolders, libSearch), bibliotheque-page.js (libPage, libReload).
@@ -42,6 +44,7 @@ async function openFolderManager() {
 }
 
 function lfRender() {
+  if (!lfEl('lfList')) return;   // fenêtre jamais ouverte : action venue d'une tuile
   const all = libFolders.list.filter(f => f.id !== 0), active = all.filter(f => !f.archived), archived = all.filter(f => f.archived);
   const row = (f) => `<li class="${f.archived ? 'is-off' : ''}">
     <label class="sr-only" for="lf-${f.id}">Nom du dossier</label><input id="lf-${f.id}" value="${escapeHtml(f.nom)}" maxlength="60" data-lf-rename="${f.id}">
@@ -63,11 +66,10 @@ async function lfDone(promise, ok) {
   libReload();
   return true;
 }
-function lfCreate() {
-  const nom = lfEl('lfNew').value.trim();
+function lfCreate(nom = lfEl('lfNew').value.trim()) {
   if (!nom) return;
   lfDone(sb.from('library_folders').insert({ club_id: window.CURRENT_PROFILE.club_id, nom }).select('id'), `Dossier « ${nom} » créé`)
-    .then(ok => { if (ok) lfEl('lfNew').value = ''; });
+    .then(ok => { if (ok && lfEl('lfNew')) lfEl('lfNew').value = ''; });
 }
 const lfRename = (id, nom) => (nom.trim() ? lfDone(sb.from('library_folders').update({ nom: nom.trim() }).eq('id', id).select('id'), 'Dossier renommé') : lfRender());
 
@@ -75,7 +77,12 @@ async function lfClick(e) {
   const b = e.target.closest('[data-lf]');
   if (!b) return;
   const id = Number(b.dataset.id), act = b.dataset.lf;
+  b.closest('details')?.removeAttribute('open');
   if (act === 'create') lfCreate();
+  if (act === 'new' || act === 'rename') {
+    const f = libFolders.list.find(x => x.id === id), nom = prompt(f ? 'Nouveau nom du dossier' : 'Nom du nouveau dossier', f?.nom || '')?.trim();
+    if (nom && nom !== f?.nom) (f ? lfRename(id, nom) : lfCreate(nom));
+  }
   if (act === 'archive' || act === 'unarchive') {
     lfDone(sb.from('library_folders').update({ archived_at: act === 'archive' ? new Date().toISOString() : null }).eq('id', id).select('id'),
       act === 'archive' ? 'Dossier archivé : il ne s’affiche plus dans les choix, ses vidéos restent.' : 'Dossier réactivé');
@@ -107,16 +114,18 @@ function lfPickCount() {
   b.disabled = !n;
   b.textContent = n ? `Déplacer ici (${n})` : 'Déplacer ici';
 }
-async function lfMove() {
-  const ids = [...LF.picks];
-  const { data, error } = await sb.from('library_items').update({ folder_id: LF.target }).in('id', ids).select('id');
+const lfMove = () => lfMoveTo(LF.target, [...LF.picks]);
+/* Déplacer des vidéos (0 = sans dossier) : « Ranger des vidéos », ou une carte glissée sur un dossier. */
+async function lfMoveTo(folder, ids) {
+  const { data, error } = await sb.from('library_items').update({ folder_id: folder || null }).in('id', ids).select('id');
   if (error) return toast(lfError(error), 'error');
   const moved = data.length, refused = ids.length - moved;
-  toast(`${moved} vidéo${moved > 1 ? 's' : ''} rangée${moved > 1 ? 's' : ''}${refused ? ` · ${refused} refusée${refused > 1 ? 's' : ''} (droits : vidéos d’un collègue)` : ''}`, refused ? 'error' : 'success');
-  lfEl('lfPick').classList.add('hidden');
+  toast(`${moved} vidéo${moved > 1 ? 's' : ''} rangée${moved > 1 ? 's' : ''} dans « ${libFolderName(folder)} »${refused ? ` · ${refused} refusée${refused > 1 ? 's' : ''} (droits : vidéos d’un collègue)` : ''}`, refused ? 'error' : 'success');
+  lfEl('lfPick')?.classList.add('hidden');
   await libPage.browser.refreshFolders();
   lfRender();
   libReload();
 }
 
 document.getElementById('btnLibFolders').addEventListener('click', openFolderManager);
+document.getElementById('libBrowser').addEventListener('click', lfClick);   // tuiles : nouveau, renommer, archiver, supprimer

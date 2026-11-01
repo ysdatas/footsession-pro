@@ -16,7 +16,8 @@
          · contrôles : vitesse plausible, Rythme ≈ distance ÷ temps,
            distance par minute ≈ distance de la bande ÷ temps ;
      - gpsMatch : nom du fichier → fiche du club (correspondance déjà
-       validée, nom et prénom, nom seul comme Catapult : « CALODAT »).
+       validée, nom et prénom, nom seul comme Catapult : « CALODAT ») ;
+     - gpsKeyCols / gpsKeyValue : les indicateurs clés à afficher.
    Un autre fournisseur = d'autres variantes dans GPS_METRICS.
    Rien n'est inventé : une cellule vide ou illisible reste vide.
    ============================================================ */
@@ -92,6 +93,28 @@ function gpsHeader(header) {
   const factor = d.kind === 'distance' && unit === 'km' ? 1000 : d.kind === 'speed' && /m\/?s/.test(unit) ? 3.6
     : d.kind === 'duration' && unit === 's' ? 1 / 60 : d.kind === 'duration' && unit === 'h' ? 60 : 1;
   return { key, label: d.label, unit: d.unit, kind: d.kind, factor };
+}
+
+/* Indicateurs clés (onglet GPS : Séance, Joueur), dans l'ordre du staff, seulement s'ils
+   sont dans les colonnes de l'import : distance totale ; haute intensité > 20 km/h et
+   distance > 25 km/h, sommes des bandes de distance qui commencent à ce seuil (« calculée »
+   si plusieurs ; une bande absente chez un joueur → rien, pas une somme partielle) ;
+   vitesse maximale ; accélérations et décélérations au plus bas seuil ; sprints. */
+function gpsKeyCols(cols) {
+  const byKey = new Map(cols.map(c => [c.key, c]));
+  const sum = (key, label, short, min) => {
+    const list = cols.filter(c => c.kind === 'distance' && c.band && c.band[0] >= min);
+    return list.some(c => c.band[0] === min) ? { key, label: list.length > 1 ? `${label} (calculée)` : label, short, unit: 'm', kind: 'distance', sum: list.map(c => c.key) } : null;
+  };
+  const lowest = (pre) => cols.filter(c => c.key.startsWith(pre)).sort((a, b) => parseFloat(a.key.slice(pre.length)) - parseFloat(b.key.slice(pre.length)))[0];
+  const short = (c, s) => c && { ...c, short: s };   // en-tête de tableau ; le libellé complet en info-bulle
+  return [short(byKey.get('distance'), 'Distance'), sum('hi20', 'Haute intensité > 20 km/h', '> 20 km/h', 20), sum('hi25', 'Distance > 25 km/h', '> 25 km/h', 25),
+    short(byKey.get('vmax'), 'Vmax'), short(lowest('acc_gt'), 'Accél.'), short(lowest('dec_gt'), 'Décél.'), short(byKey.get('sprints'), 'Sprints')].filter(Boolean);
+}
+function gpsKeyValue(metrics, col) {
+  if (!col.sum) return metrics?.[col.key] ?? null;
+  const vals = col.sum.map(k => metrics?.[k]);
+  return vals.every(v => v !== null && v !== undefined) ? vals.reduce((a, b) => a + b, 0) : null;
 }
 
 /* Valeur d'une cellule : « 25,5 », « -0,07 », « 01:04:19 » (durée), vide → null. */

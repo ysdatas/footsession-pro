@@ -1,38 +1,27 @@
 /* ============================================================
    LMFC Performance — matchs-page.js
    Retours de match (lmfc_v11.sql) : la rencontre, ses joueurs
-   (statut, minutes, buts, passes, + / = / −, commentaire court) et
-   l'historique de chaque joueur au fil des matchs.
+   (statut, minutes, buts, passes, + / = / −, commentaire court) ;
+   onglet Effectif : les chiffres de chaque joueur de l'équipe, puis
+   son historique (match-history.js).
    Tout le staff consulte ; administrateur et coachs saisissent
    (la base refuse les autres). Heure, stade et import du calendrier
    FFF : lmfc_v27.sql, matchs-fff.js. matchs.html?id=… ouvre un match.
    ============================================================ */
 
-const STATUTS_MATCH = [['titulaire', 'Titulaire'], ['remplacant', 'Remplaçant'], ['non_entre', 'Non entré']];
-const STATUT_MATCH_LABEL = Object.fromEntries(STATUTS_MATCH);
-const LIEUX = { domicile: 'Domicile', exterieur: 'Extérieur', neutre: 'Terrain neutre' };
-const RESULTATS = { v: 'Victoire', n: 'Nul', d: 'Défaite' };
-// BILAN_NOTES (+ / = / −) : procedure-time.js.
+// STATUTS_MATCH, LIEUX, resultOf, scoreHtml, noteHtml : match-history.js ; BILAN_NOTES : procedure-time.js.
 
 let myProfile = null;
 let CAN_EDIT_MATCH = false;
 let matches = [];        // matchs de l'équipe choisie, du plus récent au plus ancien
 let clubPlayers = [];    // tout l'effectif du club (noms, recherche)
 let editing = null;      // match ouvert : { id, rows: Map(player_id → ligne), removed: Set }
+let comp = null;         // compétition choisie (clé mhCompKey, '' = non renseignée, 'dup' = doublons) ; null = toutes
+let dups = new Map();    // id → matchs du club à la même date contre le même adversaire (mhDuplicates)
 
 const val = (id) => document.getElementById(id).value.trim();
 const playerName = playerFullName;   // app.js
 const playerOf = (id) => clubPlayers.find(p => p.id === id);
-const resultOf = (m) => (m.score_pour == null || m.score_contre == null ? null
-  : m.score_pour > m.score_contre ? 'v' : m.score_pour < m.score_contre ? 'd' : 'n');
-const scoreHtml = (m) => {
-  const r = resultOf(m);
-  return r ? `<span class="mt-res mt-${r}" title="${RESULTATS[r]}">${m.score_pour} – ${m.score_contre}</span>` : '<span class="mt-res">—</span>';
-};
-const noteHtml = (k) => {
-  const n = BILAN_NOTES.find(x => x.key === k);
-  return n ? `<span class="mt-note mt-note-${k}" title="${n.label}">${n.sign}</span>` : '';
-};
 
 (async () => {
   const ctx = await requireAuth();
@@ -56,17 +45,18 @@ const noteHtml = (k) => {
     const row = e.target.closest('[data-match]');
     if (row) openMatch(matches.find(m => m.id === Number(row.dataset.match)));
   });
-  document.getElementById('playerPick').addEventListener('change', (e) => { savePageState({ player: e.target.value }); renderPlayerHistory(); });
-  document.getElementById('playerHistory').addEventListener('click', async (e) => {
-    const row = e.target.closest('[data-open-match]');
-    if (!row) return;
-    const { data, error } = await sb.from('matches').select('*').eq('id', Number(row.dataset.openMatch)).single();
-    if (error) return toast(error.message, 'error');
-    openMatch(data);
+  document.getElementById('panelPlayer').addEventListener('click', squadClick);
+  document.getElementById('mtComps').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-comp]');
+    if (!b) return;
+    comp = b.dataset.all === 'true' ? null : b.dataset.comp;
+    savePageState({ comp });
+    renderMatches();
+    renderSquad();
   });
 
   await Promise.all([loadPlayers(), loadMatches()]);
-  renderPlayerPick();
+  renderSquad();
   openMatchFromUrl();
 })();
 
@@ -105,7 +95,9 @@ async function loadPlayers() {
 
 async function loadMatches() {
   const list = document.getElementById('matchList');
-  const { data, error } = await byTeam(sb.from('matches').select('*, match_players(count)')).order('date_match', { ascending: false });
+  // Doublons cherchés dans tout le club (la RLS limite) : un match saisi dans une équipe, importé dans une autre.
+  const [{ data, error }, all] = await Promise.all([byTeam(sb.from('matches').select('*, match_players(count)')).order('date_match', { ascending: false }),
+    sb.from('matches').select('id, team_id, date_match, adversaire')]);
   if (error) {
     console.error('Matchs illisibles (lmfc_v11.sql ?)', error);
     list.innerHTML = '<div class="empty">Les retours de match ne sont pas encore disponibles. Prévenez l’administrateur du club.</div>';
@@ -113,22 +105,39 @@ async function loadMatches() {
     return;
   }
   matches = data || [];
+  dups = mhDuplicates(all.data || matches);
+  if (comp === null) comp = pageState().comp ?? null;
   renderMatches();
+}
+/* Matchs affichés (liste et Effectif) : ceux de la compétition choisie, ou les doublons. */
+const shownMatches = () => (comp === null ? matches : comp === 'dup' ? matches.filter(m => dups.has(m.id)) : matches.filter(m => mhCompKey(m.competition) === comp));
+function renderComps() {
+  const list = mhCompetitions(matches), nDup = matches.filter(m => dups.has(m.id)).length;
+  if (comp !== null && comp !== 'dup' && !list.some(c => c.key === comp)) comp = null;
+  if (comp === 'dup' && !nDup) comp = null;
+  const chip = (key, label, n, cls = '') => `<button type="button" class="mt-comp${cls}" data-comp="${key ?? ''}" data-all="${key === null}" aria-pressed="${comp === key}">${escapeHtml(label)} <span>${n}</span></button>`;
+  document.getElementById('mtComps').innerHTML = matches.length
+    ? chip(null, 'Toutes les compétitions', matches.length) + list.map(c => chip(c.key, c.label, c.n)).join('') + (nDup ? chip('dup', 'Doublons possibles', nDup, ' is-dup') : '') : '';
+  const on = document.querySelector('.mt-comp[aria-pressed="true"]'), row = on?.parentElement;   // téléphone : le choix reste visible dans la ligne qui défile
+  if (on) row.scrollLeft = on.offsetLeft - row.offsetLeft - 12;
 }
 
 /* ---------- Liste des matchs ---------- */
 function renderMatches() {
-  const n = (r) => matches.filter(m => resultOf(m) === r).length;
+  renderComps();
+  const shown = shownMatches(), n = (r) => shown.filter(m => resultOf(m) === r).length;
   const team = currentTeam();
-  document.getElementById('matchSub').textContent = [`${matches.length} match${matches.length > 1 ? 's' : ''}`,
-    matches.length ? `${n('v')} V · ${n('n')} N · ${n('d')} D` : '', team?.nom].filter(Boolean).join(' · ');
-  document.getElementById('matchList').innerHTML = matches.length
-    ? `<div class="mt-list">${matches.map(m => {
+  document.getElementById('matchSub').textContent = [`${shown.length} match${shown.length > 1 ? 's' : ''}`,
+    shown.length ? `${n('v')} V · ${n('n')} N · ${n('d')} D` : '', team?.nom].filter(Boolean).join(' · ');
+  const dupNote = comp === 'dup' ? '<p class="mt-dup-help">Même date, même adversaire : ouvrez les deux, gardez le bon (joueurs, score) et supprimez l’autre. Tant qu’ils sont deux, un joueur présent dans les deux compte deux matchs.</p>' : '';
+  document.getElementById('matchList').innerHTML = shown.length
+    ? `${dupNote}<div class="mt-list">${shown.map(m => {
+        const twin = dups.get(m.id);
         const players = m.match_players?.[0]?.count;
         const sub = [m.heure?.slice(0, 5), m.competition, LIEUX[m.lieu], !currentTeamId() && teamName(m.team_id)].filter(Boolean).map(escapeHtml).join(' · ');
         return `<button type="button" class="mt-row" data-match="${m.id}">
           <span class="mt-date">${fmtDateFr(m.date_match)}</span>
-          <span class="mt-main"><strong>${escapeHtml(m.adversaire)}</strong>${sub ? `<small>${sub}</small>` : ''}</span>
+          <span class="mt-main"><strong>${escapeHtml(m.adversaire)}${twin ? ` <span class="mt-dup" title="${escapeHtml(`Même date et même adversaire : ${twin.map(t => `${t.adversaire}${teamName(t.team_id) ? ` (${teamName(t.team_id)})` : ''}`).join(', ')}`)}">Doublon ?</span>` : ''}</strong>${sub ? `<small>${sub}</small>` : ''}</span>
           <span class="mt-count">${players ? `${players} joueur${players > 1 ? 's' : ''}` : ''}</span>
           ${scoreHtml(m)}
         </button>`;
@@ -314,7 +323,7 @@ async function saveMatch() {
     closeModal('matchModal');
     toast('Match enregistré', 'success');
     await loadMatches();
-    if (document.getElementById('playerPick').value) renderPlayerHistory();
+    renderSquad();
   } catch (e) {
     console.error('Match non enregistré', e);
     toast(e.message, 'error');
@@ -328,47 +337,50 @@ async function deleteMatch() {
   closeModal('matchModal');
   toast('Match supprimé', 'success');
   await loadMatches();
-  if (document.getElementById('playerPick').value) renderPlayerHistory();
+  renderSquad();
 }
 
 /* ---------- Par joueur : historique et totaux ---------- */
-function renderPlayerPick() {
-  const pick = document.getElementById('playerPick');
-  const squad = clubPlayers.filter(p => playerInTeam(p, currentTeamId()))
-    .sort((a, b) => playerName(a).localeCompare(playerName(b), 'fr'));
-  pick.innerHTML = '<option value="">Choisir un joueur…</option>'
-    + squad.map(p => `<option value="${p.id}">${escapeHtml(playerName(p))}${p.poste ? ` · ${escapeHtml(p.poste)}` : ''}</option>`).join('');
-  const last = pageState().player;
-  if (last && squad.some(p => String(p.id) === last)) { pick.value = last; renderPlayerHistory(); }
-}
-
-async function renderPlayerHistory() {
-  const box = document.getElementById('playerHistory');
-  const pid = Number(document.getElementById('playerPick').value);
-  if (!pid) { box.innerHTML = ''; return; }
+/* ---------- Effectif : chiffres de chaque joueur sur les matchs de l'équipe, puis son historique ---------- */
+const SQUAD = { rows: [], sort: 'played', seq: 0 };
+async function renderSquad() {
+  const box = document.getElementById('squad'), seq = ++SQUAD.seq, ids = shownMatches().map(m => m.id);   // la compétition choisie
   box.innerHTML = '<p class="text-muted">Chargement…</p>';
-  const { data, error } = await sb.from('match_players')
-    .select('*, matches(id, adversaire, date_match, competition, lieu, score_pour, score_contre)').eq('player_id', pid);
-  if (error) { console.error('Historique du joueur illisible', error); box.innerHTML = `<p class="text-danger">${escapeHtml(error.message)}</p>`; return; }
-  const rows = (data || []).filter(r => r.matches)
-    .sort((a, b) => String(b.matches.date_match).localeCompare(String(a.matches.date_match)));
-  if (!rows.length) { box.innerHTML = '<div class="empty">Aucun match pour ce joueur.</div>'; return; }
-  const sum = (k) => rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
-  const count = (k, v) => rows.filter(r => r[k] === v).length;
-  const stats = [['Matchs', rows.length], ['Titulaire', count('statut', 'titulaire')], ['Minutes', sum('minutes')],
-    ['Buts', sum('buts')], ['Passes', sum('passes')], ['+ / = / −', `${count('note', 'plus')} / ${count('note', 'egal')} / ${count('note', 'moins')}`]];
-  box.innerHTML = `<p class="mt-fiche">${playerLink(pid, `Fiche de ${playerName(playerOf(pid))} →`)}</p>
-    <div class="mt-stats">${stats.map(([l, v]) => `<div class="mt-stat"><strong>${v}</strong><span>${l}</span></div>`).join('')}</div>
-    <div class="mt-list">${rows.map(r => {
-      const m = r.matches;
-      const line = [STATUT_MATCH_LABEL[r.statut], r.minutes != null ? `${r.minutes}'` : '',
-        r.buts ? `${r.buts} but${r.buts > 1 ? 's' : ''}` : '', r.passes ? `${r.passes} passe${r.passes > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
-      return `<button type="button" class="mt-row mt-hist" data-open-match="${m.id}">
-        <span class="mt-date">${fmtDateFr(m.date_match)}</span>
-        <span class="mt-main"><strong>${escapeHtml(m.adversaire)}</strong><small>${escapeHtml(line || '—')}</small>
-          ${r.commentaire ? `<em class="mt-comment">${escapeHtml(r.commentaire)}</em>` : ''}</span>
-        ${noteHtml(r.note) || '<span></span>'}
-        ${scoreHtml(m)}
-      </button>`;
-    }).join('')}</div>`;
+  const { data, error } = ids.length ? await sb.from('match_players').select('*').in('match_id', ids) : { data: [] };
+  if (seq !== SQUAD.seq) return;
+  if (error) { console.error('Effectif des matchs illisible', error); box.innerHTML = `<p class="text-danger">${escapeHtml(error.message)}</p>`; return; }
+  SQUAD.rows = data || [];
+  drawSquad();
+  const last = Number(pageState().player);
+  if (last && clubPlayers.some(p => p.id === last)) showPlayerHistory(last);
+}
+function drawSquad() {
+  const seen = new Set(SQUAD.rows.map(r => r.player_id));
+  // L'effectif de l'équipe, et les joueurs d'autres équipes alignés sur ses matchs.
+  const players = clubPlayers.filter(p => playerInTeam(p, currentTeamId()) || seen.has(p.id));
+  document.getElementById('squad').innerHTML = players.length ? mhSquadHtml(players, matchSquad(SQUAD.rows), SQUAD.sort) : '<div class="empty">Aucun joueur dans cette équipe.</div>';
+}
+async function showPlayerHistory(pid) {
+  const box = document.getElementById('playerHistory');
+  savePageState({ player: pid ? String(pid) : '' });
+  document.getElementById('squad').hidden = !!pid;
+  box.hidden = !pid;
+  if (!pid) return;
+  box.innerHTML = '<p class="text-muted">Chargement…</p>';
+  try {
+    const rows = await loadPlayerMatchRows(pid);
+    box.innerHTML = `<div class="mh-head"><button type="button" class="btn btn-sm" data-mh-back>← Effectif</button>
+      <h2 class="as-h3">${escapeHtml(playerName(playerOf(pid)))}</h2>${playerLink(pid, 'Fiche du joueur →')}</div>${mhHistoryHtml(rows)}`;
+  } catch (e) { console.error('Historique du joueur illisible', e); box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`; }
+}
+async function squadClick(e) {
+  const sort = e.target.closest('[data-mh-sort]'), who = e.target.closest('[data-mh-player]'), match = e.target.closest('[data-open-match]');
+  if (sort) { SQUAD.sort = sort.dataset.mhSort; drawSquad(); document.querySelector(`[data-mh-sort="${SQUAD.sort}"]`)?.focus(); }
+  if (who) showPlayerHistory(Number(who.dataset.mhPlayer));
+  if (e.target.closest('[data-mh-back]')) { showPlayerHistory(null); document.getElementById('tabPlayer').focus(); }
+  if (match) {
+    const { data, error } = await sb.from('matches').select('*').eq('id', Number(match.dataset.openMatch)).single();
+    if (error) return toast(error.message, 'error');
+    openMatch(data);
+  }
 }

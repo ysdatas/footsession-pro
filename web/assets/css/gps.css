@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — gps.css (onglet GPS de Performance, fiche joueur)
+   LMFC Performance — gps.css (onglet GPS de Performance : Séance, Joueur, Comparer ; fiche joueur)
    ============================================================ */
 .gps-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin: 0 0 14px; }
 .gps-bar .cmp-field select { min-width: 150px; }
@@ -41,4 +41,20 @@
 .gps-bars b { font: 500 var(--fs-xs)/1 var(--font-num); }
 .gps-bars small { font: 400 10px/1 var(--font-num); color: var(--text-secondary); }
 .gps-rpe { margin: 10px 0 0; color: var(--text-secondary); font-size: var(--fs-xs); }
-@media (max-width: 600px) { .gps-bar .cmp-field { flex: 1 1 140px; } .gps-bar .cmp-field select { min-width: 0; width: 100%; } }
+@media (max-width: 600px) { .gps-bar .cmp-field { flex: 1 1 140px; } .gps-bar .cmp-field select { min-width: 0; width: 100%; } .gps-bar .cmp-check { flex: 1 1 100%; } }
+/* Onglet GPS : vues, actions, tuiles de la séance, tri des colonnes */
+.gps-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 16px; }
+.gps-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gps-tiles { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 6px; }
+.gps-tiles b small { font: 400 var(--fs-xs)/1 var(--font-main); color: var(--text-secondary); }
+.gps-sub { margin: 0 0 14px; color: var(--text-secondary); font-size: var(--fs-xs); }
+.gps-link { margin: 0 0 6px; font-size: var(--fs-sm); }
+.gps-table th small { font-weight: 400; text-transform: none; color: var(--text-muted); }
+.gps-table thead button { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; }
+.gps-table [aria-sort="descending"] button { color: var(--text-primary); }
+.gps-table [aria-sort="descending"] button::after { content: ' ↓'; }
+.gps-who { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.gps-who:hover { color: var(--gold-light); }
+.gps-history { margin-top: 0; }
+.gps-settings h3 small { font-weight: 400; color: var(--text-secondary); }
+@media (max-width: 600px) { .gps-head .segmented { width: 100%; } .gps-head .segmented button { flex: 1 1 0; } .gps-actions { width: 100%; } .gps-actions .btn { flex: 1 1 0; } }

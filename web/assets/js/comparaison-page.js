@@ -124,8 +124,10 @@ async function loadData() {
   cmpSeason = season;
 
   const n = roster.length;
-  document.getElementById('cmpSub').textContent =
-    `${n} joueur${n > 1 ? 's' : ''}${cmpSeason ? ` · saison ${cmpSeason}` : ''} · ${allTests.length} session${allTests.length > 1 ? 's' : ''} de tests enregistrée${allTests.length > 1 ? 's' : ''}`;
+  // Sous-titre des tests ; l'onglet GPS pose le sien et tabChrome remet celui-ci en le quittant.
+  const sub = document.getElementById('cmpSub');
+  sub.dataset.base = `${n} joueur${n > 1 ? 's' : ''}${cmpSeason ? ` · saison ${cmpSeason}` : ''} · ${allTests.length} session${allTests.length > 1 ? 's' : ''} de tests enregistrée${allTests.length > 1 ? 's' : ''}`;
+  if (cmpTab !== 'gps') sub.textContent = sub.dataset.base;
 }
 
 /* Onglet actif, champs de la barre et note du bas selon l'onglet. Appliqué
@@ -137,6 +139,8 @@ function tabChrome(tab) {
   document.querySelector('.cmp-check').classList.toggle('hidden', tab === 'objectifs');
   document.querySelector('.cmp-foot').classList.toggle('hidden', tab === 'objectifs' || tab === 'gps');
   document.querySelector('.cmp-toolbar').classList.toggle('hidden', tab === 'gps');   // GPS : sa propre barre
+  const sub = document.getElementById('cmpSub');
+  if (tab !== 'gps' && sub.dataset.base) sub.textContent = sub.dataset.base;
 }
 tabChrome(cmpTab);
 

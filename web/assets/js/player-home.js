@@ -8,7 +8,6 @@
      - « Mes derniers chiffres » : poids, masse grasse, dernière
        session de tests (RPC my_physical_* : jamais les indicateurs
        réservés au staff) ;
-     - accès à Performance, Vidéos, Objectifs ;
      - encart « Activer les notifications » tant que ce téléphone ne
        les reçoit pas (push.js) ;
      - « Mon compte » : changer son e-mail ou son mot de passe.
@@ -16,14 +15,9 @@
    renvoie que SES données.
    ============================================================ */
 
-const PH_IC = {
-  video: '<path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.41V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
-  chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
-  check: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
-  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-};
-const phIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${PH_IC[k]}</svg>`;
+// Icônes du menu (NAV_IC, nav-mobile.js) : une seule collection pour tout le site.
+const PH_IC_KEY = { video: 'videos', activity: 'performance' };
+const phIc = (k) => navIc(PH_IC_KEY[k] || k);
 /* Une case « Pour toi » : libellé court, chiffre, précision éventuelle (même gabarit que l'accueil du staff). */
 const phCard = ({ href, icon, value, label, detail, tone = '' }) => `
   <a class="home-attn-card${tone ? ` is-${tone}` : ''}" href="${href}">
@@ -47,11 +41,6 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   bindAccount(window.CURRENT_USER);
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${player.prenom ? `, ${player.prenom}` : ''}`;
-  document.getElementById('homeTiles').innerHTML = [
-    ['player-performance.html', 'activity', 'Ma performance'],
-    ['mes-videos.html', 'video', 'Mes vidéos'],
-    ['mon-programme.html', 'target', 'Objectifs & préventions'],
-  ].map(([href, ic, label]) => `<a class="home-tile" href="${href}">${phIc(ic)}<span>${label}</span></a>`).join('');
 
   const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes] = await Promise.all([
     player.team_id ? sb.from('teams').select('nom').eq('id', player.team_id).maybeSingle() : Promise.resolve({ data: null }),

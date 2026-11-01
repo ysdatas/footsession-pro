@@ -46,10 +46,12 @@ function sheetAnalyse() {
 function sheetRender() {
   const { parsed, rows } = SHEET, h = parsed.head, dur = sheetDur(), teamId = Number(val('m-team')) || currentTeamId();
   const team = clubPlayers.filter(p => playerInTeam(p, teamId)), num = (v) => (v === null || v === undefined ? '—' : v);
+  // Proposés d'abord, puis l'équipe du match, puis tout le club : un joueur non reconnu s'attribue à la main.
+  const others = clubPlayers.filter(p => !team.includes(p)).sort((a, b) => playerName(a).localeCompare(playerName(b), 'fr'));
   const options = (r) => {
-    const first = r.candidates.length ? r.candidates : [];
-    const rest = team.filter(p => !first.includes(p));
-    return `<option value="">— Ignorer —</option>${[...first, ...rest].map(p => `<option value="${p.id}"${r.player?.id === p.id ? ' selected' : ''}>${escapeHtml(playerName(p))}</option>`).join('')}`;
+    const first = r.candidates || [], opt = (p) => `<option value="${p.id}"${r.player?.id === p.id ? ' selected' : ''}>${escapeHtml(playerName(p))}</option>`;
+    const group = (label, list) => (list.length ? `<optgroup label="${label}">${list.map(opt).join('')}</optgroup>` : '');
+    return `<option value="">— Ignorer —</option>${first.map(opt).join('')}${group('Équipe du match', team.filter(p => !first.includes(p)))}${group('Autres joueurs du club', others.filter(p => !first.includes(p)))}`;
   };
   const counts = Object.fromEntries(Object.keys(SHEET_ST).map(k => [k, rows.filter(r => r.status === k).length]));
   document.getElementById('sheetStatus').textContent = [`${rows.length} joueurs lus pour ${parsed.team}`,

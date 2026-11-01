@@ -76,6 +76,7 @@
   background: var(--rpe); color: #0A0A0A; font: 600 var(--fs-md)/1 var(--font-num); cursor: pointer; }
 .sr-c i { font: 700 8px/1 system-ui, sans-serif; font-style: normal; letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
 .sr-c.is-miss { background: transparent; border: 1px dashed var(--gold); color: var(--gold); }
+.sr-c.is-wait { background: transparent; border: 1px dashed var(--border-strong, #3a3a3a); color: var(--text-secondary); }
 .sr-c.is-abs { background: transparent; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; }
 .sr-c:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .sr-na { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--bg-hover) 6px 7px); }
@@ -102,12 +103,17 @@
 .sr-block { margin-bottom: 12px; }
 .sr-table-wrap { overflow-x: auto; }
 .sr-table { font-size: var(--fs-sm); }
-.sr-table th, .sr-table td { white-space: nowrap; text-align: right; font-family: var(--font-num); }
+.sr-table th, .sr-table td { padding: 10px; white-space: nowrap; text-align: right; font-family: var(--font-num); }
 .sr-table th:first-child { text-align: left; font-family: var(--font-main); font-weight: 500; }
 .sr-table tbody th a { color: inherit; }
 .sr-table tbody th .sr-date { margin-right: 6px; }
 .sr-chip { display: inline-block; min-width: 38px; padding: 2px 6px; border-radius: var(--radius-sm); background: var(--rpe); color: #0A0A0A; font-weight: 600; text-align: center; }
 .sr-up { color: var(--danger); }
 .sr-down { color: var(--success); }
-.sr-miss-n { margin-left: 4px; color: var(--gold); font-family: var(--font-main); font-size: var(--fs-xs); }
+.sr-miss-n { display: block; color: var(--gold); font-family: var(--font-main); font-size: var(--fs-xs); }   /* sous le nombre : le tableau tient dans la largeur */
 .sr-method { max-width: 90ch; margin: 4px 0 0; color: var(--text-secondary); font-size: var(--fs-xs); line-height: 1.5; }
+
+/* RPE attendue (lmfc_v34.sql) : écart moyenne déclarée − attendue */
+.rpe-gap { font-family: var(--font-num); }
+.sr-gap { font-family: var(--font-num); white-space: nowrap; }
+@media (max-width: 640px) { .sr-kpis .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; } }   /* 5 tuiles sur 2 colonnes : pas de trou */

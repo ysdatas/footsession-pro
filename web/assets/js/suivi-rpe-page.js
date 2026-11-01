@@ -9,6 +9,7 @@
      - Détail joueurs : la grille joueurs × dernières séances (jusqu'à
        aujourd'hui) ; chaque case : la valeur du joueur (couleur de
        rpe.js), « ? » si sa réponse est attendue et manque (rpeExpected),
+       « … » si elle est attendue mais que le délai (J+2) court encore,
        « abs. » si une absence est enregistrée, vide si la séance ne le
        concerne pas ; « staff » marque une saisie du staff ; une case :
        saisir ou corriger (même feuille que le joueur) ; une séance :
@@ -73,7 +74,7 @@ async function loadSr() {
   status.textContent = 'Chargement…';
   try {
     const [s, p] = await Promise.all([
-      byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, duree_min, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
+      byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
         .lte('date_seance', srToday()).order('date_seance', { ascending: false }).order('heure', { ascending: false, nullsFirst: false }).limit(SR.n),
       sb.from('players').select(`id, nom, prenom${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
     ]);
@@ -109,12 +110,13 @@ function srConcerned(s, p) {
   return s.team_id != null && (s.team_id === p.team_id || (p.other_team_ids || []).includes(s.team_id));
 }
 
-/* État d'une case : { v, staff } réponse ; 'miss' attendue et absente ; 'abs' absence enregistrée ; null pas concerné. */
+/* État d'une case : { v, staff } réponse ; 'miss' attendue et absente ; 'wait' attendue, délai pas fini ; 'abs' absence enregistrée ; null pas concerné. */
 function srCell(s, p) {
   const r = SR.rpe.get(srKey(s.id, p.id));
   if (r) return { v: r.rpe, staff: !!r.corrige_par };
   if (!srConcerned(s, p)) return null;
-  return rpeExpected(SR.att.get(srKey(s.id, p.id))) ? 'miss' : 'abs';
+  if (!rpeExpected(SR.att.get(srKey(s.id, p.id)))) return 'abs';
+  return rpeOpen(s.date_seance) ? 'wait' : 'miss';   // le joueur peut encore répondre (rpe.js)
 }
 
 function renderSr() {
@@ -124,28 +126,31 @@ function renderSr() {
     body.innerHTML = '<div class="empty">Aucune séance passée pour cette équipe. Le RPE se renseigne après chaque séance créée dans la plateforme.</div>';
     return;
   }
-  const missing = SR.cells.flat().filter(c => c === 'miss').length;
+  const missing = SR.cells.flat().filter(c => c === 'miss').length, pending = SR.cells.flat().filter(c => c === 'wait').length;
   document.getElementById('srStatus').textContent = [team?.nom, `${SR.sessions.length} dernière${SR.sessions.length > 1 ? 's' : ''} séance${SR.sessions.length > 1 ? 's' : ''}`,
-    missing ? `${missing} réponse${missing > 1 ? 's' : ''} manquante${missing > 1 ? 's' : ''}` : 'aucune réponse manquante'].filter(Boolean).join(' · ');
+    missing ? `${missing} réponse${missing > 1 ? 's' : ''} manquante${missing > 1 ? 's' : ''}` : 'aucune réponse manquante',
+    pending ? `${pending} en attente` : ''].filter(Boolean).join(' · ');
   if (SR.view === 'dash') { renderSrDash(body, SR.sessions, SR.players, SR.cells); return; }
   const head = SR.sessions.map((s, j) => {
-    const col = SR.cells.map(row => row[j]), vals = col.filter(c => c?.v).map(c => c.v), due = col.filter(c => c?.v || c === 'miss').length;
+    const col = SR.cells.map(row => row[j]), vals = col.filter(c => c?.v).map(c => c.v), due = col.filter(c => c?.v || c === 'miss' || c === 'wait').length;
     return `<th scope="col"><a class="sr-sess" href="session-edit.html?id=${s.id}" title="${escapeHtml(s.titre)}">
       <span class="sr-date">${srShort(s.date_seance)}</span><span class="sr-t">${escapeHtml(s.titre)}</span>
       <span class="sr-avg"${vals.length ? ` style="--rpe:${rpeColor(vals.reduce((a, b) => a + b, 0) / vals.length)}"` : ''}>${vals.length ? rpeFr(vals.reduce((a, b) => a + b, 0) / vals.length) : '—'}</span>
-      <span class="sr-rate">${vals.length}/${due}</span></a></th>`;
+      <span class="sr-rate">${vals.length}/${due}${s.rpe_attendue ? ` · att. ${s.rpe_attendue}` : ''}</span></a></th>`;
   }).join('');
   const rows = SR.players.map((p, i) => `<tr><th scope="row">${playerLink(p.id, playerFullName(p))}</th>${SR.cells[i].map((c, j) => {
     const s = SR.sessions[j], label = `${playerFullName(p)}, ${srShort(s.date_seance)}`;
     if (c === null) return '<td class="sr-na"></td>';
     if (c === 'abs') return `<td><button type="button" class="sr-c is-abs" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : absent, saisir quand même">abs.</button></td>`;
+    if (c === 'wait') return `<td><button type="button" class="sr-c is-wait" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : en attente (il peut encore répondre), saisir à sa place">…</button></td>`;
     if (c === 'miss') return `<td><button type="button" class="sr-c is-miss" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : pas de réponse, saisir à sa place">?</button></td>`;
     return `<td><button type="button" class="sr-c" style="--rpe:${rpeColor(c.v)}" data-sr="${j}:${i}"
       aria-label="${escapeHtml(`${label} : ${c.v} (${rpeLabel(c.v)})${c.staff ? ', saisi par le staff' : ''}, corriger`)}">${c.v}${c.staff ? '<i>staff</i>' : ''}</button></td>`;
   }).join('')}</tr>`).join('');
   body.innerHTML = `<div class="sr-wrap"><table class="sr-grid">
       <thead><tr><th scope="col" class="sr-corner">Joueur</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="sr-legend"><span class="sr-c is-miss" aria-hidden="true">?</span> réponse attendue, pas encore donnée
+    <p class="sr-legend"><span class="sr-c is-miss" aria-hidden="true">?</span> réponse manquante (délai passé)
+      · <span class="sr-c is-wait" aria-hidden="true">…</span> en attente : le joueur peut encore répondre
       · <span class="sr-c is-abs" aria-hidden="true">abs.</span> absence enregistrée
       · <span class="rpe-staff">staff</span> saisi ou corrigé par le staff.
       Touchez une case pour saisir ou corriger à la place du joueur. Les joueurs répondent depuis leur espace jusqu’à ${RPE_DAYS} jours après la séance ;

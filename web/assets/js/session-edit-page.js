@@ -55,7 +55,7 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
   if (!CAN_WRITE) {
-    ['f-titre', 'f-principe', 'f-date', 'f-heure', 'f-equipe', 'f-duree'].forEach(id => { document.getElementById(id).disabled = true; });
+    ['f-titre', 'f-principe', 'f-date', 'f-heure', 'f-equipe', 'f-duree', 'f-rpe-att'].forEach(id => { document.getElementById(id).disabled = true; });
     document.getElementById('btnAddProc').classList.add('hidden');
     document.getElementById('btnAddProc2').classList.add('hidden');
     document.getElementById('btnLibrary')?.classList.add('hidden');
@@ -256,6 +256,7 @@ async function loadSession() {
     document.getElementById('f-equipe').value = s.equipe || '';
     sessionTeamId = s.team_id ?? null;
     document.getElementById('f-duree').value = decStr(s.duree_min ?? 90);
+    document.getElementById('f-rpe-att').value = s.rpe_attendue ?? '';   // lmfc_v34.sql
     document.getElementById('editorSubtitle').textContent = `Créée le ${(s.created_at || '').slice(0, 10)}`;
 
     procedures = (procs || []).map(p => procFromRow(p, nextUid()));   // procedure-time.js

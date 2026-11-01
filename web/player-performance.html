@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="assets/css/videos.css">
   <link rel="stylesheet" href="assets/css/rpe.css">
   <link rel="stylesheet" href="assets/css/gps.css">
+  <link rel="stylesheet" href="assets/css/matches.css">
   <script src="assets/js/theme.js"></script>
 </head>
 <body class="app fp-fm-page">
@@ -77,6 +78,7 @@
     <nav class="pf-tabs hidden" id="pfTabs" role="tablist" aria-label="Rubriques du joueur">
       <button type="button" role="tab" id="pfTab-fiche" data-pf-tab="fiche" aria-controls="pfPanel-fiche">Fiche</button>
       <button type="button" role="tab" id="pfTab-performance" data-pf-tab="performance" aria-controls="pfPanel-performance">Performance</button>
+      <button type="button" role="tab" id="pfTab-matchs" data-pf-tab="matchs" aria-controls="pfPanel-matchs" class="hidden">Matchs</button>
       <button type="button" role="tab" id="pfTab-videos" data-pf-tab="videos" aria-controls="pfPanel-videos" class="hidden">Vidéos</button>
     </nav>
 
@@ -179,6 +181,11 @@
           <div id="measurementHistory"></div>
         </section>
 
+      </section>
+
+      <!-- Matchs : son historique de Retours de match, staff seulement (match-history.js ; la base refuse le joueur) -->
+      <section class="pf-panel card" id="pfPanel-matchs" data-pf-panel="matchs" role="tabpanel" aria-labelledby="pfTab-matchs" hidden>
+        <div id="pfMatchs"><p class="text-muted">Chargement…</p></div>
       </section>
 
       <!-- Vidéos : celles du joueur, rangées par vidéo (player-videos.js) -->
@@ -420,6 +427,8 @@
   <script src="assets/js/player-videos.js"></script>
   <script src="assets/js/rpe.js"></script>
   <script src="assets/js/gps-card.js"></script>
+  <script src="assets/js/procedure-time.js"></script>
+  <script src="assets/js/match-history.js"></script>
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/excel-match.js"></script>

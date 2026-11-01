@@ -922,6 +922,7 @@ async function loadPage() {
   renderGpsCard(player.id, ctxProfile.role === 'joueur');   // GPS (gps-card.js) : le staff, ou le joueur pour ce qui lui est ouvert
   // Onglet Vidéos ouvert d'emblée (?tab=videos) : il attendait la fiche et restait sur « Chargement… ».
   if (!pfVideosMounted && document.querySelector('[data-pf-tab="videos"][aria-selected="true"]')) showTab('videos', false);
+  if (!pfMatchesMounted && document.querySelector('[data-pf-tab="matchs"][aria-selected="true"]')) showTab('matchs', false);
 
   // Staff : programme terrain (points forts, axes, exercices) dans l'onglet Fiche.
   // Le joueur a sa page « Objectifs & préventions » pour ça.
@@ -1316,18 +1317,21 @@ function setupVisibilityToggles() {
   });
 }
 
-/* ---------- Onglets (staff) : Fiche · Performance · Vidéos ----------
+/* ---------- Onglets (staff) : Fiche · Performance · Matchs · Vidéos ----------
    Le contenu change sur place ; ?tab= garde l'onglet au rechargement
    et au retour arrière. Les vidéos ne se chargent qu'à la première
    ouverture de leur onglet. */
-const PF_TABS = ['fiche', 'performance', 'videos'];
+const PF_TABS = ['fiche', 'performance', 'matchs', 'videos'];
 /* Vidéos : le staff qui les gère, et le lecteur en consultation (player-videos.js). */
 const canSeeVideosTab = () => canManageVideos(ctxProfile.role) || isReader(ctxProfile.role);
-let pfVideosMounted = false;
+/* Matchs : admin, coachs, préparateurs (le lecteur et le joueur ne lisent aucun match : lmfc_v19 / v22). */
+const canSeeMatchesTab = () => ['admin', 'coach', 'prepa'].includes(ctxProfile.role);
+let pfVideosMounted = false, pfMatchesMounted = false;
 function setupTabs() {
   const nav = document.getElementById('pfTabs');
   nav.classList.remove('hidden');
   document.getElementById('pfTab-videos').classList.toggle('hidden', !canSeeVideosTab());
+  document.getElementById('pfTab-matchs').classList.toggle('hidden', !canSeeMatchesTab());
   nav.addEventListener('click', (e) => {
     const t = e.target.closest('[data-pf-tab]');
     if (t) showTab(t.dataset.pfTab, true);
@@ -1344,7 +1348,7 @@ function setupTabs() {
   showTab(asked, false);
 }
 function showTab(tab, remember) {
-  const allowed = PF_TABS.filter(k => k !== 'videos' || canSeeVideosTab());
+  const allowed = PF_TABS.filter(k => (k !== 'videos' || canSeeVideosTab()) && (k !== 'matchs' || canSeeMatchesTab()));
   if (!allowed.includes(tab)) tab = 'fiche';
   document.querySelectorAll('[data-pf-tab]').forEach(b => {
     const on = b.dataset.pfTab === tab;
@@ -1361,6 +1365,10 @@ function showTab(tab, remember) {
   if (tab === 'videos' && !pfVideosMounted && player) {
     pfVideosMounted = true;
     mountPlayerVideos(document.getElementById('pfVideos'), { player, profile: ctxProfile });
+  }
+  if (tab === 'matchs' && !pfMatchesMounted && player) {
+    pfMatchesMounted = true;
+    mountPlayerMatches(document.getElementById('pfMatchs'), player);
   }
   if (tab === 'performance') renderRadar();   // tailles justes une fois l'onglet visible
 }

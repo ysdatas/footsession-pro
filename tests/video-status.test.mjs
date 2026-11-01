@@ -39,4 +39,18 @@ assert.equal(next([{ label: 'Séquence 1' }, { label: 'Séquence 3' }]), 'Séque
 assert.equal(next([{ label: 'Pressing côté droit' }]), 'Séquence 2', 'une séquence renommée compte quand même');
 assert.equal(next([{ label: 'Séquence 2 – Sacha' }]), 'Séquence 3', 'anciens noms avec le prénom');
 
+// Joueur reconnu dans le nom du fichier envoyé.
+const team = [{ id: 1, prenom: 'Eliott', nom: 'BARBEY' }, { id: 2, prenom: 'Noé', nom: 'Martin' },
+  { id: 3, prenom: 'Hugo', nom: 'Martin' }, { id: 4, prenom: 'Jean-Eudes', nom: 'Lo' }];
+const who = (f) => vm.runInContext(`playerFromFile(${JSON.stringify(f)}, ${JSON.stringify(team)})?.id ?? null`, ctx);
+assert.equal(who('Eliott-1.mp4'), 1, 'prénom seul');
+assert.equal(who('eliott2.MOV'), 1, 'numéro collé au prénom');
+assert.equal(who('BARBEY_pressing.mp4'), 1, 'nom seul');
+assert.equal(who('noe-1.mp4'), 2, 'accent absent du fichier');
+assert.equal(who('Martin-3.mp4'), null, 'deux Martin : à choisir');
+assert.equal(who('Hugo Martin relance.mp4'), 3, 'prénom et nom départagent');
+assert.equal(who('jean-eudes 4.mp4'), 4, 'prénom composé');
+assert.equal(who('IMG_4512.mp4'), null, 'aucun nom');
+assert.equal(who('Eliott et Noé.mp4'), null, 'deux joueurs dans le nom : à choisir');
+
 console.log('video-status.test.mjs : OK');

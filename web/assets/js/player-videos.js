@@ -303,14 +303,15 @@ function ensureVideoModals() {
     <div class="modal modal-upl">
       <h3>Envoyer des vidéos</h3>
       <div class="field">
-        <label for="v-player">Joueur destinataire</label>
-        <select id="v-player" required><option value="">— Choisir —</option></select>
-      </div>
-      <div class="field">
         <label>Fichiers vidéo (MP4 conseillé)</label>
         <label class="file-pick"><input type="file" id="v-file" accept="video/*" multiple>
           <span class="btn btn-sm">+ Choisir des vidéos</span></label>
-        <p class="field-hint">Plusieurs fichiers possibles. Titre = nom du fichier, modifiable avant l’envoi.</p>
+        <p class="field-hint">Choisissez-les toutes d’un coup. Le joueur est reconnu dans le nom du fichier (« Eliott-1.mp4 » → Eliott) ; sinon, choisissez-le sur la ligne. Titre = nom du fichier, modifiable.</p>
+      </div>
+      <div class="upl-assign hidden" id="v-assign-box">
+        <label class="sr-only" for="v-assign">Attribuer des vidéos à un joueur</label>
+        <select id="v-assign"></select>
+        <span class="upl-missing" id="v-missing" role="status"></span>
       </div>
       <div class="upl-list" id="v-files"></div>
       <div class="field"><label for="v-desc">Description <span class="label-opt">(facultative, commune aux vidéos)</span></label><textarea id="v-desc" rows="2"></textarea></div>
@@ -411,11 +412,13 @@ function seqPlaylist(buttons, find) {
 }
 
 /* ---------- Envoi de vidéos ----------
-   Plusieurs fichiers d'un coup, envoyés l'un après l'autre (la connexion
+   Plusieurs fichiers d'un coup, chacun à son joueur : reconnu dans le nom
+   du fichier (« Eliott-1.mp4 »), sinon choisi sur la ligne ou pour les
+   lignes cochées (« Attribuer à… »). Envoyés l'un après l'autre (la connexion
    est le goulot : en parallèle, chacun irait moins vite). Chaque ligne
    montre son pourcentage, la ligne du bas l'avancement global. Un échec
    n'arrête pas les suivants ; « Réessayer » ne renvoie que les échecs. */
-const upl = { items: [], ctrl: null, stamp: 0, profile: null, onDone: null };   // item : { file, title, state, pct, err }
+const upl = { items: [], ctrl: null, stamp: 0, profile: null, onDone: null, players: [], fallback: null };   // item : { file, title, player, on, state, pct, err }
 const $up = (id) => document.getElementById(id);
 /* « match_vs_laval.mp4 » → « Match vs laval » */
 const titleFromFile = (name) => {
@@ -431,12 +434,8 @@ const fmtSize = (b) => (b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} Ko`
 function openVideoUpload({ players, playerId = null, profile, onDone = null }) {
   ensureVideoModals();
   if (upl.ctrl) return openModal('videoModal');   // envoi en cours : on le retrouve tel quel
-  upl.profile = profile; upl.onDone = onDone;
-  const sel = $up('v-player');
-  sel.innerHTML = '<option value="">— Choisir un joueur —</option>'
-    + players.map(p => `<option value="${p.id}">${escapeHtml(pvName(p))}</option>`).join('');
-  sel.dataset.players = JSON.stringify(players.map(p => p.id));
-  if (playerId) sel.value = String(playerId);
+  // Fichier sans nom de joueur reconnu : le joueur ouvert (page d'un joueur), sinon à choisir.
+  Object.assign(upl, { profile, onDone, players, fallback: players.some(p => p.id === playerId) ? playerId : null });
   $up('v-desc').value = '';
   $up('v-file').value = '';
   upl.items = [];
@@ -454,16 +453,22 @@ function renderUploads() {
       done: '<span class="upl-ok">Envoyée ✓</span>',
       error: `<span class="upl-err">${escapeHtml(it.err)}</span>`,
     }[it.state] || `<span class="upl-size">${fmtSize(it.file.size)}</span>`;
-    const locked = busy || it.state === 'done';
+    const locked = busy || it.state === 'done', off = locked ? ' disabled' : '';
     return `
       <div class="upl-row is-${it.state}" data-i="${i}">
-        <input class="upl-title" value="${escapeHtml(it.title)}" maxlength="140" aria-label="Titre de la vidéo ${i + 1}" ${locked ? 'disabled' : ''}>
+        <input type="checkbox" class="upl-on" data-upl-on="${i}" aria-label="Cocher « ${escapeHtml(it.title)} »"${it.on ? ' checked' : ''}${off}>
+        <input class="upl-title" value="${escapeHtml(it.title)}" maxlength="140" aria-label="Titre de la vidéo ${i + 1}"${off}>
+        <select class="upl-player${it.player ? '' : ' is-none'}" data-upl-player="${i}" aria-label="Joueur de la vidéo ${i + 1}"${off}>
+          <option value="">— Joueur —</option>${upl.players.map(p => `<option value="${p.id}"${p.id === it.player ? ' selected' : ''}>${escapeHtml(pvName(p))}</option>`).join('')}</select>
         ${status}
         <button type="button" class="upl-x" data-upl-remove="${i}" aria-label="Retirer ${escapeHtml(it.title)}" ${locked ? 'disabled' : ''}>×</button>
         <div class="upl-bar"><span style="width:${it.state === 'done' ? 100 : Math.round(it.pct * 100)}%"></span></div>
       </div>`;
   }).join('');
   box.classList.toggle('hidden', !upl.items.length);
+  box.classList.toggle('is-multi', upl.items.length > 1);
+  $up('v-assign-box').classList.toggle('hidden', upl.items.length < 2);
+  uplAssignState();
   const todo = upl.items.filter(it => it.state === 'ready' || it.state === 'error');
   const btn = $up('v-submit');
   if (!busy) {
@@ -472,11 +477,20 @@ function renderUploads() {
       : todo.length > 1 ? `Envoyer les ${todo.length} vidéos` : 'Envoyer';
   }
   $up('v-cancel').textContent = busy ? 'Arrêter l’envoi' : upl.items.some(it => it.state === 'done') ? 'Fermer' : 'Annuler';
-  $up('v-player').disabled = busy;
+  $up('v-assign').disabled = busy;
   $up('v-file').disabled = busy;
   $up('v-desc').disabled = busy;
   $up('v-file').nextElementSibling.textContent = upl.items.length ? '+ Ajouter d’autres vidéos' : '+ Choisir des vidéos';
   $up('videoModal').toggleAttribute('data-busy', busy);   // ni Échap ni clic à côté ne ferment
+}
+
+/* « Attribuer à… » : les vidéos cochées, sinon toutes ; et le nombre de vidéos sans joueur. */
+function uplAssignState() {
+  const n = upl.items.filter(it => it.on).length;
+  $up('v-assign').innerHTML = `<option value="">${n ? `Attribuer ${n > 1 ? `les ${n} vidéos cochées` : 'la vidéo cochée'} à…` : 'Attribuer toutes les vidéos à…'}</option>`
+    + upl.players.map(p => `<option value="${p.id}">${escapeHtml(pvName(p))}</option>`).join('');
+  const none = upl.items.filter(it => !it.player && it.state !== 'done').length;
+  $up('v-missing').textContent = none ? `${none} vidéo${none > 1 ? 's' : ''} sans joueur` : '';
 }
 
 /* Avancement : mis à jour sur place, sans redessiner les champs. */
@@ -499,10 +513,26 @@ document.addEventListener('change', (e) => {
   const known = new Set(upl.items.map(it => `${it.file.name}|${it.file.size}|${it.file.lastModified}`));
   [...e.target.files].forEach(file => {
     if (known.has(`${file.name}|${file.size}|${file.lastModified}`)) return;
-    upl.items.push({ file, title: titleFromFile(file.name), state: file.size > VIDEO_MAX_BYTES ? 'big' : 'ready', pct: 0 });
+    const player = playerFromFile(file.name, upl.players)?.id ?? upl.fallback;   // video-status.js
+    upl.items.push({ file, title: titleFromFile(file.name), player, on: false, state: file.size > VIDEO_MAX_BYTES ? 'big' : 'ready', pct: 0 });
   });
   e.target.value = '';   // un second choix s'ajoute au premier
   renderUploads();
+});
+document.addEventListener('change', (e) => {
+  const t = e.target, row = t.closest('#v-files .upl-row');
+  if (t.id === 'v-assign' && t.value) {
+    const all = !upl.items.some(it => it.on);
+    upl.items.forEach(it => { if ((all || it.on) && it.state !== 'done') it.player = Number(t.value); it.on = false; });
+    renderUploads();
+  } else if (row && t.dataset.uplOn) {
+    upl.items[Number(row.dataset.i)].on = t.checked;
+    uplAssignState();
+  } else if (row && t.dataset.uplPlayer) {
+    upl.items[Number(row.dataset.i)].player = Number(t.value) || null;
+    t.classList.toggle('is-none', !t.value);
+    uplAssignState();
+  }
 });
 document.addEventListener('input', (e) => {
   const row = e.target.classList.contains('upl-title') && e.target.closest('.upl-row');
@@ -518,11 +548,14 @@ document.addEventListener('click', (e) => {
 window.addEventListener('beforeunload', (e) => { if (upl.ctrl) e.preventDefault(); });
 
 async function uploadVideos() {
-  const playerId = Number($up('v-player').value);
-  const allowed = JSON.parse($up('v-player').dataset.players || '[]');
-  if (!allowed.includes(playerId)) { toast('Choisissez le joueur destinataire.', 'error'); return; }
   const list = upl.items.filter(it => it.state === 'ready' || it.state === 'error');
   if (!list.length) { toast('Ajoutez au moins une vidéo.', 'error'); return; }
+  const allowed = new Set(upl.players.map(p => p.id)), none = list.filter(it => !allowed.has(it.player));
+  if (none.length) {
+    toast(`${none.length > 1 ? `${none.length} vidéos sans joueur` : 'Une vidéo sans joueur'} : choisissez-le sur la ligne.`, 'error');
+    $up('v-files').querySelector(`[data-i="${upl.items.indexOf(none[0])}"] .upl-player`)?.focus();
+    return;
+  }
   const clubId = upl.profile.club_id;
   const description = $up('v-desc').value.trim() || null;
   const total = { list, bytes: list.reduce((s, it) => s + it.file.size, 0) || 1 };
@@ -536,7 +569,7 @@ async function uploadVideos() {
     if (upl.ctrl.signal.aborted) break;
     it.state = 'sending'; renderUploads(); showUploadProgress(it, done, total);
     upl.stamp = Math.max(Date.now(), upl.stamp + 1);   // chemins distincts, même envoyés dans la même milliseconde
-    const path = `r2/${clubId}/${playerId}/${upl.stamp}.${fileExt(it.file.name)}`;
+    const playerId = it.player, path = `r2/${clubId}/${playerId}/${upl.stamp}.${fileExt(it.file.name)}`;
     // Miniature prise sur le fichier pendant l'envoi : les listes l'affichent sans lire la vidéo.
     const thumbP = fileThumb(it.file);
     try {
@@ -566,10 +599,11 @@ async function uploadVideos() {
   $up('v-total').classList.add('hidden');
   renderUploads();
   if (sent) await upl.onDone?.();
-  const sentTxt = `${sent} vidéo${sent > 1 ? 's envoyées' : ' envoyée'}`;
+  const who = new Set(list.filter(it => it.state === 'done').map(it => it.player)).size;
+  const sentTxt = `${sent} vidéo${sent > 1 ? 's envoyées' : ' envoyée'}${who > 1 ? ` à ${who} joueurs` : ''}`;
   if (!failed && !stopped) {
     closeModal('videoModal');
-    toast(`${sentTxt}. ${sent > 1 ? 'Elles apparaissent' : 'Elle apparaît'} dans l’espace du joueur.`, 'success');
+    toast(`${sentTxt}. ${sent > 1 ? 'Elles apparaissent' : 'Elle apparaît'} dans l’espace ${who > 1 ? 'de chaque joueur' : 'du joueur'}.`, 'success');
   } else if (stopped) {
     toast(sent ? `Envoi arrêté : ${sentTxt}.` : 'Envoi arrêté.', 'info');
   } else {

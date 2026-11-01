@@ -427,16 +427,12 @@
    Fenêtres
    ============================================================ */
 .modal-wide{max-width:680px !important;}
-.modal-lead{font-size:var(--fs-sm);line-height:1.5;margin:0 0 14px;}
 .form-grid .span-2{grid-column:1 / -1;}
 .field-hint{font-size:var(--fs-xs);color:var(--text-muted,#9da4ae);font-weight:400;}
 .modal-actions .spacer{flex:1 1 auto;}
 .modal-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 
 /* Export */
-.export-block{border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:12px;}
-.export-title{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--text-muted,#9da4ae);margin-bottom:9px;}
 .export-sub{display:block;font-size:var(--fs-xs);color:#cfd4db;font-weight:600;margin-bottom:6px;}
 .export-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
 .chip{
@@ -449,13 +445,8 @@
 .export-range{display:flex;gap:10px;flex-wrap:wrap;}
 .export-range label{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-muted,#9da4ae);}
 .export-range select{min-height:34px;}
-.export-sections{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;}
-/* Cases à cocher : texte normal, pas le style majuscule des libellés de champ. */
-.check{display:flex;align-items:center;gap:10px;font-size:var(--fs-sm);font-weight:500;cursor:pointer;padding:5px 0;
-  text-transform:none;letter-spacing:normal;color:var(--text-primary);line-height:1.35;}
-.check input{width:16px;height:16px;flex:0 0 auto;accent-color:var(--gold);}
 @media (max-width:620px){
-  .export-period,.export-sections{grid-template-columns:1fr;}
+  .export-period{grid-template-columns:1fr;}
 }
 
 /* ----- Sélecteur de comparaison ----- */

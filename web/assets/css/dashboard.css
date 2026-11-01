@@ -106,7 +106,9 @@
 .home-attn-card.is-urgent .home-attn-value { color: #FF6B7D; }
 .home-attn-card.is-urgent .home-attn-head .ic { color: #FF6B7D; }
 
-.home-account { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; align-items: start; }
+.home-account { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.home-account .card { display: flex; flex-direction: column; }
+.home-account .card > .btn { margin-top: auto; align-self: flex-start; }   /* boutons alignés au bas des deux cartes */
 .home-account .field-hint { margin: -4px 0 14px; }
 /* Accès rapides : icône + nom, rien d'autre. */
 .home-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
