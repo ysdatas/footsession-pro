@@ -164,6 +164,10 @@ assert.equal(await n(U19, `update public.players set nom = 'P2 U19' where id = 2
 assert.equal(await n(LECT, `update public.players set nom = 'x' where id = 1 returning id`), 0, 'lecture club : lecture seulement');
 await ko(N2, `insert into public.players (club_id, nom, team_id) values (1, 'Nouveau', 2)`, [], 'coach N2 : pas de joueur dans une autre équipe');
 await ok(N2, `insert into public.players (club_id, nom, team_id) values (1, 'Nouveau N2', 1)`);
+// Piège : « insert … returning » (sb.insert().select()) est refusé, même à l'admin : la règle de lecture
+// cherche le joueur parmi ceux qui existent déjà. players-page.js ajoute sans returning, puis relit.
+await ko(ADMIN, `insert into public.players (club_id, nom, team_id) values (1, 'Avec retour', 1) returning id`, [], 'returning refusé');
+assert.equal(await n(N2, `select id from public.players where nom = 'Nouveau N2'`), 1, 'ajouté sans returning : relu ensuite');
 await assert.rejects(as(U19, () => q(`select public.set_player_photo(1, '1/1/x.jpg')`)), /réservée/, 'photo : pas en lecture');
 
 /* ---------- 3. Vidéos et séquences envoyées par le joueur ---------- */

@@ -1,7 +1,8 @@
 /* ============================================================
    LMFC Performance — session-roster.js (page séance)
    Les joueurs dans la séance (lmfc_v9.sql, lmfc_v12.sql) :
-     - statut de chacun (attendance.statut) : présent, reprise, absent,
+     - statut de chacun (attendance.statut) : un clic sur la carte le met
+       présent (un 2e clic : absent) ; la liste pour les autres : reprise,
        blessé, sélection, groupe pro, ou « Autre » avec un motif libre
        (statut_libre) et une case « participe » (present) ;
      - invités : n'importe quel joueur du club, ajouté pour cette
@@ -29,15 +30,14 @@ function renderAttendance() {
     list.innerHTML = attendance.map((a, i) => {
       const meta = [a.numero != null ? '#' + a.numero : '', a.poste || ''].filter(Boolean).join(' · ');
       const guest = a.invite ? `<span class="guest-badge" title="Présence exceptionnelle : son équipe ne change pas">Invité${teamName(a.team_id) ? ` · ${escapeHtml(teamName(a.team_id))}` : ''}</span>` : '';
-      return `<div class="att-item st-${a.statut}${a.invite ? ' is-guest' : ''}">
-        ${CAN_WRITE ? `<button type="button" class="att-grip" data-grip="${a.player_id}" aria-label="Placer ${escapeHtml(rosterName(a))} sur le terrain" title="Glisser sur le terrain (ou cliquer)">⠿</button>` : ''}
+      const name = rosterName(a);
+      return `<div class="att-item st-${a.statut}${a.invite ? ' is-guest' : ''}${CAN_WRITE ? ' is-tap' : ''}" data-tap="${i}">
+        ${CAN_WRITE ? `<button type="button" class="att-grip" data-grip="${a.player_id}" aria-label="Placer ${escapeHtml(name)} sur le terrain" title="Glisser sur le terrain (ou cliquer)">⠿</button>` : ''}
         <div class="att-main">
-          <div class="att-name">${playerLink(a.player_id, rosterName(a))}</div>
-          <div class="att-meta">${escapeHtml(meta)}${guest}</div>
+          <button type="button" class="att-name" data-toggle="${i}" title="${escapeHtml(name)} : cliquer pour ${a.statut === 'present' ? 'absent' : 'présent'}" aria-pressed="${a.statut === 'present'}" ${dis}>${escapeHtml(name)}</button>
+          <div class="att-row"><span class="att-meta">${escapeHtml(meta)}${guest}</span>
+            <select class="st-select st-${a.statut}" data-att="${i}" aria-label="Statut de ${escapeHtml(name)}" ${dis}>${statutOptions(a.statut)}</select></div>
         </div>
-        <select class="st-select st-${a.statut}" data-att="${i}" aria-label="Statut de ${escapeHtml(rosterName(a))}" ${dis}>
-          ${statutOptions(a.statut)}
-        </select>
         ${a.invite && CAN_WRITE ? `<button class="att-remove" type="button" data-remove-guest="${i}" aria-label="Retirer ${escapeHtml(rosterName(a))} de la séance" title="Retirer de la séance">✕</button>` : ''}
         ${a.statut === 'autre' ? `<div class="st-other">
           <input class="st-libre" data-libre="${i}" maxlength="40" value="${escapeHtml(a.statut_libre || '')}" placeholder="Motif (ex. Soins)" aria-label="Motif pour ${escapeHtml(rosterName(a))}" ${dis}>
@@ -194,8 +194,12 @@ function initRoster() {
     updatePresentCount();
   });
   list.addEventListener('click', e => {
+    if (!CAN_WRITE) return;
     const rm = e.target.closest('[data-remove-guest]');
-    if (rm && CAN_WRITE) removeGuest(Number(rm.dataset.removeGuest));
+    if (rm) return removeGuest(Number(rm.dataset.removeGuest));
+    // Clic sur la carte (hors liste, poignée, motif) : présent, ou absent s'il l'était.
+    const card = !e.target.closest('select, input, label, [data-grip]') && e.target.closest('[data-tap]');
+    if (card) { const i = Number(card.dataset.tap); setStatut(i, attendance[i].statut === 'present' ? 'absent' : 'present'); }
   });
   document.getElementById('btnAllPresent')?.addEventListener('click', () => CAN_WRITE && allPresent());
   const search = document.getElementById('guestSearch');

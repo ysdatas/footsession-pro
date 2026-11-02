@@ -387,11 +387,15 @@ async function savePlayer() {
   const teamId = document.getElementById('m-team').value;
   if (teamId) body.team_id = Number(teamId);
   try {
-    const { data, error } = await sb.from('players').insert(body).select('id').single();
+    // Sans « .select() » : la règle de lecture (my_visible_players, lmfc_v21.sql) cherche le joueur
+    // parmi ceux qui existent déjà, et refuserait l'ajout s'il fallait le renvoyer. Relu ensuite.
+    const { error } = await sb.from('players').insert(body);
     if (error) throw error;
+    const { data } = await sb.from('players').select('id').eq('club_id', body.club_id).eq('nom', nom)
+      .order('id', { ascending: false }).limit(1).maybeSingle();
     closeModal('playerModal');
     toast('Joueur ajouté', 'success');
-    window.location.href = `player-performance.html?id=${data.id}`;
+    window.location.href = data ? `player-performance.html?id=${data.id}` : 'players.html';
   } catch (e) { toast(e.message, 'error'); }
 }
 

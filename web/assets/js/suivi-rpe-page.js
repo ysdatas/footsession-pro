@@ -1,6 +1,7 @@
 /* ============================================================
    LMFC Performance — suivi-rpe-page.js (suivi-rpe.html)
-   Suivi RPE du staff (lmfc_v29.sql), équipe par équipe :
+   Suivi RPE du staff (lmfc_v29.sql), équipe par équipe ; les 10, 20 ou
+   50 dernières séances, une semaine (‹ ›) ou des dates (du … au …) :
      - capsules : les équipes du compte (toutes s'il n'est pas
        restreint), indépendantes du menu « Équipe » ; ?team= dans
        l'adresse. La RLS décide toujours de ce qui est lu ;
@@ -20,9 +21,12 @@
    rpe-stats.js, analytics-charts.js, suivi-rpe-dash.js.
    ============================================================ */
 
-const SR = { n: 10, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
+const SR = { n: 10, period: null, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
 const srKey = (s, p) => `${s}:${p}`;
-const srToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const srIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const srToday = () => srIso(new Date());
+const srDays = (iso, n) => { const d = new Date(`${iso}T12:00`); d.setDate(d.getDate() + n); return srIso(d); };
+const srMonday = (iso) => srDays(iso, -((new Date(`${iso}T12:00`).getDay() + 6) % 7));
 const srShort = (iso) => new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(`${iso}T12:00`));
 /* Équipes proposées : celles du compte, toutes s'il n'est pas restreint. */
 const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams(window.CURRENT_PROFILE, all); return mine.length ? mine : all; };
@@ -39,7 +43,7 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
   document.getElementById('srBody').addEventListener('click', srClick);
   document.querySelector('.page-actions').addEventListener('click', (e) => {
     const n = e.target.closest('[data-sr-n]'), v = e.target.closest('[data-sr-view]');
-    if (n && Number(n.dataset.srN) !== SR.n) { SR.n = Number(n.dataset.srN); loadSr(); }
+    if (n) srChoose(n.dataset.srN);
     if (v && v.dataset.srView !== SR.view) { SR.view = v.dataset.srView; srUrl(); renderSr(); }
     srPressed();
   });
@@ -49,8 +53,30 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
     SR.team = Number(b.dataset.srTeam);
     srUrl(); renderSrTeams(); loadSr();
   });
+  document.getElementById('srPeriod').addEventListener('click', (e) => {
+    const w = e.target.closest('[data-sr-week]');
+    if (!w || w.disabled) return;
+    const from = srDays(SR.period.from, 7 * Number(w.dataset.srWeek));
+    SR.period = { mode: 'week', from, to: srDays(from, 6) };
+    srPressed(); loadSr();
+  });
+  document.getElementById('srPeriod').addEventListener('change', () => {
+    const from = document.getElementById('srFrom').value, to = document.getElementById('srTo').value;
+    if (!from || !to || from > to) return;
+    SR.period = { mode: 'dates', from, to };
+    loadSr();
+  });
   renderSrTeams(); srPressed(); loadSr();
 })();
+
+/* 10 / 20 / 50 dernières séances, une semaine (celle d'aujourd'hui pour commencer) ou des dates (4 semaines). */
+function srChoose(v) {
+  const today = srToday();
+  if (v === 'week') SR.period = SR.period?.mode === 'week' ? SR.period : { mode: 'week', from: srMonday(today), to: srDays(srMonday(today), 6) };
+  else if (v === 'dates') SR.period = SR.period?.mode === 'dates' ? SR.period : { mode: 'dates', from: SR.period?.from || srDays(today, -27), to: SR.period?.to || today };
+  else { SR.period = null; SR.n = Number(v); }
+  srPressed(); loadSr();
+}
 
 function srUrl() {
   const u = new URL(location.href);
@@ -59,7 +85,15 @@ function srUrl() {
   history.replaceState(null, '', u);
 }
 function srPressed() {
-  document.querySelectorAll('[data-sr-n]').forEach(x => x.setAttribute('aria-pressed', String(Number(x.dataset.srN) === SR.n)));
+  const mode = SR.period?.mode || String(SR.n), p = SR.period, today = srToday(), box = document.getElementById('srPeriod');
+  document.querySelectorAll('[data-sr-n]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.srN === mode)));
+  box.classList.toggle('hidden', !p);
+  box.innerHTML = !p ? '' : p.mode === 'week'
+    ? `<button class="btn btn-sm" type="button" data-sr-week="-1" aria-label="Semaine précédente">‹</button>
+       <strong>Semaine du ${srShort(p.from)} au ${srShort(p.to)}</strong>
+       <button class="btn btn-sm" type="button" data-sr-week="1" aria-label="Semaine suivante"${p.to >= today ? ' disabled' : ''}>›</button>`
+    : `<label for="srFrom">Du</label><input type="date" id="srFrom" value="${p.from}" max="${today}">
+       <label for="srTo">au</label><input type="date" id="srTo" value="${p.to}" max="${today}">`;
   document.querySelectorAll('[data-sr-view]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.srView === SR.view)));
 }
 function renderSrTeams() {
@@ -75,7 +109,8 @@ async function loadSr() {
   try {
     const [s, p] = await Promise.all([
       byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
-        .lte('date_seance', srToday()).order('date_seance', { ascending: false }).order('heure', { ascending: false, nullsFirst: false }).limit(SR.n),
+        .lte('date_seance', SR.period && SR.period.to < srToday() ? SR.period.to : srToday()).gte('date_seance', SR.period?.from || '1900-01-01')
+        .order('date_seance', { ascending: false }).order('heure', { ascending: false, nullsFirst: false }).limit(SR.period ? 200 : SR.n),
       sb.from('players').select(`id, nom, prenom${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
     ]);
     if (s.error || p.error) throw s.error || p.error;
@@ -123,11 +158,12 @@ function renderSr() {
   const team = (window.CLUB_TEAMS || []).find(t => t.id === SR.team), body = document.getElementById('srBody');
   if (!SR.sessions.length) {
     document.getElementById('srStatus').textContent = team ? team.nom : '';
-    body.innerHTML = '<div class="empty">Aucune séance passée pour cette équipe. Le RPE se renseigne après chaque séance créée dans la plateforme.</div>';
+    body.innerHTML = `<div class="empty">${SR.period ? 'Aucune séance de cette équipe sur cette période.' : 'Aucune séance passée pour cette équipe. Le RPE se renseigne après chaque séance créée dans la plateforme.'}</div>`;
     return;
   }
   const missing = SR.cells.flat().filter(c => c === 'miss').length, pending = SR.cells.flat().filter(c => c === 'wait').length;
-  document.getElementById('srStatus').textContent = [team?.nom, `${SR.sessions.length} dernière${SR.sessions.length > 1 ? 's' : ''} séance${SR.sessions.length > 1 ? 's' : ''}`,
+  const nS = SR.sessions.length, plural = nS > 1 ? 's' : '';
+  document.getElementById('srStatus').textContent = [team?.nom, SR.period ? `${nS} séance${plural} du ${srShort(SR.period.from)} au ${srShort(SR.period.to)}` : `${nS} dernière${plural} séance${plural}`,
     missing ? `${missing} réponse${missing > 1 ? 's' : ''} manquante${missing > 1 ? 's' : ''}` : 'aucune réponse manquante',
     pending ? `${pending} en attente` : ''].filter(Boolean).join(' · ');
   if (SR.view === 'dash') { renderSrDash(body, SR.sessions, SR.players, SR.cells); return; }
