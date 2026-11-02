@@ -130,6 +130,13 @@
         <a class="btn btn-sm" href="club.html">Gérer les membres &amp; l'identité du club</a>
       </div>
     </div>
+
+    <!-- Notifications sur ce téléphone (staff) : alertes courbatures (push.js, lmfc_v35.sql) -->
+    <div class="card hidden" id="pushCard" style="margin-top:18px;">
+      <h2 class="as-h3">Notifications sur ce téléphone</h2>
+      <p class="text-muted" style="font-size:var(--fs-md);">Pour recevoir les alertes du club, par exemple un joueur courbaturé au même endroit 3 jours de suite. À activer sur chaque téléphone.</p>
+      <div id="pushBox"></div>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
@@ -138,6 +145,7 @@
   <script src="assets/js/nav-mobile.js"></script>
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
+  <script src="assets/js/push.js"></script>
   <script src="assets/js/settings-page.js"></script>
 </body>
 </html>

@@ -42,7 +42,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${player.prenom ? `, ${player.prenom}` : ''}`;
 
-  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes] = await Promise.all([
+  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes, cRes] = await Promise.all([
     player.team_id ? sb.from('teams').select('nom').eq('id', player.team_id).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('player_videos').select('id, titre, created_at').eq('player_id', player.id).order('created_at', { ascending: false }),
     sb.from('video_sequences').select('id, label, staff_feedback, feedback_at, submitted_at').eq('player_id', player.id),
@@ -51,6 +51,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     sb.rpc('my_physical_measurements'),
     sb.rpc('my_physical_tests'),
     sb.rpc('my_rpe_sessions'),
+    sb.rpc('my_soreness_today'),   // lmfc_v35.sql : rien sans séance aujourd'hui
   ]);
   [vRes, sRes, nRes, eRes, mRes, tRes].forEach(r => { if (r.error) console.warn('Mon espace : donnée indisponible', r.error.message); });
 
@@ -60,10 +61,30 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   if (rRes.error && rRes.error.code !== 'PGRST202') console.warn('Mon espace : RPE indisponible', rRes.error.message);
   phRpe = rRes.data || [];
   phRpeOn = !rRes.error;   // sans lmfc_v29.sql : pas de carte
+  if (cRes.error && cRes.error.code !== 'PGRST202') console.warn('Mon espace : courbatures indisponibles', cRes.error.message);
+  phSore = cRes.data?.[0] || null;
   document.getElementById('homeAttn').addEventListener('click', openRpeFromCard);
+  document.getElementById('homeAttn').addEventListener('click', openSoreFromCard);
   renderAttention(vRes.data || [], sRes.data || [], nRes.data || [], eRes.error ? null : (eRes.data || []));
   renderStats(mRes.data || [], tRes.data || [], player.hidden_sections || []);
 })();
+
+/* Courbatures au réveil : le jour d'une séance seulement (soreness.js). */
+let phSore = null;
+function soreCardHtml() {
+  const s = phSore, done = s.niveau != null;
+  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="mon-espace.html" data-sore>
+    <span class="home-attn-head"><strong>${done ? 'Courbatures du matin' : 'Tes courbatures ce matin ?'}</strong>${phIc('check')}</span>
+    <span class="home-attn-value">${done ? s.niveau : '?'}<small class="rpe-of">/10</small></span>
+    <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''} · touche pour changer` : 'Aucune · touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>
+  </a>`;
+}
+function openSoreFromCard(e) {
+  const a = e.target.closest('[data-sore]');
+  if (!a || !phSore) return;
+  e.preventDefault();
+  openSorenessSheet({ today: phSore, onSaved: (r) => { Object.assign(phSore, r); a.outerHTML = soreCardHtml(); } });
+}
 
 /* RPE : la séance à noter (la plus récente sans réponse), sinon la dernière notée. */
 let phRpe = [], phRpeOn = false;
@@ -93,6 +114,7 @@ function openRpeFromCard(e) {
 
 function renderAttention(videos, seqs, notes, exercises) {
   const cards = [];
+  if (phSore) cards.push(soreCardHtml());
   if (phRpeOn) cards.push(rpeCardHtml());
   const fresh = videos.filter(v => daysAgo(v.created_at) <= 7);
   cards.push(phCard({ href: 'mes-videos.html', icon: 'video', tone: fresh.length ? 'urgent' : (videos.length ? '' : 'calm'),

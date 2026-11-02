@@ -28,6 +28,12 @@ const DEFAULT_PREFS = {
   document.getElementById('uAvatar').textContent = (myProfile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
+  // --- Notifications sur ce téléphone : le staff qui suit des joueurs (alertes courbatures) ---
+  if (['admin', 'coach', 'prepa'].includes(myProfile.role)) {
+    document.getElementById('pushCard').classList.remove('hidden');
+    renderPushCard(document.getElementById('pushBox'), { texts: PUSH_TEXT_STAFF });   // push.js
+  }
+
   // --- Mon compte ---
   document.getElementById('p-nom').value = myProfile.nom || '';
   document.getElementById('p-email').value = ctx.user.email || '';

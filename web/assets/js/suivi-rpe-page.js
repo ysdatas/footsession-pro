@@ -7,6 +7,8 @@
        l'adresse. La RLS décide toujours de ce qui est lu ;
      - Tableau de bord (suivi-rpe-dash.js) : tuiles, graphiques, charge
        ressentie, tableau des séances ;
+     - Courbatures (soreness.js, lmfc_v35.sql) : alertes non vues (même
+       muscle 3 jours de suite, « Vu ») et la grille joueurs × jours de séance ;
      - Détail joueurs : la grille joueurs × dernières séances (jusqu'à
        aujourd'hui) ; chaque case : la valeur du joueur (couleur de
        rpe.js), « ? » si sa réponse est attendue et manque (rpeExpected),
@@ -21,7 +23,7 @@
    rpe-stats.js, analytics-charts.js, suivi-rpe-dash.js.
    ============================================================ */
 
-const SR = { n: 10, period: null, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
+const SR = { n: 10, period: null, sore: { rows: [], alerts: [], error: null }, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
 const srKey = (s, p) => `${s}:${p}`;
 const srIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const srToday = () => srIso(new Date());
@@ -39,7 +41,7 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
   if (window.Chart) setChartDefaults();
   const url = new URL(location.href), teams = srTeams(), asked = Number(url.searchParams.get('team'));
   SR.team = (teams.find(t => t.id === asked) || teams.find(t => t.id === currentTeamId()) || teams[0])?.id ?? null;
-  SR.view = url.searchParams.get('vue') === 'joueurs' ? 'grid' : 'dash';
+  SR.view = { joueurs: 'grid', courbatures: 'sore' }[url.searchParams.get('vue')] || 'dash';
   document.getElementById('srBody').addEventListener('click', srClick);
   document.querySelector('.page-actions').addEventListener('click', (e) => {
     const n = e.target.closest('[data-sr-n]'), v = e.target.closest('[data-sr-view]');
@@ -81,7 +83,7 @@ function srChoose(v) {
 function srUrl() {
   const u = new URL(location.href);
   if (SR.team) u.searchParams.set('team', SR.team); else u.searchParams.delete('team');
-  if (SR.view === 'grid') u.searchParams.set('vue', 'joueurs'); else u.searchParams.delete('vue');
+  if (SR.view === 'dash') u.searchParams.delete('vue'); else u.searchParams.set('vue', SR.view === 'grid' ? 'joueurs' : 'courbatures');
   history.replaceState(null, '', u);
 }
 function srPressed() {
@@ -115,16 +117,22 @@ async function loadSr() {
     ]);
     if (s.error || p.error) throw s.error || p.error;
     const ids = s.data.map(x => x.id);
-    const [a, r] = ids.length ? await Promise.all([
+    const days = [...new Set(s.data.map(x => x.date_seance))];
+    const [a, r, so, al] = ids.length ? await Promise.all([
       sb.from('attendance').select('session_id, player_id, statut, present, invite').in('session_id', ids),
       sb.from('session_rpe').select('session_id, player_id, rpe, corrige_par').in('session_id', ids),
-    ]) : [{ data: [] }, { data: [] }];
+      sb.from('player_soreness').select('player_id, jour, niveau, muscles').in('jour', days),   // lmfc_v35.sql
+      sb.from('soreness_alerts').select('id, player_id, jour, muscles').is('vu_at', null).order('jour', { ascending: false }),
+    ]) : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
     if (a.error || r.error) throw a.error || r.error;
     if (seq !== SR.seq) return;   // une autre équipe a été choisie entre-temps
     // De la plus ancienne à la plus récente, comme l'évolution du joueur ; travail prévu = temps de travail des procédés.
     SR.sessions = [...s.data].reverse().map(x => ({ ...x, travail: sessionWorkMin(x.procedures) }));
     SR.att = new Map(a.data.map(x => [srKey(x.session_id, x.player_id), x]));
     SR.rpe = new Map(r.data.map(x => [srKey(x.session_id, x.player_id), x]));
+    // Courbatures : sans lmfc_v35.sql, la vue le dit ; le reste de la page marche.
+    SR.sore = { rows: so.data || [], alerts: al.data || [], error: so.error || al.error || null };
+    if (SR.sore.error) console.warn('Courbatures indisponibles', SR.sore.error);
     SR.players = p.data.filter(pl => SR.sessions.some(se => srConcerned(se, pl)));
     SR.cells = SR.players.map(pl => SR.sessions.map(se => srCell(se, pl)));
     renderSr();
@@ -167,6 +175,13 @@ function renderSr() {
     missing ? `${missing} réponse${missing > 1 ? 's' : ''} manquante${missing > 1 ? 's' : ''}` : 'aucune réponse manquante',
     pending ? `${pending} en attente` : ''].filter(Boolean).join(' · ');
   if (SR.view === 'dash') { renderSrDash(body, SR.sessions, SR.players, SR.cells); return; }
+  if (SR.view === 'sore') {
+    const inTeam = new Set(SR.players.map(p => p.id)), err = SR.sore.error;
+    body.innerHTML = err ? `<div class="empty">${escapeHtml(['42P01', 'PGRST205'].includes(err.code) ? 'Le questionnaire de courbatures n’est pas encore installé : passez lmfc_v35.sql dans Supabase.' : err.message)}</div>`
+      : soreHtml({ players: SR.players, days: [...new Set(SR.sessions.map(x => x.date_seance))],
+        rows: SR.sore.rows.filter(x => inTeam.has(x.player_id)), alerts: SR.sore.alerts.filter(x => inTeam.has(x.player_id)) });
+    return;
+  }
   const head = SR.sessions.map((s, j) => {
     const col = SR.cells.map(row => row[j]), vals = col.filter(c => c?.v).map(c => c.v), due = col.filter(c => c?.v || c === 'miss' || c === 'wait').length;
     return `<th scope="col"><a class="sr-sess" href="session-edit.html?id=${s.id}" title="${escapeHtml(s.titre)}">
@@ -193,7 +208,15 @@ function renderSr() {
       la présence non cochée compte comme attendue.</p>`;
 }
 
-function srClick(e) {
+async function srClick(e) {
+  const seen = e.target.closest('[data-sore-seen]');
+  if (seen) {
+    seen.disabled = true;
+    const { error } = await sb.rpc('soreness_alert_seen', { p_alert: Number(seen.dataset.soreSeen) });
+    if (error) { seen.disabled = false; return toast(error.message, 'error'); }
+    SR.sore.alerts = SR.sore.alerts.filter(a => a.id !== Number(seen.dataset.soreSeen));
+    return renderSr();
+  }
   const b = e.target.closest('[data-sr]');
   if (!b) return;
   const [j, i] = b.dataset.sr.split(':').map(Number), s = SR.sessions[j], p = SR.players[i];

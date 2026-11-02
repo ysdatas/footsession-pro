@@ -148,8 +148,13 @@ function startAutosave(session) {
     e.preventDefault();
     e.stopImmediatePropagation();
     flushSave().then(ok => {
-      if (ok) a.click();
-      else toast('Séance non enregistrée : corrigez l’erreur avant de quitter la page.', 'error');
+      if (ok) return a.click();
+      // Titre ou date manquant : on le dit et on y mène (téléphone : le champ est souvent loin au-dessus).
+      const missing = document.getElementById('saveStatus')?.dataset.state === 'invalid'
+        && ['f-titre', 'f-date'].map(id => document.getElementById(id)).find(f => !f.value.trim());
+      if (missing) { missing.scrollIntoView({ block: 'center' }); missing.focus(); }
+      toast(missing ? `Séance non enregistrée : donnez-lui ${missing.id === 'f-titre' ? 'un titre' : 'une date'}.`
+        : 'Séance non enregistrée : corrigez l’erreur avant de quitter la page.', 'error');
     });
   }, true);
 }

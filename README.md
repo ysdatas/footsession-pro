@@ -164,6 +164,11 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            ext_data (valeurs lues sur la feuille de match) (rejouable)
 52. supabase/lmfc_v34.sql                  RPE attendue : sessions.rpe_attendue (1 à 10, facultative), comparée à la
                                            moyenne déclarée (écart) dans la séance, le Suivi RPE et son PDF (rejouable)
+53. supabase/lmfc_v35.sql                  courbatures avant la séance : player_soreness (niveau 0 à 10, muscles bas /
+                                           haut du corps, une réponse par jour de séance), soreness_alerts (même muscle
+                                           3 jours de calendrier de suite) ; soreness_set, my_soreness_today,
+                                           soreness_alert_seen, soreness_notifs_take (Worker /api/push/soreness vers le
+                                           staff qui suit le joueur) ; jamais le lecteur (rejouable)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo

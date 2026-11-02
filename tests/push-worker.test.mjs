@@ -66,6 +66,7 @@ let SUBS = [
 ];
 const received = [];
 const TAKE = {};   // réponses de calendar_notifs_take par jeton
+const SORE = {};   // réponses de soreness_notifs_take par jeton
 
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(url);
@@ -93,6 +94,9 @@ globalThis.fetch = async (url, init = {}) => {
   if (u.pathname === '/rest/v1/rpc/calendar_notifs_take') {   // lmfc_v30.sql : messages préparés par la base, pour CET appelant
     const mine = TAKE[init.headers.authorization.replace('Bearer ', '')] || { messages: [], more: false };
     return Response.json(mine);
+  }
+  if (u.pathname === '/rest/v1/rpc/soreness_notifs_take') {   // lmfc_v35.sql : alerte du joueur appelant
+    return Response.json(SORE[init.headers.authorization.replace('Bearer ', '')] || { messages: [] });
   }
   if (u.pathname === '/rest/v1/players') {   // RLS : joueurs du club
     return Response.json(PLAYERS.filter(p => p.club === who.club && p.auth_user_id && inList('id').includes(String(p.id))).map(p => ({ auth_user_id: p.auth_user_id })));
@@ -163,4 +167,15 @@ assert.deepEqual(await (await call('POST', '/api/push/calendar', { token: jwt(CO
 assert.equal(received[0].msg.url, 'index.html', 'lien hors du site refusé');
 assert.deepEqual(await (await call('POST', '/api/push/calendar', { token: jwt(JOUEUR) })).json(), { devices: 0, sent: 0, more: false }, 'rien en attente');
 
-console.log('push-worker : OK (RFC 8291, VAPID, droits, nettoyage, calendrier)');
+/* ---------- Alerte courbatures : déclenchée par le joueur, vers le staff ---------- */
+const ALERT = { title: 'Courbatures : Yanis ADAME', body: '3 jours de suite : mollets.', url: 'suivi-rpe.html?vue=courbatures' };
+SORE[jwt(JOUEUR)] = { messages: [{ ...ALERT, subs: [{ id: 7, ...iphone }, { id: 8, ...android }] }] };
+assert.equal((await call('POST', '/api/push/soreness')).status, 401, 'sans connexion');
+assert.equal((await call('GET', '/api/push/soreness', { token: jwt(JOUEUR) })).status, 405);
+received.length = 0;
+r = await call('POST', '/api/push/soreness', { token: jwt(JOUEUR), body: { title: 'texte de la page' } });
+assert.deepEqual(await r.json(), { devices: 2, sent: 2, more: false }, 'les appareils du staff renvoyés par la base');
+received.forEach(x => assert.deepEqual(x.msg, ALERT, 'texte de la base, jamais celui de la page'));
+assert.deepEqual(await (await call('POST', '/api/push/soreness', { token: jwt(COACH) })).json(), { devices: 0, sent: 0, more: false }, 'rien pour un autre compte');
+
+console.log('push-worker : OK (RFC 8291, VAPID, droits, nettoyage, calendrier, courbatures)');

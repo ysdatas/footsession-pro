@@ -121,3 +121,36 @@
 .rpe-gap { font-family: var(--font-num); }
 .sr-gap { font-family: var(--font-num); white-space: nowrap; }
 @media (max-width: 640px) { .sr-kpis .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; } }   /* 5 tuiles sur 2 colonnes : pas de trou */
+
+/* ---------- Courbatures au réveil (soreness.js, lmfc_v35.sql) ----------
+   Bas du corps et haut du corps : deux couleurs, partout (questionnaire, grille, alertes). */
+.sore-scale { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.sore-opt { min-height: 46px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface);
+  color: var(--text-primary); font: 600 1.05rem/1 var(--font-num); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.sore-opt:hover { border-color: var(--rpe); }
+.sore-opt[aria-pressed="true"] { background: var(--rpe); border-color: var(--rpe); color: #0A0A0A; }
+.sore-opt:focus-visible, .sore-m:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.sore-muscles { margin-top: 14px; display: grid; gap: 10px; }
+.sore-muscles .rpe-q { margin: 0; }
+.is-bas { --zone: #F59E0B; --zone-bg: rgba(245, 158, 11, .14); }
+.is-haut { --zone: #60A5FA; --zone-bg: rgba(96, 165, 250, .14); }
+.sore-zone { display: grid; gap: 6px; padding: 10px; border-left: 3px solid var(--zone); border-radius: var(--radius-sm); background: var(--zone-bg); }
+.sore-zone-t { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--zone); }
+.sore-zone-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.sore-m { min-height: 40px; padding: 6px 12px; border: 1px solid var(--zone); border-radius: 999px; background: transparent;
+  color: var(--text-primary); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.sore-m[aria-pressed="true"] { background: var(--zone); color: #0A0A0A; }
+.sore-chip { display: inline-block; margin: 0 2px 2px 0; padding: 1px 6px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--zone); background: var(--zone-bg); border: 1px solid var(--zone); white-space: nowrap; }
+.sore-alerts { display: grid; gap: 8px; margin: 0 0 14px; }
+.sore-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; font-size: var(--fs-sm);
+  border: 1px solid rgba(var(--red-rgb), .55); border-radius: var(--radius-md); background: rgba(var(--red-rgb), .08); }
+.sore-alert .btn { margin-left: auto; }
+.sore-ok { margin: 0 0 14px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.sore-table td { white-space: nowrap; }
+.sore-n { display: inline-grid; place-items: center; min-width: 24px; height: 22px; margin-right: 4px; padding: 0 4px; border-radius: 6px;
+  background: var(--rpe); color: #0A0A0A; font: 600 var(--fs-xs)/1 var(--font-num); }
+.sore-none { color: var(--text-muted); }
+.sore-table tbody th { font-weight: 600; text-align: left; white-space: nowrap; }
+.sore-foot { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+@media (max-width: 560px) { .sore-scale { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

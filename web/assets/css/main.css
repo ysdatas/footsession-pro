@@ -270,6 +270,12 @@ input, select, textarea {
   transition: border-color var(--dur-micro) ease, box-shadow var(--dur-micro) ease, background-color var(--dur-micro) ease;
 }
 input[type="checkbox"], input[type="radio"], input[type="range"], input[type="color"] { min-height: 0; }
+/* Case à cocher, bouton radio : pas le gabarit d'un champ texte (iPhone : grosse case arrondie sur le libellé). */
+input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; background: none; border-radius: 0; flex: none; }
+/* iPhone (Safari) : un champ date / heure garde sinon sa propre largeur minimale (il déborde de la
+   colonne), centre sa valeur et s'aplatit quand il est vide. */
+input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"] { -webkit-appearance: none; appearance: none; display: block; max-width: 100%; }
+input::-webkit-date-and-time-value { min-height: 1.5em; text-align: left; }
 input::placeholder, textarea::placeholder { color: var(--text-muted); }
 input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus), textarea:hover:not(:disabled):not(:focus) { border-color: #3a3a3a; }
 input:focus, select:focus, textarea:focus {

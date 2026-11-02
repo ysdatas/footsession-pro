@@ -44,7 +44,7 @@
 .manual-test-box{border-top:1px solid rgba(255,255,255,.08);margin-top:16px;padding-top:16px;}
 .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;}
 .form-grid label{font-size:var(--fs-sm);color:var(--text-muted,#9da4ae);display:grid;gap:6px;}
-.form-grid input,.form-grid select,.field input,.field textarea,.field select{width:100%;box-sizing:border-box;}
+.form-grid input:not([type="checkbox"]):not([type="radio"]),.form-grid select,.field input:not([type="checkbox"]):not([type="radio"]),.field textarea,.field select{width:100%;box-sizing:border-box;}
 .hidden{display:none!important;}
 .perf-toast{position:fixed;right:22px;bottom:22px;z-index:1000;transform:translateY(12px);opacity:0;pointer-events:none;max-width:min(420px,calc(100vw - 44px));padding:12px 15px;border-radius:var(--radius-lg);background:#1a1d22;color:#fff;border:1px solid rgba(255,255,255,.1);box-shadow:0 12px 40px rgba(0,0,0,.35);transition:.2s;}
 .perf-toast.show{opacity:1;transform:none;}

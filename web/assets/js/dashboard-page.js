@@ -66,7 +66,7 @@ async function renderAttention(profile, can) {
     // Tout part en une vague (avant : les joueurs de l'équipe d'abord, puis le
     // reste filtré sur eux). La base ne renvoie que les joueurs permis ; le
     // filtre de l'équipe choisie se fait ici, sur leurs identifiants.
-    const [pRes, seqRes, nextRes, objRes, accessRes, measRes] = await Promise.all([
+    const [pRes, seqRes, nextRes, objRes, accessRes, measRes, soreRes] = await Promise.all([
       byPlayerTeam(sb.from('players').select('id')),
       can('videos')
         ? sb.from('video_sequences').select('id, player_id, submitted_at, feedback_at').not('submitted_at', 'is', null)
@@ -84,6 +84,7 @@ async function renderAttention(profile, can) {
         ? sb.from('player_physical_measurements').select('player_id, weight_kg, height_cm, body_fat_pct')
             .eq('month_label', month).eq('season_key', seasonKeyFor(null, clubSeasonStartMonth(profile.clubs)))
         : none,
+      can('rpe') ? sb.from('soreness_alerts').select('player_id').is('vu_at', null) : none,   // lmfc_v35.sql
     ]);
     if (pRes.error) throw pRes.error;
     [seqRes, nextRes, objRes, accessRes, measRes].forEach(r => { if (r.error) console.warn('Accueil : donnée indisponible', r.error); });
@@ -124,6 +125,14 @@ async function renderAttention(profile, can) {
       cards.push(attnCard({
         href: 'comparaison.html?tab=morpho', icon: 'scale', tone: missing ? '' : 'calm',
         value: missing, label: `Sans mesure en ${month.toLowerCase()}`, detail: missing ? `sur ${ids.length} joueurs` : 'Tout est à jour',
+      }));
+    }
+    // Courbatures : même muscle 3 jours de suite (alerte non vue) ; rien sans alerte ni sans lmfc_v35.sql.
+    const sore = soreRes.error ? 0 : new Set(mine(soreRes).map(r => r.player_id)).size;
+    if (sore) {
+      cards.unshift(attnCard({
+        href: 'suivi-rpe.html?vue=courbatures', icon: 'rpe', tone: 'urgent',
+        value: sore, label: 'Courbatures', detail: `joueur${sore > 1 ? 's' : ''} courbaturé${sore > 1 ? 's' : ''} 3 jours de suite`,
       }));
     }
     if (profile.role === 'admin' && accessRes.count) {

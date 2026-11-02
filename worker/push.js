@@ -3,6 +3,8 @@
      GET  /api/push/key   → clé publique du serveur (abonnement d'un appareil)
      POST /api/push/send  { title, body, url, player_ids, self }
      POST /api/push/calendar  → changements du calendrier faits par l'appelant
+     POST /api/push/soreness  → alerte courbatures du joueur appelant (lmfc_v35.sql),
+                                vers le staff qui le suit
    L'envoi libre est réservé à l'administrateur du club. Celui du
    calendrier ne prend rien de la page : la base (lmfc_v30.sql) a préparé
    les messages et les destinataires de SES changements. Joueurs et appareils
@@ -34,7 +36,7 @@ const concat = (...parts) => {
 export async function push(request, env, route) {
   if (route === 'key') return request.method === 'GET' ? Response.json({ key: publicKey(env) }) : fail(405, 'Méthode non autorisée.');
   if (route === 'send') return request.method === 'POST' ? send(request, env) : fail(405, 'Méthode non autorisée.');
-  if (route === 'calendar') return request.method === 'POST' ? calendar(request, env) : fail(405, 'Méthode non autorisée.');
+  if (route === 'calendar' || route === 'soreness') return request.method === 'POST' ? queued(request, env, route) : fail(405, 'Méthode non autorisée.');
   return new Response('Not found', { status: 404 });
 }
 
@@ -78,12 +80,20 @@ async function send(request, env) {
 
 /* Calendrier : un message par joueur, au plus 12 joueurs et 3 appareils
    chacun par appel (sous les 50 sous-requêtes) ; more : la page rappelle. */
-async function calendar(request, env) {
+/* Messages préparés par la base pour CET appelant (rien ne vient de la page) :
+   ses changements du calendrier (lmfc_v30.sql), ou l'alerte courbatures du
+   joueur, vers le staff qui le suit (lmfc_v35.sql). */
+const QUEUES = {
+  calendar: ['calendar_notifs_take', { p_max: 12 }, 'Notifications du calendrier indisponibles.'],
+  soreness: ['soreness_notifs_take', {}, 'Alerte courbatures indisponible.'],
+};
+async function queued(request, env, route) {
   const token = tokenOf(request);
   if (!token) return fail(401, 'Connexion requise.');
   publicKey(env);
-  const out = await supabase(env, token, '/rest/v1/rpc/calendar_notifs_take', { method: 'POST', body: JSON.stringify({ p_max: 12 }) });
-  if (!out) return fail(502, 'Notifications du calendrier indisponibles.');
+  const [fn, args, down] = QUEUES[route];
+  const out = await supabase(env, token, `/rest/v1/rpc/${fn}`, { method: 'POST', body: JSON.stringify(args) });
+  if (!out) return fail(502, down);
   const list = (out.messages || []).flatMap(m => (m.subs || []).map(sub => ({ sub,
     msg: { title: String(m.title).slice(0, 80), body: String(m.body).slice(0, 300), url: URL_RE.test(m.url || '') ? m.url : 'index.html' } })))
     .slice(0, MAX_DEVICES);

@@ -72,6 +72,13 @@ async function enablePush() {
 }
 
 const BELL = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+/* Staff (Paramètres) : les alertes du club plutôt que les messages du staff. */
+const PUSH_TEXT_STAFF = {
+  off: ['Notifications désactivées', 'Activez-les pour recevoir les alertes sur ce téléphone.'],
+  on: ['Notifications activées', 'Ce téléphone reçoit les alertes du club.'],
+  denied: ['Notifications bloquées', 'Autorisez-les dans les réglages du téléphone (Notifications > LMFC) ou du navigateur.'],
+  install: ['Notifications du club', 'Sur iPhone : Partager puis « Sur l’écran d’accueil », ouvrez LMFC depuis l’icône et connectez-vous. Le bouton pour activer apparaîtra ici.'],
+};
 const PUSH_TEXT = {
   off: ['Notifications du club', 'Reçois les messages du staff sur cet appareil.'],
   on: ['Notifications activées', 'Cet appareil reçoit les messages du club.'],
@@ -90,7 +97,7 @@ async function renderPushCard(box, opts = {}) {
   const state = support === 'ok' ? (on ? 'on' : 'off') : support;
   box.hidden = support === 'none' || (on && hideWhenOn);
   if (box.hidden) return on;
-  const [title, text] = PUSH_TEXT[state];
+  const [title, text] = (opts.texts || PUSH_TEXT)[state] || PUSH_TEXT[state];
   box.innerHTML = `<div class="push-card is-${state}">
       <span class="push-ic">${BELL}</span>
       <span class="push-text"><strong>${title}</strong><small>${text}</small></span>
