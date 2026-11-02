@@ -348,7 +348,7 @@ function renderNoteExos() {
    du joueur (R2, avec son pourcentage), puis choisie pour ce point. */
 async function uploadPointVideo(file) {
   const p = noteStore.player;
-  if (file.size > VIDEO_MAX_BYTES) return noteStore.onError(`Vidéo trop volumineuse : ${Math.round(VIDEO_MAX_BYTES / 1048576)} Mo au maximum.`);
+  if (file.size > VIDEO_MAX_BYTES) return noteStore.onError(`Vidéo trop volumineuse : ${VIDEO_MAX_TEXT} au maximum.`);
   const bar = document.getElementById('noteVideoBar'), hint = document.getElementById('noteVideoHint');
   const save = document.getElementById('btnSaveNote');
   const ext = (/\.([a-z0-9]{1,8})$/i.exec(file.name)?.[1] || 'mp4').toLowerCase();

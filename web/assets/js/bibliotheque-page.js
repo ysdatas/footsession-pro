@@ -61,7 +61,8 @@ let libStamp = 0;
    renvoyé) ; item : procédé visible qui l'utilise déjà.
    Utilisé aussi pour remplacer la vidéo d'un procédé (library-item.js). */
 async function libUploadFile(file, { onProgress, onStep, signal } = {}) {
-  if (file.size > VIDEO_MAX_BYTES) throw new Error(`Fichier trop volumineux : ${Math.round(VIDEO_MAX_BYTES / 1048576)} Mo au maximum.`);
+  // Empreinte calculée sur le fichier entier, en mémoire : les procédés restent sous la limite d'une requête.
+  if (file.size > VIDEO_PART_BYTES) throw new Error(`Fichier trop volumineux : ${Math.round(VIDEO_PART_BYTES / 1048576)} Mo au maximum pour la bibliothèque.`);
   onStep?.('Vérification du fichier…');
   const sha = await libSha256(file);
   const byHash = async () => {

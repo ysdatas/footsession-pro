@@ -427,7 +427,6 @@ const titleFromFile = (name) => {
 };
 const fileExt = (name) => (/\.([a-z0-9]{1,8})$/i.exec(name)?.[1] || 'mp4').toLowerCase();
 const pctText = (p) => `${Math.floor(p * 100)} %`;
-const fmtMo = (bytes) => `${Math.round(bytes / (1024 * 1024))} Mo`;
 const fmtSize = (b) => (b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} Ko`
   : `${(b / 1048576).toFixed(b < 10485760 ? 1 : 0).replace('.', ',')} Mo`);
 
@@ -448,7 +447,7 @@ function renderUploads() {
   const box = $up('v-files');
   box.innerHTML = upl.items.map((it, i) => {
     const status = {
-      big: `<span class="upl-err">Trop volumineuse : ${fmtMo(it.file.size)}, ${fmtMo(VIDEO_MAX_BYTES)} au maximum</span>`,
+      big: `<span class="upl-err">Trop volumineuse : ${fmtSize(it.file.size)}, ${VIDEO_MAX_TEXT} au maximum</span>`,
       sending: `<span class="upl-pct" data-pct>${it.pct >= 1 ? 'Finalisation…' : pctText(it.pct)}</span>`,
       done: '<span class="upl-ok">Envoyée ✓</span>',
       error: `<span class="upl-err">${escapeHtml(it.err)}</span>`,

@@ -750,7 +750,7 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
     (`video-ink.js`, le même code qu'à l'écran), arrêts sur image, carton de titre — et
     l'enregistre avec le son (`MediaRecorder` : MP4 sur Chrome / Safari, WebM sinon).
     **Génération rapide** (`video-fastcompile.js`) quand le navigateur le permet : chaque fichier
-    (95 Mo au plus) est lu d'un bloc par mp4box.js, ses images décodées et réencodées
+    (95 Mo au plus, sinon temps réel) est lu d'un bloc par mp4box.js, ses images décodées et réencodées
     (WebCodecs), le son décodé puis réencodé (AAC), mp4-muxer écrit le MP4 — quelques secondes
     au lieu de la durée de la vidéo, même onglet en arrière-plan ; vidéos de téléphone tournées
     comme à l'écran. Bibliothèques chargées à la demande, versions figées avec empreinte SRI.
@@ -1040,7 +1040,8 @@ code déployé sans sa migration échoue en silence.**
    « Serveur vidéo incomplet : secret VIDEO_URL_SECRET absent ». `keep_vars` (wrangler.jsonc)
    évite qu'un déploiement efface une variable ajoutée à la main.
 
-Les nouvelles vidéos (chemin `r2/{club_id}/{player_id}/…`, 95 Mo au plus) vont sur R2 ;
+Les nouvelles vidéos (chemin `r2/{club_id}/{player_id}/…`, 2 Go au plus ; au-delà de 95 Mo, envoi en
+morceaux de 50 Mo assemblés par R2, multipart, car le Worker refuse une requête de plus de 100 Mo) vont sur R2 ;
 les anciennes restent lisibles dans le bucket Supabase `player-videos`. Tout passe par
 `videoUrls` / `uploadVideoFile` / `removeVideoFile` (`web/assets/js/supabase-client.js`).
 `uploadVideoFile` passe par XHR (seul moyen d'avoir l'avancement d'un envoi) : « + Envoyer

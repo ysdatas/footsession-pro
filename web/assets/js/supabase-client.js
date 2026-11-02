@@ -54,7 +54,10 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
    Les nouvelles vidéos sont sur Cloudflare R2 (chemin « r2/… »), servies
    par le Worker du site (worker/index.js) : bande passante gratuite. Les
    anciennes restent lisibles dans le bucket Supabase « player-videos ». */
-const VIDEO_MAX_BYTES = 95 * 1024 * 1024;   // = MAX_BYTES du Worker
+const VIDEO_PART_BYTES = 95 * 1024 * 1024;  // une requête au Worker (MAX_BYTES) : au-delà, envoi en morceaux
+const VIDEO_MAX_BYTES = 2 * 1024 ** 3;       // = MAX_TOTAL du Worker
+const VIDEO_MAX_TEXT = '2 Go';
+const VIDEO_CHUNK = 50 * 1024 * 1024;        // morceau d'une grande vidéo (R2 : 5 Mo au moins)
 const isR2Video = (path) => path.startsWith('r2/');
 
 /* Appel au Worker du site (/api/…) avec le jeton de l'utilisateur. */
@@ -98,28 +101,51 @@ async function videoUrls(paths) {
 }
 const videoUrl = async (path) => (await videoUrls([path])).get(path) || null;
 
-/* Envoi d'un fichier. XHR plutôt que fetch : seul XHR donne l'avancement
-   de l'envoi (onProgress reçoit 0 → 1). signal : AbortController pour annuler. */
-async function uploadVideoFile(path, file, { onProgress, signal } = {}) {
+/* Une requête d'envoi. XHR plutôt que fetch : seul XHR donne l'avancement
+   (onProgress reçoit 0 → 1). Jeton relu à chaque fois : un long envoi dépasse sa durée. */
+async function videoXhr(method, url, body, { type, onProgress, signal } = {}) {
   const { data: { session } } = await sb.auth.getSession();
   return new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
-    x.open('PUT', `/api/videos/file/${path}`);
+    x.open(method, url);
     x.setRequestHeader('authorization', `Bearer ${session?.access_token || ''}`);
-    x.setRequestHeader('content-type', file.type || 'video/mp4');
+    if (type) x.setRequestHeader('content-type', type);
     if (onProgress) x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
     x.onload = () => {
-      let body = {};
-      try { body = JSON.parse(x.responseText); } catch { /* réponse vide */ }
-      if (x.status >= 200 && x.status < 300) resolve(body);
-      else reject(new Error(body.error || `Serveur vidéo indisponible (${x.status}).`));
+      let res = {};
+      try { res = JSON.parse(x.responseText); } catch { /* réponse vide */ }
+      if (x.status >= 200 && x.status < 300) resolve(res);
+      else reject(new Error(res.error || `Serveur vidéo indisponible (${x.status}).`));
     };
     x.onerror = () => reject(new Error('Connexion interrompue pendant l’envoi.'));
     x.onabort = () => reject(Object.assign(new Error('Envoi annulé.'), { name: 'AbortError' }));
     if (signal?.aborted) return x.onabort();
     signal?.addEventListener('abort', () => x.abort(), { once: true });
-    x.send(file);
+    x.send(body);
   });
+}
+/* Envoi d'un fichier (signal : AbortController pour annuler). Au-delà d'une requête
+   (95 Mo) : morceaux de 50 Mo assemblés par R2, chacun retenté deux fois ; un envoi
+   arrêté ou en échec est abandonné (rien ne reste dans le bucket). */
+async function uploadVideoFile(path, file, { onProgress, signal } = {}) {
+  const url = `/api/videos/file/${path}`, type = file.type || 'video/mp4';
+  if (file.size <= VIDEO_PART_BYTES) return videoXhr('PUT', url, file, { type, onProgress, signal });
+  const { uploadId } = await videoXhr('POST', `${url}?mpu=start`, null, { type, signal });
+  const q = `${url}?mpu=${encodeURIComponent(uploadId)}`, json = 'application/json';
+  try {
+    const parts = [];
+    for (let at = 0, n = 1; at < file.size; at += VIDEO_CHUNK, n++) {
+      const chunk = file.slice(at, at + VIDEO_CHUNK), progress = (p) => onProgress?.((at + p * chunk.size) / file.size);
+      for (let tries = 0; ; tries++) {
+        try { parts.push(await videoXhr('PUT', `${q}&part=${n}`, chunk, { type, onProgress: progress, signal })); break; }
+        catch (e) { if (e.name === 'AbortError' || tries >= 2) throw e; }
+      }
+    }
+    return await videoXhr('POST', q, JSON.stringify({ parts }), { type: json, signal });
+  } catch (e) {
+    videoXhr('POST', q, JSON.stringify({ abort: true }), { type: json }).catch(err => console.warn('Envoi en morceaux non abandonné', err));
+    throw e;
+  }
 }
 async function removeVideoFile(path) {
   if (isR2Video(path)) return videoApi(`file/${path}`, { method: 'DELETE' });

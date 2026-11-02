@@ -1,9 +1,11 @@
 /* Worker vidéos (worker/index.js) : droits, liens signés et lecture
-   partielle (Range), avec un R2 en mémoire et un faux Supabase qui
+   partielle (Range), grandes vidéos en morceaux (multipart), avec un R2 en mémoire et un faux Supabase qui
    applique les mêmes règles que la RLS.
    Lancement : node tests/video-worker.test.mjs */
 import assert from 'node:assert/strict';
 import worker from '../worker/index.js';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 /* ---------- R2 en mémoire (Range : « a-b », « a- », « -n ») ---------- */
 const store = new Map();
@@ -28,6 +30,20 @@ const VIDEOS = {
   },
   async put(key, body, opts) { store.set(key, { data: new Uint8Array(await new Response(body).arrayBuffer()), type: opts.httpMetadata.contentType }); },
   async delete(key) { store.delete(key); },
+  // Multipart : morceaux gardés à part, assemblés dans l'ordre des numéros.
+  mpus: new Map(),
+  async createMultipartUpload(key, opts) { const id = `mpu-${VIDEOS.mpus.size + 1}`; VIDEOS.mpus.set(id, { key, type: opts.httpMetadata.contentType, parts: new Map() }); return { uploadId: id }; },
+  resumeMultipartUpload(key, id) {
+    const u = VIDEOS.mpus.get(id);
+    return {
+      async uploadPart(n, body) { if (!u || u.key !== key) throw new Error('NoSuchUpload'); u.parts.set(n, new Uint8Array(await new Response(body).arrayBuffer())); return { partNumber: n, etag: `e${n}` }; },
+      async complete(parts) {
+        const data = parts.map(p => u.parts.get(p.partNumber)).reduce((a, b) => Uint8Array.from([...a, ...b]), new Uint8Array());
+        store.set(key, { data, type: u.type }); VIDEOS.mpus.delete(id); return { size: u.big ?? data.length };
+      },
+      async abort() { VIDEOS.mpus.delete(id); },
+    };
+  },
 };
 
 /* ---------- Faux Supabase : qui voit quoi, qui gère les vidéos ---------- */
@@ -86,6 +102,65 @@ assert.equal((await put(A, 'staff7', bytes)).status, 201, 'le staff vidéo du cl
 assert.equal((await put(B, 'staff7', bytes, 'text/html')).status, 201);
 assert.equal(store.get(B).type, 'video/mp4', 'un type non vidéo est ramené à video/mp4');
 assert.equal((await put(C, 'staff8', bytes)).status, 201);
+
+/* ---------- Grande vidéo : morceaux assemblés par R2 ---------- */
+const D = 'r2/7/13/1700000003.mp4', mpu = (token, q, init = {}) => call(init.method || 'POST', `/api/videos/file/${D}?mpu=${q}`, { token, ...init });
+assert.equal((await mpu('joueur12', 'start')).status, 403, 'un joueur ne commence pas d’envoi');
+const { uploadId } = await (await mpu('staff7', 'start', { headers: { 'content-type': 'video/quicktime' } })).json();
+const part = (n, text, token = 'staff7') => mpu(token, `${uploadId}&part=${n}`, { method: 'PUT', body: text, headers: { 'content-length': String(text.length) } });
+assert.equal((await part(1, 'abc', 'staff8')).status, 403, 'le club voisin n’ajoute pas de morceau');
+assert.equal((await part(0, 'abc')).status, 400, 'numéro de morceau invalide');
+assert.equal((await mpu('staff7', `${uploadId}&part=1`, { method: 'PUT', body: 'x', headers: { 'content-length': String(96 * 1024 * 1024) } })).status, 413, 'morceau au-delà de 95 Mo');
+assert.deepEqual(await (await part(2, 'DEF')).json(), { partNumber: 2, etag: 'e2' });
+assert.deepEqual(await (await part(1, 'abc')).json(), { partNumber: 1, etag: 'e1' }, 'morceaux dans n’importe quel ordre');
+assert.equal((await mpu('staff7', uploadId, { body: JSON.stringify({ parts: [] }) })).status, 400, 'assemblage sans morceau : refusé');
+assert.equal((await mpu('staff7', uploadId, { body: JSON.stringify({ parts: [{ partNumber: 1, etag: 'e1' }, { partNumber: 2, etag: 'e2' }] }) })).status, 201);
+assert.equal(new TextDecoder().decode(store.get(D).data), 'abcDEF', 'vidéo assemblée dans l’ordre');
+assert.equal(store.get(D).type, 'video/quicktime', 'type gardé depuis le début');
+const big = (await (await mpu('staff7', 'start')).json()).uploadId;
+VIDEOS.mpus.get(big).big = 3 * 1024 ** 3;
+await mpu('staff7', `${big}&part=1`, { method: 'PUT', body: 'z', headers: { 'content-length': '1' } });
+assert.equal((await mpu('staff7', big, { body: JSON.stringify({ parts: [{ partNumber: 1, etag: 'e1' }] }) })).status, 413, 'au-delà de 2 Go une fois assemblée : refusée');
+assert.equal(store.has(D), false, 'et effacée');
+const gone = (await (await mpu('staff7', 'start')).json()).uploadId;
+assert.equal((await mpu('staff7', gone, { body: JSON.stringify({ abort: true }) })).status, 200, 'envoi abandonné');
+assert.equal(VIDEOS.mpus.has(gone), false, 'morceaux effacés');
+
+/* ---------- Le site (uploadVideoFile, supabase-client.js) contre ce Worker ----------
+   Tailles réduites (une requête : 95 octets, morceau : 40) ; une connexion coupée est retentée. */
+let cut = 2;   // le 2e morceau échoue une fois
+const sent = [];
+class FakeXHR {
+  constructor() { this.upload = {}; this.h = {}; }
+  open(m, u) { this.m = m; this.u = u; }
+  setRequestHeader(k, v) { this.h[k] = v; }
+  abort() { this.onabort(); }
+  async send(body) {
+    const b = body instanceof Blob ? new Uint8Array(await body.arrayBuffer()) : body;
+    if (b != null) this.h['content-length'] = String(typeof b === 'string' ? Buffer.byteLength(b) : b.length);
+    const part = Number(new URL(`https://s.test${this.u}`).searchParams.get('part'));
+    if (part === cut) { cut = null; return this.onerror(); }
+    sent.push(`${this.m} ${part || new URL(`https://s.test${this.u}`).searchParams.get('mpu') || 'direct'}`);
+    const r = await worker.fetch(new Request(`https://site.test${this.u}`, { method: this.m, body: b, headers: this.h }), env);
+    Object.assign(this, { status: r.status, responseText: await r.text() });
+    this.upload.onprogress?.({ lengthComputable: true, loaded: 1, total: 1 });
+    this.onload();
+  }
+}
+const site = vm.createContext({ XMLHttpRequest: FakeXHR, JSON, Number, Error, Object, Blob, console, encodeURIComponent,
+  window: { supabase: { createClient: () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'staff7' } } }) } }) } } });
+vm.runInContext(readFileSync('web/assets/js/supabase-client.js', 'utf8').replace('95 * 1024 * 1024;', '95;').replace('50 * 1024 * 1024;', '40;'), site);
+const E = 'r2/7/13/1700000004.mp4', fileOf = (n) => new File([new Uint8Array(n).map((_, i) => i % 251)], 'v.mp4', { type: 'video/mp4' });
+const steps = [];
+site.F = fileOf(100); site.onP = (p) => steps.push(p);
+await vm.runInContext(`uploadVideoFile(${JSON.stringify(E)}, F, { onProgress: onP })`, site);
+assert.deepEqual(store.get(E).data, new Uint8Array(await fileOf(100).arrayBuffer()), 'grande vidéo : reçue entière, dans l’ordre');
+assert.deepEqual(sent.map(x => x.replace(/mpu-\d+/, 'id')), ['POST start', 'PUT 1', 'PUT 2', 'PUT 3', 'POST id'], '3 morceaux (40 + 40 + 20), le 2e retenté');
+assert.ok(steps.every((p, i) => i === 0 || p >= steps[i - 1]) && steps.at(-1) === 1, 'avancement continu jusqu’à 100 %');
+sent.length = 0;
+site.F = fileOf(90);
+await vm.runInContext(`uploadVideoFile(${JSON.stringify(E)}, F)`, site);
+assert.deepEqual(sent, ['PUT direct'], 'petite vidéo : une seule requête, comme avant');
 
 /* ---------- Liens de lecture : la RLS décide ---------- */
 const urlsOf = async (token, paths) => (await (await sign(token, paths)).json()).urls;

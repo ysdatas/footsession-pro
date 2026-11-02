@@ -177,6 +177,11 @@ async function fastLoadSources(items, opts) {
     opts.onStatus?.(`Lecture ${urls.length > 1 ? `des vidéos (${i + 1}/${urls.length})` : 'de la vidéo'}…`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Vidéo source illisible (${res.status})`);
+    if (Number(res.headers.get('content-length')) > VIDEO_PART_BYTES) {   // lue d'un bloc en mémoire : trop lourd
+      res.body?.cancel();
+      console.info('Génération rapide : vidéo source trop grande, temps réel');
+      return null;
+    }
     const buf = await res.arrayBuffer();
     if (opts.isCancelled?.()) throw new Error('Compilation annulée.');
     const src = fastDemux(buf);

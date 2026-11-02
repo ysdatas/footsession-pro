@@ -6,6 +6,7 @@
      POST   /api/videos/sign          { paths } → liens de lecture (6 h)
      GET    /api/videos/file/<chemin>?e=&s=   → lecture (Range : Safari)
      PUT    /api/videos/file/<chemin>         → envoi (staff vidéo du club)
+     …/file/<chemin>?mpu=…                    → grande vidéo, en morceaux (multipart)
      DELETE /api/videos/file/<chemin>         → suppression (idem)
    Les droits restent ceux de Supabase : le Worker interroge l'API
    Supabase avec le jeton de l'utilisateur, la RLS décide. Lire une
@@ -26,7 +27,8 @@ import { fail, ConfigError, tokenOf, supabase, b64u, unb64u } from './common.js'
 import { push } from './push.js';
 
 const TTL = 6 * 3600;                    // validité d'un lien de lecture (s)
-const MAX_BYTES = 95 * 1024 * 1024;      // le Worker gratuit refuse au-delà de 100 Mo
+const MAX_BYTES = 95 * 1024 * 1024;      // une requête : le Worker gratuit refuse au-delà de 100 Mo
+const MAX_TOTAL = 2 * 1024 ** 3;         // une vidéo envoyée en morceaux (= VIDEO_MAX_BYTES du site)
 const MAX_PATHS = 100;
 // r2/<club_id>/<player_id>/<horodatage>.<ext> (vidéos joueurs) ou
 // r2/<club_id>/lib/<horodatage>.<ext> (bibliothèque) : rien d'autre n'entre dans le bucket.
@@ -44,6 +46,7 @@ export default {
       if (m[1]) return request.method === 'POST' ? await sign(request, env) : fail(405, 'Méthode non autorisée.');
       const key = decodeURIComponent(m[2]);
       if (!KEY_RE.test(key)) return fail(400, 'Chemin de vidéo invalide.');
+      if (url.searchParams.has('mpu')) return await multipart(request, env, key, url);
       switch (request.method) {
         case 'GET': case 'HEAD': return await read(request, env, key, url);
         case 'PUT': return await write(request, env, key);
@@ -170,8 +173,41 @@ async function write(request, env, key) {
   if (!len) return fail(411, 'Taille du fichier inconnue.');
   if (len > MAX_BYTES) return fail(413, `Fichier trop volumineux : ${Math.round(MAX_BYTES / 1048576)} Mo au maximum.`);
   if (!(await canManage(request, env, key))) return fail(403, 'Envoi réservé au staff vidéo du club.');
+  await env.VIDEOS.put(key, request.body, { httpMetadata: videoType(request) });
+  return Response.json({ ok: true }, { status: 201 });
+}
+const videoType = (request) => {
   const type = request.headers.get('content-type') || '';
-  await env.VIDEOS.put(key, request.body, { httpMetadata: { contentType: /^video\/[\w.+-]+$/.test(type) ? type : 'video/mp4' } });
+  return { contentType: /^video\/[\w.+-]+$/.test(type) ? type : 'video/mp4' };
+};
+
+/* Grande vidéo (au-delà d'une requête) : R2 l'assemble à partir de morceaux.
+   POST ?mpu=start → { uploadId } ; PUT ?mpu=<id>&part=<n> → { partNumber, etag } ;
+   POST ?mpu=<id> { parts } → assemblée (MAX_TOTAL au plus) ; POST ?mpu=<id> { abort: true } → abandonnée.
+   Mêmes droits que l'envoi, vérifiés à chaque requête. */
+async function multipart(request, env, key, url) {
+  if (!(await canManage(request, env, key))) return fail(403, 'Envoi réservé au staff vidéo du club.');
+  const id = url.searchParams.get('mpu');
+  if (id === 'start' && request.method === 'POST') {
+    return Response.json({ uploadId: (await env.VIDEOS.createMultipartUpload(key, { httpMetadata: videoType(request) })).uploadId });
+  }
+  const up = env.VIDEOS.resumeMultipartUpload(key, id);
+  if (request.method === 'PUT') {
+    const n = Number(url.searchParams.get('part')), len = Number(request.headers.get('content-length'));
+    if (!Number.isInteger(n) || n < 1 || n > 10000) return fail(400, 'Morceau invalide.');
+    if (!len) return fail(411, 'Taille du morceau inconnue.');
+    if (len > MAX_BYTES) return fail(413, 'Morceau trop volumineux.');
+    return Response.json(await up.uploadPart(n, request.body));
+  }
+  if (request.method !== 'POST') return fail(405, 'Méthode non autorisée.');
+  const { parts, abort } = await request.json().catch(() => ({}));
+  if (abort) { await up.abort(); return Response.json({ ok: true }); }
+  if (!Array.isArray(parts) || !parts.length) return fail(400, 'Morceaux manquants.');
+  const obj = await up.complete(parts.map(p => ({ partNumber: Number(p.partNumber), etag: String(p.etag) })));
+  if (obj.size > MAX_TOTAL) {
+    await env.VIDEOS.delete(key);
+    return fail(413, `Fichier trop volumineux : ${MAX_TOTAL / 1024 ** 3} Go au maximum.`);
+  }
   return Response.json({ ok: true }, { status: 201 });
 }
 
