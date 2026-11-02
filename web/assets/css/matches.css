@@ -69,9 +69,23 @@
 .mp-num { display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-secondary); }
 .mp-num input { width: 46px; text-align: center; padding: 5px 4px; font-family: var(--font-num); }
 
+/* Avis des joueurs (lmfc_v36.sql), dans le match ouvert. */
+.mf-list { display: grid; gap: 8px; margin-bottom: 14px; }
+.mf-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); }
+.mf-who { margin: 0; }
+.mf-who small { color: var(--text-secondary); font-size: var(--fs-xs); }
+.mf-q { margin: 8px 0 2px; font-size: var(--fs-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+.mf-a { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+
+/* Mode sélection (matchs-page.js) : la case en tête de ligne. */
+.mt-row.is-selectable { grid-template-columns: 22px 92px minmax(0, 1fr) auto 72px; }
 @media (max-width: 560px) {
   .mt-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
   .mt-date { grid-column: 1 / -1; }
+  .mt-row.is-selectable { grid-template-columns: 22px minmax(0, 1fr) auto; }
+  .mt-row.is-selectable .sel-check { grid-row: 1 / span 2; align-self: center; }
+  .mt-row.is-selectable .mt-date { grid-column: 2 / -1; }
+  .mt-row.is-selectable .mt-main { grid-column: 2; }
   .mt-count { display: none; }
   .mt-hist { grid-template-columns: minmax(0, 1fr) auto auto; }
 }

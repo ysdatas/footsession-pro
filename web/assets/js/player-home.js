@@ -42,7 +42,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${player.prenom ? `, ${player.prenom}` : ''}`;
 
-  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes, cRes] = await Promise.all([
+  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes, cRes, mf] = await Promise.all([
     player.team_id ? sb.from('teams').select('nom').eq('id', player.team_id).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('player_videos').select('id, titre, created_at').eq('player_id', player.id).order('created_at', { ascending: false }),
     sb.from('video_sequences').select('id, label, staff_feedback, feedback_at, submitted_at').eq('player_id', player.id),
@@ -52,6 +52,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     sb.rpc('my_physical_tests'),
     sb.rpc('my_rpe_sessions'),
     sb.rpc('my_soreness_today'),   // lmfc_v35.sql : rien sans séance aujourd'hui
+    myMatchToReview(),             // lmfc_v36.sql : rien sans match joué ces 30 jours
   ]);
   [vRes, sRes, nRes, eRes, mRes, tRes].forEach(r => { if (r.error) console.warn('Mon espace : donnée indisponible', r.error.message); });
 
@@ -63,6 +64,8 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   phRpeOn = !rRes.error;   // sans lmfc_v29.sql : pas de carte
   if (cRes.error && cRes.error.code !== 'PGRST202') console.warn('Mon espace : courbatures indisponibles', cRes.error.message);
   phSore = cRes.data?.[0] || null;
+  phMf = mf;
+  document.getElementById('homeAttn').addEventListener('click', openMfFromCard);
   document.getElementById('homeAttn').addEventListener('click', openRpeFromCard);
   document.getElementById('homeAttn').addEventListener('click', openSoreFromCard);
   renderAttention(vRes.data || [], sRes.data || [], nRes.data || [], eRes.error ? null : (eRes.data || []));
@@ -84,6 +87,23 @@ function openSoreFromCard(e) {
   if (!a || !phSore) return;
   e.preventDefault();
   openSorenessSheet({ today: phSore, onSaved: (r) => { Object.assign(phSore, r); a.outerHTML = soreCardHtml(); } });
+}
+
+/* Avis sur le match (match-feedback.js) : le dernier match joué sans réponse, sinon le dernier. */
+let phMf = null;   // { match: { id, titre, date }, value }
+function mfCardHtml() {
+  const { match: m, value } = phMf, done = mfAnswered(value);
+  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="calendrier.html" data-mf>
+    <span class="home-attn-head"><strong>${done ? 'Ton avis sur le match' : 'Donne ton avis sur le match'}</strong>${phIc('chat')}</span>
+    <span class="home-attn-value">${done ? '✓' : '?'}</span>
+    <small>Contre ${escapeHtml(m.titre)} · ${phDay(m.date)}${done ? ' · touche pour compléter' : ''}</small>
+  </a>`;
+}
+function openMfFromCard(e) {
+  const a = e.target.closest('[data-mf]');
+  if (!a || !phMf) return;
+  e.preventDefault();
+  openMatchFeedbackSheet({ match: phMf.match, value: phMf.value, onSaved: (v) => { phMf.value = v; a.outerHTML = mfCardHtml(); } });
 }
 
 /* RPE : la séance à noter (la plus récente sans réponse), sinon la dernière notée. */
@@ -115,7 +135,9 @@ function openRpeFromCard(e) {
 function renderAttention(videos, seqs, notes, exercises) {
   const cards = [];
   if (phSore) cards.push(soreCardHtml());
+  if (phMf && !mfAnswered(phMf.value)) cards.push(mfCardHtml());   // sans réponse : devant
   if (phRpeOn) cards.push(rpeCardHtml());
+  if (phMf && mfAnswered(phMf.value)) cards.push(mfCardHtml());
   const fresh = videos.filter(v => daysAgo(v.created_at) <= 7);
   cards.push(phCard({ href: 'mes-videos.html', icon: 'video', tone: fresh.length ? 'urgent' : (videos.length ? '' : 'calm'),
     value: fresh.length || videos.length, label: fresh.length ? 'Nouvelles vidéos' : 'Vidéos du staff',

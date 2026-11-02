@@ -608,8 +608,6 @@ body.app .perf-main { margin: 0 0 0 var(--sidebar-w); max-width: var(--page-max)
 .vis-chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
 @media (pointer:coarse){ .vis-chip{min-height:38px;padding:6px 13px;} }
 .card.is-masked .vis-toggle{color:var(--text-muted,#9da4ae);}
-.pe-other-teams{display:flex;flex-wrap:wrap;gap:0 18px;}
-.pe-other-teams .check{display:flex;color:var(--text-primary);}
 
 /* Mise en page posée par theme.js avant le premier affichage (html[data-pf],
    html[data-pf-shown]) : rien ne bouge à l'arrivée des scripts, du profil et des

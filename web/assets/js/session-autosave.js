@@ -287,16 +287,18 @@ async function insertProcedure(p, row) {
   return data.id;
 }
 
-/* Procédés : seuls ceux qui ont changé sont mis à jour ; les nouveaux sont
-   créés, ceux qu'on a retirés vont à la corbeille. */
+/* Procédés : seuls ceux qui ont changé sont mis à jour, tous en même temps
+   (avant : un par un, 8 allers-retours en file pour une séance réordonnée) ;
+   les nouveaux sont créés, ceux qu'on a retirés vont à la corbeille. Chacun
+   n'est marqué enregistré qu'une fois écrit : un échec n'arrête pas les
+   autres, et lui seul repart au prochain essai. */
 async function saveProcedures(sid) {
   const list = procedures;   // l'ordre au moment de l'enregistrement
-  const keep = new Set();
-  for (const [i, p] of list.entries()) {
+  const keep = new Set(list.map(p => p.id).filter(Boolean));
+  const results = await Promise.allSettled(list.map(async (p, i) => {
     const row = procRow(p, sid, i + 1), json = JSON.stringify(row);
     if (p.id) {
-      keep.add(p.id);
-      if (savedProcs.get(p.id) === json) continue;
+      if (savedProcs.get(p.id) === json) return;
       const { error } = await sb.from('procedures').update(row).eq('id', p.id);
       if (error) throw error;
     } else {
@@ -305,7 +307,9 @@ async function saveProcedures(sid) {
       refreshSchemaBox(p);   // le schéma se dessine désormais sur le procédé enregistré
     }
     savedProcs.set(p.id, json);
-  }
+  }));
+  const failed = results.find(r => r.status === 'rejected');
+  if (failed) throw failed.reason;
   const gone = [...savedProcs.keys()].filter(id => !keep.has(id) && !procedures.some(p => p.id === id));
   if (gone.length) {
     const { error } = await sb.from('procedures').delete().in('id', gone);

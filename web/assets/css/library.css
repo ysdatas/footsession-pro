@@ -217,3 +217,23 @@ button.lib-tag { cursor: pointer; font-family: inherit; }
 .lf-videos label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-sm); text-transform: none; letter-spacing: 0; color: var(--text-primary); }
 .lf-videos input { width: 18px; height: 18px; accent-color: var(--gold); }
 .lf-videos small { margin-left: auto; color: var(--text-secondary); }
+
+/* Schémas enregistrés (session-templates.js) : fenêtre « Schémas » de la séance et page
+   Bibliothèque de schémas (schemas.html), où la grille suit la page au lieu de défiler. */
+.library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; max-height: 60vh; overflow-y: auto; }
+.library-card { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-surface); }
+.library-card img { width: 100%; height: 84px; object-fit: cover; display: block; }
+.lib-noimg { height: 84px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: var(--fs-sm); background: #0d1f14; }
+.lib-body { padding: 9px 10px; }
+.lib-name { font-weight: 600; font-size: var(--fs-md); }
+.lib-cat { font-size: var(--fs-xs); color: var(--gold); margin-bottom: 8px; min-height: .8em; }
+.lib-actions { display: flex; gap: 6px; }
+/* Fenêtre « Schémas » : recherche, type, tags (session-templates.js) */
+.tpl-modal { max-width: 720px; }
+.tpl-modal .library-grid { min-height: 120px; }
+.tpl-tags { margin: -2px 0 8px; align-items: center; }
+.tpl-tag-combo { flex: 1 1 120px; min-width: 0; }
+.tpl-tag-combo input { width: 100%; }
+.tpl-page .library-grid { max-height: none; overflow: visible; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.tpl-page .library-card img, .tpl-page .lib-noimg { height: 128px; }
+.tpl-page .lib-actions { flex-wrap: wrap; }

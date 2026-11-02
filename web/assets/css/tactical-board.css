@@ -31,6 +31,8 @@
 #tbContext { font-size: var(--fs-sm); color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .tb-top-right .glass-btn { height: 46px; padding: 0 16px; border-radius: var(--radius-float); }
 #tbVideoChip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+/* Modifications pas encore enregistrées en base (syncSaveState) : un point doré, visible même en icône seule. */
+#saveBtn.is-unsaved::after { content: ''; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
 /* Moins de place : les actions du haut passent en icônes seules. */
 @media (max-width: 1400px) {
   .tb-context { display: none; }

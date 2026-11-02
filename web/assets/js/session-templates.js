@@ -16,7 +16,8 @@
 const TPL_FIELDS = ['nom', 'duree_min', 'objectif', 'effectif', 'taille_terrain',
   'consignes', 'principes_jeu', 'comportements_individuels', 'temps_recup_min',
   'type_procede', 'nb_sequences', 'duree_sequence_min'];
-const TPL = { rows: [], urls: new Map(), tagsOn: false, q: '', cat: '', tags: [], mode: 'all', bound: false, filter: false };
+const TPL = { rows: [], urls: new Map(), tagsOn: false, q: '', cat: '', tags: [], mode: 'all', bound: false, filter: false,
+  insertLabel: 'Insérer' };   // page Bibliothèque de schémas (schemas-page.js) : « Nouvelle séance »
 
 /* Schémas qui répondent à tous les critères : nom (sans casse ni accents),
    type, tags (tous, ou au moins un). */
@@ -37,7 +38,7 @@ window.saveAsTemplate = async (uid) => {
   try {
     let image_path = null;
     if (p.image_path) {
-      image_path = `${myProfile.club_id}/templates/${Date.now()}.png`;
+      image_path = `${myProfile.club_id}/templates/${Date.now()}.${p.image_path.split('.').pop()}`;   // extension de la source
       const { error: copyErr } = await sb.storage.from('schemas').copy(p.image_path, image_path);
       if (copyErr) image_path = null;   // pas bloquant : le modèle reste utile sans image
     }
@@ -106,7 +107,7 @@ function templateCard(t) {
       ${TPL.tagsOn ? `<div class="lib-tags tpl-tags">${tags.map(g => libTagChip(g, { remove: 'data-tpl-untag' })).join('')}
         <button type="button" class="lib-tag is-quick" data-tpl-tagadd aria-label="Ajouter un tag à ${escapeHtml(t.nom)}">+ tag</button></div>` : ''}
       <div class="lib-actions">
-        <button class="btn btn-sm btn-primary" type="button" data-do="insertTemplate" data-arg="${t.id}">Insérer</button>
+        <button class="btn btn-sm btn-primary" type="button" data-do="insertTemplate" data-arg="${t.id}">${TPL.insertLabel}</button>
         <button class="btn btn-sm btn-danger" type="button" data-do="deleteTemplate" data-arg="${t.id}">Supprimer</button>
       </div>
     </div>

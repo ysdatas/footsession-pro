@@ -21,6 +21,10 @@ let seqsCache = [];
 let urlCache = new Map();   // id vidéo → URL signée (miniatures, lecture)
 let vpQuery = pageState().vpQuery || '';
 const view = { player: null };
+/* Sélection de vidéos de plusieurs joueurs (admin, coachs) : liste par joueur, filtrée
+   par la recherche ; Maj + clic prend une plage, « Tout » les vidéos d'un joueur. */
+const vsel = { on: false, ids: new Set(), anchor: null };
+const VIDEO_NOUN = ['vidéo', 'vidéos', true];
 let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton retour)
 
 (async () => {
@@ -195,6 +199,9 @@ function render() {
     .filter(x => !vpQuery || fullName(x.pl).toLowerCase().includes(vpQuery))
     .sort((a, b) => (b.todo - a.todo) || String(b.last || '').localeCompare(String(a.last || '')) || fullName(a.pl).localeCompare(fullName(b.pl), 'fr'));
   const box = document.getElementById('vpView');
+  const canPick = canManageVideos(myProfile.role) && videosCache.length > 0;
+  if (!canPick) vsel.on = false;
+  if (vsel.on) return renderVideoPick(box, shown);
   box.innerHTML = `
     ${todo.length ? `<section class="vp-section" aria-labelledby="vpTodoTitle">
       <h2 id="vpTodoTitle">À traiter <span class="vw-status is-sent">${todo.length}</span></h2>
@@ -205,6 +212,7 @@ function render() {
       <div class="vp-section-head">
         <h2 id="vpPlayersTitle">Joueurs</h2>
         <input type="search" id="vpSearch" value="${escapeHtml(vpQuery)}" placeholder="Rechercher un joueur" aria-label="Rechercher un joueur">
+        ${canPick ? '<button class="btn btn-sm" type="button" data-vsel-start title="Supprimer ou télécharger les vidéos de plusieurs joueurs">Sélectionner des vidéos</button>' : ''}
       </div>
       <div class="vp-players">${shown.length ? shown.map(x => `
         <button type="button" class="vp-player" data-player="${x.pl.id}">
@@ -220,8 +228,62 @@ function render() {
   loadThumbs(box);
 }
 
+/* Vidéos des joueurs affichés (recherche), groupées par joueur, dans l'ordre de la liste. */
+const vselGroups = (shown) => shown.map(x => ({ pl: x.pl, vids: videosCache.filter(v => v.player_id === x.pl.id) })).filter(g => g.vids.length);
+let vselShown = [];   // joueurs affichés au dernier rendu (ordre de Maj + clic)
+function renderVideoPick(box, shown) {
+  vselShown = shown;
+  const groups = vselGroups(shown), order = groups.flatMap(g => g.vids.map(v => v.id));
+  const n = order.filter(id => vsel.ids.has(id)).length;
+  box.innerHTML = `<section class="vp-section" aria-labelledby="vpPickTitle">
+    <div class="vp-section-head">
+      <h2 id="vpPickTitle">Vidéos des joueurs</h2>
+      <input type="search" id="vpSearch" value="${escapeHtml(vpQuery)}" placeholder="Rechercher un joueur" aria-label="Rechercher un joueur">
+    </div>
+    ${bulkBarHtml({ n, total: order.length, noun: VIDEO_NOUN, actions: [{ key: 'dl', label: 'Télécharger les originaux' }, { key: 'delete', label: 'Supprimer', danger: true }] })}
+    ${groups.length ? groups.map(g => {
+      const all = g.vids.every(v => vsel.ids.has(v.id));
+      return `<div class="vp-section-head vp-vgroup"><h3 class="as-h4">${escapeHtml(fullName(g.pl))} <span class="pvx-count">${g.vids.length}</span></h3>
+        <button class="btn btn-sm" type="button" data-vsel-player="${g.pl.id}">${all ? 'Tout retirer' : 'Toutes ses vidéos'}</button></div>
+        <div class="vp-players">${g.vids.map(v => {
+          const on = vsel.ids.has(v.id);
+          return `<button type="button" class="vp-player is-selectable${on ? ' is-picked' : ''}" data-vsel="${v.id}" role="checkbox" aria-checked="${on}">
+            ${selCheckHtml(on)}${thumbHtml(urlCache.get(v.id), 1, 'Vidéo', v.thumb)}
+            <span class="vp-player-main"><strong>${escapeHtml(v.titre || 'Vidéo')}</strong><span>Envoyée le ${escapeHtml(shortDate(v.created_at))}</span></span>
+          </button>`;
+        }).join('')}</div>`;
+    }).join('') : '<p class="vp-empty">Aucune vidéo pour ces joueurs.</p>'}
+  </section>`;
+  loadThumbs(box);
+}
+async function videoPickClick(e) {
+  const order = vselGroups(vselShown).flatMap(g => g.vids.map(v => v.id));
+  const one = e.target.closest('[data-vsel]'), pl = e.target.closest('[data-vsel-player]');
+  const act = e.target.closest('[data-bulk]')?.dataset.bulk;
+  const picked = () => videosCache.filter(v => vsel.ids.has(v.id) && order.includes(v.id));
+  if (one) {
+    const id = Number(one.dataset.vsel);
+    if (e.shiftKey && vsel.anchor !== null) pickRange(order, vsel.anchor, id).forEach(x => vsel.ids.add(x));
+    else if (vsel.ids.has(id)) vsel.ids.delete(id); else vsel.ids.add(id);
+    vsel.anchor = id;
+  } else if (pl) {
+    const vids = videosCache.filter(v => v.player_id === Number(pl.dataset.vselPlayer)).map(v => v.id);
+    const all = vids.every(id => vsel.ids.has(id));
+    vids.forEach(id => (all ? vsel.ids.delete(id) : vsel.ids.add(id)));
+  } else if (act === 'all') order.forEach(id => vsel.ids.add(id));
+  else if (act === 'none') vsel.ids.clear();
+  else if (act === 'done') Object.assign(vsel, { on: false, ids: new Set(), anchor: null });
+  else if (act === 'dl') { const list = picked(); await signUrls(list); return downloadVideos(list, (v) => urlCache.get(v.id)); }
+  else if (act === 'delete') { if (await deleteVideos(picked())) { vsel.ids.clear(); await loadVideos(); } return; }
+  else return;
+  render();
+  if (one) document.querySelector(`[data-vsel="${one.dataset.vsel}"]`)?.focus();
+}
+
 document.getElementById('vpView').addEventListener('click', (e) => {
   if (view.player) return;   // vue d'un joueur : player-videos.js gère ses clics
+  if (vsel.on) return videoPickClick(e);
+  if (e.target.closest('[data-vsel-start]')) { vsel.on = true; return render(); }
   const open = e.target.closest('[data-open-video]');
   if (open) {
     const v = videosCache.find(x => x.id === Number(open.dataset.openVideo));

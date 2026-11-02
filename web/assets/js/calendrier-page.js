@@ -188,9 +188,23 @@ function openCalItem(i) {
   document.getElementById('calDetailTitle').textContent = calTitleOf(i);
   document.getElementById('calDetailBody').innerHTML = `<p class="cal-kind k-${i.kind}">${CAL_KINDS[i.kind]}</p>
     <dl class="cal-dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>
-    ${CAL.asPlayer && i.kind === 'seance' ? '<div class="cal-rpe" id="calRpe" aria-live="polite"></div>' : ''}`;
+    ${CAL.asPlayer && i.kind === 'seance' ? '<div class="cal-rpe" id="calRpe" aria-live="polite"></div>' : ''}
+    ${CAL.asPlayer && i.kind === 'match' && i.date <= calToday() ? '<div class="cal-rpe" id="calAvis" aria-live="polite"></div>' : ''}`;
   openModal('calDetailModal');
   if (CAL.asPlayer && i.kind === 'seance') calRpe(i);
+  if (CAL.asPlayer && i.kind === 'match' && i.date <= calToday()) calAvis(i);
+}
+
+/* Joueur : son avis sur un match joué (match-feedback.js, lmfc_v36.sql), à compléter quand il veut. */
+async function calAvis(i) {
+  const box = document.getElementById('calAvis');
+  const { data, error } = await sb.from('match_feedback').select('individuel, collectif').eq('match_id', i.id).maybeSingle();
+  if (error) { if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('Avis de match illisible', error.message); box.remove(); return; }
+  const done = mfAnswered(data);
+  box.innerHTML = `<p>${done ? 'Ton avis sur ce match est enregistré.' : 'Ton avis sur ta performance et sur celle de l’équipe ?'}</p>
+    <button type="button" class="btn${done ? '' : ' btn-primary'}" id="calAvisBtn">${done ? 'Relire ou compléter' : 'Donner mon avis'}</button>`;
+  document.getElementById('calAvisBtn').addEventListener('click', () => openMatchFeedbackSheet({
+    match: { id: i.id, titre: i.titre, date: i.date }, value: data, onSaved: () => calAvis(i) }));
 }
 
 /* Joueur : son RPE de la séance, et la saisie tant qu'elle est ouverte (jusqu'à J+2). */

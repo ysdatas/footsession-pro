@@ -169,6 +169,11 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            3 jours de calendrier de suite) ; soreness_set, my_soreness_today,
                                            soreness_alert_seen, soreness_notifs_take (Worker /api/push/soreness vers le
                                            staff qui suit le joueur) ; jamais le lecteur (rejouable)
+54. supabase/lmfc_v36.sql                  avis des joueurs après le match : match_feedback (individuel, collectif,
+                                           2 000 caractères, un par joueur et par match), match_feedback_set() seule
+                                           écriture (joueur, match joué qui le concerne : règle de my_calendar) ;
+                                           lecture : le joueur les siennes, le staff qui le suit et lit le match,
+                                           jamais le lecteur ; corbeille avec le match ou le joueur (rejouable)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -263,7 +268,7 @@ de visionnage n'enregistre rien.**
 | `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
 | `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique. Bibliothèque vidéo : consulte ce qu'on lui ouvre (`lmfc_v24.sql`) |
 | `lecteur` | Consultation seule (un scout) : **tous les joueurs du club**, toutes équipes (fiche, parcours, objectifs, préventions, programme, tests physiques et radar, vidéos, séquences, statistiques de visionnage). Ni mesures physiques (taille, poids, masse grasse : données de santé, `lmfc_v23.sql`), ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
-| `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos, son calendrier (séances, matchs et événements de ses équipes, sans les notes du staff). Il découpe, sélectionne et annote ses séquences et les envoie au staff ; il note son RPE après chaque séance (`lmfc_v29.sql`). Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen, les statistiques de visionnage ni le RPE des autres |
+| `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos, son calendrier (séances, matchs et événements de ses équipes, sans les notes du staff). Il découpe, sélectionne et annote ses séquences et les envoie au staff ; il note son RPE après chaque séance (`lmfc_v29.sql`) et donne son avis après chaque match (`lmfc_v36.sql`). Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen, les statistiques de visionnage ni le RPE des autres |
 
 `platform_v2.sql` avait fondu `analyste`, `prepa` et `viewer` dans `coach` ; `lmfc_v4.sql` rétablit `prepa`.
 
@@ -445,9 +450,17 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   le joueur », ou *Joueurs* → « Sélectionner » pour plusieurs. Refusé tant que la corbeille n'est pas
   active : la fiche et tout ce qui en dépend doivent rester récupérables.
 - **Mode sélection** (`bulkBarHtml`, `selCheckHtml`, `app.js`) — cases, compteur « n sur N »,
-  Tout sélectionner (ce qui est affiché) / Tout désélectionner, actions groupées : Joueurs (supprimer),
-  Vidéos (supprimer, télécharger les originaux), Séquences (compiler, supprimer), Objectifs ·
-  Préventions (statut, supprimer).
+  Tout sélectionner (ce qui est affiché, filtres compris : aucune liste n'est paginée) / Tout
+  désélectionner, **Maj + clic** pour une plage (`pickRange`), actions groupées : Matchs (modifier :
+  compétition, équipe, lieu ; supprimer), Joueurs (modifier : équipe, poste, ligne ; supprimer, admin),
+  Vidéos joueurs (vidéos de plusieurs joueurs : supprimer, télécharger les originaux), Vidéos d'un
+  joueur, Séquences (compiler, supprimer), Objectifs · Préventions (statut, supprimer). **Modifier**
+  (`bulkEditDialog`) : un champ par réglage, « Inchangé (valeur commune ou valeurs multiples) » par
+  défaut, seuls les champs changés partent ; récapitulatif avant d'appliquer (nombre, nouvelles valeurs,
+  noms, ceux que les droits excluent) ; une seule requête `update … in (…)`, la RLS décide ligne par
+  ligne et le bilan le dit (`bulkReport` : « 12 modifiés · 3 refusés (droits) »). Un coach ne range que
+  dans ses équipes. Pas de rectangle à la souris ni de Ctrl + clic (en mode sélection, un clic coche
+  déjà ; hors de ce mode, Ctrl + clic ouvre la fiche dans un onglet).
 - **Gabarit commun** — toutes les pages, staff et joueur, ont la même largeur maximale et les mêmes
   marges (`--page-max`, `--page-pad-top`, `--page-pad-x` dans `main.css`), contenu aligné contre le
   menu ; la place de la barre de défilement est réservée (`scrollbar-gutter`).
@@ -609,6 +622,14 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   enregistrée l'exclut. La carte de Mon espace est toujours là (« Rien à noter… » sinon) ; le Calendrier
   du joueur marque « RPE à noter ». Bloc **Ressenti des joueurs (RPE)** juste sous les présences ; la
   saisie du staff passe par la même feuille que le joueur (bouton « Effacer »).
+- **Avis après le match** (`match-feedback.js`, `lmfc_v36.sql`) — deux questions au joueur, en texte libre :
+  « Que penses-tu de ta performance individuelle lors de ce match ? » et « … de la performance collective de
+  l'équipe ? ». Il les retrouve à tout moment dans la fiche d'un match joué de son **Calendrier**, et sur
+  **Mon espace** (carte « Donne ton avis sur le match » : le dernier match joué sans réponse depuis 30 jours,
+  sinon le dernier) ; il complète ou modifie quand il veut (un avis par match). Ses réponses vont au staff,
+  jamais aux autres joueurs : bloc **Avis des joueurs** dans le match (Retours de match), en lecture, pour le
+  staff qui suit le joueur. Écriture par `match_feedback_set()` seulement (match joué qui le concerne).
+  Test : `tests/match-feedback-sql.test.mjs`.
 - **Suivi RPE** (`suivi-rpe.html`, `suivi-rpe-page.js`, `suivi-rpe-dash.js`, `rpe-stats.js`) — staff :
   **capsules d'équipes** (celles du compte, toutes s'il n'est pas restreint ; indépendantes du menu
   « Équipe », `?team=`). **Tableau de bord** : RPE moyen, réponses / attendues, manquantes, charge
@@ -625,7 +646,9 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne
   déduite du poste, ou choisie en glissant la ligne, à la souris), recherche, filtre par poste.
   Clic : la fiche ; **double-clic** ou crayon (toujours visible sur écran tactile) : modifier
-  prénom, nom, poste, équipe (admin, coach).
+  prénom, nom, poste, équipe et **« Joue aussi en »** (autres équipes, `other_team_ids`, comme la
+  fiche) (admin, coach). **Sélectionner** (admin, coachs) : plusieurs joueurs, « Modifier » (équipe,
+  poste, ligne) ou « Supprimer » (admin).
 - **Fiche joueur** (`player-performance.html?id=…`, staff) — une seule page, trois onglets sans
   changer de page (`?tab=fiche|performance|videos`, gardé au rechargement) sous l'en-tête (photo,
   identité, club, taille, poids, masse grasse, « Modifier » : identité, équipe principale et
@@ -700,7 +723,15 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   « Comment ça marche ? » (le circuit en 4 étapes), **À traiter**, puis chaque **vidéo envoyée**
   avec, sous elle, ses séquences marquées **Joueur** ou **Staff** (`created_by`) et, pour celles
   du joueur, leur statut. Sélection de séquences (compiler, supprimer) ou de vidéos (supprimer,
-  télécharger les originaux).
+  télécharger les originaux). **Sélectionner des vidéos** (vue d'ensemble, admin et coachs) : les
+  vidéos de tous les joueurs affichés (la recherche filtre), groupées par joueur, « Toutes ses
+  vidéos », Maj + clic ; supprimer (corbeille) ou télécharger d'un coup, bilan des refus de la base
+  (`deleteVideos`, `downloadVideos`, `player-videos.js`). Pas de dossiers ni de catégories : ils
+  n'existent que dans la Bibliothèque vidéo.
+- **Bibliothèque de schémas** (`schemas.html`, `schemas-page.js`, admin et coachs) — dans le menu : la
+  fenêtre « Schémas » de la séance (`session-templates.js`) en page, telle quelle (recherche, type, tags,
+  suppression) ; « Nouvelle séance » ouvre une séance avec ce schéma en procédé
+  (`session-edit.html?template=…`).
 - **Bibliothèque vidéo** (`bibliotheque.html`, `bibliotheque-page.js`, `library*.js`, `library.css` ;
   admin, coachs, préparateurs) — procédés filmés du club en grille ou en liste, par pages de 48 au
   défilement ; vignettes lues pour les seules cartes affichées, aucune vidéo chargée avant « Lire ».
@@ -896,7 +927,17 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   `tests/templates-tags-sql.test.mjs`, `tests/templates-logic.test.mjs`.
 - **Raccourcis** : `Ctrl+Z` annuler, `Suppr` supprimer l'élément sélectionné.
 - **Sauvegarde** : auto en LocalStorage (30 s) ; « Enregistrer » (panneau Exporter) enregistre le JSON en
-  base ; **Valider ce schéma** enregistre l'image dans le procédé et revient à la séance.
+  base ; **Valider ce schéma** enregistre l'image dans le procédé et revient à la séance. L'image gardée
+  en base est un **JPEG d'au plus 1 600 px** encodé hors du fil principal (`schemaJpeg` ; avant : le PNG
+  de l'écran, 2,5 Mo en Retina, 5 Mo et plus sur iPhone) ; « Exporter » garde le PNG net. Le bouton
+  « Enregistrer » porte un **point doré** tant que des modifications ne sont pas en base, puis
+  « Enregistré à hh:mm » ; quitter la page avec des modifications non enregistrées fait prévenir le
+  navigateur (la copie locale ne remplace pas un schéma déjà en base).
+- **Vitesse** (mesures, démo, schéma de 43 éléments, Retina) : le terrain est dessiné une fois par vue
+  et par taille puis recopié (`pitchCache`) : 44 → 12 ms par image pendant un déplacement (rendu
+  logiciel) ; schéma et procédé lus ensemble à l'ouverture ; logo importé réduit à 400 px (il était
+  recopié en taille réelle dans l'historique à chaque geste). Séance : procédés modifiés et schémas en
+  brouillon écrits en parallèle (`Promise.allSettled`), un échec n'arrête pas les autres.
 
 > Pour lier un schéma à un procédé, **enregistrez d'abord la séance**.
 

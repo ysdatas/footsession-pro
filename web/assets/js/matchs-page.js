@@ -18,6 +18,9 @@ let clubPlayers = [];    // tout l'effectif du club (noms, recherche)
 let editing = null;      // match ouvert : { id, rows: Map(player_id → ligne), removed: Set }
 let comp = null;         // compétition choisie (clé mhCompKey, '' = non renseignée, 'dup' = doublons) ; null = toutes
 let dups = new Map();    // id → matchs du club à la même date contre le même adversaire (mhDuplicates)
+/* Mode sélection (administrateur, coachs) : plusieurs matchs d'un coup ; Maj + clic
+   prend une plage (pickRange). Seuls les matchs affichés (filtre) comptent. */
+const pick = { on: false, ids: new Set(), anchor: null };
 
 const val = (id) => document.getElementById(id).value.trim();
 const playerName = playerFullName;   // app.js
@@ -38,12 +41,18 @@ const playerOf = (id) => clubPlayers.find(p => p.id === id);
     btn.classList.remove('hidden');
     btn.addEventListener('click', () => openMatch(null));
     initFffImport();
+    const sel = document.getElementById('btnSelectMatches');
+    sel.classList.remove('hidden');
+    sel.addEventListener('click', () => setPick(!pick.on));
+    document.getElementById('matchBulk').addEventListener('click', matchBulkClick);
   }
   initTabs();
   initEditor();
   document.getElementById('matchList').addEventListener('click', (e) => {
     const row = e.target.closest('[data-match]');
-    if (row) openMatch(matches.find(m => m.id === Number(row.dataset.match)));
+    if (!row) return;
+    if (pick.on) return pickMatch(Number(row.dataset.match), e.shiftKey);
+    openMatch(matches.find(m => m.id === Number(row.dataset.match)));
   });
   document.getElementById('panelPlayer').addEventListener('click', squadClick);
   document.getElementById('mtComps').addEventListener('click', (e) => {
@@ -125,6 +134,7 @@ function renderComps() {
 /* ---------- Liste des matchs ---------- */
 function renderMatches() {
   renderComps();
+  renderMatchBulk();
   const shown = shownMatches(), n = (r) => shown.filter(m => resultOf(m) === r).length;
   const team = currentTeam();
   document.getElementById('matchSub').textContent = [`${shown.length} match${shown.length > 1 ? 's' : ''}`,
@@ -135,14 +145,82 @@ function renderMatches() {
         const twin = dups.get(m.id);
         const players = m.match_players?.[0]?.count;
         const sub = [m.heure?.slice(0, 5), m.competition, LIEUX[m.lieu], !currentTeamId() && teamName(m.team_id)].filter(Boolean).map(escapeHtml).join(' · ');
-        return `<button type="button" class="mt-row" data-match="${m.id}">
-          <span class="mt-date">${fmtDateFr(m.date_match)}</span>
+        const on = pick.ids.has(m.id);
+        return `<button type="button" class="mt-row${pick.on ? ` is-selectable${on ? ' is-picked' : ''}` : ''}" data-match="${m.id}"${pick.on ? ` role="checkbox" aria-checked="${on}"` : ''}>
+          ${pick.on ? selCheckHtml(on) : ''}<span class="mt-date">${fmtDateFr(m.date_match)}</span>
           <span class="mt-main"><strong>${escapeHtml(m.adversaire)}${twin ? ` <span class="mt-dup" title="${escapeHtml(`Même date et même adversaire : ${twin.map(t => `${t.adversaire}${teamName(t.team_id) ? ` (${teamName(t.team_id)})` : ''}`).join(', ')}`)}">Doublon ?</span>` : ''}</strong>${sub ? `<small>${sub}</small>` : ''}</span>
           <span class="mt-count">${players ? `${players} joueur${players > 1 ? 's' : ''}` : ''}</span>
           ${scoreHtml(m)}
         </button>`;
       }).join('')}</div>`
     : `<div class="empty">Aucun match enregistré.${CAN_EDIT_MATCH ? '<br>Cliquez sur « + Nouveau match ».' : ''}</div>`;
+}
+
+/* ---------- Sélection : modifier ou supprimer plusieurs matchs ---------- */
+const MATCH_NOUN = ['match', 'matchs', false];
+const matchLabel = (m) => `${m.adversaire} (${fmtDateFr(m.date_match)})`;
+const pickedMatches = () => shownMatches().filter(m => pick.ids.has(m.id));
+function setPick(on) {
+  Object.assign(pick, { on, ids: new Set(), anchor: null });
+  const btn = document.getElementById('btnSelectMatches');
+  btn.setAttribute('aria-pressed', String(on));
+  btn.classList.toggle('active', on);
+  renderMatches();
+}
+function renderMatchBulk() {
+  document.getElementById('matchBulk').innerHTML = !pick.on ? '' : bulkBarHtml({
+    n: pickedMatches().length, total: shownMatches().length, noun: MATCH_NOUN,
+    actions: [{ key: 'edit', label: 'Modifier', primary: true }, { key: 'delete', label: 'Supprimer', danger: true }] });
+}
+/* Clic : coche ou décoche ; Maj + clic : toute la plage depuis le clic précédent. */
+function pickMatch(id, range) {
+  if (range && pick.anchor !== null) pickRange(shownMatches().map(m => m.id), pick.anchor, id).forEach(x => pick.ids.add(x));
+  else if (pick.ids.has(id)) pick.ids.delete(id);
+  else pick.ids.add(id);
+  pick.anchor = id;
+  renderMatches();
+  document.querySelector(`.mt-row[data-match="${id}"]`)?.focus();
+}
+function matchBulkClick(e) {
+  const act = e.target.closest('[data-bulk]')?.dataset.bulk;
+  if (act === 'all') shownMatches().forEach(m => pick.ids.add(m.id));
+  else if (act === 'none') pick.ids.clear();
+  else if (act === 'done') return setPick(false);
+  else if (act === 'edit') return editPickedMatches(pickedMatches());
+  else if (act === 'delete') return deletePickedMatches(pickedMatches());
+  else return;
+  renderMatches();
+}
+/* Une seule requête pour tous ; la base garde les droits match par match (RLS). */
+async function editPickedMatches(list) {
+  if (!list.length) return;
+  const teams = window.CLUB_TEAMS || [];
+  const mine = myProfile.role === 'admin' || !(myProfile.team_ids || []).length ? teams : teams.filter(t => myProfile.team_ids.includes(t.id));
+  const fields = [{ key: 'competition', label: 'Compétition', list: [...new Set(matches.map(m => m.competition).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')) }];
+  if (teams.length) fields.push({ key: 'team_id', label: 'Équipe', options: [['', 'Sans équipe'], ...mine.map(t => [t.id, t.nom])], parse: (v) => Number(v) || null });
+  fields.push({ key: 'lieu', label: 'Lieu', options: [['', 'Non renseigné'], ...Object.entries(LIEUX)], parse: (v) => v || null });
+  const patch = await bulkEditDialog({ noun: MATCH_NOUN, rows: list, names: list.map(matchLabel), fields,
+    blocked: list.filter(m => !canEditMatch(m)).map(matchLabel) });
+  if (!patch) return;
+  try {
+    const { data, error } = await sb.from('matches').update(patch).in('id', list.map(m => m.id)).select('id');
+    if (error) throw error;
+    bulkReport(data?.length || 0, list.length, MATCH_NOUN, 'modifié');
+    await loadMatches();
+    renderSquad();
+  } catch (err) {
+    console.error('Matchs non modifiés', err);
+    toast(err.message, 'error');
+  }
+}
+async function deletePickedMatches(list) {
+  if (!list.length || !confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} matchs` : 'ce match'} et leurs joueurs ?\n\n${namesList(list.map(matchLabel))}${await trashNote()}`)) return;
+  const { data, error } = await sb.from('matches').delete().in('id', list.map(m => m.id)).select('id');
+  if (error) { console.error('Matchs non supprimés', error); return toast(error.message, 'error'); }
+  bulkReport(data?.length || 0, list.length, MATCH_NOUN, 'supprimé');
+  pick.ids.clear();
+  await loadMatches();
+  renderSquad();
 }
 
 /* ---------- Saisie d'un match ---------- */
@@ -183,13 +261,32 @@ async function openMatch(m) {
   document.getElementById('m-delete').classList.toggle('hidden', !(m && editing.editable));
   document.getElementById('m-cancel').textContent = editing.editable ? 'Annuler' : 'Fermer';
   document.getElementById('mpList').innerHTML = m ? '<p class="text-muted">Chargement…</p>' : '';
+  renderFeedback(null);
   openModal('matchModal');
   if (m) {
-    const { data, error } = await sb.from('match_players').select('*').eq('match_id', m.id);
+    const [{ data, error }, fb] = await Promise.all([
+      sb.from('match_players').select('*').eq('match_id', m.id),
+      sb.from('match_feedback').select('player_id, individuel, collectif, updated_at').eq('match_id', m.id),
+    ]);
     if (error) { console.error('Joueurs du match illisibles', error); toast(error.message, 'error'); }
     (data || []).forEach(r => editing.rows.set(r.player_id, r));
+    renderFeedback(fb);
   }
   renderRows();
+}
+
+/* Avis des joueurs (lmfc_v36.sql), en lecture : ceux que la base laisse voir (joueurs suivis). */
+function renderFeedback(res) {
+  if (res?.error && !['42P01', 'PGRST205'].includes(res.error.code)) console.warn('Avis des joueurs illisibles', res.error.message);
+  const name = (f) => playerName(playerOf(f.player_id)) || 'Joueur';
+  const list = (res?.data || []).filter(f => f.individuel || f.collectif).sort((a, b) => name(a).localeCompare(name(b), 'fr'));
+  document.getElementById('mfStaff').classList.toggle('hidden', !list.length);
+  document.getElementById('mfCount').textContent = list.length ? `(${list.length})` : '';
+  document.getElementById('mfList').innerHTML = list.map(f => `<article class="mf-item">
+      <p class="mf-who"><strong>${escapeHtml(name(f))}</strong> <small>${escapeHtml(fmtDateFr(f.updated_at.slice(0, 10)))}</small></p>
+      ${f.individuel ? `<p class="mf-q">Sa performance</p><p class="mf-a">${escapeHtml(f.individuel)}</p>` : ''}
+      ${f.collectif ? `<p class="mf-q">L’équipe</p><p class="mf-a">${escapeHtml(f.collectif)}</p>` : ''}
+    </article>`).join('');
 }
 
 /* Joueurs du match : titulaires, remplaçants, non entrés, puis sans statut. */

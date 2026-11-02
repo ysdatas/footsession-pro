@@ -188,9 +188,9 @@ document.getElementById('saveToLibrary').addEventListener('click', async (e) => 
   const btn = e.currentTarget;
   btn.disabled = true;
   try {
-    const blob = await (await fetch(exportClean())).blob();
-    const path = `${CLUB_ID}/templates/${Date.now()}.png`;
-    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { contentType: 'image/png' });
+    const blob = await schemaJpeg();   // tactical-board.js : JPEG ≤ 1 600 px
+    const path = `${CLUB_ID}/templates/${Date.now()}.jpg`;
+    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { contentType: 'image/jpeg' });
     if (upErr) throw upErr;
     const { error } = await sb.from('exercise_templates').insert({ club_id: CLUB_ID, nom, data: {}, canvas_json: serialize(), image_path: path });
     if (error) throw error;

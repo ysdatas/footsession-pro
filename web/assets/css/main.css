@@ -836,4 +836,7 @@ h3.as-h4 { font-size: 1em; }
 .check{display:flex;align-items:center;gap:10px;font-size:var(--fs-sm);font-weight:500;cursor:pointer;padding:5px 0;
   text-transform:none;letter-spacing:normal;color:var(--text-primary);line-height:1.35;}
 .check input{width:16px;height:16px;flex:0 0 auto;accent-color:var(--gold);}
+/* « Joue aussi en » (autres équipes d'un joueur) : fiche joueur et Joueurs. */
+.pe-other-teams{display:flex;flex-wrap:wrap;gap:0 18px;}
+.pe-other-teams .check{display:flex;color:var(--text-primary);}
 @media (max-width:620px){ .export-sections{grid-template-columns:1fr;} }

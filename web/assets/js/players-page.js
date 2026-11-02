@@ -14,8 +14,9 @@ let myProfile = null;
 let CAN_EDIT_PLAYERS = false;
 let readOnlyIds = new Set();   // joueurs visibles en lecture seule (exception, lecture club : lmfc_v19.sql)
 const canWritePlayer = (id) => CAN_EDIT_PLAYERS && !readOnlyIds.has(Number(id));
-/* Mode sélection (administrateur) : plusieurs fiches d'un coup, suppression groupée. */
-const pickPlayers = { on: false, ids: new Set() };
+/* Mode sélection (administrateur, coachs) : plusieurs fiches d'un coup, modification
+   groupée ; suppression : administrateur. Maj + clic prend une plage (pickRange). */
+const pickPlayers = { on: false, ids: new Set(), anchor: null };
 
 (async () => {
   const ctx = await requireAuth();
@@ -50,8 +51,8 @@ const pickPlayers = { on: false, ids: new Set() };
     }));
   }
 
-  // Supprimer des joueurs : administrateur seulement (RLS players_delete).
-  if (myProfile.role === 'admin') {
+  // Sélection : qui modifie des joueurs. Supprimer reste à l'administrateur (RLS players_delete).
+  if (CAN_EDIT_PLAYERS) {
     const btn = document.getElementById('btnSelectPlayers');
     btn.classList.remove('hidden');
     btn.addEventListener('click', () => setPickPlayers(!pickPlayers.on));
@@ -139,7 +140,7 @@ function latestMeasures(rows) {
 const frNum = (v, d) => Number(v).toFixed(d).replace('.', ',');
 
 function setPickPlayers(on) {
-  pickPlayers.on = on; pickPlayers.ids.clear();
+  pickPlayers.on = on; pickPlayers.ids.clear(); pickPlayers.anchor = null;
   const btn = document.getElementById('btnSelectPlayers');
   btn.setAttribute('aria-pressed', String(on));
   btn.classList.toggle('active', on);
@@ -154,18 +155,52 @@ function shownPlayers() {
 function renderPlayersBulk() {
   const box = document.getElementById('playersBulk');
   if (!pickPlayers.on) { box.innerHTML = ''; return; }
-  box.innerHTML = bulkBarHtml({ n: pickPlayers.ids.size, total: shownPlayers().length, noun: ['joueur', 'joueurs', false],
-    actions: [{ key: 'delete', label: 'Supprimer', danger: true }] });
+  box.innerHTML = bulkBarHtml({ n: pickPlayers.ids.size, total: shownPlayers().length, noun: PLAYER_NOUN,
+    actions: [{ key: 'edit', label: 'Modifier', primary: true },
+      ...(myProfile.role === 'admin' ? [{ key: 'delete', label: 'Supprimer', danger: true }] : [])] });
 }
 document.getElementById('playersBulk').addEventListener('click', (e) => {
   const act = e.target.closest('[data-bulk]')?.dataset.bulk;
   if (act === 'all') shownPlayers().forEach(p => pickPlayers.ids.add(p.id));
   else if (act === 'none') pickPlayers.ids.clear();
   else if (act === 'done') return setPickPlayers(false);
+  else if (act === 'edit') return editPickedPlayers();
   else if (act === 'delete') return deletePickedPlayers();
   else return;
   renderGrid();
 });
+/* Modification groupée : équipe, poste, ligne ; le reste de chaque fiche ne bouge
+   pas. Un coach ne range que dans ses équipes (une fiche qu'il ne verrait plus
+   ferait refuser toute l'opération). La base décide joueur par joueur (RLS). */
+const PLAYER_NOUN = ['joueur', 'joueurs', false];
+async function editPickedPlayers() {
+  const list = playersCache.filter(p => pickPlayers.ids.has(p.id));
+  if (!list.length) return;
+  const teams = window.CLUB_TEAMS || [];
+  const mine = myProfile.role === 'admin' || !(myProfile.team_ids || []).length ? teams : teams.filter(t => myProfile.team_ids.includes(t.id));
+  const postes = [...document.querySelectorAll('#poste-list option')].map(o => o.value);
+  const fields = [];
+  if (teams.length && list.every(p => 'team_id' in p)) {
+    fields.push({ key: 'team_id', label: 'Équipe', options: [['', 'Sans équipe'], ...mine.map(t => [t.id, t.nom])], parse: (v) => Number(v) || null });
+  }
+  fields.push({ key: 'poste', label: 'Poste', list: [...new Set([...playersCache.map(p => (p.poste || '').trim()).filter(Boolean), ...postes])] });
+  if (list.every(p => 'ligne' in p)) {
+    fields.push({ key: 'ligne', label: 'Ligne', options: [['', 'Selon le poste'], ...PLAYER_LINES.map(l => [l.key, LINE_SINGULAR[l.key]])], parse: (v) => v || null });
+  }
+  const patch = await bulkEditDialog({ noun: PLAYER_NOUN, rows: list, names: list.map(fullName), fields,
+    blocked: list.filter(p => !canWritePlayer(p.id)).map(fullName) });
+  if (!patch) return;
+  try {
+    const { data, error } = await sb.from('players').update(patch).in('id', list.map(p => p.id)).select('id');
+    if (error) throw error;
+    bulkReport(data?.length || 0, list.length, PLAYER_NOUN, 'modifié');
+    await loadGrid();
+  } catch (e) {
+    console.error('Joueurs non modifiés', e);
+    toast(e.message, 'error');
+  }
+}
+
 /* Suppression groupée : chaque joueur part dans la corbeille avec toute sa
    fiche (mesures, tests, vidéos, objectifs, parcours, présences). */
 async function deletePickedPlayers() {
@@ -254,10 +289,15 @@ function renderGrid() {
     }).join('');
 }
 
-/* Mode sélection : un clic (ou Espace / Entrée) coche la ligne. */
-const togglePick = (row) => {
+/* Mode sélection : un clic (ou Espace / Entrée) coche la ligne ; Maj + clic,
+   toute la plage depuis le clic précédent (dans l'ordre affiché). */
+const togglePick = (row, range = false) => {
   const id = Number(row.dataset.pick);
-  if (pickPlayers.ids.has(id)) pickPlayers.ids.delete(id); else pickPlayers.ids.add(id);
+  const order = () => [...document.querySelectorAll('.player-row[data-pick]')].map(r => Number(r.dataset.pick));
+  if (range && pickPlayers.anchor !== null) pickRange(order(), pickPlayers.anchor, id).forEach(x => pickPlayers.ids.add(x));
+  else if (pickPlayers.ids.has(id)) pickPlayers.ids.delete(id);
+  else pickPlayers.ids.add(id);
+  pickPlayers.anchor = id;
   renderGrid();
   document.querySelector(`.player-row[data-pick="${id}"]`)?.focus();
 };
@@ -268,7 +308,7 @@ let openTimer = null;
 const playerById = (id) => playersCache.find(x => x.id === Number(id));
 document.getElementById('gridView').addEventListener('click', (e) => {
   const row = e.target.closest('.player-row[data-pick]');
-  if (row) return togglePick(row);
+  if (row) return togglePick(row, e.shiftKey);
   const edit = e.target.closest('[data-edit]');
   if (edit) { e.preventDefault(); clearTimeout(openTimer); return openPlayerModal(playerById(edit.dataset.edit)); }
   const link = e.target.closest('a.player-row');
@@ -371,8 +411,26 @@ function openPlayerModal(p = null) {
   document.getElementById('m-team').innerHTML = '<option value="">Sans équipe</option>'
     + mine.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
   document.getElementById('m-team').value = p ? (p.team_id ?? '') : (mine.some(t => t.id === currentTeamId()) ? currentTeamId() : '');
+  // Plusieurs équipes (lmfc_v7.sql), comme sur la fiche : l'équipe principale compte
+  // pour les moyennes « équipe », les autres le font apparaître dans leurs listes.
+  const hasOther = teams.length > 1 && (!p || 'other_team_ids' in p);
+  document.getElementById('m-other-field').classList.toggle('hidden', !hasOther);
+  document.getElementById('m-other-teams').innerHTML = !hasOther ? '' : teams.map(t => `<label class="check"><input type="checkbox" value="${t.id}"${
+    (p?.other_team_ids || []).includes(t.id) ? ' checked' : ''}> ${escapeHtml(t.nom)}</label>`).join('');
+  syncOtherTeams();
   openModal('playerModal');
 }
+/* L'équipe principale ne se coche pas aussi en « autre équipe ». */
+function syncOtherTeams() {
+  const main = Number(document.getElementById('m-team').value) || null;
+  document.querySelectorAll('#m-other-teams input').forEach(b => {
+    b.disabled = Number(b.value) === main;
+    if (b.disabled) b.checked = false;
+  });
+}
+document.getElementById('m-team').addEventListener('change', syncOtherTeams);
+const otherTeamsOf = () => (document.getElementById('m-other-field').classList.contains('hidden') ? null
+  : [...document.querySelectorAll('#m-other-teams input:checked')].map(b => Number(b.value)));
 
 async function savePlayer() {
   const nom = document.getElementById('m-nom').value.trim();
@@ -386,6 +444,7 @@ async function savePlayer() {
   };
   const teamId = document.getElementById('m-team').value;
   if (teamId) body.team_id = Number(teamId);
+  if (otherTeamsOf()?.length) body.other_team_ids = otherTeamsOf();
   try {
     // Sans « .select() » : la règle de lecture (my_visible_players, lmfc_v21.sql) cherche le joueur
     // parmi ceux qui existent déjà, et refuserait l'ajout s'il fallait le renvoyer. Relu ensuite.
@@ -405,6 +464,7 @@ async function updatePlayer(id, nom) {
     poste: document.getElementById('m-poste').value.trim() || null,
   };
   if (!document.getElementById('m-team-field').classList.contains('hidden')) body.team_id = Number(document.getElementById('m-team').value) || null;
+  if (otherTeamsOf()) body.other_team_ids = otherTeamsOf();
   try {
     // .select : une modification refusée par la base ne renvoie aucune ligne, sans erreur.
     const { data, error } = await sb.from('players').update(body).eq('id', id).select('id');

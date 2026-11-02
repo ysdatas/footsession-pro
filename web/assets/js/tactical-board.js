@@ -291,10 +291,23 @@ function dot(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.f
 /* ============================================================
    DESSIN DES ÉLÉMENTS
    ============================================================ */
+/* Terrain : dessiné une fois par vue et par taille de canvas, puis recopié tel
+   quel. Redessiné à chaque image, il en prenait 25 ms sur 29 en Retina pendant
+   un déplacement (herbe, bandes de tonte, lignes ombrées). */
+const pitchCache = document.createElement('canvas');
+let pitchKey = '';
 function render() {
   applyBaseTransform();
   ctx.clearRect(-5, -5, LW + 10, LH + 10);
-  drawPitch();
+  const key = `${state.view}|${canvas.width}x${canvas.height}`;
+  if (key === pitchKey) {
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(pitchCache, 0, 0); ctx.restore();
+  } else {
+    drawPitch();
+    pitchCache.width = canvas.width; pitchCache.height = canvas.height;
+    pitchCache.getContext('2d').drawImage(canvas, 0, 0);
+    pitchKey = key;
+  }
   const known = stepIds();
   for (const it of state.items) {
     const a = state.fade?.get(it.id) ?? (isVisible(it, known) ? 1 : 0);
@@ -1980,15 +1993,20 @@ function applyFormation(name) {
 /* ============================================================
    LOGO
    ============================================================ */
-function importLogo(e) {
+/* Le logo voyage DANS le schéma (historique à chaque geste, navigateur, base) :
+   réduit à 400 px, il ne pèse plus son poids d'origine à chaque copie. */
+async function importLogo(e) {
   const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
+  e.target.value = '';
+  try {
+    const src = await imageToDataUrl(file, 400);
     const img = new Image();
-    img.onload = () => { pushHistory(); const it = { id: nid(), type: 'logo', x: viewCenter().x - 60, y: 40, w: 120, h: 120 * (img.height / img.width), src: ev.target.result, _img: img }; state.items.push(it); commit(); };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file); e.target.value = '';
+    img.onload = () => { pushHistory(); const it = { id: nid(), type: 'logo', x: viewCenter().x - 60, y: 40, w: 120, h: 120 * (img.height / img.width), src, _img: img }; state.items.push(it); commit(); };
+    img.src = src;
+  } catch (err) {
+    console.error('Logo illisible', err);
+    toast('Image illisible : choisissez un PNG ou un JPEG.', 'error');
+  }
 }
 
 /* ============================================================
@@ -2077,7 +2095,7 @@ function goToStep(i) {
   state.curStep = i;
   state.selIds = []; syncSelBar();
   renderSteps();
-  tween(from, state.steps[i], 380, () => { applySnapshot(state.steps[i]); render(); scheduleSave(); });
+  tween(from, state.steps[i], 380, () => { applySnapshot(state.steps[i]); render(); scheduleSave(false); });
 }
 function deleteStep() {
   if (state.curStep === null || state.playing) return;
@@ -2156,7 +2174,7 @@ function selectClip(i) {
   state.clip = i;
   state.curStep = state.steps.length ? 0 : null;
   if (state.steps.length) applySnapshot(state.steps[0]);
-  state.selIds = []; syncSelBar(); renderSteps(); render(); scheduleSave();
+  state.selIds = []; syncSelBar(); renderSteps(); render(); scheduleSave(false);
 }
 const nextClipName = () => `Clip ${state.clips.length + 1}`;
 function clipAction(kind) {
@@ -2374,44 +2392,70 @@ function commit() { render(); recordStep(); scheduleSave(); }
 
 /* Autosave LocalStorage (debounce + intervalle 30 s) */
 let saveTimer = null;
-function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(persistLocal, 1000); }
+let edits = 0, savedEdits = 0;   // modifications faites / parties en base (syncSaveState)
+/* edit = false : on regarde une autre étape ou un autre clip, rien n'a changé à enregistrer en base. */
+function scheduleSave(edit = true) { if (edit) { edits++; syncSaveState(); } clearTimeout(saveTimer); saveTimer = setTimeout(persistLocal, 1000); }
 function persistLocal() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(serialize())); }
   catch (e) { console.warn('Sauvegarde locale du schéma impossible', e); }
 }
 setInterval(persistLocal, 30000);
 
+/* Enregistré en base, ou pas : la copie du navigateur ne revient pas si la base
+   a déjà un schéma. Le bouton le dit (point doré), quitter la page le fait
+   signaler. Une modification faite pendant l'envoi reste à enregistrer. */
+const hasTarget = () => CAN_EDIT && !!(PROC || EXO || DRAFT);
+function syncSaveState(savedAt = null) {
+  const b = document.getElementById('saveBtn');
+  if (!b || !hasTarget()) return;
+  const dirty = edits !== savedEdits;
+  b.classList.toggle('is-unsaved', dirty);
+  if (dirty || savedAt) {
+    b.title = dirty ? 'Modifications pas encore enregistrées : Enregistrer'
+      : `Enregistré à ${savedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    b.querySelector('.tb-lbl').textContent = dirty ? 'Enregistrer' : 'Enregistré';
+  }
+}
+window.addEventListener('beforeunload', (e) => {
+  persistLocal();   // la dernière seconde aussi
+  if (hasTarget() && edits !== savedEdits) e.preventDefault();
+});
+
 /* ============================================================
    EXPORT / SAUVEGARDE BDD
    ============================================================ */
-/* Rend le schéma sans sélection, puis recadre sur la zone « Screen » si définie.
-   Le recadrage travaille sur les pixels réels du canvas (DPR pris en compte). */
-function exportClean() {
+/* Rend le schéma sans sélection sur un canvas à part, recadré sur la zone
+   « Screen » si définie, au plus `max` px de côté. Le recadrage travaille sur
+   les pixels réels du canvas (DPR pris en compte). */
+function cleanCanvas(max = Infinity) {
   const keep = state.selIds, keepTool = state.tool;
   state.selIds = []; state.tool = 'view'; render();
 
-  let url;
-  if (state.screen) {
-    const dpr = window.devicePixelRatio || 1;
-    const s = state.screen;
-    // Conversion coordonnées paysage → pixels canvas (gère l'orientation portrait).
-    let cx, cy, cw, ch;
-    if (isPortrait()) { cx = s.y; cy = portraitSpan() - (s.x + s.w); cw = s.h; ch = s.w; }
-    else { cx = s.x; cy = s.y; cw = s.w; ch = s.h; }
-    const out = document.createElement('canvas');
-    out.width = Math.max(1, Math.round(cw * dpr));
-    out.height = Math.max(1, Math.round(ch * dpr));
-    out.getContext('2d').drawImage(canvas,
-      Math.round(cx * dpr), Math.round(cy * dpr), Math.round(cw * dpr), Math.round(ch * dpr),
-      0, 0, out.width, out.height);
-    url = out.toDataURL('image/png');
-  } else {
-    url = canvas.toDataURL('image/png');
-  }
+  const dpr = window.devicePixelRatio || 1;
+  const s = state.screen;
+  // Conversion coordonnées paysage → pixels canvas (gère l'orientation portrait).
+  let cx = 0, cy = 0, cw = curW(), ch = curH();
+  if (s && isPortrait()) { cx = s.y; cy = portraitSpan() - (s.x + s.w); cw = s.h; ch = s.w; }
+  else if (s) { cx = s.x; cy = s.y; cw = s.w; ch = s.h; }
+  const k = Math.min(dpr, max / Math.max(cw, ch));   // px de sortie par unité du terrain
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(cw * k));
+  out.height = Math.max(1, Math.round(ch * k));
+  out.getContext('2d').drawImage(canvas,
+    Math.round(cx * dpr), Math.round(cy * dpr), Math.round(cw * dpr), Math.round(ch * dpr),
+    0, 0, out.width, out.height);
 
   state.selIds = keep; state.tool = keepTool; render();
-  return url;
+  return out;
 }
+/* Téléchargement et fiche PDF : PNG net, à la résolution de l'écran. */
+const exportClean = () => cleanCanvas().toDataURL('image/png');
+/* Image gardée en base (procédé, brouillon, exercice, modèle) : JPEG d'au plus
+   1 600 px, encodé hors du fil principal. Le terrain est opaque, et les images
+   importées sont déjà en JPEG (PDF et partage les lisent). Mesure Retina : le
+   PNG plein écran pesait 2,5 Mo, envoyé à chaque enregistrement. */
+const schemaJpeg = () => new Promise((resolve, reject) => cleanCanvas(1600).toBlob(
+  (b) => (b ? resolve(b) : reject(new Error('image du schéma impossible à produire'))), 'image/jpeg', 0.86));
 function exportPNG() {
   const a = document.createElement('a');
   const n = state.curStep !== null ? `-etape-${state.curStep + 1}` : '';
@@ -2441,19 +2485,20 @@ async function saveToDB(validate) {
   if (!PROC) return toast('Ce schéma n\'est lié à aucun procédé. Ouvrez-le depuis une séance.', 'error');
   const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
   if (btn) btn.disabled = true;
+  const at = edits;
   try {
-    // Image PNG → Storage (bucket "schemas"), JSON du schéma → colonne jsonb.
-    const dataUrl = exportClean();
-    const blob = await (await fetch(dataUrl)).blob();
-    const path = `${CLUB_ID}/procedure-${PROC}.png`;
-    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { upsert: true, contentType: 'image/png' });
+    // Image JPEG → Storage (bucket "schemas"), JSON du schéma → colonne jsonb.
+    const blob = await schemaJpeg();
+    const path = `${CLUB_ID}/procedure-${PROC}.jpg`;
+    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
     if (upErr) throw upErr;
 
     const { error } = await sb.from('tactical_schemas').upsert({
       procedure_id: PROC, canvas_json: serialize(), image_path: path, vue_terrain: state.view,
     }, { onConflict: 'procedure_id' });
     if (error) throw error;
-    // Image précédente sous un autre nom (brouillon rattaché, image importée) : retirée.
+    savedEdits = at; syncSaveState(new Date());
+    // Image précédente sous un autre nom (brouillon rattaché, image importée, ancien PNG) : retirée.
     const old = PROC_SCHEMA?.image_path;
     if (old && old !== path) {
       const { error: rmErr } = await sb.storage.from('schemas').remove([old]);
@@ -2481,13 +2526,15 @@ async function saveToDB(validate) {
 async function saveDraftSchema(validate) {
   const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
   if (btn) btn.disabled = true;
+  const at = edits;
   try {
     persistLocal();
-    const blob = await (await fetch(exportClean())).blob();
-    const path = `${CLUB_ID}/drafts/${DRAFT}.png`;
-    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { upsert: true, contentType: 'image/png' });
+    const blob = await schemaJpeg();
+    const path = `${CLUB_ID}/drafts/${DRAFT}.jpg`;
+    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
     if (upErr) throw upErr;
     localStorage.setItem('tb_draftmeta_' + DRAFT, JSON.stringify({ image_path: path, at: Date.now() }));
+    savedEdits = at; syncSaveState(new Date());
     if (validate) {
       toast('Schéma prêt : il sera enregistré avec la séance.', 'success');
       setTimeout(() => window.close(), 1300);
@@ -2496,22 +2543,30 @@ async function saveDraftSchema(validate) {
   finally { if (btn) btn.disabled = false; }
 }
 
-/* Schéma d'exercice : image PNG dans le dossier du joueur, JSON sur l'exercice. */
+/* Schéma d'exercice : image JPEG dans le dossier du joueur, JSON sur l'exercice. */
 async function saveExerciseSchema(validate) {
   if (!EXO_ROW) return toast('Exercice introuvable.', 'error');
   const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
   if (btn) btn.disabled = true;
+  const at = edits;
   try {
-    const blob = await (await fetch(exportClean())).blob();
-    const path = `${EXO_ROW.club_id}/${EXO_ROW.player_id}/program/schema-${EXO}.png`;
+    const blob = await schemaJpeg();
+    const path = `${EXO_ROW.club_id}/${EXO_ROW.player_id}/program/schema-${EXO}.jpg`;
     const { error: upErr } = await sb.storage.from('player-performance-media')
-      .upload(path, blob, { upsert: true, contentType: 'image/png' });
+      .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
     if (upErr) throw upErr;
     // .select() : une mise à jour refusée par la RLS ne renvoie pas d'erreur, juste 0 ligne.
     const { data: saved, error } = await sb.from('program_exercises')
       .update({ schema_json: serialize(), schema_path: path }).eq('id', EXO).select('id');
     if (error) throw error;
     if (!saved?.length) throw new Error('Schéma non enregistré : cet exercice n’est pas modifiable avec ce compte.');
+    savedEdits = at; syncSaveState(new Date());
+    // Ancienne image sous un autre nom (PNG d'avant) : retirée.
+    if (EXO_ROW.schema_path && EXO_ROW.schema_path !== path) {
+      const { error: rmErr } = await sb.storage.from('player-performance-media').remove([EXO_ROW.schema_path]);
+      if (rmErr) console.warn('Ancienne image de l’exercice restée dans le stockage', rmErr);
+    }
+    EXO_ROW.schema_path = path;
     persistLocal();
     // La fiche ouverte dans l'autre onglet affiche le schéma sans se recharger (saisie gardée).
     try { localStorage.setItem('tb_exo_saved', JSON.stringify({ id: EXO, at: Date.now() })); }
@@ -2565,9 +2620,12 @@ async function boot() {
   let loaded = false;
   if (PROC) {
     try {
-      const { data: schema } = await sb.from('tactical_schemas').select('*').eq('procedure_id', PROC).maybeSingle();
+      // Schéma et procédé en même temps (avant : l'un après l'autre).
+      const [{ data: schema }, { data: proc }] = await Promise.all([
+        sb.from('tactical_schemas').select('*').eq('procedure_id', PROC).maybeSingle(),
+        sb.from('procedures').select('*').eq('id', PROC).maybeSingle(),
+      ]);
       PROC_SCHEMA = schema || null;
-      const { data: proc } = await sb.from('procedures').select('*').eq('id', PROC).maybeSingle();
       PROC_ROW = proc || null;
       $('#tbContext').textContent = `Procédé « ${proc?.nom || '#' + PROC} »`;
       if (schema && schema.canvas_json) { deserialize(schema.canvas_json); loaded = true; }
@@ -2575,7 +2633,7 @@ async function boot() {
   }
   if (EXO) {
     const { data: row, error } = await sb.from('program_exercises')
-      .select('id, title, instructions, dosage, club_id, player_id, schema_json, video_id').eq('id', EXO).maybeSingle();
+      .select('id, title, instructions, dosage, club_id, player_id, schema_json, schema_path, video_id').eq('id', EXO).maybeSingle();
     if (error || !row) toast('Exercice introuvable : le schéma ne pourra pas être enregistré.', 'error');
     else {
       EXO_ROW = row;
@@ -2599,5 +2657,11 @@ async function boot() {
   setRailTeam(state.railTeam); setSpeed(state.speed); syncHistoryButtons();
   renderSteps(); syncCrop(); syncSelBar();
   resizeCanvas();   // ajuste l'orientation si le schéma chargé était en mode Horizontal
+  // Point de départ : ce qui vient de la base est enregistré ; une copie du navigateur
+  // jamais envoyée (rien en base, brouillon sans « Enregistrer ») ne l'est pas.
+  const fromLocal = loaded && !(PROC_SCHEMA?.canvas_json || EXO_ROW?.schema_json)
+    && !(DRAFT && localStorage.getItem('tb_draftmeta_' + DRAFT));
+  savedEdits = fromLocal ? -1 : edits;
+  syncSaveState();
 }
 const BOOTED = boot();

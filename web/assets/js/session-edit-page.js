@@ -93,6 +93,9 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
     sessionTeamId = currentTeamId();
     await loadPlayersForNew();
     addProcedure({ nom: 'Échauffement', duree_min: 15 });
+    // Depuis la Bibliothèque de schémas (schemas.html) : le schéma choisi devient un procédé.
+    const tpl = Number(new URLSearchParams(location.search).get('template'));
+    if (tpl && CAN_WRITE) await insertTemplate(tpl);
   }
   mountTeamSelect();
   document.getElementById('f-filmee').checked = sessionFilmee;
@@ -495,22 +498,29 @@ window.addEventListener('storage', (e) => {
    copiée à sa place définitive). Le procédé garde sa clé : si le tableau est
    encore ouvert et enregistre de nouveau, le schéma suit. */
 async function commitDraftSchemas() {
-  for (const p of procedures.filter(x => x.from_template && x.id)) await attachTemplateSchema(p);
-  for (const p of procedures.filter(x => x.draft_key && x.id)) {
-    const json = lsJson('tb_draft_' + p.draft_key);
-    const meta = lsJson('tb_draftmeta_' + p.draft_key);
-    if (!json || !meta) continue;
-    const image_path = meta.image_path ? await copySchemaImage(meta.image_path, p) : p.image_path;
-    await setSchema(p, { canvas_json: json, image_path, vue_terrain: json.view || 'complet' });
-    if (meta.image_path) {
-      const { error: delErr } = await sb.storage.from('schemas').remove([meta.image_path]);
-      if (delErr) console.warn('Image de brouillon restée dans le stockage', delErr);
-    }
-    localStorage.removeItem('tb_draft_' + p.draft_key);
-    localStorage.removeItem('tb_draftmeta_' + p.draft_key);
-    p.has_canvas = true;
-    refreshSchemaBox(p);
+  // Un procédé après l'autre, c'était une file d'allers-retours : tous en même temps,
+  // et un échec n'empêche pas les autres (il repart au prochain essai).
+  const results = await Promise.allSettled(procedures.filter(p => p.id && (p.from_template || p.draft_key)).map(async (p) => {
+    if (p.from_template) await attachTemplateSchema(p);
+    if (p.draft_key) await commitDraft(p);
+  }));
+  const failed = results.find(r => r.status === 'rejected');
+  if (failed) throw failed.reason;
+}
+async function commitDraft(p) {
+  const json = lsJson('tb_draft_' + p.draft_key);
+  const meta = lsJson('tb_draftmeta_' + p.draft_key);
+  if (!json || !meta) return;
+  const image_path = meta.image_path ? await copySchemaImage(meta.image_path, p) : p.image_path;
+  await setSchema(p, { canvas_json: json, image_path, vue_terrain: json.view || 'complet' });
+  if (meta.image_path) {
+    const { error: delErr } = await sb.storage.from('schemas').remove([meta.image_path]);
+    if (delErr) console.warn('Image de brouillon restée dans le stockage', delErr);
   }
+  localStorage.removeItem('tb_draft_' + p.draft_key);
+  localStorage.removeItem('tb_draftmeta_' + p.draft_key);
+  p.has_canvas = true;
+  refreshSchemaBox(p);
 }
 
 /* Procédé inséré depuis la bibliothèque, désormais enregistré : il reçoit
@@ -527,7 +537,7 @@ async function attachTemplateSchema(p) {
    l'image en place reste intacte tant que la copie n'a pas réussi. Échec :
    l'enregistrement est signalé et réessayé, rien n'est effacé. */
 async function copySchemaImage(src, p) {
-  const dest = `${myProfile.club_id}/procedure-${p.id}-${Date.now()}.png`;
+  const dest = `${myProfile.club_id}/procedure-${p.id}-${Date.now()}.${src.split('.').pop()}`;   // .jpg ou .png, comme la source
   const { error } = await sb.storage.from('schemas').copy(src, dest);
   if (error) throw new Error(`image du schéma de « ${p.nom || 'procédé'} » non copiée (${error.message})`);
   return dest;

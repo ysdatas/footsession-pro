@@ -34,6 +34,7 @@
         <p class="subtitle" id="matchSub">Chargement…</p>
       </div>
       <div class="page-actions">
+        <button class="btn hidden" id="btnSelectMatches" type="button" aria-pressed="false">Sélectionner</button>
         <button class="btn hidden" id="btnFff" type="button">Importer depuis la FFF</button>
         <button class="btn btn-primary hidden" id="btnNewMatch" type="button">+ Nouveau match</button>
       </div>
@@ -47,6 +48,7 @@
     </div>
 
     <section id="panelMatches" role="tabpanel" aria-labelledby="tabMatches">
+      <div id="matchBulk"></div>
       <div id="matchList"><div class="empty">Chargement…</div></div>
     </section>
 
@@ -94,6 +96,11 @@
       <p class="form-kicker">Bilan</p>
       <div class="field"><label for="m-comment">Commentaire général</label><textarea id="m-comment" rows="3"></textarea></div>
       <div class="field"><label for="m-retenir">À retenir</label><textarea id="m-retenir" rows="2" placeholder="Points à travailler, enseignements…"></textarea></div>
+      <!-- Avis des joueurs (lmfc_v36.sql), en lecture : matchs-page.js -->
+      <div class="hidden" id="mfStaff">
+        <h3 class="form-kicker mt-h">Avis des joueurs <span id="mfCount"></span></h3>
+        <div class="mf-list" id="mfList"></div>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-danger hidden" id="m-delete" type="button">Supprimer</button>
         <span class="mt-spacer"></span>

@@ -251,20 +251,28 @@ function pvCompile() {
   openCompileSheet({ player: PV.player, seqs, videoOf: pvVideoOf, urlOf: (s) => PV.urls.get(s.video_id), onSaved: pvLoad, profile: PV.profile });
 }
 async function pvDeleteVideos(ids) {
-  const list = PV.videos.filter(v => ids.includes(v.id));
-  if (!list.length) return;
-  if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} vidéos` : `« ${list[0].titre} »`} ?${list.length > 1 ? `\n\n${namesList(list.map(v => v.titre))}` : ''}\n\nLe joueur n’y aura plus accès, leurs séquences partent avec elles.${await trashNote()}`)) return;
+  if (!(await deleteVideos(PV.videos.filter(v => ids.includes(v.id))))) return;
+  PV.pick.ids = [];
+  await pvLoad();
+}
+/* Supprimer des vidéos, d'un joueur ou de plusieurs (Vidéos joueurs). La base
+   décide vidéo par vidéo (RLS) : le bilan compte celles qu'elle a vraiment
+   supprimées (avant, une vidéo refusée passait pour supprimée). Corbeille : les
+   fichiers restent jusqu'à la suppression définitive. Vrai si la base a répondu. */
+async function deleteVideos(list) {
+  if (!list.length) return false;
+  const who = new Set(list.map(v => v.player_id)).size;
+  if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} vidéos` : `« ${list[0].titre} »`}${who > 1 ? ` de ${who} joueurs` : ''} ?${list.length > 1 ? `\n\n${namesList(list.map(v => v.titre))}` : ''}\n\n${who > 1 ? 'Les joueurs n’y auront' : 'Le joueur n’y aura'} plus accès, leurs séquences partent avec elles.${await trashNote()}`)) return false;
   try {
-    const { error } = await sb.from('player_videos').delete().in('id', list.map(v => v.id));
+    const { data, error } = await sb.from('player_videos').delete().in('id', list.map(v => v.id)).select('id');
     if (error) throw error;
-    // Corbeille : les fichiers restent jusqu'à la suppression définitive.
+    const gone = list.filter(v => (data || []).some(r => r.id === v.id));
     if (!(await trashReady())) {
-      await Promise.all(list.map(v => removeVideoFile(v.storage_path).catch(err => console.warn('Suppression du fichier vidéo :', v.storage_path, err))));
+      await Promise.all(gone.map(v => removeVideoFile(v.storage_path).catch(err => console.warn('Suppression du fichier vidéo :', v.storage_path, err))));
     }
-    toast(`${list.length} vidéo${list.length > 1 ? 's supprimées' : ' supprimée'}.`, 'success');
-    PV.pick.ids = [];
-    await pvLoad();
-  } catch (err) { console.error('Suppression des vidéos impossible', err); toast(err.message, 'error'); }
+    bulkReport(gone.length, list.length, ['vidéo', 'vidéos', true], 'supprimé');
+    return true;
+  } catch (err) { console.error('Suppression des vidéos impossible', err); toast(err.message, 'error'); return false; }
 }
 async function pvDeleteSeqs() {
   const list = PV.seqs.filter(s => PV.pick.ids.includes(s.id));
@@ -283,16 +291,20 @@ async function pvDeleteSeqs() {
 async function pvDownload() {
   const list = PV.videos.filter(v => PV.pick.ids.includes(v.id));
   await pvSign(list);
+  await downloadVideos(list, (v) => PV.urls.get(v.id), PV.signError);
+}
+/* urlOf(vidéo) : son lien signé (absent : comptée introuvable). */
+async function downloadVideos(list, urlOf, signError = null) {
   let missing = 0;
   for (const v of list) {
-    const u = PV.urls.get(v.id);
+    const u = urlOf(v);
     if (!u) { missing++; continue; }
     const name = (v.titre || 'video').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-').slice(0, 60);
     const a = el('a', { href: u.startsWith('/api/videos/') ? `${u}&dl=1&n=${encodeURIComponent(name)}` : u, download: '' });
     document.body.append(a); a.click(); a.remove();
     await new Promise(r => setTimeout(r, 700));
   }
-  if (missing) toast(PV.signError ? `Lecture impossible : ${PV.signError.message}` : `${missing} vidéo${missing > 1 ? 's' : ''} introuvable${missing > 1 ? 's' : ''}.`, 'error');
+  if (missing) toast(signError ? `Lecture impossible : ${signError.message}` : `${missing} vidéo${missing > 1 ? 's' : ''} introuvable${missing > 1 ? 's' : ''}.`, 'error');
 }
 
 /* ---------- Fenêtres : poste de travail et envoi (posées une seule fois) ---------- */

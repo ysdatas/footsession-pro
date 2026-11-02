@@ -443,6 +443,9 @@ body.pa-body:has(.vw.is-annotating) { padding-bottom: env(safe-area-inset-bottom
 .vp-section-head h2 { margin: 0; }
 .vp-section-head input[type="search"] { flex: 1 1 220px; max-width: 320px; }
 .vp-players { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+/* Sélection de vidéos de plusieurs joueurs (videos-page.js) : un groupe par joueur. */
+.vp-vgroup { margin: 18px 0 8px; }
+.vp-vgroup h3 { margin: 0; }
 @media (max-width: 560px) { .vp-players { grid-template-columns: minmax(0, 1fr); } }
 .vp-player {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 12px; text-align: left;

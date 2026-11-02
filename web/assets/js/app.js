@@ -478,6 +478,59 @@ function namesList(names, max = 5) {
   const shown = names.slice(0, max).map(n => `• ${n}`).join('\n');
   return names.length > max ? `${shown}\n… et ${names.length - max} autre${names.length - max > 1 ? 's' : ''}` : shown;
 }
+/* Maj + clic en mode sélection : toute la plage entre le clic précédent et
+   celui-ci, dans l'ordre affiché (ids). Sans clic précédent à l'écran : lui seul. */
+function pickRange(ids, from, to) {
+  const a = ids.indexOf(from), b = ids.indexOf(to);
+  return a < 0 || b < 0 ? [to] : ids.slice(Math.min(a, b), Math.max(a, b) + 1);
+}
+/* Modification groupée (Matchs, Joueurs) : un champ par réglage, « Inchangé »
+   par défaut, avec la valeur commune entre parenthèses ou « valeurs multiples ».
+   fields : { key, label, options: [[valeur, libellé]…], parse } (liste fermée)
+   ou { key, label, list: [suggestions] } (texte libre). Récapitulatif avant
+   d'appliquer : nombre, nouvelles valeurs, noms, et ceux que les droits
+   excluent (blocked : leurs noms). Renvoie ce qui change ({ clé: valeur }), ou
+   null si l'on annule. La base décide ensuite, ligne par ligne (RLS). */
+function bulkEditDialog({ noun: [one, many], rows, names, fields, blocked = [] }) {
+  const KEEP = '__inchange__';   // valeur de « Inchangé » (jamais un id ni un mot des listes)
+  const shown = (f, v) => (f.options ? f.options.find(([o]) => String(o) === String(v ?? ''))?.[1] : v) || 'vide';
+  const keepLabel = (f) => { const vals = new Set(rows.map(r => r[f.key] ?? '')); return vals.size > 1 ? 'valeurs multiples' : shown(f, [...vals][0]); };
+  const what = `${rows.length} ${rows.length > 1 ? many : one}`;
+  document.getElementById('bulkEdit')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="bulkEdit">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bulkEditTitle">
+      <button type="button" class="modal-x" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <h2 class="as-h3" id="bulkEditTitle">Modifier ${escapeHtml(what)}</h2>
+      <p class="text-muted">Seuls les champs changés s’appliquent ; le reste de chaque fiche ne bouge pas.</p>
+      ${fields.map((f, i) => `<div class="field"><label for="bulkEdit-${i}">${escapeHtml(f.label)}</label>${f.options
+        ? `<select id="bulkEdit-${i}"><option value="${KEEP}">Inchangé (${escapeHtml(keepLabel(f))})</option>${f.options.map(([v, l]) => `<option value="${escapeHtml(String(v ?? ''))}">${escapeHtml(l)}</option>`).join('')}</select>`
+        : `<input id="bulkEdit-${i}" list="bulkEdit-${i}-list" placeholder="Inchangé (${escapeHtml(keepLabel(f))})" autocomplete="off"><datalist id="bulkEdit-${i}-list">${(f.list || []).map(v => `<option value="${escapeHtml(v)}">`).join('')}</datalist>`}</div>`).join('')}
+      <div class="modal-actions"><button type="button" class="btn" data-close="bulkEdit">Annuler</button><button type="button" class="btn btn-primary" id="bulkEditOk">Appliquer</button></div>
+    </div></div>`);
+  openModal('bulkEdit');
+  document.getElementById('bulkEdit-0')?.focus();
+  return new Promise((resolve) => {
+    document.getElementById('bulkEditOk').addEventListener('click', () => {
+      const patch = {}, lines = [];
+      fields.forEach((f, i) => {
+        const raw = document.getElementById(`bulkEdit-${i}`).value;
+        if (f.options ? raw === KEEP : !raw.trim()) return;
+        patch[f.key] = f.options ? (f.parse ? f.parse(raw) : raw) : raw.trim();
+        lines.push(`${f.label} → ${shown(f, f.options ? raw : raw.trim())}`);
+      });
+      if (!lines.length) return toast('Choisissez au moins une nouvelle valeur.', 'error');
+      if (!confirm(`Modifier ${what} ?\n\n${lines.join('\n')}\n\n${namesList(names)}`
+        + (blocked.length ? `\n\nNon modifiable${blocked.length > 1 ? 's' : ''} avec vos droits (laissé${blocked.length > 1 ? 's' : ''} tel${blocked.length > 1 ? 's' : ''} quel${blocked.length > 1 ? 's' : ''}) :\n${namesList(blocked, 3)}` : ''))) return;
+      closeModal('bulkEdit');
+      resolve(patch);
+    });
+  });
+}
+/* Bilan d'une écriture groupée : la base ne renvoie que les lignes qu'elle a acceptées. */
+function bulkReport(done, asked, [one, many, fem], verb) {
+  const refused = asked - done, e = fem ? 'e' : '';
+  toast(`${done} ${done > 1 ? many : one} ${verb}${e}${done > 1 ? 's' : ''}${refused ? ` · ${refused} refusé${e}${refused > 1 ? 's' : ''} (droits)` : ''}`, refused ? 'error' : 'success');
+}
 
 /* ---------- Changement de page quasi instantané ----------
    Chrome, Edge et Android préparent en arrière-plan la page d'un lien
