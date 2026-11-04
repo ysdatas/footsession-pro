@@ -4,7 +4,8 @@
      - Séance (une vraie séance : Séances, éditeur, RPE) ou Événement ;
      - Répéter chaque semaine ou toutes les 2 semaines, jours cochés,
        jusqu'à une date ou un nombre de fois (calRepeat), avec un aperçu ;
-       une date où l'équipe a déjà une séance est sautée (calendar_add) ;
+       autant de séances qu'on veut dans la journée : l'aperçu signale
+       seulement les dates où l'équipe en a déjà (lmfc_v37.sql) ;
      - participants : l'équipe par défaut ; décocher retire un joueur,
        ajouter prend un joueur d'une autre équipe sans changer son équipe
        (séance : présence « invité » / « non concerné » ; événement :
@@ -42,8 +43,8 @@ function ceSetKind(kind) {
   document.querySelectorAll('.ce-only-seance').forEach(x => x.classList.toggle('hidden', kind !== 'seance'));
   document.querySelectorAll('.ce-only-evenement').forEach(x => x.classList.toggle('hidden', kind !== 'evenement'));
   ceEl('ceKindHint').textContent = kind === 'seance'
-    ? 'Une vraie séance : elle apparaît dans Séances, se complète dans l’éditeur et ouvre le RPE des joueurs.'
-    : 'Réunion, stage, tournoi… visible des joueurs concernés, avec ses informations.';
+    ? 'Un entraînement : le RPE des joueurs s’ouvre le jour même, sans attendre le coach. Il se complète ensuite dans Séances.'
+    : 'Réunion, stage, tournoi… visible des joueurs concernés, sans RPE. Pour un entraînement, choisissez Séance.';
   ceTeams();
 }
 
@@ -104,7 +105,8 @@ function cePreview() {
     if (CE.kind === 'seance' && CE.team) {
       const { data } = await sb.from('sessions').select('date_seance').eq('team_id', CE.team).gte('date_seance', dates[0]).lte('date_seance', dates.at(-1));
       const taken = dates.filter(d => (data || []).some(s => s.date_seance === d));
-      if (taken.length) text += ` · ${taken.length} date${taken.length > 1 ? 's' : ''} déjà prise${taken.length > 1 ? 's' : ''} par une séance de l’équipe : ignorée${taken.length > 1 ? 's' : ''} (${taken.slice(0, 3).map(ceDay).join(', ')}${taken.length > 3 ? '…' : ''})`;
+      if (taken.length) text += dates.length === 1 ? ' · l’équipe a déjà une séance ce jour-là, celle-ci s’y ajoute'
+        : ` · ${taken.length} date${taken.length > 1 ? 's' : ''} où l’équipe a déjà une séance, celle-ci s’y ajoute (${taken.slice(0, 3).map(ceDay).join(', ')}${taken.length > 3 ? '…' : ''})`;
     }
     out.textContent = text;
   }, 200);
@@ -179,8 +181,8 @@ async function ceSave() {
       const rows = dates.map(date => ({ ...f, date, serie_id: CE.serie }));
       const { data, error } = await sb.rpc('calendar_add', { p_kind: CE.kind, p_rows: rows, p_players: cePlayersArg() });
       if (error) throw error;
-      const made = data.created.length, skip = data.skipped.length;
-      toast(`${cePlural(made, CE.kind)} ajouté${CE.kind === 'seance' ? 'e' : ''}${made > 1 ? 's' : ''}${skip ? ` · ${skip} date${skip > 1 ? 's' : ''} ignorée${skip > 1 ? 's' : ''} (déjà une séance)` : ''}`, made ? 'success' : '');
+      const made = data.created.length;
+      toast(`${cePlural(made, CE.kind)} ajouté${CE.kind === 'seance' ? 'e' : ''}${made > 1 ? 's' : ''}`, made ? 'success' : '');
       CAL.day = data.created[0]?.date || f.date;
     } else {
       const scope = ceRadio('ce-scope') || 'one', it = CE.item, seance = it.kind === 'seance';

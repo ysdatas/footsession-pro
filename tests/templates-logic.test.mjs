@@ -1,6 +1,7 @@
 /* Recherche des schémas enregistrés (web/assets/js/session-templates.js) :
    nom sans casse ni accents, type, tags « tous » ou « au moins un »,
-   critères combinés. Lancement : node tests/templates-logic.test.mjs */
+   critères combinés ; « Mes schémas » / « Club » (lmfc_v37.sql).
+   Lancement : node tests/templates-logic.test.mjs */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -28,5 +29,11 @@ assert.deepEqual(ids({ tags: [10, 30], mode: 'any' }), [1, 2], 'au moins un');
 assert.deepEqual(ids({ tags: [10, 30] }), [], 'tous : aucun ne les a les deux');
 assert.deepEqual(ids({ q: 'conservation', cat: 'Jeu', tags: [20] }), [2], 'critères combinés');
 assert.deepEqual(ids({ q: 'rondo', cat: 'Exercice' }), [], 'combinés : nom juste, type faux');
+// Mes schémas / Club : les siens d'un côté, ceux des autres et les anciens sans créateur de l'autre.
+rows[0].created_by = 'moi'; rows[1].created_by = 'autre'; rows[2].created_by = null; rows[3].created_by = 'moi';
+assert.deepEqual(ids({ scope: 'mine', me: 'moi' }), [1, 4], 'mes schémas');
+assert.deepEqual(ids({ scope: 'club', me: 'moi' }), [2, 3], 'club : les autres, créateur inconnu compris');
+assert.deepEqual(ids({ scope: 'club', me: 'moi', cat: 'Jeu' }), [2], 'combiné aux autres critères');
+assert.deepEqual(ids({ me: 'moi' }), [1, 2, 3, 4], 'sans lmfc_v37.sql (pas de scope) : tout, comme avant');
 for (const k of ['insertTemplate', 'deleteTemplate', 'saveAsTemplate']) assert.equal(typeof ctx.EDIT_DO[k], 'function', `action ${k}`);
-console.log('templates-logic : OK (11 recherches)');
+console.log('templates-logic : OK (15 recherches)');

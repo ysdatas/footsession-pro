@@ -94,7 +94,7 @@ async function runSrPdf() {
       k.table({
         cols: [{ label: 'Date', w: 1.1 }, { label: 'Séance', w: 2.1, strong: true }, { label: 'Durée', w: 0.9, align: 'right' }, { label: 'RPE att.', w: 0.9, align: 'right' },
           { label: 'RPE moy.', w: 0.9, align: 'right' }, { label: 'Écart', w: 0.9, align: 'right' }, { label: 'Charge UA', w: 1, align: 'right' }, { label: 'Réponses', w: 1.8, align: 'right' }],
-        rows: sessions.map((s, j) => { const x = st.perSession[j]; return [rpeDate(s.date_seance), s.titre, x.duree ? `${fmtMin(x.duree)} min` : '—', x.expected ?? '—',
+        rows: sessions.map((s, j) => { const x = st.perSession[j]; return [rpeDate(s.date_seance), [srHour(s), s.titre].filter(Boolean).join(' · '), x.duree ? `${fmtMin(x.duree)} min` : '—', x.expected ?? '—',
           srPdfFr(x.avg), { text: srPdfGap(x.gap), bold: x.gap !== null && Math.abs(x.gap) >= 1 }, srPdfFr(x.load, 0),
           `${x.n}/${x.due}${x.missing ? ` · ${x.missing} manq.` : ''}${x.pending ? ` · ${x.pending} att.` : ''}`]; }).reverse(),
       });
@@ -155,7 +155,7 @@ function srPdfMissing(k, sessions) {
   if (!rows.length) { k.text('Aucune réponse manquante sur ces séances.', { color: PDF_MUTE, style: 'italic' }); return; }
   k.table({
     cols: [{ label: 'Séance', w: 1.6, strong: true }, { label: 'Manquantes', w: 3 }, { label: 'En attente', w: 2 }],
-    rows: rows.map(r => [`${rpeDate(r.s.date_seance)} · ${r.s.titre}`, r.miss.join(', ') || '—', r.wait.join(', ') || '—']),
+    rows: rows.map(r => [[rpeDate(r.s.date_seance), srHour(r.s), r.s.titre].filter(Boolean).join(' · '), r.miss.join(', ') || '—', r.wait.join(', ') || '—']),
     size: 8,
   });
 }

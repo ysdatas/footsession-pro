@@ -7,13 +7,16 @@
    Rien n'est enregistré avant « Enregistrer » ; les valeurs lues sont
    gardées dans ext_data (lmfc_v33.sql) : une correction à la main
    s'affiche « modifié ». Une valeur absente de la feuille ne remplace
-   rien de ce que le staff a déjà saisi.
+   rien de ce que le staff a déjà saisi. Un joueur sans fiche (un pro qui
+   descend) peut être gardé « hors plateforme » : sur ce match seulement,
+   sans fiche ni statistiques (matches.hors_plateforme, lmfc_v37.sql).
    Dépend de match-sheet.js, fff-import.js, matchs-page.js (editing,
    clubPlayers, myProfile, addRow, renderRows, val).
    ============================================================ */
 
 const SHEET = { parsed: null, rows: [] };
-const SHEET_ST = { ok: ['Reconnu', 'is-new'], confirm: ['À confirmer', 'is-warn'], choose: ['À choisir', 'is-warn'], none: ['Non reconnu', ''] };
+const SHEET_ST = { ok: ['Reconnu', 'is-new'], confirm: ['À confirmer', 'is-warn'], choose: ['À choisir', 'is-warn'], none: ['Non reconnu', ''],
+  extra: ['Hors plateforme', 'is-warn'] };
 const sheetDur = () => Number(document.getElementById('sheetDuree').value) || null;
 
 function openSheet() {
@@ -51,12 +54,12 @@ function sheetRender() {
   const options = (r) => {
     const first = r.candidates || [], opt = (p) => `<option value="${p.id}"${r.player?.id === p.id ? ' selected' : ''}>${escapeHtml(playerName(p))}</option>`;
     const group = (label, list) => (list.length ? `<optgroup label="${label}">${list.map(opt).join('')}</optgroup>` : '');
-    return `<option value="">— Ignorer —</option>${first.map(opt).join('')}${group('Équipe du match', team.filter(p => !first.includes(p)))}${group('Autres joueurs du club', others.filter(p => !first.includes(p)))}`;
+    return `<option value="">— Ignorer —</option><option value="hors"${r.extra ? ' selected' : ''}>+ Hors plateforme</option>${first.map(opt).join('')}${group('Équipe du match', team.filter(p => !first.includes(p)))}${group('Autres joueurs du club', others.filter(p => !first.includes(p)))}`;
   };
   const counts = Object.fromEntries(Object.keys(SHEET_ST).map(k => [k, rows.filter(r => r.status === k).length]));
   document.getElementById('sheetStatus').textContent = [`${rows.length} joueurs lus pour ${parsed.team}`,
     counts.ok && `${counts.ok} reconnus`, counts.confirm && `${counts.confirm} à confirmer`, counts.choose && `${counts.choose} à choisir`,
-    counts.none && `${counts.none} non reconnus`, !parsed.goalsKnown && 'buteurs non publiés sur la feuille (buts laissés vides)'].filter(Boolean).join(' · ');
+    counts.none && `${counts.none} non reconnus (« + Hors plateforme » : gardé sur ce match, sans fiche)`, !parsed.goalsKnown && 'buteurs non publiés sur la feuille (buts laissés vides)'].filter(Boolean).join(' · ');
   document.getElementById('sheetPreview').innerHTML = `
     ${h ? `<label class="sheet-head"><input type="checkbox" id="sheetScore"${val('m-pour') === '' ? ' checked' : ''}>
       Reporter dans la fiche : <strong>${escapeHtml(h.home)} ${h.score_home ?? '–'} – ${h.score_away ?? '–'} ${escapeHtml(h.away)}</strong>
@@ -66,14 +69,14 @@ function sheetRender() {
       <thead><tr><th scope="col"><span class="sr-only">Retenu</span></th><th scope="col">Feuille</th><th scope="col">Fiche du club</th>
         <th scope="col">Statut</th><th scope="col">Min</th><th scope="col">Buts</th><th scope="col">Cartons</th></tr></thead>
       <tbody>${rows.map((r, i) => `<tr class="${r.on ? '' : 'is-off'}">
-        <td><input type="checkbox" data-sheet-on="${i}" aria-label="Retenir ${escapeHtml(r.name)}"${r.on ? ' checked' : ''}${r.player ? '' : ' disabled'}></td>
+        <td><input type="checkbox" data-sheet-on="${i}" aria-label="Retenir ${escapeHtml(r.name)}"${r.on ? ' checked' : ''}${r.player || r.extra ? '' : ' disabled'}></td>
         <td><span class="sheet-num">${r.numero}</span> ${escapeHtml(r.name)} <span class="fff-st ${SHEET_ST[r.status][1]}">${SHEET_ST[r.status][0]}</span></td>
         <td><select data-sheet-player="${i}" aria-label="Fiche du club pour ${escapeHtml(r.name)}">${options(r)}</select></td>
         <td>${STATUT_MATCH_LABEL[r.statut]}${r.entre != null && r.statut === 'remplacant' ? ` (${r.entre}e)` : ''}</td>
         <td>${num(msMinutes(r, dur))}</td><td>${num(r.buts)}</td>
         <td>${r.cartons_jaunes ? `<span class="card-y" title="Carton jaune">${r.cartons_jaunes}</span>` : ''}${r.carton_rouge ? '<span class="card-r" title="Carton rouge">R</span>' : ''}${!r.cartons_jaunes && !r.carton_rouge ? '—' : ''}</td>
       </tr>`).join('')}</tbody></table></div>`;
-  document.getElementById('sheetApply').classList.toggle('hidden', !rows.some(r => r.on && r.player));
+  document.getElementById('sheetApply').classList.toggle('hidden', !rows.some(r => r.on && (r.player || r.extra)));
 }
 
 function sheetApply() {
@@ -85,6 +88,14 @@ function sheetApply() {
     const vals = { statut: r.statut, minutes: msMinutes(r, dur), buts: r.buts, cartons_jaunes: r.cartons_jaunes, carton_rouge: r.carton_rouge };
     Object.entries(vals).forEach(([k, v]) => { if (v !== null && v !== undefined) row[k] = v; });   // absent de la feuille : on garde la saisie
     row.ext_data = { source: 'fff-feuille', ...vals };
+    n++;
+  }
+  // Hors plateforme : gardés sur ce match (même nom : remplacé), sans fiche.
+  for (const r of SHEET.rows.filter(x => x.on && x.extra)) {
+    const x = { nom: r.name, numero: r.numero ?? null, statut: r.statut || null, minutes: msMinutes(r, dur),
+      buts: r.buts ?? null, cartons_jaunes: r.cartons_jaunes ?? null, carton_rouge: r.carton_rouge ?? null };
+    const i = editing.extras.findIndex(e => e.nom.toLowerCase() === x.nom.toLowerCase());
+    if (i >= 0) editing.extras[i] = x; else editing.extras.push(x);
     n++;
   }
   const h = SHEET.parsed.head, side = SHEET.parsed.side;
@@ -109,9 +120,12 @@ function sheetApply() {
     if (on != null) SHEET.rows[Number(on)].on = e.target.checked;
     if (pick != null) {
       const r = SHEET.rows[Number(pick)];
-      r.player = clubPlayers.find(p => p.id === Number(e.target.value)) || null;
-      r.on = !!r.player;
+      r.extra = e.target.value === 'hors';
+      r.player = r.extra ? null : clubPlayers.find(p => p.id === Number(e.target.value)) || null;
+      r.on = !!(r.player || r.extra);
       if (r.player) r.status = 'ok';   // choisi par le staff
+      else if (r.extra) r.status = 'extra';
+      else if (r.status === 'extra') r.status = 'none';   // repassé sur « Ignorer »
     }
     sheetRender();
   });

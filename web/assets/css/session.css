@@ -120,11 +120,16 @@
 .att-item.is-tap { cursor: pointer; }
 .att-item.is-tap:hover { border-color: var(--st); }
 .att-name:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
-.att-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.att-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }   /* trop étroit : le statut passe dessous */
 .att-meta { font-size: var(--fs-xs); color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; min-width: 0; }
 .guest-badge { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600;
   color: var(--gold); border: 1px solid var(--gold-border); background: rgba(var(--gold-rgb), .08); }
+/* Séances prévues au calendrier, proposées à l'ouverture d'une nouvelle séance. */
+.planned-list { display: grid; gap: 6px; }
+.planned-list .btn { justify-content: flex-start; text-align: left; }
 .att-item.is-guest { background: rgba(var(--gold-rgb), .04); }
+/* Invité : le badge (équipe comprise) a sa ligne sous le nom, sans déborder sur le statut. */
+.att-main > .guest-badge { justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .att-item select.st-select { width: auto; min-height: 28px; flex-shrink: 0; padding: 2px 26px 2px 10px; background-position: right 8px center; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600;
   border: 1px solid var(--st, var(--border)); color: var(--st-text, var(--text-primary)); background-color: var(--st-bg, var(--bg-card)); }
 .att-remove { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: transparent;

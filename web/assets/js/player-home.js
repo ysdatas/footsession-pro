@@ -110,25 +110,26 @@ function openMfFromCard(e) {
 let phRpe = [], phRpeOn = false;
 const phDay = (iso) => { const d = Math.round((new Date(new Date().toDateString()) - new Date(`${iso}T00:00`)) / 864e5);
   return d === 0 ? 'aujourd’hui' : d === 1 ? 'hier' : `il y a ${d} jours`; };
+const phRpeTodo = () => phRpe.filter(s => s.rpe == null && rpeOpen(s.date_seance, s.heure));
 function rpeCardHtml() {
-  const todo = phRpe.filter(s => s.rpe == null), s = todo[0] || phRpe[0];
+  const todo = phRpeTodo(), s = todo[0] || phRpe.find(x => x.rpe != null);
   // Toujours là : le joueur sait où noter même quand aucune séance n'attend.
   if (!s) return phCard({ href: 'calendrier.html', icon: 'activity', tone: 'calm', value: '—', label: 'Ton effort (RPE)',
     detail: `Rien à noter. Après chaque séance, ton effort se note ici (jusqu’à ${RPE_DAYS} jours après).` });
-  return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" href="calendrier.html" data-rpe="${s.session_id}">
+  return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" id="phRpe" href="calendrier.html"${todo.length ? ` data-rpe="${s.session_id}"` : ''}>
     <span class="home-attn-head"><strong>${todo.length ? 'Note ton effort' : 'Ton effort'}</strong>${phIc('activity')}</span>
     <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
-    <small>${escapeHtml(s.titre)} · ${phDay(s.date_seance)}${todo.length > 1 ? ` · ${todo.length} séances à noter` : ''}</small>
+    <small>${escapeHtml(s.titre)} · ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` · ${todo.length} séances à noter` : ''}</small>
   </a>`;
 }
 function openRpeFromCard(e) {
   const a = e.target.closest('[data-rpe]');
-  const s = a && phRpe.find(x => x.session_id === Number(a.dataset.rpe));
-  if (!s) return;
+  if (!a) return;
   e.preventDefault();
-  openRpeSheet({ session: { id: s.session_id, titre: s.titre, date: s.date_seance }, value: s.rpe, onSaved: (v) => {
-    s.rpe = v;
-    a.outerHTML = rpeCardHtml();
+  const pending = phRpeTodo().map(x => ({ id: x.session_id, titre: x.titre, date: x.date_seance, heure: x.heure }));
+  openRpeSheet({ session: pending.find(x => x.id === Number(a.dataset.rpe)), pending, onSaved: (v, session) => {
+    phRpe.find(x => x.session_id === session.id).rpe = v;
+    document.getElementById('phRpe').outerHTML = rpeCardHtml();
   } });
 }
 

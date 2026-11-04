@@ -42,7 +42,7 @@ function renderSrDash(body, sessions, players, cells) {
           <th scope="col">RPE attendue</th><th scope="col">RPE moyen</th><th scope="col">Écart RPE</th>
           <th scope="col">Charge ressentie</th><th scope="col">Variation</th><th scope="col">Réponses</th></tr></thead>
         <tbody>${rows.map(r => `<tr>
-          <th scope="row"><a href="session-edit.html?id=${r.s.id}"><span class="sr-date">${srShort(r.s.date_seance)}</span> ${escapeHtml(r.s.titre)}</a></th>
+          <th scope="row"><a href="session-edit.html?id=${r.s.id}"><span class="sr-date">${srWhen(r.s)}</span> ${escapeHtml(r.s.titre)}</a></th>
           <td>${r.duree ? `${fmtMin(r.duree)} min` : '—'}</td><td>${r.travail ? `${fmtMin(r.travail)} min` : '—'}</td>
           <td>${r.expected ?? '—'}</td><td>${srChip(r.avg)}</td><td>${srGap(r.gap)}</td><td>${r.load === null ? '—' : `${srInt(r.load)} UA`}</td>
           <td class="${r.delta > 0 ? 'sr-up' : r.delta < 0 ? 'sr-down' : ''}">${srPct(r.delta) || '—'}</td>
@@ -52,7 +52,7 @@ function renderSrDash(body, sessions, players, cells) {
       La durée est celle saisie dans la séance : une participation partielle n’est pas connue. Le <strong>travail prévu</strong> est le temps de travail des procédés.
       Variation : charge ressentie comparée à la séance précédente.
       <strong>Écart RPE</strong> = RPE moyen déclaré − RPE attendue (saisie dans la séance) : +2 = séance ressentie 2 points plus dure que prévu ; il ne dépend pas de la durée.
-      Une réponse manquante n’est jamais remplacée : elle sort des moyennes ; « en attente » = le joueur peut encore répondre (jusqu’à J+2).
+      Une réponse manquante n’est jamais remplacée : elle sort des moyennes ; « en attente » = le joueur peut encore répondre (jusqu’à J+${RPE_DAYS}).
       La charge mesurée par GPS n’est jamais additionnée à ces chiffres.</p>`;
   if (!window.Chart) return;   // CDN indisponible : tuiles et tableau suffisent
   make('srRpeChart', { type: 'bar',
@@ -63,7 +63,7 @@ function renderSrDash(body, sessions, players, cells) {
         pointRadius: 15, pointHoverRadius: 15, pointBorderWidth: 3, pointHoverBorderWidth: 3, pointBorderColor: '#F5F5F5', borderColor: '#F5F5F5', order: -1, noValueLabel: true }] : [])] },
     options: { ...noLegend, layout: { padding: { top: 18 } },
       plugins: { ...noLegend.plugins, valueLabels: { display: true, format: (v) => rpeFr(v) },
-        tooltip: { callbacks: { title: (it) => { const s = sessions[it[0].dataIndex]; return `${srShort(s.date_seance)} · ${s.titre}`; },
+        tooltip: { callbacks: { title: (it) => { const s = sessions[it[0].dataIndex]; return `${srWhen(s)} · ${s.titre}`; },
           label: (it) => { const x = st.perSession[it.dataIndex];
             return [`RPE moyen ${x.avg === null ? '—' : rpeFr(x.avg)} · ${x.n}/${x.due} réponses`, ...(x.expected ? [`RPE attendue ${x.expected} · écart ${x.gap === null ? '—' : rpeGapFr(x.gap)}`] : [])]; } },
           filter: (it) => it.datasetIndex === 0 } },

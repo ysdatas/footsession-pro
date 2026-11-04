@@ -7,6 +7,7 @@
        cases vides sont complétées (minutes, buts, cartons, note…) ;
      - score, compétition, heure, stade, lieu, notes : complétés s'ils
        sont vides ici ; l'équipe et l'import FFF de celui-ci restent ;
+     - ses joueurs hors plateforme s'ajoutent (même nom : une fois) ;
      - puis l'autre match est supprimé (corbeille, comme « Supprimer »).
    Rien n'est supprimé tant que les lignes n'ont pas été déplacées : un
    refus de la base (droits sur l'autre équipe) arrête tout avant.
@@ -23,7 +24,10 @@ function matchMergePlan(keep, keepRows, drop, dropRows) {
   const fills = dropRows.filter(r => mine.has(r.player_id))
     .map(r => ({ id: mine.get(r.player_id).id, patch: fill(mine.get(r.player_id), r, Object.keys(r).filter(k => !MERGE_ROW_SKIP.has(k))) }))
     .filter(f => Object.keys(f.patch).length);
-  return { match: fill(keep, drop, MERGE_MATCH_KEYS), fills, moves: dropRows.filter(r => !mine.has(r.player_id)).map(r => r.id) };
+  const match = fill(keep, drop, MERGE_MATCH_KEYS);
+  const extra = (drop.hors_plateforme || []).filter(x => !(keep.hors_plateforme || []).some(y => y.nom.toLowerCase() === x.nom.toLowerCase()));
+  if (extra.length) match.hors_plateforme = [...(keep.hors_plateforme || []), ...extra];
+  return { match, fills, moves: dropRows.filter(r => !mine.has(r.player_id)).map(r => r.id) };
 }
 
 /* Bandeau de la fenêtre du match : l'autre match du doublon, et le bouton. */

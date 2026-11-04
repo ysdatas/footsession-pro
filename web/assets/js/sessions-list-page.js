@@ -11,6 +11,7 @@ let sortBy = 'date';
 let sortAsc = false;
 let grouped = true;              // dossiers par semaine actifs par défaut
 const openWeeks = new Set();     // semaines dépliées (clé = lundi ISO)
+let plannedLater = 0;            // séances vides à plus de 14 jours : au calendrier, pas ici
 
 /* Réglages d'affichage mémorisés localement : ils n'ont pas à voyager
    en base, ils ne concernent que le confort de lecture sur ce poste. */
@@ -83,7 +84,12 @@ async function loadList() {
     ]);
     if (error) throw error;
 
-    sessionsCache = (sessions || []).map(s => ({ ...s, equipe: teamName(s.team_id) || s.equipe }));
+    // Une saison se pose d'un coup au calendrier : vides et lointaines, ces séances y restent,
+    // elles n'encombrent pas le haut de cette liste.
+    const far = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+    const near = (sessions || []).filter(s => s.procedures?.length || s.date_seance <= far);
+    plannedLater = (sessions || []).length - near.length;
+    sessionsCache = near.map(s => ({ ...s, equipe: teamName(s.team_id) || s.equipe }));
     // Sans date de reprise renseignée, la semaine de la séance la plus
     // ancienne fait office de Semaine 1.
     saisonStart = club?.saison_start
@@ -117,7 +123,7 @@ function render() {
   const total = sessionsCache.length;
   document.getElementById('sessSub').textContent = q
     ? `${visible.length} résultat${visible.length > 1 ? 's' : ''} sur ${total} séance${total > 1 ? 's' : ''}`
-    : `${total} séance${total > 1 ? 's' : ''} au total`;
+    : `${total} séance${total > 1 ? 's' : ''} au total${plannedLater ? ` · ${plannedLater} prévue${plannedLater > 1 ? 's' : ''} plus loin, au calendrier` : ''}`;
 
   if (!total) { wrap.innerHTML = `<div class="empty">Aucune séance enregistrée.</div>`; return; }
   if (!visible.length) { wrap.innerHTML = `<div class="empty">Aucune séance ne correspond à « ${escapeHtml(q)} ».</div>`; return; }

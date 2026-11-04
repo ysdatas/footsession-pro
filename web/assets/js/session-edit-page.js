@@ -9,6 +9,7 @@
 
 const SESSION_ID = new URLSearchParams(location.search).get('id') ? Number(new URLSearchParams(location.search).get('id')) : null;
 const EDITOR_MODE = SESSION_ID ? 'edit' : 'create';
+const TEMPLATE_ID = Number(new URLSearchParams(location.search).get('template')) || null;   // Bibliothèque de schémas
 // Séance existante : l'en-tête final s'affiche dès l'ouverture (titre, sous-titre
 // d'une ligne, exports), pour que rien ne bouge quand la séance arrive (CLS).
 if (EDITOR_MODE === 'edit') {
@@ -93,9 +94,6 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
     sessionTeamId = currentTeamId();
     await loadPlayersForNew();
     addProcedure({ nom: 'Échauffement', duree_min: 15 });
-    // Depuis la Bibliothèque de schémas (schemas.html) : le schéma choisi devient un procédé.
-    const tpl = Number(new URLSearchParams(location.search).get('template'));
-    if (tpl && CAN_WRITE) await insertTemplate(tpl);
   }
   mountTeamSelect();
   document.getElementById('f-filmee').checked = sessionFilmee;
@@ -119,9 +117,40 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
     }));
   }
   startAutosave(loadedSession);
+  // Depuis la Bibliothèque de schémas (schemas.html) : le schéma choisi devient un procédé.
+  if (TEMPLATE_ID && CAN_WRITE) {
+    await insertTemplate(TEMPLATE_ID);
+    history.replaceState(null, '', SESSION_ID ? `session-edit.html?id=${SESSION_ID}` : 'session-edit.html');
+  }
+  offerPlanned();
   initSessionLibrary();   // vidéos de la bibliothèque (session-library.js)
   initSessionRpe();       // RPE des joueurs (session-rpe.js)
 })();
+
+/* Nouvelle séance : l'équipe a peut-être déjà la sienne au calendrier, encore vide (le RPE
+   s'y ouvre sans attendre le coach). On la propose avant tout, du passé récent aux deux
+   semaines à venir (un coach rédige aussi après coup) : une seconde séance le même
+   jour séparerait le RPE (sur l'une) du contenu (sur l'autre). */
+async function offerPlanned() {
+  if (EDITOR_MODE !== 'create' || savedSessionId || !CAN_WRITE || !sessionTeamId) return;
+  const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const { data, error } = await sb.from('sessions').select('id, titre, date_seance, heure, procedures(id)').eq('team_id', sessionTeamId)
+    .gte('date_seance', day(-7)).lte('date_seance', day(14)).order('date_seance').order('heure');
+  if (error) return console.warn('Séances prévues illisibles', error);
+  const list = (data || []).filter(s => !s.procedures.length);
+  if (!list.length) return;
+  const label = (s) => new Date(`${s.date_seance}T12:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+  document.getElementById('plannedList').innerHTML = list.map(s => `<button type="button" class="btn" data-planned="${s.id}">
+    ${escapeHtml(label(s))}${s.heure ? ` · ${s.heure.slice(0, 5)}` : ''} · ${escapeHtml(s.titre)}</button>`).join('');
+  openModal('plannedModal');
+}
+document.getElementById('plannedModal').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-planned]');
+  if (e.target.closest('#plannedNew')) closeModal('plannedModal');
+  if (!b) return;
+  dirty = false;   // rien à garder ici : on part sur la séance prévue
+  location.href = `session-edit.html?id=${b.dataset.planned}${TEMPLATE_ID ? `&template=${TEMPLATE_ID}` : ''}`;
+});
 
 /* Séance enregistrée : titre, exports et partage disponibles. */
 function showSavedSession() {
@@ -182,6 +211,7 @@ function mountTeamSelect() {
     before.forEach(b => { if (!attendance.some(a => a.player_id === b.player_id) && (b.invite || participe(b))) attendance.push(b); });
     renderAttendance();
     renderRosterDependents();
+    offerPlanned();
   });
 }
 

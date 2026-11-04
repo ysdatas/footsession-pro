@@ -5,7 +5,7 @@
    Entrée : les séances, de la plus ancienne à la plus récente, et la
    grille des cases telle que la dessine la page (une ligne par joueur,
    une colonne par séance) : { v, staff } réponse ; 'miss' attendue et
-   absente ; 'wait' attendue, délai de réponse (J+2) pas fini ; 'abs'
+   absente ; 'wait' attendue, délai de réponse (J+14) pas fini ; 'abs'
    absence enregistrée ; null pas concerné. Une réponse manquante n'est
    jamais remplacée : elle sort des moyennes.
    Charge ressentie (sRPE, méthode de Foster) = RPE × durée totale de la

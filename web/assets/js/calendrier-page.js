@@ -66,7 +66,7 @@ async function fetchItems(from, to) {
     // Les séances à noter (RPE) marquées dans le calendrier : le joueur les voit sans chercher.
     const [{ data, error }, todo] = await Promise.all([sb.rpc('my_calendar', { p_from: from, p_to: to }), sb.rpc('my_rpe_sessions')]);
     if (error) throw error;
-    const toRate = new Set((todo.data || []).filter(r => r.rpe == null && !r.corrige).map(r => r.session_id));
+    const toRate = new Set((todo.data || []).filter(r => r.rpe == null && rpeOpen(r.date_seance, r.heure)).map(r => r.session_id));
     return (data || []).map(r => ({ kind: r.kind, id: r.id, date: r.date_cal, heure: hhmm(r.heure), titre: r.titre,
       team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, rpeTodo: r.kind === 'seance' && toRate.has(r.id) }));
   }
@@ -207,19 +207,17 @@ async function calAvis(i) {
     match: { id: i.id, titre: i.titre, date: i.date }, value: data, onSaved: () => calAvis(i) }));
 }
 
-/* Joueur : son RPE de la séance, et la saisie tant qu'elle est ouverte (jusqu'à J+2). */
+/* Joueur : son RPE de la séance, définitif ; sinon la saisie, de l'heure de la séance à J+14. */
 async function calRpe(i) {
   const box = document.getElementById('calRpe');
   const { data, error } = await sb.from('session_rpe').select('rpe, corrige_par').eq('session_id', i.id).maybeSingle();
   if (error) { if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('RPE illisible', error.message); box.remove(); return; }
-  const open = rpeOpen(i.date) && !data?.corrige_par;
-  const btn = (label, primary) => `<button type="button" class="btn${primary ? ' btn-primary' : ''}" id="calRpeBtn">${label}</button>`;
   box.innerHTML = data
-    ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> · ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>${open ? btn('Modifier', false) : ''}`
-    : open ? btn('Noter mon effort', true)
-      : `<p class="text-muted">${i.date > calToday() ? 'Tu pourras noter ton effort après la séance.' : 'La saisie est fermée (2 jours après la séance).'}</p>`;
+    ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> · ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
+    : rpeOpen(i.date, i.heure) ? '<button type="button" class="btn btn-primary" id="calRpeBtn">Noter mon effort</button>'
+      : `<p class="text-muted">${i.date >= calToday() ? 'Tu pourras noter ton effort après la séance.' : `La saisie est fermée (${RPE_DAYS} jours après la séance).`}</p>`;
   document.getElementById('calRpeBtn')?.addEventListener('click', () => openRpeSheet({
-    session: { id: i.id, titre: i.titre, date: i.date }, value: data?.rpe, onSaved: () => { i.rpeTodo = false; renderCal(); calRpe(i); } }));
+    session: { id: i.id, titre: i.titre, date: i.date, heure: i.heure }, onSaved: () => { i.rpeTodo = false; renderCal(); calRpe(i); } }));
 }
 
 /* ---------- Commandes ---------- */

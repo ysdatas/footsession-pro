@@ -12,7 +12,7 @@
      - Détail joueurs : la grille joueurs × dernières séances (jusqu'à
        aujourd'hui) ; chaque case : la valeur du joueur (couleur de
        rpe.js), « ? » si sa réponse est attendue et manque (rpeExpected),
-       « … » si elle est attendue mais que le délai (J+2) court encore,
+       « … » si elle est attendue mais que le délai (J+14) court encore,
        « abs. » si une absence est enregistrée, vide si la séance ne le
        concerne pas ; « staff » marque une saisie du staff ; une case :
        saisir ou corriger (même feuille que le joueur) ; une séance :
@@ -30,6 +30,9 @@ const srToday = () => srIso(new Date());
 const srDays = (iso, n) => { const d = new Date(`${iso}T12:00`); d.setDate(d.getDate() + n); return srIso(d); };
 const srMonday = (iso) => srDays(iso, -((new Date(`${iso}T12:00`).getDay() + 6) % 7));
 const srShort = (iso) => new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(`${iso}T12:00`));
+// L'heure, seulement les jours à plusieurs séances : elle seule les distingue alors.
+const srHour = (s) => (SR.sessions.some(x => x.id !== s.id && x.date_seance === s.date_seance) && s.heure?.slice(0, 5)) || '';
+const srWhen = (s) => [srShort(s.date_seance), srHour(s)].filter(Boolean).join(' ');
 /* Équipes proposées : celles du compte, toutes s'il n'est pas restreint. */
 const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams(window.CURRENT_PROFILE, all); return mine.length ? mine : all; };
 
@@ -166,7 +169,7 @@ function renderSr() {
   const team = (window.CLUB_TEAMS || []).find(t => t.id === SR.team), body = document.getElementById('srBody');
   if (!SR.sessions.length) {
     document.getElementById('srStatus').textContent = team ? team.nom : '';
-    body.innerHTML = `<div class="empty">${SR.period ? 'Aucune séance de cette équipe sur cette période.' : 'Aucune séance passée pour cette équipe. Le RPE se renseigne après chaque séance créée dans la plateforme.'}</div>`;
+    body.innerHTML = `<div class="empty">${SR.period ? 'Aucune séance de cette équipe sur cette période.' : 'Aucune séance passée pour cette équipe. Le RPE s’ouvre pour chaque séance posée au Calendrier, sans attendre le coach.'}</div>`;
     return;
   }
   const missing = SR.cells.flat().filter(c => c === 'miss').length, pending = SR.cells.flat().filter(c => c === 'wait').length;
@@ -185,12 +188,12 @@ function renderSr() {
   const head = SR.sessions.map((s, j) => {
     const col = SR.cells.map(row => row[j]), vals = col.filter(c => c?.v).map(c => c.v), due = col.filter(c => c?.v || c === 'miss' || c === 'wait').length;
     return `<th scope="col"><a class="sr-sess" href="session-edit.html?id=${s.id}" title="${escapeHtml(s.titre)}">
-      <span class="sr-date">${srShort(s.date_seance)}</span><span class="sr-t">${escapeHtml(s.titre)}</span>
+      <span class="sr-date">${srWhen(s)}</span><span class="sr-t">${escapeHtml(s.titre)}</span>
       <span class="sr-avg"${vals.length ? ` style="--rpe:${rpeColor(vals.reduce((a, b) => a + b, 0) / vals.length)}"` : ''}>${vals.length ? rpeFr(vals.reduce((a, b) => a + b, 0) / vals.length) : '—'}</span>
       <span class="sr-rate">${vals.length}/${due}${s.rpe_attendue ? ` · att. ${s.rpe_attendue}` : ''}</span></a></th>`;
   }).join('');
   const rows = SR.players.map((p, i) => `<tr><th scope="row">${playerLink(p.id, playerFullName(p))}</th>${SR.cells[i].map((c, j) => {
-    const s = SR.sessions[j], label = `${playerFullName(p)}, ${srShort(s.date_seance)}`;
+    const s = SR.sessions[j], label = `${playerFullName(p)}, ${srWhen(s)}`;
     if (c === null) return '<td class="sr-na"></td>';
     if (c === 'abs') return `<td><button type="button" class="sr-c is-abs" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : absent, saisir quand même">abs.</button></td>`;
     if (c === 'wait') return `<td><button type="button" class="sr-c is-wait" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : en attente (il peut encore répondre), saisir à sa place">…</button></td>`;
@@ -220,6 +223,6 @@ async function srClick(e) {
   const b = e.target.closest('[data-sr]');
   if (!b) return;
   const [j, i] = b.dataset.sr.split(':').map(Number), s = SR.sessions[j], p = SR.players[i];
-  openRpeSheet({ session: { id: s.id, titre: s.titre, date: s.date_seance }, value: SR.rpe.get(srKey(s.id, p.id))?.rpe ?? null,
+  openRpeSheet({ session: { id: s.id, titre: s.titre, date: s.date_seance, heure: s.heure }, value: SR.rpe.get(srKey(s.id, p.id))?.rpe ?? null,
     player: { id: p.id, nom: playerFullName(p) }, onSaved: () => loadSr() });
 }

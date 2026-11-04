@@ -174,6 +174,15 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            écriture (joueur, match joué qui le concerne : règle de my_calendar) ;
                                            lecture : le joueur les siennes, le staff qui le suit et lit le match,
                                            jamais le lecteur ; corbeille avec le match ou le joueur (rejouable)
+55. supabase/lmfc_v37.sql                  club_link_player réattribue (le compte change de fiche, la fiche change de
+                                           compte) ; matches.hors_plateforme (joueurs de passage d'un match, sans fiche) ;
+                                           schémas : created_by posé par la base, partage, lecture par le créateur, le
+                                           staff si partagé, l'admin toujours ; modification par le créateur ou l'admin ;
+                                           anciens schémas sans créateur : partagés jusqu'à leur attribution ; calendrier :
+                                           autant de séances qu'on veut dans la journée (calendar_add ne saute plus une date
+                                           déjà prise, index sessions_serie_date_uq retiré) ; RPE : saisie jusqu'à J+14,
+                                           une seule réponse du joueur (le staff corrige), rpe_history avec l'heure
+                                           (rejouable)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -583,7 +592,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   complets ou « PRÉNOM N. » (jeunes) rapprochés des fiches (reconnu / à confirmer / à choisir / non
   reconnu) ; minutes calculées seulement si la durée du match est saisie. Rien n'est enregistré avant
   « Enregistrer » ; les valeurs lues restent dans `ext_data` : une correction à la main s'affiche
-  « FFF · modifié ». Tests : `tests/fff-import.test.mjs` (texte réel de la page,
+  « FFF · modifié ». Un joueur sans fiche (un pro qui descend) se garde par **« + Hors plateforme »** :
+  il figure sur ce match seulement (`matches.hors_plateforme`, `lmfc_v37.sql` : nom, statut, minutes,
+  buts, cartons, lus sur la feuille), sans fiche ni compte, dans aucune statistique de joueur ; réuni
+  avec un doublon, il n'apparaît qu'une fois. Tests : `tests/fff-import.test.mjs` (texte réel de la page,
   `tests/fixtures-fff-calendrier.txt`), `tests/match-sheet.test.mjs`, `tests/matches-sql.test.mjs`.
 - **Calendrier** (`calendrier.html`, `calendrier-page.js`, `calendar-utils.js`, `calendar.css`, `lmfc_v28.sql`) —
   staff (menu, après Joueurs : les quatre onglets du téléphone ne bougent pas) et joueurs (onglet
@@ -597,8 +609,8 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   résumée. **« + Ajouter »** (`calendar-edit.js`, `lmfc_v30.sql`) : une **séance** (vraie séance : Séances,
   éditeur, RPE) ou un **événement** ; **Répéter** chaque semaine ou toutes les 2 semaines, jours cochés,
   jusqu'à une date (30 juin par défaut) ou un nombre de fois (`calRepeat`, 120 au plus), aperçu avant
-  d'enregistrer ; une date où l'équipe a déjà une séance est sautée (`calendar_add`, une transaction, un
-  double clic ne crée rien de plus). **Participants** : l'équipe par défaut ; décocher retire un joueur
+  d'enregistrer ; autant de séances qu'on veut dans la journée (`lmfc_v37.sql` : l'aperçu signale les dates
+  où l'équipe en a déjà une) ; `calendar_add`, une transaction, un double clic ne crée rien de plus. **Participants** : l'équipe par défaut ; décocher retire un joueur
   (séance : statut « Non concerné » ; événement : `club_event_players`), la recherche en ajoute un d'une
   autre équipe sans changer son équipe. Modifier ou supprimer un élément d'une série : **cet élément /
   celui-ci et les suivants / toute la série** (la date ne change que pour un seul). Le joueur ne voit que
@@ -609,10 +621,19 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   pour les séances créées dans l'éditeur hors série. Tests : `tests/calendar-sql.test.mjs`,
   `tests/calendar-series-sql.test.mjs`, `tests/calendar-utils.test.mjs`, `tests/push-worker.test.mjs`.
 - **RPE après la séance** (`rpe.js`, `session-rpe.js`, `rpe.css`, `lmfc_v29.sql`) — perception de l'effort
-  du joueur, de 1 à 10 (libellés CR-10, couleur du vert au rouge). Joueur : carte « Note ton effort » en
-  tête de **Mon espace** (séances de ses équipes ou où il est invité, du jour même à J+2) et bouton dans
-  la fiche d'une séance du **Calendrier** ; dix touches, un geste, enregistré aussitôt ; modifiable dans le
-  délai, plus après une correction du staff. Staff : bloc **RPE des joueurs** dans la séance (réponses sur
+  du joueur, de 1 à 10 (libellés CR-10, couleur du vert au rouge). **Il suit le calendrier, pas le travail du
+  coach** : une séance posée au Calendrier, même vide, l'ouvre le jour même (une saison se pose en une
+  fois : « + Ajouter », Séance, Répéter). Un événement n'en ouvre pas. « Nouvelle séance » propose d'abord
+  les séances vides de l'équipe, de 7 jours avant à 14 jours après (`offerPlanned`) : une seconde séance
+  séparerait le RPE du contenu ; dans **Séances**, les séances vides à plus de 14 jours restent au
+  calendrier (`plannedLater`). Joueur : carte « Note ton effort » en
+  tête de **Mon espace** (séances de ses équipes ou où il est invité, de l'heure de la séance à J+14) et
+  bouton dans la fiche d'une séance du **Calendrier** ; chaque séance porte sa date et son heure, une liste
+  choisit la séance à noter quand il y en a plusieurs ou du retard, et la suivante s'ouvre après
+  l'enregistrement. Dix touches, une confirmation, puis la réponse est définitive pour le joueur (`rpe_set`,
+  `lmfc_v37.sql`) : seul le staff la corrige. Le délai se règle à deux endroits : `rpe_open()` et `RPE_DAYS`
+  (`rpe.js`). Dans **Suivi RPE** et son PDF, l'heure accompagne la date les jours à plusieurs séances
+  (`srHour`). Staff : bloc **RPE des joueurs** dans la séance (réponses sur
   participants, moyenne, plus bas, plus haut, une barre par joueur, « Sans réponse », « noté absent »),
   correction ou saisie à la place du joueur, toujours marquées « saisi par le staff » ; **RPE après les
   séances** sur la fiche du joueur (onglet Performance, 20 dernières séances, vu aussi par le joueur).
@@ -729,9 +750,14 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   (`deleteVideos`, `downloadVideos`, `player-videos.js`). Pas de dossiers ni de catégories : ils
   n'existent que dans la Bibliothèque vidéo.
 - **Bibliothèque de schémas** (`schemas.html`, `schemas-page.js`, admin et coachs) — dans le menu : la
-  fenêtre « Schémas » de la séance (`session-templates.js`) en page, telle quelle (recherche, type, tags,
-  suppression) ; « Nouvelle séance » ouvre une séance avec ce schéma en procédé
-  (`session-edit.html?template=…`).
+  fenêtre « Schémas » de la séance (`session-templates.js`) en page (recherche, type, tags) ; « Nouvelle
+  séance » ouvre une séance avec ce schéma en procédé (`session-edit.html?template=…`). Page et fenêtre
+  séparent **Mes schémas** et **Club** (`lmfc_v37.sql`) : un schéma appartient à celui qui l'enregistre,
+  privé tant qu'il ne le partage pas (« Partager », « Rendre privé »). Le staff lit les schémas
+  partagés sans les modifier ; l'admin voit tout et attribue un schéma à un admin ou un coach (il
+  devient le sien, privé). Les anciens schémas n'ont jamais eu de créateur enregistré : « Créateur
+  inconnu », partagés jusqu'à leur attribution. La corbeille montre encore à tout le staff le nom
+  d'un schéma supprimé.
 - **Bibliothèque vidéo** (`bibliotheque.html`, `bibliotheque-page.js`, `library*.js`, `library.css` ;
   admin, coachs, préparateurs) — procédés filmés du club en grille ou en liste, par pages de 48 au
   défilement ; vignettes lues pour les seules cartes affichées, aucune vidéo chargée avant « Lire ».
@@ -812,7 +838,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
 - **Mon club** (admin) — identité (logo cliquable, couleur en pastilles), équipes, accès par
   e-mail, membres. Membres rangés en groupes repliables : staff (admin, coach, préparateur),
   joueurs sans fiche, joueurs par équipe de leur fiche, joueurs sans équipe ; recherche sans
-  accents sur le nom du compte, la fiche, la fonction et l'équipe. Les **membres** sont réservés à l'administrateur, aussi en base
+  accents sur le nom du compte, la fiche, la fonction et l'équipe. **Réattribuer** (`club_link_player`,
+  `lmfc_v37.sql`) : la liste « Fiche joueur » d'un compte propose les fiches libres, puis celles d'un autre
+  compte ; choisir une autre fiche déplace le lien, et une fiche déjà liée quitte son compte après
+  confirmation (il passe dans « Joueurs sans fiche »). Les **membres** sont réservés à l'administrateur, aussi en base
   (`lmfc_v14.sql`) : un compte ne lit que son propre profil ; le staff obtient seulement les
   noms, rôles et équipes du staff (`club_staff()`) pour les procédés, les droits d'accès, la
   corbeille et les PDF, un compte joueur rien.
@@ -913,7 +942,7 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   navigateur le permet), présentation plein écran avec sa barre (étapes, lecture, quitter).
   « Cadrer une zone » limite l'export ; Échap ou le même bouton annule, « ✕ » retire le cadrage.
 - **Schémas** : « Ajouter aux schémas » (panneau Exporter, admin et coachs) fait du
-  schéma affiché un modèle d'exercice (`exercise_templates` : nom, image dans
+  schéma affiché un modèle d'exercice, privé à son créateur (`exercise_templates` : nom, image dans
   `schemas/{club}/templates/`, dessin dans `canvas_json`), même en schéma libre, sans séance.
   Dans une séance, « Schémas » → « Insérer » crée le procédé avec le texte du modèle ET
   son schéma : aperçu tout de suite, copie de l'image et du dessin au premier enregistrement

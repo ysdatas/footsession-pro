@@ -68,6 +68,10 @@
 .mp-row select { padding-right: 28px; background-position: right 8px center; }
 .mp-num { display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-secondary); }
 .mp-num input { width: 46px; text-align: center; padding: 5px 4px; font-family: var(--font-num); }
+/* Joueur hors plateforme (lmfc_v37.sql) : nom, ce que dit la feuille, retirer. */
+.mp-extra-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px dashed var(--border); border-radius: var(--radius-md); }
+.mp-extra-row .mp-name { flex: 0 1 auto; }
+.mp-extra { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
 
 /* Avis des joueurs (lmfc_v36.sql), dans le match ouvert. */
 .mf-list { display: grid; gap: 8px; margin-bottom: 14px; }

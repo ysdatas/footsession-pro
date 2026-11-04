@@ -194,7 +194,7 @@ document.getElementById('saveToLibrary').addEventListener('click', async (e) => 
     if (upErr) throw upErr;
     const { error } = await sb.from('exercise_templates').insert({ club_id: CLUB_ID, nom, data: {}, canvas_json: serialize(), image_path: path });
     if (error) throw error;
-    toast(`« ${nom} » ajouté aux schémas : « Schémas » dans une séance pour l’insérer.`, 'success');
+    toast(`« ${nom} » ajouté à vos schémas, privé : « Schémas » dans une séance pour l’insérer.`, 'success');
   } catch (err) {
     console.error('Schéma non ajouté aux modèles', err);
     toast(`Non ajouté : ${err.message}`, 'error');

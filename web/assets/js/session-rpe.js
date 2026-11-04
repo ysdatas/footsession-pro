@@ -57,7 +57,7 @@ function renderSessionRpe() {
     </div>`).join('')}</div>` : ''}
     ${missing.length ? `<p class="srpe-miss-h">Sans réponse (${missing.length})</p><div class="srpe-miss">${missing.map(({ a }) =>
       `<button type="button" class="chip" data-srpe="${a.player_id}" title="Saisir à sa place">${escapeHtml(rosterName(a))}</button>`).join('')}</div>` : ''}
-    <p class="srpe-help">Réponses des joueurs depuis leur espace, du jour de la séance à J+2 : leur ressenti, à part du bilan du staff.
+    <p class="srpe-help">Réponses des joueurs depuis leur espace, du jour de la séance à J+${RPE_DAYS}, une seule fois : leur ressenti, à part du bilan du staff.
       Ensuite, seul le staff saisit ou corrige (marqué <span class="rpe-staff">staff</span>).${noPresence ? ' Présences non renseignées : tout l’effectif est attendu.' : ''}</p>`;
 }
 
@@ -66,7 +66,7 @@ function editSessionRpe(e) {
   if (!b) return;
   const id = Number(b.dataset.srpe), a = attendance.find(x => x.player_id === id);
   openRpeSheet({
-    session: { id: savedSessionId, titre: document.getElementById('f-titre').value.trim(), date: document.getElementById('f-date').value },
+    session: { id: savedSessionId, titre: document.getElementById('f-titre').value.trim(), date: document.getElementById('f-date').value, heure: document.getElementById('f-heure').value },
     value: SRPE.rows.get(id)?.rpe ?? null, player: { id, nom: rosterName(a) }, onSaved: () => initSessionRpe(),
   });
 }

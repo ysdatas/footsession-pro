@@ -177,6 +177,15 @@
   </main>
 
   <!-- Vrai conflit d'enregistrement (session-autosave.js) -->
+  <!-- Nouvelle séance : celles déjà prévues au calendrier, encore vides (offerPlanned, session-edit-page.js) -->
+  <div class="modal-backdrop" id="plannedModal" data-busy data-no-x>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="plannedTitle">
+      <h2 class="as-h3" id="plannedTitle">Séance déjà prévue ?</h2>
+      <p class="text-muted">Ces séances sont au calendrier, encore vides, et le RPE des joueurs s’y ouvre le jour même. Complétez celle qui correspond : une seconde séance séparerait le RPE du contenu.</p>
+      <div class="planned-list" id="plannedList"></div>
+      <div class="modal-actions"><button class="btn" type="button" id="plannedNew">Créer une autre séance</button></div>
+    </div>
+  </div>
   <div class="modal-backdrop" id="conflictModal" role="dialog" aria-labelledby="conflictTitle" data-no-x>
     <div class="modal" style="max-width:480px;">
       <h2 class="as-h3" id="conflictTitle">Séance modifiée par quelqu’un d’autre</h2>
@@ -197,6 +206,9 @@
     <div class="modal tpl-modal">
       <h2 class="as-h3">Schémas enregistrés</h2>
       <div class="lib-toolbar">
+        <div class="segmented" id="tplScope" role="group" aria-label="Schémas affichés">
+          <button type="button" data-tpl-scope="mine" aria-pressed="true">Mes schémas <span></span></button>
+          <button type="button" data-tpl-scope="club" aria-pressed="false">Club <span></span></button></div>
         <input type="search" id="tplQ" class="lib-search" placeholder="Rechercher un schéma par son nom" aria-label="Rechercher un schéma par son nom" autocomplete="off">
         <select id="tplCat" aria-label="Type de procédé"><option value="">Tous les types</option></select>
       </div>

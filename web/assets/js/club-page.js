@@ -155,8 +155,7 @@ async function loadMembers() {
           </select>
           <select class="player-link-select ${m.role === 'joueur' ? '' : 'hidden'}" aria-label="Fiche joueur">
             <option value="">Choisir le joueur…</option>
-            ${roster.filter(p => !p.auth_user_id || p.auth_user_id === m.id).map(p =>
-              `<option value="${p.id}" ${linked?.id === p.id ? 'selected' : ''}>${escapeHtml(playerName(p))}</option>`).join('')}
+            ${linkOptions(m, linked)}
           </select>
           ${teamSelect}
           ${!['joueur', 'admin'].includes(m.role) ? `<button type="button" class="btn btn-sm" data-rights title="${m.role === 'lecteur' ? 'Exceptions par joueur' : 'Lecture sur toutes les équipes, exceptions par joueur'}">Accès</button>` : ''}
@@ -176,6 +175,16 @@ async function loadMembers() {
     </details>`).join('') || '<p class="text-muted">Aucun membre.</p>';
   document.getElementById('memberCount').textContent = members?.length ? `· ${members.length}` : '';
   filterMembers();
+}
+
+/* Fiches proposées à un compte : les libres (et la sienne), puis celles d'un autre
+   compte, pour réattribuer (lmfc_v37.sql ; l'écran demande confirmation). */
+function linkOptions(m, linked) {
+  const opt = (p) => `<option value="${p.id}"${linked?.id === p.id ? ' selected' : ''}>${escapeHtml(playerName(p))}</option>`;
+  const taken = roster.filter(p => p.auth_user_id && p.auth_user_id !== m.id);
+  return roster.filter(p => !taken.includes(p)).map(opt).join('')
+    + (taken.length ? `<optgroup label="Liées à un autre compte">${taken.map(p => opt(p).replace('</option>',
+      ` · ${escapeHtml(membersById.get(p.auth_user_id)?.nom || 'autre compte')}</option>`)).join('')}</optgroup>` : '');
 }
 
 /* Membres rangés : le staff (admin, coach, préparateur), les joueurs dont le
@@ -294,6 +303,9 @@ document.getElementById('memberList').addEventListener('change', async (e) => {
   let rpc;
   if (role === 'joueur') {
     if (!linkSel.value) { toast('Choisissez la fiche du joueur pour appliquer la fonction.', 'info'); return; }
+    // Fiche liée à un autre compte : elle le quitte, sur confirmation.
+    const card = roster.find(p => p.id === Number(linkSel.value)), other = card?.auth_user_id && card.auth_user_id !== profileId && membersById.get(card.auth_user_id);
+    if (other && !confirm(`La fiche de ${playerName(card)} est liée au compte « ${other.nom || 'sans nom'} ». La rattacher à « ${membersById.get(profileId)?.nom || 'ce compte'} » ?\n\n« ${other.nom || 'L’autre compte'} » n’aura plus de fiche.`)) return loadMembers();
     rpc = sb.rpc('club_link_player', { p_profile_id: profileId, p_player_id: Number(linkSel.value) });
   } else {
     rpc = sb.rpc('club_set_member_role', { p_profile_id: profileId, p_role: role });

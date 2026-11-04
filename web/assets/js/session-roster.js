@@ -35,7 +35,8 @@ function renderAttendance() {
         ${CAN_WRITE ? `<button type="button" class="att-grip" data-grip="${a.player_id}" aria-label="Placer ${escapeHtml(name)} sur le terrain" title="Glisser sur le terrain (ou cliquer)">⠿</button>` : ''}
         <div class="att-main">
           <button type="button" class="att-name" data-toggle="${i}" title="${escapeHtml(name)} : cliquer pour ${a.statut === 'present' ? 'absent' : 'présent'}" aria-pressed="${a.statut === 'present'}" ${dis}>${escapeHtml(name)}</button>
-          <div class="att-row"><span class="att-meta">${escapeHtml(meta)}${guest}</span>
+          ${guest}
+          <div class="att-row"><span class="att-meta">${escapeHtml(meta)}</span>
             <select class="st-select st-${a.statut}" data-att="${i}" aria-label="Statut de ${escapeHtml(name)}" ${dis}>${statutOptions(a.statut)}</select></div>
         </div>
         ${a.invite && CAN_WRITE ? `<button class="att-remove" type="button" data-remove-guest="${i}" aria-label="Retirer ${escapeHtml(rosterName(a))} de la séance" title="Retirer de la séance">✕</button>` : ''}

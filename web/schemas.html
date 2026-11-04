@@ -30,7 +30,7 @@
     <div class="page-head">
       <div><p class="page-kicker" aria-hidden="true">&nbsp;</p>
         <h1>Bibliothèque de schémas</h1>
-        <p class="subtitle">Les schémas enregistrés (☆ sur un procédé, « Ajouter aux schémas » du tableau tactique).</p>
+        <p class="subtitle">Vos schémas (☆ sur un procédé, « Ajouter aux schémas » du tableau tactique) et ceux que le club partage.</p>
       </div>
       <div class="page-actions"><a class="btn" href="tactical-board.html">Tableau tactique</a></div>
     </div>
@@ -38,6 +38,9 @@
     <!-- Même contenu que la fenêtre « Schémas » de la séance (session-templates.js), en page -->
     <div class="tpl-page" id="libraryModal">
       <div class="lib-toolbar">
+        <div class="segmented" id="tplScope" role="group" aria-label="Schémas affichés">
+          <button type="button" data-tpl-scope="mine" aria-pressed="true">Mes schémas <span></span></button>
+          <button type="button" data-tpl-scope="club" aria-pressed="false">Club <span></span></button></div>
         <input type="search" id="tplQ" class="lib-search" placeholder="Rechercher un schéma par son nom" aria-label="Rechercher un schéma par son nom" autocomplete="off">
         <select id="tplCat" aria-label="Type de procédé"><option value="">Tous les types</option></select>
       </div>

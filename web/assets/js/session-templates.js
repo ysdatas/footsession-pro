@@ -8,23 +8,34 @@
      - tags = ceux de la bibliothèque vidéo (lmfc_v26.sql) : même
        vocabulaire, même gestion, jamais deux tags de même clé. Ils
        classent le schéma, ils ne changent ni son dessin ni les séances ;
-     - sans lmfc_v26.sql, la fenêtre marche comme avant, sans tags.
-   Dépend de session-edit-page.js (procedures, addProcedure, myProfile…),
-   library.js et library-tags.js (libTags, attachTagCombo, filtre).
+     - sans lmfc_v26.sql, la fenêtre marche comme avant, sans tags ;
+     - chaque schéma a son créateur et reste à lui (lmfc_v37.sql) : « Mes
+       schémas » / « Club » (ceux des autres qu'on peut lire). Le créateur
+       le partage avec le club ou le garde privé ; l'admin voit tout et
+       attribue un schéma, dont les anciens, sans créateur enregistré. La
+       base décide (RLS) ; sans la migration, tout reste mêlé, comme avant.
+   Dépend de session-edit-page.js (procedures, addProcedure, myProfile…) ou
+   schemas-page.js, library.js et library-tags.js (libTags, attachTagCombo, filtre).
    ============================================================ */
 
 const TPL_FIELDS = ['nom', 'duree_min', 'objectif', 'effectif', 'taille_terrain',
   'consignes', 'principes_jeu', 'comportements_individuels', 'temps_recup_min',
   'type_procede', 'nb_sequences', 'duree_sequence_min'];
 const TPL = { rows: [], urls: new Map(), tagsOn: false, q: '', cat: '', tags: [], mode: 'all', bound: false, filter: false,
-  insertLabel: 'Insérer' };   // page Bibliothèque de schémas (schemas-page.js) : « Nouvelle séance »
+  insertLabel: 'Insérer',   // page Bibliothèque de schémas (schemas-page.js) : « Nouvelle séance »
+  ownerOn: false, scope: 'mine', staff: [] };   // créateur et partage (lmfc_v37.sql) ; staff : club_staff()
+const tplMe = () => window.CURRENT_PROFILE || {};
+const tplAdmin = () => tplMe().role === 'admin';
+const tplMine = (t) => t.created_by === tplMe().id;
+const tplCanManage = (t) => !TPL.ownerOn || tplMine(t) || tplAdmin();
 
-/* Schémas qui répondent à tous les critères : nom (sans casse ni accents),
-   type, tags (tous, ou au moins un). */
-function filterTemplates(rows, { q = '', cat = '', tags = [], mode = 'all' } = {}) {
+/* Schémas qui répondent à tous les critères : à soi ou aux autres (scope,
+   me), nom (sans casse ni accents), type, tags (tous, ou au moins un). */
+function filterTemplates(rows, { q = '', cat = '', tags = [], mode = 'all', scope = null, me = null } = {}) {
   const key = libTextKey(q);
   const hasTags = (t) => (mode === 'any' ? tags.some(id => t.tag_ids.includes(id)) : tags.every(id => t.tag_ids.includes(id)));
-  return rows.filter(t => (!key || libTextKey(t.nom).includes(key))
+  return rows.filter(t => (!scope || (t.created_by === me) === (scope === 'mine'))
+    && (!key || libTextKey(t.nom).includes(key))
     && (!cat || (t.categorie || '') === cat)
     && (!tags.length || hasTags(t)));
 }
@@ -51,18 +62,28 @@ window.saveAsTemplate = async (uid) => {
       club_id: myProfile.club_id, nom, categorie: p.type_procede || null, data, image_path, canvas_json: sch?.canvas_json || null,
     });
     if (error) throw error;
-    toast('Modèle enregistré dans les schémas : ajoutez-lui des tags depuis « Schémas »', 'success');
+    toast('Schéma enregistré dans « Mes schémas », privé : partagez-le depuis « Schémas » si vous voulez.', 'success');
   } catch (e) { toast(e.message, 'error'); }
 };
 
-/* Schémas du club, avec leurs tags si lmfc_v26.sql est passée ; images signées en un appel. */
+/* Schémas lisibles par ce compte (la base décide), avec créateur et partage si
+   lmfc_v37.sql est passée, leurs tags si lmfc_v26.sql l'est ; images signées en un appel. */
 async function loadTemplates() {
   const cols = 'id, nom, categorie, image_path';
-  let { data, error } = await sb.from('exercise_templates').select(`${cols}, exercise_template_tags(tag_id)`).order('created_at', { ascending: false });
+  const read = (sel) => sb.from('exercise_templates').select(sel).order('created_at', { ascending: false });
+  const [first, staff] = await Promise.all([read(`${cols}, created_by, partage, exercise_template_tags(tag_id)`), sb.rpc('club_staff')]);
+  if (staff.error) console.warn('Schémas : noms du staff indisponibles', staff.error);
+  TPL.staff = staff.data || [];
+  TPL.ownerOn = !first.error;
+  let { data, error } = first;
+  if (error) {
+    console.warn('Schémas : créateurs indisponibles (lmfc_v37.sql non passée ?)', error);
+    ({ data, error } = await read(`${cols}, exercise_template_tags(tag_id)`));
+  }
   TPL.tagsOn = !error;
   if (error) {
     console.warn('Schémas : tags indisponibles (lmfc_v26.sql non passée ?)', error);
-    ({ data, error } = await sb.from('exercise_templates').select(cols).order('created_at', { ascending: false }));
+    ({ data, error } = await read(cols));
     if (error) throw error;
   }
   TPL.rows = data.map(t => ({ ...t, tag_ids: (t.exercise_template_tags || []).map(x => Number(x.tag_id)) }));
@@ -88,12 +109,26 @@ async function openLibrary() {
   document.getElementById('tplCat').innerHTML = `<option value="">Tous les types</option>${cats.map(c =>
     `<option value="${escapeHtml(c)}"${c === TPL.cat ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}`;
   document.getElementById('tplTagRow').classList.toggle('hidden', !TPL.tagsOn);
+  document.getElementById('tplScope').classList.toggle('hidden', !TPL.ownerOn);
+  if (!TPL.rows.some(tplMine)) TPL.scope = 'club';   // rien à soi : pas de page vide
   TPL.tags = TPL.tags.filter(id => libTags.byId.has(id));
   if (TPL.tagsOn && !TPL.filter) {
     TPL.filter = true;
     mountTagFilter(document.getElementById('tplTagFilter'), (ids) => { TPL.tags = ids; renderTemplates(); });
   }
   renderTemplates();
+}
+
+/* À qui est ce schéma, et ce qu'on peut en faire ; l'admin l'attribue à quelqu'un qui crée des schémas. */
+function templateOwnerHtml(t) {
+  if (!TPL.ownerOn) return '';
+  const who = tplMine(t) ? '' : t.created_by ? `Par ${TPL.staff.find(s => s.id === t.created_by)?.nom || 'un ancien membre'}` : 'Créateur inconnu';
+  const state = tplCanManage(t) ? (t.partage ? 'Partagé avec le club' : 'Privé') : '';
+  const owners = TPL.staff.filter(s => ['admin', 'coach'].includes(s.role));
+  return `<div class="lib-owner">${escapeHtml([who, state].filter(Boolean).join(' · '))}${tplAdmin() ? `
+    <select data-tpl-owner aria-label="Attribuer « ${escapeHtml(t.nom)} » à un membre du staff">
+      <option value="">Attribuer à…</option>${owners.map(s => `<option value="${escapeHtml(s.id)}"${s.id === t.created_by ? ' selected' : ''}>${escapeHtml(s.nom || 'Sans nom')}</option>`).join('')}
+    </select>` : ''}</div>`;
 }
 
 function templateCard(t) {
@@ -104,11 +139,13 @@ function templateCard(t) {
     <div class="lib-body">
       <div class="lib-name">${escapeHtml(t.nom)}</div>
       <div class="lib-cat">${escapeHtml(t.categorie || '')}</div>
+      ${templateOwnerHtml(t)}
       ${TPL.tagsOn ? `<div class="lib-tags tpl-tags">${tags.map(g => libTagChip(g, { remove: 'data-tpl-untag' })).join('')}
         <button type="button" class="lib-tag is-quick" data-tpl-tagadd aria-label="Ajouter un tag à ${escapeHtml(t.nom)}">+ tag</button></div>` : ''}
       <div class="lib-actions">
         <button class="btn btn-sm btn-primary" type="button" data-do="insertTemplate" data-arg="${t.id}">${TPL.insertLabel}</button>
-        <button class="btn btn-sm btn-danger" type="button" data-do="deleteTemplate" data-arg="${t.id}">Supprimer</button>
+        ${TPL.ownerOn && tplCanManage(t) ? `<button class="btn btn-sm" type="button" data-tpl-share aria-pressed="${!!t.partage}">${t.partage ? 'Rendre privé' : 'Partager'}</button>` : ''}
+        ${tplCanManage(t) ? `<button class="btn btn-sm btn-danger" type="button" data-do="deleteTemplate" data-arg="${t.id}">Supprimer</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -121,11 +158,18 @@ function renderTemplates() {
     list.innerHTML = '<p class="text-muted">Aucun schéma enregistré. Cliquez sur ☆ sur un procédé, ou sur « Ajouter aux schémas » dans le tableau tactique (Exporter).</p>';
     return;
   }
-  const shown = filterTemplates(TPL.rows, TPL);
-  const n = TPL.rows.length;
+  const me = tplMe().id, scope = TPL.ownerOn ? TPL.scope : null;
+  const pool = filterTemplates(TPL.rows, { scope, me }), shown = filterTemplates(TPL.rows, { ...TPL, scope, me });
+  const n = pool.length, mine = TPL.rows.filter(tplMine).length;
+  document.querySelectorAll('[data-tpl-scope]').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.tplScope === TPL.scope));
+    b.querySelector('span').textContent = b.dataset.tplScope === 'mine' ? mine : TPL.rows.length - mine;
+  });
   status.textContent = shown.length === n ? `${n} schéma${n > 1 ? 's' : ''}` : `${shown.length} sur ${n} schéma${n > 1 ? 's' : ''}`;
   list.innerHTML = shown.length ? shown.map(templateCard).join('')
-    : '<p class="text-muted">Aucun schéma ne correspond : retirez un critère.</p>';
+    : `<p class="text-muted">${n ? 'Aucun schéma ne correspond : retirez un critère.'
+      : scope === 'mine' ? 'Aucun schéma à vous pour l’instant : ☆ sur un procédé, ou « Ajouter aux schémas » dans le tableau tactique. Il reste privé tant que vous ne le partagez pas.'
+      : 'Aucun schéma partagé par les autres membres du club.'}</p>`;
 }
 
 /* Barre de recherche et tags : écoutes posées une fois. */
@@ -136,9 +180,18 @@ function bindTemplateTools() {
   document.getElementById('tplQ').addEventListener('input', (e) => { TPL.q = e.target.value; renderTemplates(); });
   document.getElementById('tplCat').addEventListener('change', (e) => { TPL.cat = e.target.value; renderTemplates(); });
   document.getElementById('tplTagsManage').addEventListener('click', () => openTagManager(openLibrary));
+  modal.addEventListener('change', (e) => {
+    if (e.target.matches('[data-tpl-owner]') && e.target.value) ownTemplate(Number(e.target.closest('[data-tpl]').dataset.tpl), e.target.value);
+  });
   modal.addEventListener('click', (e) => {
     const mode = e.target.closest('[data-tpl-mode]'), del = e.target.closest('[data-tpl-untag]'), add = e.target.closest('[data-tpl-tagadd]');
-    if (mode) {
+    const scope = e.target.closest('[data-tpl-scope]'), share = e.target.closest('[data-tpl-share]');
+    if (scope) {
+      TPL.scope = scope.dataset.tplScope;
+      renderTemplates();
+    } else if (share) {
+      shareTemplate(Number(share.closest('[data-tpl]').dataset.tpl));
+    } else if (mode) {
       TPL.mode = mode.dataset.tplMode;
       modal.querySelectorAll('[data-tpl-mode]').forEach(b => b.setAttribute('aria-pressed', String(b === mode)));
       renderTemplates();
@@ -153,6 +206,35 @@ function bindTemplateTools() {
         exclude: () => new Set(row?.tag_ids), onChoose: (t) => tagTemplate(id, t) }).input.focus();
     }
   });
+}
+
+/* Partager avec le club, ou reprendre : son créateur ou l'admin (RLS). */
+async function shareTemplate(id) {
+  const row = TPL.rows.find(t => t.id === id);
+  if (!row) return;
+  const partage = !row.partage;
+  const { data, error } = await sb.from('exercise_templates').update({ partage }).eq('id', id).select('id');
+  if (error || !data?.length) {
+    console.error('Partage du schéma refusé', error);
+    return toast(error?.message || 'Modification refusée : ce schéma n’est pas à vous.', 'error');
+  }
+  row.partage = partage;
+  renderTemplates();
+  toast(partage ? 'Schéma partagé avec le club.' : 'Schéma redevenu privé.', 'success');
+}
+/* Attribuer un schéma (admin) : il devient celui de ce membre, privé ; à lui de le partager. */
+async function ownTemplate(id, owner) {
+  const row = TPL.rows.find(t => t.id === id);
+  if (!row) return;
+  const { data, error } = await sb.from('exercise_templates').update({ created_by: owner, partage: false }).eq('id', id).select('id');
+  if (error || !data?.length) {
+    console.error('Attribution du schéma refusée', error);
+    toast(error?.message || 'Attribution réservée à l’administrateur.', 'error');
+    return renderTemplates();
+  }
+  Object.assign(row, { created_by: owner, partage: false });
+  renderTemplates();
+  toast(`« ${row.nom} » attribué à ${TPL.staff.find(s => s.id === owner)?.nom || 'ce membre'}, en privé.`, 'success');
 }
 
 async function tagTemplate(id, tag) {
@@ -185,8 +267,9 @@ window.insertTemplate = async (id) => {
 window.deleteTemplate = async (id) => {
   if (!confirm(`Supprimer ce modèle ?${await trashNote()}`)) return;
   try {
-    const { error } = await sb.from('exercise_templates').delete().eq('id', id);
+    const { data, error } = await sb.from('exercise_templates').delete().eq('id', id).select('id');
     if (error) throw error;
+    if (!data?.length) throw new Error('Suppression refusée : ce schéma n’est pas à vous.');
     TPL.rows = TPL.rows.filter(t => t.id !== id);
     renderTemplates();
   } catch (e) { toast(e.message, 'error'); }

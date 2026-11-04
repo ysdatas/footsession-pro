@@ -143,7 +143,7 @@ function renderMatches() {
   document.getElementById('matchList').innerHTML = shown.length
     ? `${dupNote}<div class="mt-list">${shown.map(m => {
         const twin = dups.get(m.id);
-        const players = m.match_players?.[0]?.count;
+        const players = (m.match_players?.[0]?.count || 0) + (m.hors_plateforme?.length || 0);
         const sub = [m.heure?.slice(0, 5), m.competition, LIEUX[m.lieu], !currentTeamId() && teamName(m.team_id)].filter(Boolean).map(escapeHtml).join(' · ');
         const on = pick.ids.has(m.id);
         return `<button type="button" class="mt-row${pick.on ? ` is-selectable${on ? ' is-picked' : ''}` : ''}" data-match="${m.id}"${pick.on ? ` role="checkbox" aria-checked="${on}"` : ''}>
@@ -233,7 +233,8 @@ function canEditMatch(m) {
   return m.team_id ? mine.includes(m.team_id) : !(window.CLUB_TEAMS || []).length;
 }
 async function openMatch(m) {
-  editing = { id: m?.id || null, rows: new Map(), removed: new Set(), editable: canEditMatch(m) };
+  editing = { id: m?.id || null, rows: new Map(), removed: new Set(), editable: canEditMatch(m),
+    extras: [...(m?.hors_plateforme || [])], hadExtras: !!m?.hors_plateforme?.length };   // hors plateforme (lmfc_v37.sql)
   const set = (id, v) => { document.getElementById(id).value = v ?? ''; };
   set('m-adv', m?.adversaire); set('m-date', m?.date_match || new Date().toISOString().slice(0, 10));
   set('m-heure', m?.heure?.slice(0, 5)); set('m-stade', m?.stade);
@@ -295,7 +296,8 @@ function renderRows() {
   const rank = { titulaire: 0, remplacant: 1, non_entre: 2 };
   const rows = [...editing.rows.values()].sort((a, b) => (rank[a.statut] ?? 3) - (rank[b.statut] ?? 3)
     || playerName(playerOf(a.player_id)).localeCompare(playerName(playerOf(b.player_id)), 'fr'));
-  document.getElementById('mpCount').textContent = rows.length ? `· ${rows.length}` : '';
+  const n = rows.length + editing.extras.length;
+  document.getElementById('mpCount').textContent = n ? `· ${n}` : '';
   const num = (r, k, max, unit) => `<label class="mp-num"><input data-k="${k}" type="number" min="0" max="${max}" inputmode="numeric" value="${r[k] ?? ''}" ${dis}><span>${unit}</span></label>`;
   document.getElementById('mpList').innerHTML = rows.length ? rows.map(r => {
     const name = playerName(playerOf(r.player_id));
@@ -310,7 +312,14 @@ function renderRows() {
       <input class="mp-comment" data-k="commentaire" maxlength="500" value="${escapeHtml(r.commentaire || '')}" placeholder="Commentaire" aria-label="Commentaire sur ${escapeHtml(name)}" ${dis}>
       ${editing.editable ? `<button class="att-remove" type="button" data-remove aria-label="Retirer ${escapeHtml(name)} du match" title="Retirer du match">✕</button>` : ''}
     </div>`;
-  }).join('') : `<p class="text-muted">Aucun joueur.${editing.editable ? ' « Ajouter l’effectif » ou cherchez un joueur du club.' : ''}</p>`;
+  }).join('') : editing.extras.length ? '' : `<p class="text-muted">Aucun joueur.${editing.editable ? ' « Ajouter l’effectif » ou cherchez un joueur du club.' : ''}</p>`;
+  // Hors plateforme (feuille de match) : sur ce match seulement, sans fiche ni statistiques.
+  document.getElementById('mpList').insertAdjacentHTML('beforeend', editing.extras.map((x, i) => `<div class="mp-extra-row">
+      <span class="mp-name">${escapeHtml(x.nom)} <span class="fff-st is-warn" title="Sans fiche : sur la feuille de ce match seulement, dans aucune statistique">Hors plateforme</span></span>
+      <span class="mp-extra">${escapeHtml([STATUT_MATCH_LABEL[x.statut], x.minutes != null && `${x.minutes} min`, x.buts && `${x.buts} but${x.buts > 1 ? 's' : ''}`,
+        x.cartons_jaunes && `${x.cartons_jaunes} jaune`, x.carton_rouge && 'rouge'].filter(Boolean).join(' · ') || '—')}</span>
+      ${editing.editable ? `<button class="att-remove" type="button" data-remove-extra="${i}" aria-label="Retirer ${escapeHtml(x.nom)} du match" title="Retirer du match">✕</button>` : ''}
+    </div>`).join(''));
 }
 
 /* Ligne préremplie par la feuille de match (lmfc_v33.sql) puis corrigée à la main. */
@@ -339,6 +348,8 @@ function initEditor() {
     else r[k] = e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value)));
   });
   list.addEventListener('click', (e) => {
+    const x = e.target.closest('[data-remove-extra]');
+    if (x && editing.editable) { editing.extras.splice(Number(x.dataset.removeExtra), 1); return renderRows(); }
     const r = rowOf(e);
     if (!r || !editing.editable) return;
     const b = e.target.closest('[data-note]');
@@ -406,6 +417,7 @@ async function saveMatch() {
     commentaire: val('m-comment') || null, a_retenir: val('m-retenir') || null,
   };
   if (!document.getElementById('m-team-field').classList.contains('hidden')) row.team_id = Number(val('m-team')) || null;
+  if (editing.extras.length || editing.hadExtras) row.hors_plateforme = editing.extras;   // envoyé s'il sert (lmfc_v37.sql)
   const btn = document.getElementById('m-save');
   btn.disabled = true;
   try {
@@ -443,7 +455,7 @@ async function saveMatch() {
     renderSquad();
   } catch (e) {
     console.error('Match non enregistré', e);
-    toast(e.message, 'error');
+    toast(/hors_plateforme/.test(e.message || '') ? updateNeeded('lmfc_v37.sql') : e.message, 'error');
   } finally { btn.disabled = false; }
 }
 

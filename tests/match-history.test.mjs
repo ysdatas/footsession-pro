@@ -61,4 +61,9 @@ const plan = run(`matchMergePlan(${JSON.stringify(keep)}, ${JSON.stringify([
 assert.deepEqual(plan.match, { competition: 'Coupe Gambardella', heure: '15:00:00', commentaire: 'Bon match' }, 'cases vides complétées ; score, lieu, équipe, import gardés');
 assert.deepEqual(plan.fills, [{ id: 100, patch: { minutes: 90, passes: 1, note: 'plus', cartons_jaunes: 1, carton_rouge: false } }], 'joueur dans les deux : sa ligne d’ici, complétée (statut et buts gardés)');
 assert.deepEqual(plan.moves, [202], 'joueur absent d’ici : sa ligne passe ; ligne vide de l’autre : rien à faire');
+// Joueurs hors plateforme (lmfc_v37.sql) : ceux de l'autre s'ajoutent, une fois par nom.
+const hp = run(`matchMergePlan(${JSON.stringify({ ...keep, hors_plateforme: [{ nom: 'AUGUSTIN DELBECQUE', statut: 'titulaire' }] })}, [],
+  ${JSON.stringify({ ...drop, hors_plateforme: [{ nom: 'Augustin Delbecque', statut: 'titulaire' }, { nom: 'RAUL TORRENTE', statut: 'titulaire' }] })}, [])`);
+assert.deepEqual(hp.match.hors_plateforme.map(x => x.nom), ['AUGUSTIN DELBECQUE', 'RAUL TORRENTE'], 'hors plateforme réunis sans doublon');
+assert.equal('hors_plateforme' in plan.match, false, 'sans hors plateforme : rien à écrire');
 console.log('match-history : OK (joués, titularisations, minutes, buts, passes, cartons, notes, valeurs absentes, compétitions, doublons, réunion)');
