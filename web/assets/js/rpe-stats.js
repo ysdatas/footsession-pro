@@ -10,13 +10,17 @@
    jamais remplacée : elle sort des moyennes.
    Charge ressentie (sRPE, méthode de Foster) = RPE × durée totale de la
    séance (min), en unités arbitraires (UA). La durée est celle de la
-   séance : une participation partielle n'est pas connue. La charge
-   prévue (durée, temps de travail) reste à part, jamais additionnée.
+   séance : une participation partielle n'est pas connue. Un match
+   (lmfc_v38.sql) : les minutes jouées du joueur (case : { v, min }),
+   sinon la durée du match. La charge prévue (durée, temps de travail)
+   reste à part, jamais additionnée.
    RPE attendue (sessions.rpe_attendue, lmfc_v34.sql) : écart = moyenne
    des RPE déclarés − RPE attendue, sans rapport avec la charge.
    ============================================================ */
 
 const rpeMean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+/* A-t-il joué, d'après une feuille de match remplie ? Même règle que player_match_rpe_ok (lmfc_v38.sql). */
+const rpeOnSheet = (sheet, playerId) => sheet.some(r => r.player_id === playerId && (r.minutes != null ? r.minutes > 0 : r.statut !== 'non_entre'));
 
 function rpeSummary(sessions, cells) {
   const answered = (list) => list.filter(c => c?.v).map(c => c.v);
@@ -25,7 +29,7 @@ function rpeSummary(sessions, cells) {
     const col = cells.map(row => row[j]), vals = answered(col), missing = count(col, 'miss'), pending = count(col, 'wait');
     const avg = rpeMean(vals), duree = Number(s.duree_min) > 0 ? Number(s.duree_min) : null, expected = Number(s.rpe_attendue) || null;
     return { avg, n: vals.length, missing, pending, due: vals.length + missing + pending, duree, travail: s.travail || null,
-      load: avg !== null && duree ? avg * duree : null, expected, gap: avg !== null && expected ? avg - expected : null };
+      load: duree ? rpeMean(col.filter(c => c?.v).map(c => c.v * (c.min ?? duree))) : null, expected, gap: avg !== null && expected ? avg - expected : null };
   });
   // Variation de la charge ressentie d'une séance à la suivante (sans séance précédente notée : rien).
   perSession.forEach((x, j) => {
@@ -34,7 +38,7 @@ function rpeSummary(sessions, cells) {
   });
   const perPlayer = cells.map(row => {
     const vals = answered(row);
-    const loads = row.map((c, j) => (c?.v && perSession[j].duree ? c.v * perSession[j].duree : null)).filter(x => x !== null);
+    const loads = row.map((c, j) => (c?.v && perSession[j].duree ? c.v * (c.min ?? perSession[j].duree) : null)).filter(x => x !== null);
     return { avg: rpeMean(vals), n: vals.length, missing: count(row, 'miss'), pending: count(row, 'wait'), load: rpeMean(loads) };
   });
   const all = cells.flat(), vals = answered(all), missing = count(all, 'miss'), pending = count(all, 'wait');

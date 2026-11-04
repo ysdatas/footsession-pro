@@ -183,6 +183,12 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            déjà prise, index sessions_serie_date_uq retiré) ; RPE : saisie jusqu'à J+14,
                                            une seule réponse du joueur (le staff corrige), rpe_history avec l'heure
                                            (rejouable)
+56. supabase/lmfc_v38.sql                  RPE après le match : match_rpe (1 à 10, un par joueur et par match, saisi par /
+                                           corrigé par), match_rpe_set() seule écriture (joueur : une réponse, jusqu'à
+                                           J+14 ; staff qui suit le joueur et lit le match : correction marquée),
+                                           player_match_rpe_ok (sans feuille le groupe, avec feuille ceux qui ont joué),
+                                           my_rpe_matches(), rpe_history() avec les matchs ; ni autres joueurs ni
+                                           lecteur ; corbeille (rejouable)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -636,13 +642,21 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   (`srHour`). Staff : bloc **RPE des joueurs** dans la séance (réponses sur
   participants, moyenne, plus bas, plus haut, une barre par joueur, « Sans réponse », « noté absent »),
   correction ou saisie à la place du joueur, toujours marquées « saisi par le staff » ; **RPE après les
-  séances** sur la fiche du joueur (onglet Performance, 20 dernières séances, vu aussi par le joueur).
+  séances et les matchs** sur la fiche du joueur (onglet Performance, 20 dernières réponses, un match
+  marqué « M », vu aussi par le joueur).
   Séparé du bilan du staff ; aucun calcul de charge ni alerte tant que le staff n'en a pas fixé les
   règles. Un joueur noté absent peut quand même répondre : le bloc le signale. Réponse **attendue**
   (`rpeExpected`) : le joueur participe, ou sa présence n'est pas encore enregistrée ; seule une absence
   enregistrée l'exclut. La carte de Mon espace est toujours là (« Rien à noter… » sinon) ; le Calendrier
   du joueur marque « RPE à noter ». Bloc **Ressenti des joueurs (RPE)** juste sous les présences ; la
   saisie du staff passe par la même feuille que le joueur (bouton « Effacer »).
+- **RPE après le match** (`rpe.js`, `rpe-stats.js`, `lmfc_v38.sql`) — mêmes règles que la séance : date et
+  heure, de l'heure du match à J+14, une seule réponse, seul le staff corrige. Table `match_rpe`, écriture par
+  `match_rpe_set()`. **Qui note** (`player_match_rpe_ok` et `rpeOnSheet`, à garder identiques) : sans feuille
+  de match, tout le groupe, pour ne pas dépendre d'un coach qui la remplit ; avec une feuille, ceux qui ont
+  joué (minutes renseignées : plus de zéro ; sinon, tous ceux qui ne sont pas « non entré »). Joueur : même
+  carte de Mon espace et même liste que les séances (`myRpeItems`), bouton dans la fiche du match au
+  **Calendrier**. Test : `tests/match-rpe-sql.test.mjs`.
 - **Avis après le match** (`match-feedback.js`, `lmfc_v36.sql`) — deux questions au joueur, en texte libre :
   « Que penses-tu de ta performance individuelle lors de ce match ? » et « … de la performance collective de
   l'équipe ? ». Il les retrouve à tout moment dans la fiche d'un match joué de son **Calendrier**, et sur
@@ -657,11 +671,15 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   ressentie moyenne ; RPE moyen par séance (couleurs de l'échelle), charge ressentie par séance, RPE
   moyen de chaque joueur (du plus élevé au plus faible) ; tableau des séances : durée prévue, travail
   prévu (procédés), RPE moyen, charge ressentie, écart à la précédente, réponses. **Charge ressentie =
-  RPE × durée totale de la séance (min), en UA** (Foster) ; la charge prévue reste dans ses colonnes et la
-  charge GPS n'y est jamais additionnée. **Détail joueurs** : la grille joueurs × 10 ou 20 dernières
-  séances ; valeur colorée, « ? » réponse attendue qui manque, « abs. », marque « staff » ; une case ouvre
-  la saisie du staff. Lecture par la RLS existante, écriture par `rpe_set()`. Tests :
-  `tests/rpe-sql.test.mjs`, `tests/rpe-logic.test.mjs`, `tests/rpe-stats.test.mjs`.
+  RPE × durée totale de la séance (min), en UA** (Foster) ; un match compte les minutes jouées du joueur,
+  sinon la durée du match (la plus longue de la feuille, 90 min sans feuille) ; la charge prévue reste dans
+  ses colonnes et la charge GPS n'y est jamais additionnée. **Détail joueurs** : la grille joueurs × 10 ou 20
+  dernières séances ; valeur colorée, « ? » réponse attendue qui manque, « abs. », marque « staff » ; une case
+  ouvre la saisie du staff. Les **matchs** de la période s'ajoutent aux séances, dans l'ordre chronologique,
+  marqués « Match » (« M » dans les graphiques et le PDF) ; les boutons 10, 20, 50 comptent les séances ;
+  les Courbatures restent aux jours de séance. Lecture par la RLS existante, écriture par `rpe_set()` et
+  `match_rpe_set()`. Tests : `tests/rpe-sql.test.mjs`, `tests/match-rpe-sql.test.mjs`,
+  `tests/rpe-logic.test.mjs`, `tests/rpe-stats.test.mjs`.
 - **Tableau tactique** — Canvas interactif (voir ci-dessous).
 - **Joueurs** — une ligne par joueur : nom à gauche, **taille — poids — poste** à droite (dernière
   mesure connue, rien d'inventé), rangés en Gardiens / Défenseurs / Milieux / Attaquants (ligne

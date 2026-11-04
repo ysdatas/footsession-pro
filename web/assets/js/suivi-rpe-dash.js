@@ -10,7 +10,7 @@
 
 const srInt = (x) => (x === null || x === undefined ? '—' : Math.round(x).toLocaleString('fr-FR'));
 const srPct = (x) => (x === null ? '' : `${x > 0 ? '+' : x < 0 ? '−' : ''}${Math.abs(Math.round(x * 100))} %`);
-const srDay = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;   // axe des graphiques : court, sans rotation
+const srDay = (s) => `${s.date_seance.slice(8, 10)}/${s.date_seance.slice(5, 7)}${s.match ? ' M' : ''}`;   // axe des graphiques : court, sans rotation
 const srKpi = (num, label) => `<div class="card kpi"><div class="kpi-num">${num}</div><div class="kpi-label">${label}</div></div>`;
 const srGap = (g) => (g === null || g === undefined ? '—' : `<span class="sr-gap">${rpeGapFr(g)}</span>`);
 const srChip = (avg) => (avg === null ? '—' : `<span class="sr-chip" style="--rpe:${rpeColor(avg)}">${rpeFr(avg)}</span>`);
@@ -19,6 +19,7 @@ function renderSrDash(body, sessions, players, cells) {
   const st = rpeSummary(sessions, cells), t = st.total;
   const ranked = players.map((p, i) => ({ p, ...st.perPlayer[i] })).filter(x => x.n).sort((a, b) => b.avg - a.avg);
   const rows = sessions.map((s, j) => ({ s, ...st.perSession[j] })).reverse();   // la plus récente en haut
+  const mNote = sessions.some(s => s.match) ? ' · M : match' : '';
   body.innerHTML = `
     <div class="kpi-grid kpi-band sr-kpis">
       ${srKpi(t.avg === null ? '—' : rpeFr(t.avg), 'RPE moyen')}
@@ -28,9 +29,9 @@ function renderSrDash(body, sessions, players, cells) {
       ${srKpi(srInt(t.load), 'Charge ressentie moyenne (UA)')}
     </div>
     <div class="charts-grid sr-charts">
-      <section class="card chart-card"><h2 class="chart-title">RPE moyen par séance <span>1 à 10${t.gapN ? ' · trait : RPE attendue' : ''}</span></h2>
+      <section class="card chart-card"><h2 class="chart-title">RPE moyen par séance <span>1 à 10${t.gapN ? ' · trait : RPE attendue' : ''}${mNote}</span></h2>
         <div class="chart-box"><canvas id="srRpeChart" role="img" aria-label="RPE moyen de l’équipe à chaque séance (détail dans le tableau Séances)"></canvas></div></section>
-      <section class="card chart-card"><h2 class="chart-title">Charge ressentie par séance <span>UA, moyenne de l’équipe</span></h2>
+      <section class="card chart-card"><h2 class="chart-title">Charge ressentie par séance <span>UA, moyenne de l’équipe${mNote}</span></h2>
         <div class="chart-box"><canvas id="srLoadChart" role="img" aria-label="Charge ressentie moyenne à chaque séance (détail dans le tableau Séances)"></canvas></div></section>
     </div>
     <section class="card chart-card sr-block"><h2 class="chart-title">Joueurs <span>RPE moyen sur la période, du plus élevé au plus faible</span></h2>
@@ -42,21 +43,21 @@ function renderSrDash(body, sessions, players, cells) {
           <th scope="col">RPE attendue</th><th scope="col">RPE moyen</th><th scope="col">Écart RPE</th>
           <th scope="col">Charge ressentie</th><th scope="col">Variation</th><th scope="col">Réponses</th></tr></thead>
         <tbody>${rows.map(r => `<tr>
-          <th scope="row"><a href="session-edit.html?id=${r.s.id}"><span class="sr-date">${srWhen(r.s)}</span> ${escapeHtml(r.s.titre)}</a></th>
+          <th scope="row"><a href="${srHref(r.s)}"><span class="sr-date">${srWhen(r.s)}</span> ${escapeHtml(r.s.titre)}</a></th>
           <td>${r.duree ? `${fmtMin(r.duree)} min` : '—'}</td><td>${r.travail ? `${fmtMin(r.travail)} min` : '—'}</td>
           <td>${r.expected ?? '—'}</td><td>${srChip(r.avg)}</td><td>${srGap(r.gap)}</td><td>${r.load === null ? '—' : `${srInt(r.load)} UA`}</td>
           <td class="${r.delta > 0 ? 'sr-up' : r.delta < 0 ? 'sr-down' : ''}">${srPct(r.delta) || '—'}</td>
           <td>${r.n}/${r.due}${r.missing ? ` <span class="sr-miss-n">${r.missing} manquante${r.missing > 1 ? 's' : ''}</span>` : ''}${r.pending ? ` <span class="sr-miss-n">${r.pending} en attente</span>` : ''}</td></tr>`).join('')}</tbody>
       </table></div></section>
     <p class="sr-method"><strong>Charge ressentie</strong> = RPE du joueur × durée totale de la séance (min), en unités arbitraires (UA, méthode sRPE de Foster).
-      La durée est celle saisie dans la séance : une participation partielle n’est pas connue. Le <strong>travail prévu</strong> est le temps de travail des procédés.
+      La durée est celle saisie dans la séance : une participation partielle n’est pas connue. Un match compte les minutes jouées du joueur ; sans elles, la durée du match, 90 min sans feuille. Le <strong>travail prévu</strong> est le temps de travail des procédés.
       Variation : charge ressentie comparée à la séance précédente.
       <strong>Écart RPE</strong> = RPE moyen déclaré − RPE attendue (saisie dans la séance) : +2 = séance ressentie 2 points plus dure que prévu ; il ne dépend pas de la durée.
       Une réponse manquante n’est jamais remplacée : elle sort des moyennes ; « en attente » = le joueur peut encore répondre (jusqu’à J+${RPE_DAYS}).
       La charge mesurée par GPS n’est jamais additionnée à ces chiffres.</p>`;
   if (!window.Chart) return;   // CDN indisponible : tuiles et tableau suffisent
   make('srRpeChart', { type: 'bar',
-    data: { labels: sessions.map(s => srDay(s.date_seance)), datasets: [{ data: st.perSession.map(x => x.avg ?? 0),
+    data: { labels: sessions.map(srDay), datasets: [{ data: st.perSession.map(x => x.avg ?? 0),
       backgroundColor: st.perSession.map(x => (x.avg === null ? MUTED : rpeColor(x.avg))), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 36, categoryPercentage: .72 },
       // RPE attendue : un trait horizontal par-dessus la barre (order -1), sans étiquette (valueLabels ignore ce jeu)
       ...(st.perSession.some(x => x.expected) ? [{ type: 'line', data: st.perSession.map(x => x.expected), showLine: false, pointStyle: 'line',
@@ -68,7 +69,7 @@ function renderSrDash(body, sessions, players, cells) {
             return [`RPE moyen ${x.avg === null ? '—' : rpeFr(x.avg)} · ${x.n}/${x.due} réponses`, ...(x.expected ? [`RPE attendue ${x.expected} · écart ${x.gap === null ? '—' : rpeGapFr(x.gap)}`] : [])]; } },
           filter: (it) => it.datasetIndex === 0 } },
       scales: { x: catAxis, y: { ...valAxis, max: 10 } } } });
-  columns('srLoadChart', sessions.map((s, j) => ({ label: srDay(s.date_seance), c: Math.round(st.perSession[j].load || 0) })));
+  columns('srLoadChart', sessions.map((s, j) => ({ label: srDay(s), c: Math.round(st.perSession[j].load || 0) })));
   if (ranked.length) make('srPlayersChart', { type: 'bar',
     data: { labels: ranked.map(x => playerFullName(x.p)), datasets: [{ data: ranked.map(x => x.avg), backgroundColor: ranked.map(x => rpeColor(x.avg)),
       borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18, categoryPercentage: .72 }] },

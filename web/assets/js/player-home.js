@@ -50,7 +50,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     sb.from('program_exercises').select('id, done_at').eq('player_id', player.id),
     sb.rpc('my_physical_measurements'),
     sb.rpc('my_physical_tests'),
-    sb.rpc('my_rpe_sessions'),
+    myRpeItems(),                  // séances et matchs (lmfc_v38.sql)
     sb.rpc('my_soreness_today'),   // lmfc_v35.sql : rien sans séance aujourd'hui
     myMatchToReview(),             // lmfc_v36.sql : rien sans match joué ces 30 jours
   ]);
@@ -60,7 +60,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     [window.PLAYER_CLUB || 'Le Mans FC', player.poste, teamRes.data?.nom].filter(Boolean).join(' · ');
 
   if (rRes.error && rRes.error.code !== 'PGRST202') console.warn('Mon espace : RPE indisponible', rRes.error.message);
-  phRpe = rRes.data || [];
+  phRpe = rRes.rows;
   phRpeOn = !rRes.error;   // sans lmfc_v29.sql : pas de carte
   if (cRes.error && cRes.error.code !== 'PGRST202') console.warn('Mon espace : courbatures indisponibles', cRes.error.message);
   phSore = cRes.data?.[0] || null;
@@ -106,7 +106,7 @@ function openMfFromCard(e) {
   openMatchFeedbackSheet({ match: phMf.match, value: phMf.value, onSaved: (v) => { phMf.value = v; a.outerHTML = mfCardHtml(); } });
 }
 
-/* RPE : la séance à noter (la plus récente sans réponse), sinon la dernière notée. */
+/* RPE : la séance ou le match à noter (le plus récent sans réponse), sinon le dernier noté. */
 let phRpe = [], phRpeOn = false;
 const phDay = (iso) => { const d = Math.round((new Date(new Date().toDateString()) - new Date(`${iso}T00:00`)) / 864e5);
   return d === 0 ? 'aujourd’hui' : d === 1 ? 'hier' : `il y a ${d} jours`; };
@@ -115,20 +115,20 @@ function rpeCardHtml() {
   const todo = phRpeTodo(), s = todo[0] || phRpe.find(x => x.rpe != null);
   // Toujours là : le joueur sait où noter même quand aucune séance n'attend.
   if (!s) return phCard({ href: 'calendrier.html', icon: 'activity', tone: 'calm', value: '—', label: 'Ton effort (RPE)',
-    detail: `Rien à noter. Après chaque séance, ton effort se note ici (jusqu’à ${RPE_DAYS} jours après).` });
-  return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" id="phRpe" href="calendrier.html"${todo.length ? ` data-rpe="${s.session_id}"` : ''}>
+    detail: `Rien à noter. Après chaque séance et chaque match, ton effort se note ici (jusqu’à ${RPE_DAYS} jours après).` });
+  return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" id="phRpe" href="calendrier.html"${todo.length ? ' data-rpe' : ''}>
     <span class="home-attn-head"><strong>${todo.length ? 'Note ton effort' : 'Ton effort'}</strong>${phIc('activity')}</span>
     <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
-    <small>${escapeHtml(s.titre)} · ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` · ${todo.length} séances à noter` : ''}</small>
+    <small>${escapeHtml(s.titre)} · ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` · ${todo.length} à noter` : ''}</small>
   </a>`;
 }
 function openRpeFromCard(e) {
   const a = e.target.closest('[data-rpe]');
   if (!a) return;
   e.preventDefault();
-  const pending = phRpeTodo().map(x => ({ id: x.session_id, titre: x.titre, date: x.date_seance, heure: x.heure }));
-  openRpeSheet({ session: pending.find(x => x.id === Number(a.dataset.rpe)), pending, onSaved: (v, session) => {
-    phRpe.find(x => x.session_id === session.id).rpe = v;
+  const pending = phRpeTodo();
+  openRpeSheet({ session: pending[0], pending, onSaved: (v, item) => {
+    item.rpe = v;
     document.getElementById('phRpe').outerHTML = rpeCardHtml();
   } });
 }

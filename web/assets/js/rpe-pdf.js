@@ -13,7 +13,8 @@ const SR_PDF_KEY = 'lmfc-rpe-pdf';
 const SR_PDF_COLS = 8;   // séances par tableau de détail au plus (A4 portrait), réparties à parts égales
 const srPdfFr = (x, d = 1) => (x === null || x === undefined ? '—' : fmtPdf(x, d));
 const srPdfGap = (g) => (g === null || g === undefined ? '—' : pdfStr(rpeGapFr(g)));
-const srPdfDay = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+const srPdfCount = (list) => { const m = list.filter(s => s.match).length, n = list.length - m; return `${n} séance${n > 1 ? 's' : ''}${m ? `, ${m} match${m > 1 ? 's' : ''}` : ''}`; };
+const srPdfDay = (s) => `${s.date_seance.slice(8, 10)}/${s.date_seance.slice(5, 7)}${s.match ? ' M' : ''}`;
 
 function openSrPdf() {
   if (!SR.sessions.length) return toast('Aucune séance à exporter pour cette équipe.', 'error');
@@ -21,7 +22,7 @@ function openSrPdf() {
   try { saved = JSON.parse(localStorage.getItem(SR_PDF_KEY)); } catch { /* stockage indisponible : tout coché */ }
   if (Array.isArray(saved)) document.querySelectorAll('input[name="sr-pdf"]').forEach(c => { c.checked = saved.includes(c.value); });
   const team = (window.CLUB_TEAMS || []).find(t => t.id === SR.team);
-  document.getElementById('srPdfLead').textContent = `${team?.nom || 'Équipe'} · ${SR.sessions.length} séance${SR.sessions.length > 1 ? 's' : ''}, du ${rpeDate(SR.sessions[0].date_seance)} au ${rpeDate(SR.sessions.at(-1).date_seance)}. Cochez le contenu du PDF.`;
+  document.getElementById('srPdfLead').textContent = `${team?.nom || 'Équipe'} · ${srPdfCount(SR.sessions)}, du ${rpeDate(SR.sessions[0].date_seance)} au ${rpeDate(SR.sessions.at(-1).date_seance)}. Cochez le contenu du PDF.`;
   openModal('srPdfModal');
 }
 
@@ -65,7 +66,7 @@ async function runSrPdf() {
     const k = await openPdf({ accent: window.CURRENT_PROFILE?.clubs?.color, runTitle: `Suivi RPE · ${team}`, runRight: club });
     k.cover({
       kicker: `${club} · Suivi RPE`, title: `Suivi RPE · ${team}`,
-      subtitle: `${sessions.length} séance${sessions.length > 1 ? 's' : ''} · ressenti des joueurs (RPE 1 à 10)`,
+      subtitle: `${srPdfCount(sessions)} · ressenti des joueurs (RPE 1 à 10)`,
       facts: [['Période', range], ['Édité le', new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })]],
     });
     if (want.has('summary')) {
@@ -80,13 +81,13 @@ async function runSrPdf() {
     }
     if (want.has('chartRpe')) {
       k.section('RPE déclaré par séance', { keep: 70, note: 'moyenne des réponses, 1 à 10' });
-      srPdfBars(k, { items: sessions.map((s, j) => ({ label: srPdfDay(s.date_seance), value: st.perSession[j].avg, mark: st.perSession[j].expected })),
+      srPdfBars(k, { items: sessions.map((s, j) => ({ label: srPdfDay(s), value: st.perSession[j].avg, mark: st.perSession[j].expected })),
         max: 10, fmt: (v) => fmtPdf(v, 1), color: PDF_SOFT, mark: st.perSession.some(x => x.expected) ? 'RPE attendue (saisie dans la séance)' : null });
     }
     if (want.has('chartLoad')) {
       const loads = st.perSession.map(x => x.load);
       k.section('Charge ressentie par séance', { keep: 70, note: 'UA, moyenne de l’équipe' });
-      srPdfBars(k, { items: sessions.map((s, j) => ({ label: srPdfDay(s.date_seance), value: loads[j] })),
+      srPdfBars(k, { items: sessions.map((s, j) => ({ label: srPdfDay(s), value: loads[j] })),
         max: Math.max(1, ...loads.filter(Boolean)) * 1.1, fmt: (v) => fmtPdf(v, 0), color: PDF_MUTE });
     }
     if (want.has('sessions')) {
@@ -112,10 +113,10 @@ async function runSrPdf() {
     if (want.has('missing')) srPdfMissing(k, sessions);
     if (want.has('method')) {
       k.section('Méthode de calcul', { keep: 42 });   // les quatre paragraphes ensemble
-      [`Charge ressentie (sRPE, méthode de Foster) = RPE du joueur × durée totale de la séance (min), en unités arbitraires (UA). Charge d’une séance = moyenne des RPE déclarés × durée.`,
+      [`Charge ressentie (sRPE, méthode de Foster) = RPE du joueur × durée totale de la séance (min), en unités arbitraires (UA). Charge d’une séance = moyenne des RPE déclarés × durée. Un match compte les minutes jouées du joueur ; sans elles, la durée du match, 90 min sans feuille.`,
         `RPE moyen = moyenne de toutes les réponses de la période. Écart = RPE moyen déclaré − RPE attendue (saisie par le staff dans la séance) ; il ne dépend pas de la durée.`,
         `Une réponse manquante n’est jamais remplacée : elle sort des moyennes. « En attente » : le joueur peut encore répondre (jusqu’à J+${RPE_DAYS}). Absent ou non concerné : ni attendu ni compté.`,
-        `La durée est celle prévue dans la séance : une participation partielle n’est pas connue. La charge mesurée par GPS n’est jamais additionnée à ces chiffres.`]
+        `Dans une séance, la durée est celle prévue : une participation partielle n’est pas connue. La charge mesurée par GPS n’est jamais additionnée à ces chiffres.`]
         .forEach(line => k.text(line, { size: 8.4 }));
     }
     k.save(pdfFileName('suivi-rpe', team, sessions.at(-1).date_seance));
@@ -137,13 +138,13 @@ function srPdfGrid(k, sessions) {
     const part = sessions.slice(from, from + size).map((s, j) => ({ s, j: from + j }));
     k.table({
       width: Math.min(k.CW, NAME + part.length * COL),
-      cols: [{ label: 'Joueur', w: NAME, strong: true }, ...part.map(({ s }) => ({ label: `${srPdfDay(s.date_seance)}${s.rpe_attendue ? ` (${s.rpe_attendue})` : ''}`, w: COL, align: 'right' }))],
+      cols: [{ label: 'Joueur', w: NAME, strong: true }, ...part.map(({ s }) => ({ label: `${srPdfDay(s)}${s.rpe_attendue ? ` (${s.rpe_attendue})` : ''}`, w: COL, align: 'right' }))],
       rows: SR.players.map((p, i) => [playerFullName(p), ...part.map(({ j }) => cell(SR.cells[i][j]))])
         .filter(r => r.slice(1).some(Boolean)),
       size: 8,
     });
   }
-  k.text('Entre parenthèses : RPE attendue de la séance.', { size: 7.4, color: PDF_MUTE });
+  k.text(`Entre parenthèses : RPE attendue de la séance.${sessions.some(s => s.match) ? ' M : match.' : ''}`, { size: 7.4, color: PDF_MUTE });
 }
 
 function srPdfMissing(k, sessions) {

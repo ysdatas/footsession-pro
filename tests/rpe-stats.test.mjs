@@ -1,6 +1,7 @@
 /* Tableau de bord Suivi RPE (web/assets/js/rpe-stats.js, rpeSummary) :
    moyennes par séance, par joueur et sur la période, réponses manquantes,
-   charge ressentie (RPE × durée de la séance) et sa variation.
+   charge ressentie (RPE × durée de la séance, minutes jouées d'un match)
+   et sa variation ; qui a joué d'après la feuille (rpeOnSheet).
    Lancement : node tests/rpe-stats.test.mjs */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -53,4 +54,18 @@ assert.deepEqual([att.total.missing, att.total.pending, att.total.n], [1, 2, 8])
 assert.equal(Math.round(att.total.rate * 1000), 889, 'taux de réponse hors « en attente » : 8 / 9');
 assert.equal(run([{ duree_min: 90, rpe_attendue: 6 }], [['miss']]).perSession[0].gap, null, 'aucune réponse : pas d’écart');
 
-console.log('rpe-stats : OK (moyennes, manquantes, en attente, charge ressentie, RPE attendue et écart)');
+// Match (lmfc_v38.sql) : la charge suit les minutes jouées de chacun ; sans minutes, la durée du match.
+const min = (x, m) => ({ v: x, staff: false, min: m });
+const mt = run([{ duree_min: 90 }, { duree_min: 60 }], [[min(8, 90), v(5)], [min(6, 20), v(7)], [min(7, null), 'miss'], [min(4, 0), null]]);
+assert.equal(mt.perSession[0].load, (720 + 120 + 630 + 0) / 4, 'match : moyenne des RPE × minutes jouées, pas RPE moyen × 90');
+assert.equal(mt.perSession[0].avg, 6.25, 'le RPE moyen ne dépend pas des minutes');
+assert.equal(mt.perSession[1].load, 360, 'séance : inchangé, RPE moyen × durée');
+assert.deepEqual(mt.perPlayer.map(p => p.load), [(720 + 300) / 2, (120 + 420) / 2, 630, 0], 'par joueur : ses minutes, la durée de la séance ailleurs');
+
+const onSheet = (sheet, id) => vm.runInContext(`rpeOnSheet(${JSON.stringify(sheet)}, ${id})`, ctx);
+const feuille = [{ player_id: 1, statut: 'titulaire', minutes: 90 }, { player_id: 2, statut: 'remplacant', minutes: 20 }, { player_id: 3, statut: 'non_entre', minutes: null },
+  { player_id: 4, statut: 'remplacant', minutes: 0 }, { player_id: 5, statut: 'titulaire', minutes: null }, { player_id: 6, statut: null, minutes: null }, { player_id: 7, statut: 'non_entre', minutes: 5 }];
+assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(id => onSheet(feuille, id)), [true, true, false, false, true, true, true, false],
+  'minutes renseignées : plus de zéro ; sinon, tout sauf non entré ; hors de la feuille : non');
+
+console.log('rpe-stats : OK (moyennes, manquantes, en attente, charge ressentie, minutes jouées d’un match, RPE attendue et écart)');
