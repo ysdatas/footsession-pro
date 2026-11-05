@@ -40,6 +40,8 @@ body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre
 .landing-club { margin: 4px 0 0; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
 /* Devise du club : une signature discrète sous la connexion. */
 .landing-motto { margin: -4px 0 0; font-size: var(--fs-xs); font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--text-secondary); text-align: center; }
+.landing-legal { margin: 0; font-size: var(--fs-xs); text-align: center; }
+.landing-legal a, .auth-hint a { color: var(--text-secondary); text-decoration: underline; }
 @media (max-width: 560px) {
   .landing { gap: 20px; }
   .landing-crest { width: 80px; height: 80px; }

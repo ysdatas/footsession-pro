@@ -29,7 +29,7 @@ const DEFAULT_PREFS = {
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
   // --- Notifications sur ce téléphone : le staff qui suit des joueurs (alertes courbatures) ---
-  if (['admin', 'coach', 'prepa'].includes(myProfile.role)) {
+  if (['admin', 'coach', 'prepa', 'analyste'].includes(myProfile.role)) {
     document.getElementById('pushCard').classList.remove('hidden');
     renderPushCard(document.getElementById('pushBox'), { texts: PUSH_TEXT_STAFF });   // push.js
   }
@@ -47,8 +47,8 @@ const DEFAULT_PREFS = {
   document.getElementById('resetMenu').addEventListener('click', () => { renderMenuEditor({}); saveMenu(); });
   renderMenuEditor(myProfile.prefs || {});
   makeSortable(document.getElementById('menuEditor'), { onChange: saveMenu });
-  // Le tableau tactique est un outil du staff terrain (admin, coach).
-  document.getElementById('tableau').classList.toggle('hidden', !canEdit(myProfile.role));
+  // Préférences tactiques personnelles pour les comptes qui utilisent le tableau.
+  document.getElementById('tableau').classList.toggle('hidden', !canEditTeamContent(myProfile.role));
 
   // Préférences et bloc d'administration en même temps (avant : l'un après l'autre).
   const [prefs] = await Promise.all([loadPrefs(), myProfile.role === 'admin' ? showAdmin() : null]);

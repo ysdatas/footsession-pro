@@ -70,6 +70,8 @@
 .schema-box .schema-thumb {
   width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 10px; cursor: pointer;
 }
+.schema-box .schema-preview { width: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+.schema-box .schema-preview:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: var(--radius-sm); }
 .schema-box .schema-empty { font-size: var(--fs-sm); color: var(--text-secondary); margin: 4px 0 10px; }
 .schema-box p { font-size: var(--fs-sm); color: var(--text-secondary); }
 .schema-recap { margin-top: 8px; font-size: var(--fs-sm); color: var(--text-muted); }

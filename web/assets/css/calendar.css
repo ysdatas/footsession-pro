@@ -81,6 +81,32 @@ p.cal-kind { margin: -6px 0 10px; }
 .cal-dl dt { color: var(--text-secondary); font-size: var(--fs-sm); }
 .cal-dl dd { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
 .cal-spacer { flex: 1; }
+.cal-summary-modal { display: flex; flex-direction: column; max-width: 760px; max-height: calc(100dvh - 32px); }
+#calSummaryBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 3px; }
+.cal-summary-actions { flex: 0 0 auto; position: sticky; bottom: -24px; margin: 14px -24px -24px; padding: 14px 24px 18px; background: var(--bg-card); }
+.cs-section { margin: 8px 0 18px; }
+.cs-section h3 { margin: 0 0 10px; font-size: var(--fs-md); }
+.cs-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.cs-field { display: grid; gap: 4px; margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+.cs-field input, .cs-field select { min-width: 0; min-height: 38px; font-size: var(--fs-sm); color: var(--text-primary); }
+.cs-read { align-self: end; margin: 0 0 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
+.cs-readonly { margin: 0 0 10px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-secondary); font-size: var(--fs-sm); }
+.cs-player-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cs-player-heading span { color: var(--text-secondary); font-size: var(--fs-sm); }
+.cs-add { display: grid; gap: 4px; max-width: 420px; margin-bottom: 10px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.cs-add input { min-height: 38px; }
+.cs-player-list { display: grid; gap: 5px; max-height: 32vh; overflow: auto; padding: 2px; overscroll-behavior: contain; }
+.cs-player-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 190px); align-items: center; gap: 6px 12px; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-surface); }
+.cs-include { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 0 8px; margin: 0; color: var(--text-primary); text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); }
+.cs-include input { grid-row: span 2; width: 18px; height: 18px; margin: 0; accent-color: var(--gold); }
+.cs-include small { grid-column: 2; color: var(--text-secondary); font-size: var(--fs-xs); }
+.cs-player-row select { min-width: 0; min-height: 34px; font-size: var(--fs-sm); }
+.cs-excluded { color: var(--text-muted); font-size: var(--fs-xs); text-align: right; }
+.cs-free, .cs-participates { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+.cs-free { grid-column: 2; }
+.cs-free input { min-width: 0; min-height: 32px; }
+.cs-participates input { width: 16px; height: 16px; margin: 0; accent-color: var(--gold); }
+.cs-status { min-height: 1.2em; margin: 8px 0 0; color: var(--danger); font-size: var(--fs-sm); }
 
 @media (max-width: 900px) {
   .cal-week { grid-template-columns: minmax(0, 1fr); min-height: 0; }
@@ -100,6 +126,12 @@ p.cal-kind { margin: -6px 0 10px; }
   .cal-more { display: none; }
   .cal-title { flex: 1 0 100%; margin: 4px 0 0; order: 5; }
   .cal-nav { flex-wrap: wrap; }
+  .cal-summary-modal { max-height: calc(100dvh - 20px); padding: 20px 16px; }
+  .cal-summary-actions { bottom: -20px; margin: 14px -16px -20px; padding: 12px 16px 14px; }
+  .cs-fields { grid-template-columns: minmax(0, 1fr); }
+  .cs-player-list { max-height: 28vh; }
+  .cs-player-row { grid-template-columns: minmax(0, 1fr) minmax(110px, 150px); gap: 5px 8px; }
+  .cs-include { font-size: var(--fs-xs); }
 }
 
 /* Ajouter / modifier (calendar-edit.js) : type, série, participants, portée */

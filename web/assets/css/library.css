@@ -223,6 +223,10 @@ button.lib-tag { cursor: pointer; font-family: inherit; }
 .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; max-height: 60vh; overflow-y: auto; }
 .library-card { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-surface); }
 .library-card img { width: 100%; height: 84px; object-fit: cover; display: block; }
+.tpl-preview { position: relative; width: 100%; height: 84px; padding: 0; overflow: hidden; border: 0; background: #0d1f14; cursor: zoom-in; }
+.tpl-preview img { width: 100%; height: 100%; object-fit: cover; }
+.tpl-preview span { position: absolute; right: 7px; bottom: 7px; padding: 3px 7px; border-radius: 5px; background: rgba(0,0,0,.76); color: #fff; font-size: var(--fs-xs); }
+.tpl-preview:focus-visible { outline: 2px solid var(--gold); outline-offset: -3px; }
 .lib-noimg { height: 84px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: var(--fs-sm); background: #0d1f14; }
 .lib-body { flex: 1; display: flex; flex-direction: column; padding: 9px 10px; }
 .lib-name { font-weight: 600; font-size: var(--fs-md); }
@@ -239,4 +243,12 @@ button.lib-tag { cursor: pointer; font-family: inherit; }
 .tpl-tag-combo input { width: 100%; }
 .tpl-page .library-grid { max-height: none; overflow: visible; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .tpl-page .library-card img, .tpl-page .lib-noimg { height: 128px; }
+.tpl-page .tpl-preview { height: 128px; }
 .lib-actions { flex-wrap: wrap; }
+.tpl-import-modal { max-width: 560px; }
+.tpl-import-warning { padding: 10px 12px; border: 1px solid rgba(224, 180, 45, .35); border-radius: var(--radius-md); background: rgba(224, 180, 45, .07); }
+.tpl-import-actions { flex-wrap: wrap; }
+.tpl-import-actions .btn { flex: 1 1 180px; justify-content: center; }
+@media (max-width: 560px) {
+  .tpl-import-actions .btn { flex-basis: 100%; }
+}

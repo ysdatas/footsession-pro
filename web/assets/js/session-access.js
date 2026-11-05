@@ -6,7 +6,8 @@
        en modification, préparateurs et « lecture sur toutes les
        équipes » en lecture, lmfc_v19.sql) ou tout le staff du club ;
      - par personne : Aucun / Lecture / Modification (« Modification »
-       seulement pour un compte admin ou coach).
+       seulement pour un compte admin ou coach ; l'Analyste reçoit son
+       niveau selon les équipes attribuées).
    Seuls les écarts au réglage de base sont enregistrés (session_access).
    ============================================================ */
 
@@ -24,9 +25,13 @@ const access = {
 /* Niveau sans réglage nominatif : même règle que session_level() et
    team_level() côté base (lmfc_v19.sql). */
 function accessDefault(m) {
+  if (m.role === 'analyste') {
+    const teams = m.team_ids || [];
+    return sessionTeamId && teams.includes(sessionTeamId) ? 'modification' : 'aucun';
+  }
   if (m.role === 'admin' || m.id === access.creator) return 'modification';
   if (access.base === 'club') return m.role === 'coach' ? 'modification' : 'lecture';
-  const teams = m.team_ids || [], coach = ['coach', 'analyste'].includes(m.role);
+  const teams = m.team_ids || [], coach = m.role === 'coach';
   if (sessionTeamId && teams.includes(sessionTeamId)) return coach ? 'modification' : 'lecture';   // staff de l'équipe
   if (!sessionTeamId && teams.length) return 'lecture';
   if (!hasTeams()) return coach ? 'modification' : 'lecture';                                       // club sans équipe
@@ -38,6 +43,8 @@ function accessDefault(m) {
 async function initAccess(session, staffReady) {
   access.base = session?.acces || 'equipe';
   access.creator = session?.created_by || myProfile.id;
+  const restrictedTeamScope = myProfile.role === 'analyste';
+  if (restrictedTeamScope) access.base = 'equipe';
   const canManage = CAN_WRITE && (myProfile.role === 'admin' || access.creator === myProfile.id);
   if (!canManage) return;
   const [{ data: staff, error }, rows] = await Promise.all([
@@ -52,6 +59,7 @@ async function initAccess(session, staffReady) {
   access.ready = true;
   document.getElementById('accessCard').classList.remove('hidden');
   document.getElementById('accessBase').value = access.base;
+  document.getElementById('accessBase').disabled = restrictedTeamScope;
   renderAccess();
   document.getElementById('accessBase').addEventListener('change', e => { access.base = e.target.value; markDirty(); renderAccess(); });
   document.getElementById('accessList').addEventListener('click', e => {
@@ -68,16 +76,19 @@ async function initAccess(session, staffReady) {
 function renderAccess() {
   if (!access.ready) return;
   const team = teamName(sessionTeamId);
-  document.getElementById('accessHint').textContent = access.base === 'club'
+  document.getElementById('accessHint').textContent = myProfile.role === 'analyste'
+    ? 'L’accès reste limité aux équipes qui vous sont attribuées.'
+    : access.base === 'club'
     ? 'Tout le staff du club consulte la séance ; administrateur et coachs la modifient.'
     : `Le staff ${team ? `de l’équipe ${team}` : 'du club'} consulte la séance (ainsi que le staff sans équipe fixe). Vous et l’administrateur la modifiez.`;
   document.getElementById('accessList').innerHTML = access.staff.map(m => {
-    const fixed = m.role === 'admin' || m.id === access.creator;
-    const level = fixed ? 'modification' : (access.overrides.get(m.id) || accessDefault(m));
+    const teamManagedAnalyst = m.role === 'analyste';
+    const fixed = m.role === 'admin' || m.id === access.creator || teamManagedAnalyst;
+    const level = teamManagedAnalyst ? accessDefault(m) : fixed ? 'modification' : (access.overrides.get(m.id) || accessDefault(m));
     const tag = m.id === access.creator ? 'Créateur' : (ROLE_LABELS[m.role] || m.role);
     return `<div class="access-row" data-member="${escapeHtml(m.id)}">
       <span class="access-name">${escapeHtml(m.nom || 'Sans nom')}<span class="access-role">${escapeHtml([tag, ...(m.team_ids || []).map(teamName).filter(Boolean)].join(' · '))}</span></span>
-      ${fixed ? '<span class="access-fixed">Accès complet</span>' : `<span class="access-seg" role="group" aria-label="Accès de ${escapeHtml(m.nom || '')}">
+      ${fixed ? `<span class="access-fixed">${teamManagedAnalyst ? (level === 'modification' ? 'Équipe attribuée' : 'Hors équipes attribuées') : 'Accès complet'}</span>` : `<span class="access-seg" role="group" aria-label="Accès de ${escapeHtml(m.nom || '')}">
         ${ACCESS_LEVELS.map(([k, label]) => `<button type="button" data-access="${k}" aria-pressed="${k === level}"
           ${k === 'modification' && !['admin', 'coach'].includes(m.role) ? 'disabled title="Réservé aux comptes admin ou coach"' : ''}>${label}</button>`).join('')}
       </span>`}

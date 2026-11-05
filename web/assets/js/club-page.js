@@ -1,8 +1,8 @@
 /* ============================================================
    LMFC Performance — club-page.js
    Page « Mon club » : identité (nom, couleur, logo), équipes,
-   accès par adresse e-mail et membres (admin, coach, préparateur physique,
-   lecteur, joueur).
+   accès par adresse e-mail et membres (admin, analyste vidéo, coach,
+   préparateur physique, lecteur, joueur).
    ============================================================ */
 
 let logoFile = null;
@@ -11,8 +11,9 @@ let roster = [];        // fiches joueurs du club
 let isAdmin = false;
 let membersById = new Map();   // profils du club, par id (panneau « Accès »)
 /* Fonctions proposées (Donner un accès, fonction d'un membre) : le lecteur
-   (scout, lmfc_v22.sql) consulte tout le club sans rien modifier. */
+   (scout, lmfc_v22.sql) consulte sans rien modifier, ses équipes ou tout le club. */
 const ROLE_CHOICES = { ...ROLE_LABELS, lecteur: 'Lecteur (consultation seule)' };
+const noTeamsLabel = (role) => (role === 'lecteur' ? 'Tout le club' : 'Aucune équipe');
 
 (async () => {
   try {
@@ -131,21 +132,22 @@ async function loadMembers() {
   const fiche = (m) => roster.find(p => p.auth_user_id === m.id);
   const rowHtml = (m) => {
     const linked = fiche(m);
-    // Équipes du compte (lmfc_v14.sql : plusieurs ; avant : une seule). Lecteur : tout le club, ses équipes ne comptent pas.
-    const ids = m.role === 'lecteur' ? [] : (m.team_ids?.length ? m.team_ids : [m.team_id]).filter(Boolean);
+    // Équipes du compte (lmfc_v14.sql : plusieurs ; avant : une seule).
+    const ids = (m.team_ids?.length ? m.team_ids : [m.team_id]).filter(Boolean);
     const teamsTxt = ids.map(teamName).filter(Boolean).join(', ');
     const acc = isAdmin && m.role !== 'joueur' ? accessSummary(m) : { bits: [], none: false };
     const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée')
       : [ROLE_LABELS[m.role] || m.role, teamsTxt && escapeHtml(teamsTxt), ...acc.bits].filter(Boolean).join(' · ')
         + (acc.none ? ' <span class="badge badge-red">Aucun accès</span>' : '');
     const self = m.id === myProfile.id;
-    // Coach, préparateur : rattachés à une ou plusieurs équipes, ils ne voient qu'elles.
-    const teamSelect = 'team_ids' in m && teams.length && !['joueur', 'admin', 'lecteur'].includes(m.role)   // lecteur : tout le club
-      ? `<details class="team-multi">
-          <summary title="Équipes dont ce compte voit et gère les joueurs">${escapeHtml(teamsTxt || 'Aucune équipe')}</summary>
+    // Coach, préparateur, lecteur : rattachés à une ou plusieurs équipes, ils ne voient qu'elles. Lecteur sans équipe : tout le club (lmfc_v39.sql).
+    const reader = m.role === 'lecteur';
+    const teamSelect = 'team_ids' in m && teams.length && !['joueur', 'admin'].includes(m.role)
+      ? `<details class="team-multi" data-reader="${reader}">
+          <summary title="Équipes dont ce compte voit${reader ? '' : ' et gère'} les joueurs">${escapeHtml(teamsTxt || noTeamsLabel(m.role))}</summary>
           <div class="team-multi-list" role="group" aria-label="Équipes du compte">
             ${teams.map(t => `<label><input type="checkbox" value="${t.id}"${ids.includes(t.id) ? ' checked' : ''}> ${escapeHtml(t.nom)}</label>`).join('')}
-            <small>Aucune cochée : aucun joueur, sauf ce que donne « Accès ».</small>
+            <small>${reader ? 'Aucune cochée : tout le club, en lecture.' : 'Aucune cochée : aucun joueur, sauf ce que donne « Accès ».'}</small>
           </div>
         </details>` : '';
     const controls = isAdmin && !self
@@ -190,7 +192,7 @@ function linkOptions(m, linked) {
 /* Membres rangés : le staff (admin, coach, préparateur), les joueurs dont le
    compte attend sa fiche, puis les joueurs par équipe de leur fiche (ordre
    des équipes du club), enfin ceux sans équipe. Ordre alphabétique partout. */
-const ROLE_RANK = { admin: 0, coach: 1, prepa: 2, lecteur: 3 };
+const ROLE_RANK = { admin: 0, analyste: 1, coach: 2, prepa: 3, lecteur: 4 };
 const fold = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const byName = (a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' });
 function memberGroups(members, fiche, teams) {
@@ -241,8 +243,10 @@ function renderAccess(pending) {
     : '';
 }
 
-// « Donner un accès » : Lecteur, juste avant Administrateur.
-document.getElementById('accRole').querySelector('option[value="admin"]').before(new Option(ROLE_CHOICES.lecteur, 'lecteur'));
+// « Donner un accès » : les rôles proches de l'administration sont regroupés.
+const accAdminOption = document.getElementById('accRole').querySelector('option[value="admin"]');
+accAdminOption.before(new Option(ROLE_CHOICES.analyste, 'analyste'));
+accAdminOption.before(new Option(ROLE_CHOICES.lecteur, 'lecteur'));
 function syncAccessForm() {
   document.getElementById('accPlayer').classList.toggle('hidden', document.getElementById('accRole').value !== 'joueur');
 }
@@ -292,8 +296,9 @@ document.getElementById('memberList').addEventListener('change', async (e) => {
       return loadMembers();
     }
     const names = data[0].team_ids.map(teamName).filter(Boolean).join(', ');
-    multi.querySelector('summary').textContent = names || 'Aucune équipe';
-    toast(names ? `Équipes du compte : ${names}` : 'Plus aucune équipe : le compte ne voit que ce que donne « Accès »', 'success');
+    const reader = multi.dataset.reader === 'true';
+    multi.querySelector('summary').textContent = names || noTeamsLabel(reader ? 'lecteur' : 'coach');
+    toast(names ? `Équipes du compte : ${names}` : reader ? 'Plus aucune équipe : tout le club, en lecture' : 'Plus aucune équipe : le compte ne voit que ce que donne « Accès »', 'success');
     membersById.get(profileId).team_ids = data[0].team_ids;
     return;
   }

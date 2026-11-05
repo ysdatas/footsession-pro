@@ -223,6 +223,19 @@
       <div id="libraryList" class="library-grid"><p class="text-muted">Chargement…</p></div>
     </div>
   </div>
+  <div class="modal-backdrop" id="tplImportModal">
+    <div class="modal tpl-import-modal">
+      <h2 class="as-h3">Importer un schéma</h2>
+      <p>Modèle : <strong id="tplImportName"></strong><br>Procédé : <strong id="tplImportTarget"></strong></p>
+      <p class="tpl-import-warning" id="tplImportOverwrite" role="status"></p>
+      <p class="text-muted" id="tplImportDrawingNote">Le dessin remplacera celui du procédé. L’enregistrement se fera automatiquement ; si une étape échoue, l’import reste en attente et sera réessayé.</p>
+      <div class="modal-actions tpl-import-actions">
+        <button class="btn" type="button" data-close="tplImportModal">Annuler</button>
+        <button class="btn" type="button" id="tplImportDrawing" data-do="applyTemplateDrawing">Importer le dessin uniquement</button>
+        <button class="btn btn-primary" type="button" id="tplImportAll" data-do="applyTemplateAll">Importer le dessin et les informations</button>
+      </div>
+    </div>
+  </div>
   <!-- Tags du club, partagés avec la bibliothèque vidéo (library-tags.js) -->
   <div class="modal-backdrop" id="libTagsModal">
     <div class="modal lib-modal">

@@ -59,6 +59,10 @@ const VIDEO_MAX_BYTES = 2 * 1024 ** 3;       // = MAX_TOTAL du Worker
 const VIDEO_MAX_TEXT = '2 Go';
 const VIDEO_CHUNK = 50 * 1024 * 1024;        // morceau d'une grande vidéo (R2 : 5 Mo au moins)
 const isR2Video = (path) => path.startsWith('r2/');
+async function videoChunkHash(blob) {
+  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 /* Appel au Worker du site (/api/…) avec le jeton de l'utilisateur. */
 async function siteApi(route, init = {}, what = 'Serveur') {
@@ -115,7 +119,7 @@ async function videoXhr(method, url, body, { type, onProgress, signal } = {}) {
       let res = {};
       try { res = JSON.parse(x.responseText); } catch { /* réponse vide */ }
       if (x.status >= 200 && x.status < 300) resolve(res);
-      else reject(new Error(res.error || `Serveur vidéo indisponible (${x.status}).`));
+      else reject(Object.assign(new Error(res.error || `Serveur vidéo indisponible (${x.status}).`), { status: x.status }));
     };
     x.onerror = () => reject(new Error('Connexion interrompue pendant l’envoi.'));
     x.onabort = () => reject(Object.assign(new Error('Envoi annulé.'), { name: 'AbortError' }));
@@ -124,26 +128,74 @@ async function videoXhr(method, url, body, { type, onProgress, signal } = {}) {
     x.send(body);
   });
 }
-/* Envoi d'un fichier (signal : AbortController pour annuler). Au-delà d'une requête
-   (95 Mo) : morceaux de 50 Mo assemblés par R2, chacun retenté deux fois ; un envoi
-   arrêté ou en échec est abandonné (rien ne reste dans le bucket). */
-async function uploadVideoFile(path, file, { onProgress, signal } = {}) {
+/* Envoi reprenable : le caller persiste uploadId + ETags après chaque morceau.
+   Une annulation explicite abandonne le multipart ; une erreur réseau conserve
+   son état pour reprendre le même chemin et les mêmes numéros de morceaux. */
+async function uploadVideoFile(path, file, { onProgress, signal, resume = null, onState = () => {} } = {}) {
   const url = `/api/videos/file/${path}`, type = file.type || 'video/mp4';
-  if (file.size <= VIDEO_PART_BYTES) return videoXhr('PUT', url, file, { type, onProgress, signal });
-  const { uploadId } = await videoXhr('POST', `${url}?mpu=start`, null, { type, signal });
-  const q = `${url}?mpu=${encodeURIComponent(uploadId)}`, json = 'application/json';
+  if (file.size <= VIDEO_PART_BYTES) {
+    onState({ path, direct: true });
+    const result = await videoXhr('PUT', url, file, { type, onProgress, signal });
+    onState({ path, direct: true, complete: true });
+    return result;
+  }
+  const json = 'application/json';
+  let state = resume?.path === path ? { ...resume, parts: [...(resume.parts || [])] } : { path, parts: [] };
+  const qFor = (id) => `${url}?mpu=${encodeURIComponent(id)}`;
+  if (state.uploadId) {
+    const { complete } = await videoXhr('GET', `${url}?mpu=${encodeURIComponent(state.uploadId)}&status=1`, null, { signal });
+    if (complete) { onState({ ...state, complete: true }); return { ok: true, resumed: true }; }
+  }
+  if (!state.uploadId) {
+    const { uploadId } = await videoXhr('POST', `${url}?mpu=start`, null, { type, signal });
+    state = { path, uploadId, parts: [] }; onState(state);
+  }
+  let q = qFor(state.uploadId);
   try {
-    const parts = [];
     for (let at = 0, n = 1; at < file.size; at += VIDEO_CHUNK, n++) {
       const chunk = file.slice(at, at + VIDEO_CHUNK), progress = (p) => onProgress?.((at + p * chunk.size) / file.size);
-      for (let tries = 0; ; tries++) {
-        try { parts.push(await videoXhr('PUT', `${q}&part=${n}`, chunk, { type, onProgress: progress, signal })); break; }
-        catch (e) { if (e.name === 'AbortError' || tries >= 2) throw e; }
+      const savedPart = state.parts.find(p => p.partNumber === n);
+      if (savedPart) {
+        if (savedPart.sha256 && savedPart.sha256 === await videoChunkHash(chunk)) {
+          onProgress?.(Math.min(1, (at + chunk.size) / file.size)); continue;
+        }
+        // Métadonnées de fichier identiques ne garantissent pas le même contenu.
+        // Sans empreinte correspondante, repartir avec un MPU propre évite tout mélange.
+        const { uploadId } = await videoXhr('POST', `${url}?mpu=start`, null, { type, signal });
+        state = { path, uploadId, parts: [] }; q = qFor(uploadId); onState(state); n = 0; at = -VIDEO_CHUNK; continue;
       }
+      const sha256 = await videoChunkHash(chunk);
+      let part;
+      for (let tries = 0; ; tries++) {
+        try { part = await videoXhr('PUT', `${q}&part=${n}`, chunk, { type, onProgress: progress, signal }); break; }
+        catch (e) {
+          if (e.name === 'AbortError') throw e;
+          if (e.status === 410) {
+            const { uploadId } = await videoXhr('POST', `${url}?mpu=start`, null, { type, signal });
+            state = { path, uploadId, parts: [] }; q = qFor(uploadId); onState(state); n = 0; at = -VIDEO_CHUNK; part = null; break;
+          }
+          if (tries >= 2) throw e;
+        }
+      }
+      if (part) { state.parts.push({ ...part, sha256 }); state.parts.sort((a, b) => a.partNumber - b.partNumber); onState(state); }
     }
-    return await videoXhr('POST', q, JSON.stringify({ parts }), { type: json, signal });
+    let result;
+    try { result = await videoXhr('POST', q, JSON.stringify({ parts: state.parts }), { type: json, signal }); }
+    catch (e) {
+      if (e.status !== 410) throw e;
+      // MPU périmé même si tous les ETags étaient déjà enregistrés : repartir
+      // sur un MPU neuf, sinon une reprise sans morceaux manquants bouclerait.
+      const { uploadId } = await videoXhr('POST', `${url}?mpu=start`, null, { type, signal });
+      state = { path, uploadId, parts: [] }; onState(state);
+      return await uploadVideoFile(path, file, { onProgress, signal, resume: state, onState });
+    }
+    onState({ ...state, complete: true });
+    return result;
   } catch (e) {
-    videoXhr('POST', q, JSON.stringify({ abort: true }), { type: json }).catch(err => console.warn('Envoi en morceaux non abandonné', err));
+    if (e.name === 'AbortError') {
+      videoXhr('POST', q, JSON.stringify({ abort: true }), { type: json }).catch(err => console.warn('Envoi en morceaux non abandonné', err));
+      onState(null);
+    }
     throw e;
   }
 }
@@ -151,6 +203,10 @@ async function removeVideoFile(path) {
   if (isR2Video(path)) return videoApi(`file/${path}`, { method: 'DELETE' });
   const { error } = await sb.storage.from('player-videos').remove([path]);
   if (error) throw error;
+}
+async function discardVideoUpload(path, state) {
+  if (state?.uploadId) await videoXhr('POST', `/api/videos/file/${path}?mpu=${encodeURIComponent(state.uploadId)}`,
+    JSON.stringify({ abort: true }), { type: 'application/json' });
 }
 
 /* ---------- Corbeille (supabase/lmfc_v5.sql) ----------

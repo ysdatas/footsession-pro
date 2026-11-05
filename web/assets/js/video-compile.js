@@ -320,7 +320,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
         <p><strong>${ids.length > 1 ? 'Compilation prête' : 'Séquence prête'}</strong> · ${mb.toFixed(1).replace('.', ',')} Mo · ${escapeHtml(compileExt(st.blob.type).toUpperCase())}</p>
         <div class="vc-done-actions">
           <a class="btn btn-primary" href="${st.url}" download="${escapeHtml(st.blob.name)}">Télécharger</a>
-          ${ids.length > 1 && canManageVideos(profile.role) ? `<button class="btn" type="button" id="vcSave" ${st.blob.size > VIDEO_MAX_BYTES ? 'disabled title="Trop volumineuse pour être ajoutée"' : ''}>Ajouter aux vidéos de ${escapeHtml(name)}</button>` : ''}
+          ${ids.length > 1 && canManagePlayerVideos(profile.role) ? `<button class="btn" type="button" id="vcSave" ${st.blob.size > VIDEO_MAX_BYTES ? 'disabled title="Trop volumineuse pour être ajoutée"' : ''}>Ajouter aux vidéos de ${escapeHtml(name)}</button>` : ''}
         </div>
         <small class="text-muted">Téléchargée, rien n’est stocké. « Ajouter aux vidéos » la range chez ce joueur (visible par lui et le staff).</small>`;
       $c('#vcDone').classList.remove('hidden');

@@ -35,5 +35,12 @@ assert.deepEqual(ids({ scope: 'mine', me: 'moi' }), [1, 4], 'mes schémas');
 assert.deepEqual(ids({ scope: 'club', me: 'moi' }), [2, 3], 'club : les autres, créateur inconnu compris');
 assert.deepEqual(ids({ scope: 'club', me: 'moi', cat: 'Jeu' }), [2], 'combiné aux autres critères');
 assert.deepEqual(ids({ me: 'moi' }), [1, 2, 3, 4], 'sans lmfc_v37.sql (pas de scope) : tout, comme avant');
-for (const k of ['insertTemplate', 'deleteTemplate', 'saveAsTemplate']) assert.equal(typeof ctx.EDIT_DO[k], 'function', `action ${k}`);
-console.log('templates-logic : OK (15 recherches)');
+for (const k of ['insertTemplate', 'chooseTemplateForProcedure', 'applyTemplateDrawing', 'applyTemplateAll', 'deleteTemplate', 'saveAsTemplate'])
+  assert.equal(typeof ctx.EDIT_DO[k], 'function', `action ${k}`);
+const overwritten = vm.runInContext(`templateOverwrittenFields(
+  { nom: 'Rondo', objectif: '', effectif: '8 joueurs' },
+  { nom: 'Mon exercice', objectif: 'Travail des appuis', effectif: '8 joueurs' }
+)`, ctx);
+assert.deepEqual(Array.from(overwritten), ['Nom du procédé', 'Objectif'], 'avertit des valeurs renseignées remplacées, y compris vidées');
+assert.deepEqual(Array.from(vm.runInContext(`templateOverwrittenFields({ nom: 'Mon exercice' }, { nom: 'Mon exercice' })`, ctx)), [], 'aucune alerte si les valeurs restent identiques');
+console.log('templates-logic : OK (recherche, actions et détection des champs écrasés)');

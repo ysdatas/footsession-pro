@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import worker from '../worker/index.js';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { webcrypto } from 'node:crypto';
 
 /* ---------- R2 en mémoire (Range : « a-b », « a- », « -n ») ---------- */
 const store = new Map();
@@ -38,6 +39,7 @@ const VIDEOS = {
     return {
       async uploadPart(n, body) { if (!u || u.key !== key) throw new Error('NoSuchUpload'); u.parts.set(n, new Uint8Array(await new Response(body).arrayBuffer())); return { partNumber: n, etag: `e${n}` }; },
       async complete(parts) {
+        if (!u || u.key !== key) throw new Error('NoSuchUpload');
         const data = parts.map(p => u.parts.get(p.partNumber)).reduce((a, b) => Uint8Array.from([...a, ...b]), new Uint8Array());
         store.set(key, { data, type: u.type }); VIDEOS.mpus.delete(id); return { size: u.big ?? data.length };
       },
@@ -55,6 +57,8 @@ const USERS = {
     lib: (p) => p.startsWith('r2/7/lib/') && p !== LIB_PRIVE, release: (p) => p.startsWith('r2/7/lib/') && p !== LIB_UTILISE },
   joueur12: { can: false, club: 7, sees: (p) => p.startsWith('r2/7/12/'), writes: () => false, lib: () => false, release: () => false },
   staff8: { can: true, club: 8, sees: (p) => p.startsWith('r2/8/'), writes: () => true, lib: (p) => p.startsWith('r2/8/lib/'), release: () => false },
+  analyste7: { can: false, playerCan: true, club: 7, sees: (p) => p.startsWith('r2/7/12/') || p.startsWith('r2/7/13/'),
+    writes: (id) => id === 12 || id === 13, lib: () => false, release: () => false },
   coachU19: { can: true, club: 7, sees: (p) => p.startsWith('r2/7/'), writes: (id) => id !== 12,   // joueur 12 : lecture seule
     lib: () => true, release: () => false },
 };
@@ -65,6 +69,7 @@ globalThis.fetch = async (url, init) => {
   const user = USERS[init.headers.authorization.replace('Bearer ', '')];
   if (!user) return new Response('{"message":"JWT expired"}', { status: 401 });
   if (u.pathname === '/rest/v1/rpc/can_manage_videos') return Response.json(user.can);
+  if (u.pathname === '/rest/v1/rpc/can_manage_player_videos') return Response.json(user.playerCan ?? user.can);
   if (u.pathname === '/rest/v1/rpc/my_club_id') return Response.json(user.club);
   if (u.pathname === '/rest/v1/rpc/player_level') return Response.json(user.writes(JSON.parse(init.body).p_player) ? 'modification' : 'lecture');
   if (u.pathname === '/rest/v1/rpc/library_file_release') return Response.json(user.release(JSON.parse(init.body).p_path));
@@ -99,6 +104,9 @@ assert.equal((await call('PUT', `/api/videos/file/${A}`, { token: 'staff7', body
   headers: { 'content-length': String(96 * 1024 * 1024) } })).status, 413, 'au-delà de 95 Mo : refusé');
 assert.equal((await put(A, 'coachU19', bytes)).status, 403, 'joueur en lecture seule pour ce coach : pas d’envoi');
 assert.equal((await put(A, 'staff7', bytes)).status, 201, 'le staff vidéo du club envoie');
+assert.equal((await put(A, 'analyste7', bytes)).status, 201, 'l’analyste envoie pour un joueur de ses équipes');
+assert.equal((await put('r2/7/14/1700000006.mp4', 'analyste7', bytes)).status, 403, 'l’analyste ne peut pas écrire hors de ses équipes');
+assert.equal((await put('r2/7/lib/1700000007.mp4', 'analyste7', bytes)).status, 403, 'l’analyste ne gère pas la bibliothèque vidéo');
 assert.equal((await put(B, 'staff7', bytes, 'text/html')).status, 201);
 assert.equal(store.get(B).type, 'video/mp4', 'un type non vidéo est ramené à video/mp4');
 assert.equal((await put(C, 'staff8', bytes)).status, 201);
@@ -117,6 +125,10 @@ assert.equal((await mpu('staff7', uploadId, { body: JSON.stringify({ parts: [] }
 assert.equal((await mpu('staff7', uploadId, { body: JSON.stringify({ parts: [{ partNumber: 1, etag: 'e1' }, { partNumber: 2, etag: 'e2' }] }) })).status, 201);
 assert.equal(new TextDecoder().decode(store.get(D).data), 'abcDEF', 'vidéo assemblée dans l’ordre');
 assert.equal(store.get(D).type, 'video/quicktime', 'type gardé depuis le début');
+assert.deepEqual(await (await mpu('staff7', `${uploadId}&status=1`, { method: 'GET' })).json(), { complete: true }, 'état R2 indique qu’une finalisation a réussi');
+assert.equal((await mpu('staff7', 'start')).status, 409, 'un nouvel MPU ne remplace jamais un objet déjà présent');
+assert.equal((await mpu('staff7', `${uploadId}-expired&part=1`, { method: 'PUT', body: 'x', headers: { 'content-length': '1' } })).status, 410, 'un MPU expiré est signalé comme reprenable depuis zéro');
+await call('DELETE', `/api/videos/file/${D}`, { token: 'staff7' });
 const big = (await (await mpu('staff7', 'start')).json()).uploadId;
 VIDEOS.mpus.get(big).big = 3 * 1024 ** 3;
 await mpu('staff7', `${big}&part=1`, { method: 'PUT', body: 'z', headers: { 'content-length': '1' } });
@@ -128,7 +140,7 @@ assert.equal(VIDEOS.mpus.has(gone), false, 'morceaux effacés');
 
 /* ---------- Le site (uploadVideoFile, supabase-client.js) contre ce Worker ----------
    Tailles réduites (une requête : 95 octets, morceau : 40) ; une connexion coupée est retentée. */
-let cut = 2;   // le 2e morceau échoue une fois
+let cut = 2, failAlways = false;   // le 2e morceau échoue une fois
 const sent = [];
 class FakeXHR {
   constructor() { this.upload = {}; this.h = {}; }
@@ -139,7 +151,7 @@ class FakeXHR {
     const b = body instanceof Blob ? new Uint8Array(await body.arrayBuffer()) : body;
     if (b != null) this.h['content-length'] = String(typeof b === 'string' ? Buffer.byteLength(b) : b.length);
     const part = Number(new URL(`https://s.test${this.u}`).searchParams.get('part'));
-    if (part === cut) { cut = null; return this.onerror(); }
+    if (part === cut) { if (!failAlways) cut = null; return this.onerror(); }
     sent.push(`${this.m} ${part || new URL(`https://s.test${this.u}`).searchParams.get('mpu') || 'direct'}`);
     const r = await worker.fetch(new Request(`https://site.test${this.u}`, { method: this.m, body: b, headers: this.h }), env);
     Object.assign(this, { status: r.status, responseText: await r.text() });
@@ -147,16 +159,40 @@ class FakeXHR {
     this.onload();
   }
 }
-const site = vm.createContext({ XMLHttpRequest: FakeXHR, JSON, Number, Error, Object, Blob, console, encodeURIComponent,
+const site = vm.createContext({ XMLHttpRequest: FakeXHR, JSON, Number, Error, Object, Blob, crypto: webcrypto, console, encodeURIComponent,
   window: { supabase: { createClient: () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'staff7' } } }) } }) } } });
 vm.runInContext(readFileSync('web/assets/js/supabase-client.js', 'utf8').replace('95 * 1024 * 1024;', '95;').replace('50 * 1024 * 1024;', '40;'), site);
-const E = 'r2/7/13/1700000004.mp4', fileOf = (n) => new File([new Uint8Array(n).map((_, i) => i % 251)], 'v.mp4', { type: 'video/mp4' });
+const E = 'r2/7/13/1700000004.mp4', fileOf = (n, shift = 0) => new File([new Uint8Array(n).map((_, i) => (i + shift) % 251)], 'v.mp4', { type: 'video/mp4', lastModified: 42 });
 const steps = [];
 site.F = fileOf(100); site.onP = (p) => steps.push(p);
 await vm.runInContext(`uploadVideoFile(${JSON.stringify(E)}, F, { onProgress: onP })`, site);
 assert.deepEqual(store.get(E).data, new Uint8Array(await fileOf(100).arrayBuffer()), 'grande vidéo : reçue entière, dans l’ordre');
 assert.deepEqual(sent.map(x => x.replace(/mpu-\d+/, 'id')), ['POST start', 'PUT 1', 'PUT 2', 'PUT 3', 'POST id'], '3 morceaux (40 + 40 + 20), le 2e retenté');
 assert.ok(steps.every((p, i) => i === 0 || p >= steps[i - 1]) && steps.at(-1) === 1, 'avancement continu jusqu’à 100 %');
+const R = 'r2/7/13/1700000005.mp4', saved = []; site.saved = saved;
+site.F = fileOf(100); cut = 2; failAlways = true;
+await assert.rejects(vm.runInContext(`uploadVideoFile(${JSON.stringify(R)}, F, { onState: (s) => saved.push(s) })`, site), /Connexion interrompue/);
+failAlways = false; cut = null; sent.length = 0;
+const resumedSite = vm.createContext({ XMLHttpRequest: FakeXHR, JSON, Number, Error, Object, Blob, crypto: webcrypto, console, encodeURIComponent,
+  window: { supabase: { createClient: () => ({ auth: { getSession: async () => ({ data: { session: { access_token: 'staff7' } } }) } }) } } });
+vm.runInContext(readFileSync('web/assets/js/supabase-client.js', 'utf8').replace('95 * 1024 * 1024;', '95;').replace('50 * 1024 * 1024;', '40;'), resumedSite);
+resumedSite.F = fileOf(100); resumedSite.resume = saved.at(-1); resumedSite.states = [];
+await vm.runInContext(`uploadVideoFile(${JSON.stringify(R)}, F, { resume, onState: (s) => states.push(s) })`, resumedSite);
+assert.deepEqual(sent.map(x => x.replace(/mpu-\d+/, 'id')), ['GET id', 'PUT 2', 'PUT 3', 'POST id'], 'reprise après rechargement : les morceaux confirmés ne sont pas renvoyés');
+assert.equal(saved.at(-1).parts.length, 1, 'checkpoint sauvegardé après chaque morceau confirmé');
+assert.equal(resumedSite.states.at(-1).complete, true, 'checkpoint indique le fichier finalisé');
+const S = 'r2/7/13/1700000006.mp4'; sent.length = 0;
+resumedSite.F = fileOf(100);
+const hashPart = async (blob) => [...new Uint8Array(await webcrypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join('');
+resumedSite.resume = { path: S, uploadId: 'mpu-expired', parts: await Promise.all([[1, 0, 40], [2, 40, 80], [3, 80, 100]].map(async ([partNumber, a, b]) => ({ partNumber, etag: `e${partNumber}`, sha256: await hashPart(resumedSite.F.slice(a, b)) }))) };
+await vm.runInContext(`uploadVideoFile(${JSON.stringify(S)}, F, { resume })`, resumedSite);
+assert.deepEqual(sent.map(x => x.replace(/mpu-\d+/, 'id')), ['GET mpu-expired', 'POST mpu-expired', 'POST start', 'GET id', 'PUT 1', 'PUT 2', 'PUT 3', 'POST id'], 'MPU expiré après réception de tous les morceaux repart proprement');
+const T = 'r2/7/13/1700000007.mp4', originalChunk = await fileOf(40).arrayBuffer();
+const digest = await webcrypto.subtle.digest('SHA-256', originalChunk), checksum = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+sent.length = 0; resumedSite.F = fileOf(100, 1); resumedSite.resume = { path: T, uploadId: 'mpu-content-check', parts: [{ partNumber: 1, etag: 'e1', sha256: checksum }] };
+await vm.runInContext(`uploadVideoFile(${JSON.stringify(T)}, F, { resume })`, resumedSite);
+assert.deepEqual(sent.slice(-5).map(x => x.replace(/mpu-\d+/, 'id')), ['POST start', 'PUT 1', 'PUT 2', 'PUT 3', 'POST id'], 'fichier différent aux mêmes nom/taille/date : les morceaux précédents ne sont pas réutilisés');
+assert.deepEqual(store.get(T).data, new Uint8Array(await fileOf(100, 1).arrayBuffer()), 'le contenu final correspond intégralement au nouveau fichier');
 sent.length = 0;
 site.F = fileOf(90);
 await vm.runInContext(`uploadVideoFile(${JSON.stringify(E)}, F)`, site);

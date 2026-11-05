@@ -32,10 +32,10 @@ const homeIc = navIc;   // icônes communes au menu (nav.js)
   const allowed = orderedNavItems(profile.role, profile.prefs).filter(i => i.key !== 'dashboard' && i.key !== 'settings');
   const can = (key) => allowed.some(i => i.key === key);
   document.getElementById('homeActions').innerHTML = [
-    can('sessions') && `<a class="btn btn-primary" href="session-edit.html">${homeIc('plus')}Nouvelle séance</a>`,
-    can('performance') && `<a class="btn" href="comparaison.html?tab=objectifs&new=1">${homeIc('target')}Objectif</a>`,
+    can('sessions') && canEditTeamContent(profile.role) && `<a class="btn btn-primary" href="session-edit.html">${homeIc('plus')}Nouvelle séance</a>`,
+    can('performance') && canManagePlans(profile.role) && `<a class="btn" href="comparaison.html?tab=objectifs&new=1">${homeIc('target')}Objectif</a>`,
     can('videos') && `<a class="btn" href="videos.html">${homeIc('videos')}Vidéos</a>`,
-    canEditPerformanceData(profile.role) && `<a class="btn${can('sessions') ? '' : ' btn-primary'}" href="comparaison.html?tab=morpho">${homeIc('scale')}Données physiques</a>`,
+    canEditPerformanceData(profile.role) && `<a class="btn${canEditTeamContent(profile.role) ? '' : ' btn-primary'}" href="comparaison.html?tab=morpho">${homeIc('scale')}Données physiques</a>`,
   ].filter(Boolean).join('');
 
   document.getElementById('homeTiles').innerHTML = allowed.map(i => `

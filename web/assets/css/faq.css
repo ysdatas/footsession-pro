@@ -41,3 +41,6 @@
 .faq-a > :first-child { margin-top: 0; }
 .faq-staff { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; vertical-align: middle; color: var(--gold); border: 1px solid var(--gold-border); }
 .faq-a h3 { margin: 16px 0 6px; font-size: var(--fs-md); }
+/* Confidentialité et mentions légales (confidentialite.html) : page publique, sans menu latéral. */
+.legal { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
+.legal-title { margin: 16px 0 4px; }

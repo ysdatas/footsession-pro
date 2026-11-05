@@ -68,6 +68,21 @@
     </div>
   </div>
 
+  <!-- Récapitulatif compact des séances et matchs (calendar-summary.js) -->
+  <div class="modal-backdrop" id="calSummaryModal">
+    <div class="modal cal-summary-modal">
+      <h2 class="as-h3" id="calSummaryTitle">Récapitulatif</h2>
+      <div id="calSummaryBody"><p class="text-muted">Chargement…</p></div>
+      <div class="modal-actions cal-summary-actions">
+        <button class="btn btn-danger hidden" type="button" id="calSummaryDelete">Supprimer</button>
+        <a class="btn" id="calSummaryFull" href="#">Ouvrir la page complète</a>
+        <span class="cal-spacer"></span>
+        <button class="btn" type="button" data-close="calSummaryModal">Fermer</button>
+        <button class="btn btn-primary hidden" type="button" id="calSummarySave">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Ajouter ou modifier (calendar-edit.js) : séance ou événement, une date ou une série ; la base décide (RLS, calendar_add) -->
   <div class="modal-backdrop" id="calEventModal">
     <div class="modal ce-modal">
@@ -139,6 +154,7 @@
   <script src="assets/js/rpe.js"></script>
   <script src="assets/js/match-feedback.js"></script>
   <script src="assets/js/calendar-edit.js"></script>
+  <script src="assets/js/calendar-summary.js"></script>
   <script src="assets/js/calendrier-page.js"></script>
 </body>
 </html>

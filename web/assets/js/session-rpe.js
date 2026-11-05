@@ -16,7 +16,7 @@ const SRPE = { rows: new Map(), bound: false };
 
 async function initSessionRpe() {
   const card = document.getElementById('srpeCard');
-  if (!card || !savedSessionId || !['admin', 'coach', 'prepa'].includes(myProfile.role)) return;
+  if (!card || !savedSessionId || !canAccessTeamReviewTools(myProfile.role)) return;
   const { data, error } = await sb.from('session_rpe').select('player_id, rpe, corrige_par').eq('session_id', savedSessionId);
   if (error) {
     if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('RPE de la séance illisible', error.message);

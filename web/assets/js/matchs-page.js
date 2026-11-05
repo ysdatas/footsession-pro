@@ -30,7 +30,7 @@ const playerOf = (id) => clubPlayers.find(p => p.id === id);
   const ctx = await requireAuth();
   if (!ctx) return;
   myProfile = ctx.profile;
-  CAN_EDIT_MATCH = canEdit(myProfile.role);
+  CAN_EDIT_MATCH = canEditTeamContent(myProfile.role);
   document.getElementById('uName').textContent = myProfile.nom || 'Utilisateur';
   document.getElementById('uRole').textContent = (ROLE_LABELS[myProfile.role] || myProfile.role).toUpperCase();
   document.getElementById('uAvatar').textContent = (myProfile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
