@@ -125,7 +125,7 @@ function pvVideo(v) {
   const ofPlayer = seqs.filter(pvByPlayer).length;
   const pickVideos = PV.pick.on && PV.pick.kind === 'videos';
   const on = pickVideos && PV.pick.ids.includes(v.id);
-  const manage = canManageVideos(PV.profile.role);
+  const manage = canManagePlayerVideos(PV.profile.role);
   const count = seqs.length
     ? `${pvPlural(seqs.length, 'séquence', 'séquences')}${ofPlayer ? ` dont ${ofPlayer} du joueur` : ''}`
     : 'Pas encore de séquence';
@@ -152,7 +152,7 @@ function pvVideo(v) {
 function pvRender() {
   const box = PV.root, p = PV.player;
   const todo = pvToSee();
-  const manage = canManageVideos(PV.profile.role);
+  const manage = canManagePlayerVideos(PV.profile.role);
   const k = PV.pick;
   if (k.on && ((k.kind === 'seqs' && !PV.seqs.length) || (k.kind === 'videos' && !(manage && PV.videos.length)))) {
     k.on = false; k.ids = [];
@@ -279,10 +279,13 @@ async function pvDeleteSeqs() {
   if (!list.length) return;
   if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} séquences` : 'cette séquence'} ?\n\n${namesList(list.map(s => s.label || 'Séquence'))}${await trashNote()}`)) return;
   try {
-    const { error } = await sb.from('video_sequences').delete().in('id', list.map(s => s.id));
+    // RLS peut refuser certaines lignes sans retourner d'erreur : compter les
+    // identifiants effectivement supprimés et garder les refusés sélectionnés.
+    const { data, error } = await sb.from('video_sequences').delete().in('id', list.map(s => s.id)).select('id');
     if (error) throw error;
-    toast(`${list.length} séquence${list.length > 1 ? 's supprimées' : ' supprimée'}.`, 'success');
-    PV.pick.ids = [];
+    const deleted = new Set((data || []).map(row => row.id));
+    PV.pick.ids = PV.pick.ids.filter(id => !deleted.has(id));
+    bulkReport(deleted.size, list.length, ['séquence', 'séquences', true], 'supprimé');
     await pvLoad();
   } catch (err) { console.error('Suppression des séquences impossible', err); toast(err.message, 'error'); }
 }
@@ -441,6 +444,9 @@ const fileExt = (name) => (/\.([a-z0-9]{1,8})$/i.exec(name)?.[1] || 'mp4').toLow
 const pctText = (p) => `${Math.floor(p * 100)} %`;
 const fmtSize = (b) => (b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} Ko`
   : `${(b / 1048576).toFixed(b < 10485760 ? 1 : 0).replace('.', ',')} Mo`);
+const uploadFingerprint = (file, clubId) => `lmfc-video-upload:${clubId}:${encodeURIComponent(`${file.name}|${file.size}|${file.lastModified}|${file.type}`)}`;
+const readUploadState = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
+const writeUploadState = (key, value) => { try { value ? localStorage.setItem(key, JSON.stringify(value)) : localStorage.removeItem(key); } catch (e) { console.warn('Reprise locale indisponible', e); } };
 
 function openVideoUpload({ players, playerId = null, profile, onDone = null }) {
   ensureVideoModals();
@@ -469,7 +475,7 @@ function renderUploads() {
       <div class="upl-row is-${it.state}" data-i="${i}">
         <input type="checkbox" class="upl-on" data-upl-on="${i}" aria-label="Cocher « ${escapeHtml(it.title)} »"${it.on ? ' checked' : ''}${off}>
         <input class="upl-title" value="${escapeHtml(it.title)}" maxlength="140" aria-label="Titre de la vidéo ${i + 1}"${off}>
-        <select class="upl-player${it.player ? '' : ' is-none'}" data-upl-player="${i}" aria-label="Joueur de la vidéo ${i + 1}"${off}>
+        <select class="upl-player${it.player ? '' : ' is-none'}" data-upl-player="${i}" aria-label="Joueur de la vidéo ${i + 1}"${off || it.resume?.uploadId ? ' disabled' : ''}>
           <option value="">— Joueur —</option>${upl.players.map(p => `<option value="${p.id}"${p.id === it.player ? ' selected' : ''}>${escapeHtml(pvName(p))}</option>`).join('')}</select>
         ${status}
         <button type="button" class="upl-x" data-upl-remove="${i}" aria-label="Retirer ${escapeHtml(it.title)}" ${locked ? 'disabled' : ''}>×</button>
@@ -525,7 +531,11 @@ document.addEventListener('change', (e) => {
   [...e.target.files].forEach(file => {
     if (known.has(`${file.name}|${file.size}|${file.lastModified}`)) return;
     const player = playerFromFile(file.name, upl.players)?.id ?? upl.fallback;   // video-status.js
-    upl.items.push({ file, title: titleFromFile(file.name), player, on: false, state: file.size > VIDEO_MAX_BYTES ? 'big' : 'ready', pct: 0 });
+    const resumeKey = uploadFingerprint(file, upl.profile.club_id), resume = readUploadState(resumeKey);
+    const chosenPlayer = resume?.player && upl.players.some(p => String(p.id) === String(resume.player)) ? resume.player : player;
+    upl.items.push({ file, title: resume?.title || titleFromFile(file.name), player: chosenPlayer, on: false,
+      state: file.size > VIDEO_MAX_BYTES ? 'big' : 'ready', pct: 0, resumeKey, resume,
+      err: resume ? 'Envoi interrompu : « Réessayer » reprend les morceaux reçus.' : '' });
   });
   e.target.value = '';   // un second choix s'ajoute au premier
   renderUploads();
@@ -551,7 +561,12 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('click', (e) => {
   const rm = e.target.closest('[data-upl-remove]');
-  if (rm && !upl.ctrl) { upl.items.splice(Number(rm.dataset.uplRemove), 1); renderUploads(); return; }
+  if (rm && !upl.ctrl) {
+    const [it] = upl.items.splice(Number(rm.dataset.uplRemove), 1);
+    writeUploadState(it?.resumeKey, null);
+    if (it?.resume?.uploadId) discardVideoUpload(it.resume.path, it.resume).catch(err => console.warn('MPU non abandonné', err));
+    renderUploads(); return;
+  }
   if (e.target.id !== 'v-cancel') return;
   if (!upl.ctrl) return closeModal('videoModal');
   if (confirm('Arrêter l’envoi ?\n\nLes vidéos déjà envoyées sont gardées.')) upl.ctrl.abort();
@@ -580,23 +595,34 @@ async function uploadVideos() {
     if (upl.ctrl.signal.aborted) break;
     it.state = 'sending'; renderUploads(); showUploadProgress(it, done, total);
     upl.stamp = Math.max(Date.now(), upl.stamp + 1);   // chemins distincts, même envoyés dans la même milliseconde
-    const playerId = it.player, path = `r2/${clubId}/${playerId}/${upl.stamp}.${fileExt(it.file.name)}`;
+    const playerId = it.player, path = it.resume?.path || `r2/${clubId}/${playerId}/${upl.stamp}.${fileExt(it.file.name)}`;
+    if (it.resume && String(it.resume.player) !== String(playerId)) {
+      it.state = 'error'; it.err = 'Le joueur est fixé pour reprendre cet envoi. Retirez la ligne et ajoutez de nouveau le fichier.'; failed++; continue;
+    }
+    if (!it.resume) { it.resume = { path, player: playerId, title: it.title }; writeUploadState(it.resumeKey, it.resume); }
     // Miniature prise sur le fichier pendant l'envoi : les listes l'affichent sans lire la vidéo.
     const thumbP = fileThumb(it.file);
     try {
       await uploadVideoFile(path, it.file, {
         signal: upl.ctrl.signal,
         onProgress: (p) => { it.pct = p; showUploadProgress(it, done, total); },
+        resume: it.resume,
+        onState: (state) => { it.resume = state ? { ...state, player: playerId, title: it.title } : null; writeUploadState(it.resumeKey, it.resume); },
       });
       const thumb = await thumbP;
+      // Si l'INSERT a réussi mais que sa réponse s'est perdue, reconnaître sa
+      // ligne avant d'insérer à nouveau ou de supprimer l'objet R2.
+      const existing = await sb.from('player_videos').select('id').eq('storage_path', path).maybeSingle();
+      if (existing.error) throw existing.error;
+      if (existing.data) {
+        writeUploadState(it.resumeKey, null); it.resume = null; it.state = 'done'; sent++; done += it.file.size; continue;
+      }
       const { error } = await sb.from('player_videos').insert({
         club_id: clubId, player_id: playerId, storage_path: path,
         titre: it.title.trim() || titleFromFile(it.file.name), description, ...(thumb && { thumb }),
       });
-      if (error) {
-        await removeVideoFile(path).catch(err => console.warn('Fichier orphelin', path, err));
-        throw error;
-      }
+      if (error) throw error; // conserver R2 et le checkpoint : l'INSERT peut avoir été validé malgré l'erreur réseau
+      writeUploadState(it.resumeKey, null); it.resume = null;
       it.state = 'done'; sent++;
     } catch (err) {
       if (err.name === 'AbortError') { it.state = 'ready'; it.pct = 0; break; }

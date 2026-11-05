@@ -31,7 +31,7 @@ const pickPlayers = { on: false, ids: new Set(), anchor: null };
   const team = currentTeam();
   document.querySelector('.page-head h1').textContent = team ? `Joueurs — ${team.nom}` : 'Joueurs du club';
 
-  CAN_EDIT_PLAYERS = canEdit(myProfile.role);
+  CAN_EDIT_PLAYERS = canEditPlayers(myProfile.role);
   if (CAN_EDIT_PLAYERS) {
     document.getElementById('btnAddPlayer').classList.remove('hidden');
     document.getElementById('btnAddPlayer').addEventListener('click', () => openPlayerModal());
@@ -177,11 +177,14 @@ async function editPickedPlayers() {
   const list = playersCache.filter(p => pickPlayers.ids.has(p.id));
   if (!list.length) return;
   const teams = window.CLUB_TEAMS || [];
-  const mine = myProfile.role === 'admin' || !(myProfile.team_ids || []).length ? teams : teams.filter(t => myProfile.team_ids.includes(t.id));
+  const mine = teams.filter(ownTeam);
   const postes = [...document.querySelectorAll('#poste-list option')].map(o => o.value);
   const fields = [];
-  if (teams.length && list.every(p => 'team_id' in p)) {
-    fields.push({ key: 'team_id', label: 'Équipe', options: [['', 'Sans équipe'], ...mine.map(t => [t.id, t.nom])], parse: (v) => Number(v) || null });
+  if (teams.length && (myProfile.role === 'admin' || mine.length) && list.every(p => 'team_id' in p)) {
+    fields.push({ key: 'team_id', label: 'Équipe', options: [
+      ...(myProfile.role === 'admin' ? [['', 'Sans équipe']] : []),
+      ...mine.map(t => [t.id, t.nom]),
+    ], parse: (v) => Number(v) || null });
   }
   fields.push({ key: 'poste', label: 'Poste', list: [...new Set([...playersCache.map(p => (p.poste || '').trim()).filter(Boolean), ...postes])] });
   if (list.every(p => 'ligne' in p)) {
@@ -374,17 +377,17 @@ document.getElementById('gridView').addEventListener('drop', async (e) => {
 });
 
 /* ---------- Joueurs sans équipe ---------- */
-/* Une équipe est choisie et des fiches n'en ont pas encore : on propose
-   de les y rattacher en un clic plutôt que fiche par fiche. */
+/* Seul l'administrateur voit les fiches sans équipe (lmfc_v39.sql). Une équipe
+   est choisie : on propose de les y rattacher en un clic plutôt que fiche par fiche. */
 function renderUnassigned() {
   const box = document.getElementById('unassignedBar');
   const team = currentTeam();
   const orphans = playersCache.filter(p => 'team_id' in p && p.team_id == null);
-  if (!team || !orphans.length || !CAN_EDIT_PLAYERS) { box.classList.add('hidden'); return; }
+  if (!orphans.length || !CAN_EDIT_PLAYERS) { box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  box.innerHTML = `<span>${orphans.length} joueur${orphans.length > 1 ? 's' : ''} sans équipe.</span>
-    <button class="btn btn-sm btn-primary" type="button" id="btnAssignTeam">Rattacher à ${escapeHtml(team.nom)}</button>`;
-  document.getElementById('btnAssignTeam').addEventListener('click', async (e) => {
+  box.innerHTML = `<span>${orphans.length} joueur${orphans.length > 1 ? 's' : ''} sans équipe : le staff des équipes ne ${orphans.length > 1 ? 'les' : 'le'} voit pas.</span>
+    ${team ? `<button class="btn btn-sm btn-primary" type="button" id="btnAssignTeam">Rattacher à ${escapeHtml(team.nom)}</button>` : `<span>Choisissez une équipe dans le menu pour ${orphans.length > 1 ? 'les y' : 'l’y'} rattacher.</span>`}`;
+  document.getElementById('btnAssignTeam')?.addEventListener('click', async (e) => {
     if (!confirm(`Rattacher ${orphans.length} joueur${orphans.length > 1 ? 's' : ''} à l'équipe ${team.nom} ?`)) return;
     e.target.disabled = true;
     try {
@@ -397,6 +400,8 @@ function renderUnassigned() {
 }
 
 /* ---------- Ajout et modification ---------- */
+/* Un coach n'ajoute ou ne retire que ses équipes, et crée dans l'une d'elles (lmfc_v39.sql). */
+const ownTeam = (t) => myProfile.role === 'admin' || (myProfile.team_ids || []).includes(t.id);
 function openPlayerModal(p = null) {
   document.getElementById('playerModalTitle').textContent = p ? 'Modifier le joueur' : 'Nouveau joueur';
   document.getElementById('m-id').value = p?.id || '';
@@ -405,25 +410,26 @@ function openPlayerModal(p = null) {
   document.getElementById('m-poste').value = p?.poste || '';
   const teams = window.CLUB_TEAMS || [];
   document.getElementById('m-team-field').classList.toggle('hidden', !teams.length || (p && !('team_id' in p)));
-  // Nouveau joueur : un coach le crée dans ses équipes (lmfc_v19.sql) ; une fiche existante garde la sienne.
-  const mine = myProfile.role === 'admin' || !(myProfile.team_ids || []).length ? teams
-    : teams.filter(t => myProfile.team_ids.includes(t.id) || t.id === p?.team_id);
-  document.getElementById('m-team').innerHTML = '<option value="">Sans équipe</option>'
+  // Nouveau joueur : un coach le crée dans une de ses équipes ; une fiche existante garde la sienne.
+  const admin = myProfile.role === 'admin', mine = teams.filter(t => ownTeam(t) || t.id === p?.team_id);
+  document.getElementById('m-team').innerHTML = (admin ? '<option value="">Sans équipe</option>' : '')
     + mine.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
-  document.getElementById('m-team').value = p ? (p.team_id ?? '') : (mine.some(t => t.id === currentTeamId()) ? currentTeamId() : '');
+  document.getElementById('m-team').value = p ? (p.team_id ?? '') : (mine.some(t => t.id === currentTeamId()) ? currentTeamId() : admin ? '' : mine[0]?.id ?? '');
   // Plusieurs équipes (lmfc_v7.sql), comme sur la fiche : l'équipe principale compte
   // pour les moyennes « équipe », les autres le font apparaître dans leurs listes.
-  const hasOther = teams.length > 1 && (!p || 'other_team_ids' in p);
+  // Celles d'autres coachs restent affichées, figées : seul l'administrateur y touche. Une seule équipe possible : rien à choisir.
+  const others = p?.other_team_ids || [], choices = teams.filter(t => ownTeam(t) || others.includes(t.id));
+  const hasOther = choices.length > 1 && (!p || 'other_team_ids' in p);
   document.getElementById('m-other-field').classList.toggle('hidden', !hasOther);
-  document.getElementById('m-other-teams').innerHTML = !hasOther ? '' : teams.map(t => `<label class="check"><input type="checkbox" value="${t.id}"${
-    (p?.other_team_ids || []).includes(t.id) ? ' checked' : ''}> ${escapeHtml(t.nom)}</label>`).join('');
+  document.getElementById('m-other-teams').innerHTML = !hasOther ? '' : choices.map(t => `<label class="check"><input type="checkbox" value="${t.id}"${
+    others.includes(t.id) ? ' checked' : ''}${ownTeam(t) ? '' : ' disabled data-locked'}> ${escapeHtml(t.nom)}</label>`).join('');
   syncOtherTeams();
   openModal('playerModal');
 }
 /* L'équipe principale ne se coche pas aussi en « autre équipe ». */
 function syncOtherTeams() {
   const main = Number(document.getElementById('m-team').value) || null;
-  document.querySelectorAll('#m-other-teams input').forEach(b => {
+  document.querySelectorAll('#m-other-teams input:not([data-locked])').forEach(b => {
     b.disabled = Number(b.value) === main;
     if (b.disabled) b.checked = false;
   });
@@ -443,6 +449,7 @@ async function savePlayer() {
     poste: document.getElementById('m-poste').value.trim() || null,
   };
   const teamId = document.getElementById('m-team').value;
+  if (!teamId && myProfile.role !== 'admin' && (window.CLUB_TEAMS || []).length) return toast('Choisissez l’équipe du joueur : seul l’administrateur crée une fiche sans équipe.', 'error');
   if (teamId) body.team_id = Number(teamId);
   if (otherTeamsOf()?.length) body.other_team_ids = otherTeamsOf();
   try {

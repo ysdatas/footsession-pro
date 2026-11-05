@@ -30,7 +30,7 @@ const SORT_DEFAULT_ASC = { date: false, titre: true, equipe: true, travail: fals
   document.getElementById('uAvatar').textContent = (myProfile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
-  if (canEdit(myProfile.role)) document.getElementById('btnNew').classList.remove('hidden');
+  if (canEditTeamContent(myProfile.role)) document.getElementById('btnNew').classList.remove('hidden');
 
   restoreView();
   document.getElementById('searchSession').addEventListener('input', render);
@@ -187,7 +187,7 @@ window.toggleWeek = (key) => {
 };
 
 function table(list) {
-  const canWrite = canEdit(myProfile.role);
+  const canWrite = canEditTeamContent(myProfile.role);
   return `<table class="table">
     <thead><tr><th>Titre</th><th>Date</th><th>Équipe</th><th>Durée séance</th><th>Temps de travail</th><th>Procédés</th><th></th></tr></thead>
     <tbody>

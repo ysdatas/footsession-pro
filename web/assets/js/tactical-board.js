@@ -2394,7 +2394,17 @@ function commit() { render(); recordStep(); scheduleSave(); }
 let saveTimer = null;
 let edits = 0, savedEdits = 0;   // modifications faites / parties en base (syncSaveState)
 /* edit = false : on regarde une autre étape ou un autre clip, rien n'a changé à enregistrer en base. */
-function scheduleSave(edit = true) { if (edit) { edits++; syncSaveState(); } clearTimeout(saveTimer); saveTimer = setTimeout(persistLocal, 1000); }
+function scheduleSave(edit = true) {
+  if (edit) {
+    edits++;
+    if (DRAFT) {
+      try { localStorage.setItem(`${LS_KEY}_edit_at`, String(Date.now())); }
+      catch (e) { console.warn('Horodatage du brouillon impossible', e); }
+    }
+    syncSaveState();
+  }
+  clearTimeout(saveTimer); saveTimer = setTimeout(persistLocal, 1000);
+}
 function persistLocal() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(serialize())); }
   catch (e) { console.warn('Sauvegarde locale du schéma impossible', e); }
@@ -2485,25 +2495,30 @@ async function saveToDB(validate) {
   if (!PROC) return toast('Ce schéma n\'est lié à aucun procédé. Ouvrez-le depuis une séance.', 'error');
   const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
   if (btn) btn.disabled = true;
+  const unlock = lockBoardSave();
   const at = edits;
   try {
-    // Image JPEG → Storage (bucket "schemas"), JSON du schéma → colonne jsonb.
+    // JSON et image sont capturés du même état avant le premier await.
+    const snapshot = serialize();
     const blob = await schemaJpeg();
-    const path = `${CLUB_ID}/procedure-${PROC}.jpg`;
-    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
-    if (upErr) throw upErr;
-
-    const { error } = await sb.from('tactical_schemas').upsert({
-      procedure_id: PROC, canvas_json: serialize(), image_path: path, vue_terrain: state.view,
-    }, { onConflict: 'procedure_id' });
-    if (error) throw error;
-    savedEdits = at; syncSaveState(new Date());
-    // Image précédente sous un autre nom (brouillon rattaché, image importée, ancien PNG) : retirée.
-    const old = PROC_SCHEMA?.image_path;
-    if (old && old !== path) {
-      const { error: rmErr } = await sb.storage.from('schemas').remove([old]);
-      if (rmErr) console.warn('Ancienne image du schéma restée dans le stockage', rmErr);
+    const prefix = window.CURRENT_PROFILE?.role === 'analyste'
+      ? `${CLUB_ID}/sessions/${Number(PROC_ROW?.session_id)}/procedure-${PROC}`
+      : `${CLUB_ID}/procedure-${PROC}`;
+    if (window.CURRENT_PROFILE?.role === 'analyste' && !Number(PROC_ROW?.session_id)) {
+      throw new Error('Le schéma doit être lié à une séance de votre équipe.');
     }
+    const path = TacticalSaveCore.versionedPath(prefix);
+    const old = PROC_SCHEMA?.image_path;
+    await TacticalSaveCore.publish({
+      path, oldPath: old,
+      upload: (key) => sb.storage.from('schemas').upload(key, blob, { upsert: false, contentType: 'image/jpeg' }),
+      write: (key) => sb.from('tactical_schemas').upsert({
+        procedure_id: PROC, canvas_json: snapshot, image_path: key, vue_terrain: snapshot.view,
+      }, { onConflict: 'procedure_id' }).select('id').maybeSingle(),
+      removeOld: (key) => sb.storage.from('schemas').remove([key]),
+      emptyResultMessage: 'Schéma non enregistré : cet utilisateur ne peut pas modifier ce procédé.',
+    });
+    savedEdits = at; syncSaveState(new Date());
     PROC_SCHEMA = { ...PROC_SCHEMA, image_path: path };
 
     persistLocal();
@@ -2518,7 +2533,19 @@ async function saveToDB(validate) {
       toast('Schéma enregistré en base', 'success');
     }
   } catch (e) { toast(e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { unlock(); if (btn) btn.disabled = false; }
+}
+
+/* Empêche une édition concurrente entre la capture du JSON et celle de l'image. */
+function lockBoardSave() {
+  const body = document.body, wasInert = body.inert, wasBusy = body.getAttribute('aria-busy');
+  body.inert = true;
+  body.setAttribute('aria-busy', 'true');
+  return () => {
+    body.inert = wasInert;
+    if (wasBusy === null) body.removeAttribute('aria-busy');
+    else body.setAttribute('aria-busy', wasBusy);
+  };
 }
 
 /* Brouillon : schéma gardé dans le navigateur, image déposée à part. La
@@ -2526,21 +2553,53 @@ async function saveToDB(validate) {
 async function saveDraftSchema(validate) {
   const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
   if (btn) btn.disabled = true;
+  const unlock = lockBoardSave();
   const at = edits;
+  const snapshot = serialize();
+  const token = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  const jsonKey = `${LS_KEY}_saved_${token}`;
+  const metaKey = 'tb_draftmeta_' + DRAFT;
+  let previous = null;
+  try { previous = JSON.parse(localStorage.getItem(metaKey) || 'null'); } catch (e) { console.warn('Métadonnées du brouillon illisibles', e); }
+  let stagedImage = null;
   try {
-    persistLocal();
+    // L'image et le JSON sont publiés ensemble par le pointeur meta, après upload.
+    localStorage.setItem(jsonKey, JSON.stringify(snapshot));
     const blob = await schemaJpeg();
-    const path = `${CLUB_ID}/drafts/${DRAFT}.jpg`;
-    const { error: upErr } = await sb.storage.from('schemas').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
-    if (upErr) throw upErr;
-    localStorage.setItem('tb_draftmeta_' + DRAFT, JSON.stringify({ image_path: path, at: Date.now() }));
+    const draftPrefix = window.CURRENT_PROFILE?.role === 'analyste'
+      ? `${CLUB_ID}/users/${window.CURRENT_PROFILE.id}/drafts/${DRAFT}`
+      : `${CLUB_ID}/drafts/${DRAFT}`;
+    const path = TacticalSaveCore.versionedPath(draftPrefix);
+    stagedImage = path;
+    await TacticalSaveCore.publish({
+      path, oldPath: previous?.image_path,
+      upload: (key) => sb.storage.from('schemas').upload(key, blob, { upsert: false, contentType: 'image/jpeg' }),
+      write: async (key) => {
+        const meta = { image_path: key, at: Date.now(), json_key: jsonKey };
+        localStorage.setItem(metaKey, JSON.stringify(meta));
+        return { data: meta, error: null };
+      },
+      removeOld: (key) => sb.storage.from('schemas').remove([key]),
+    });
+    if (previous?.json_key && previous.json_key !== jsonKey) localStorage.removeItem(previous.json_key);
     savedEdits = at; syncSaveState(new Date());
+    persistLocal();
     if (validate) {
       toast('Schéma prêt : il sera enregistré avec la séance.', 'success');
       setTimeout(() => window.close(), 1300);
     } else toast('Schéma gardé : il sera enregistré avec la séance.', 'success');
-  } catch (e) { console.error('Brouillon de schéma non enregistré', e); toast(e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  } catch (e) {
+    console.error('Brouillon de schéma non enregistré', e);
+    let current = null;
+    try { current = JSON.parse(localStorage.getItem(metaKey) || 'null'); } catch {}
+    if (current?.image_path !== stagedImage) {
+      localStorage.removeItem(jsonKey);
+      // En cas de réponse ambiguë, garder l'objet évite de supprimer un fichier
+      // que le pointeur local aurait pu valider juste avant l'interruption.
+      if (stagedImage) console.warn('Image de brouillon non référencée à vérifier lors du nettoyage Storage', stagedImage);
+    }
+    toast(e.message, 'error');
+  } finally { unlock(); if (btn) btn.disabled = false; }
 }
 
 /* Schéma d'exercice : image JPEG dans le dossier du joueur, JSON sur l'exercice. */
@@ -2548,24 +2607,23 @@ async function saveExerciseSchema(validate) {
   if (!EXO_ROW) return toast('Exercice introuvable.', 'error');
   const btn = validate ? document.getElementById('tbValidate') : document.getElementById('saveBtn');
   if (btn) btn.disabled = true;
+  const unlock = lockBoardSave();
   const at = edits;
   try {
+    const snapshot = serialize();
     const blob = await schemaJpeg();
-    const path = `${EXO_ROW.club_id}/${EXO_ROW.player_id}/program/schema-${EXO}.jpg`;
-    const { error: upErr } = await sb.storage.from('player-performance-media')
-      .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
-    if (upErr) throw upErr;
-    // .select() : une mise à jour refusée par la RLS ne renvoie pas d'erreur, juste 0 ligne.
-    const { data: saved, error } = await sb.from('program_exercises')
-      .update({ schema_json: serialize(), schema_path: path }).eq('id', EXO).select('id');
-    if (error) throw error;
-    if (!saved?.length) throw new Error('Schéma non enregistré : cet exercice n’est pas modifiable avec ce compte.');
+    const path = TacticalSaveCore.versionedPath(`${EXO_ROW.club_id}/${EXO_ROW.player_id}/program/schema-${EXO}`);
+    const old = EXO_ROW.schema_path;
+    await TacticalSaveCore.publish({
+      path, oldPath: old,
+      upload: (key) => sb.storage.from('player-performance-media')
+        .upload(key, blob, { upsert: false, contentType: 'image/jpeg' }),
+      write: (key) => sb.from('program_exercises')
+        .update({ schema_json: snapshot, schema_path: key }).eq('id', EXO).select('id'),
+      removeOld: (key) => sb.storage.from('player-performance-media').remove([key]),
+      emptyResultMessage: 'Schéma non enregistré : cet exercice n’est pas modifiable avec ce compte.',
+    });
     savedEdits = at; syncSaveState(new Date());
-    // Ancienne image sous un autre nom (PNG d'avant) : retirée.
-    if (EXO_ROW.schema_path && EXO_ROW.schema_path !== path) {
-      const { error: rmErr } = await sb.storage.from('player-performance-media').remove([EXO_ROW.schema_path]);
-      if (rmErr) console.warn('Ancienne image de l’exercice restée dans le stockage', rmErr);
-    }
     EXO_ROW.schema_path = path;
     persistLocal();
     // La fiche ouverte dans l'autre onglet affiche le schéma sans se recharger (saisie gardée).
@@ -2577,7 +2635,7 @@ async function saveExerciseSchema(validate) {
       setTimeout(() => { window.close(); if (!window.closed) location.href = `player-performance.html?id=${EXO_ROW.player_id}`; }, 1100);
     } else toast('Schéma enregistré', 'success');
   } catch (e) { console.error('Schéma d’exercice non enregistré', e); toast(e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { unlock(); if (btn) btn.disabled = false; }
 }
 
 /* Applique les préférences utilisateur (page Paramètres) aux valeurs
@@ -2604,7 +2662,7 @@ function applyPrefs(prefs) {
 async function boot() {
   const ctx = await requireAuth();
   if (!ctx) return;
-  CAN_EDIT = canEdit(ctx.profile.role);
+  CAN_EDIT = canEditTeamContent(ctx.profile.role);
   CLUB_ID = ctx.profile.club_id;
   applyPrefs(ctx.profile.prefs);
   document.getElementById('uName') && (document.getElementById('uName').textContent = ctx.profile.nom || 'Utilisateur');

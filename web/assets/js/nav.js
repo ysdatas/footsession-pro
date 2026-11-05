@@ -14,26 +14,29 @@
 const STAFF_ROLES = ['admin', 'coach'];            // travail terrain : séances, vidéos, tableau
 const ALL_STAFF   = ['admin', 'coach', 'prepa'];   // + préparateur physique
 const READER      = 'lecteur';                     // scout : consultation seule (lmfc_v22.sql)
+const VIDEO_ANALYST = 'analyste';                  // interface coach, avec droits propres aux équipes attribuées
+const COACH_INTERFACE = [...ALL_STAFF, VIDEO_ANALYST];
+const COACH_TOOLS = [...STAFF_ROLES, VIDEO_ANALYST];
 
 /* Paramètres n'est pas une rubrique : on y va par son nom, en bas du
    menu (renderUserMenu). */
 const NAV_ITEMS = [
-  { key: 'dashboard',   href: 'dashboard.html',      label: 'Accueil',           roles: ALL_STAFF },
-  { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: ALL_STAFF },   // prépa : séances ouvertes (lmfc_v10.sql)
-  { key: 'matches',     href: 'matchs.html',         label: 'Retours de match',  roles: ALL_STAFF },   // prépa : lecture (lmfc_v11.sql)
-  { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: [...ALL_STAFF, READER] },
-  { key: 'calendar',    href: 'calendrier.html',     label: 'Calendrier',        roles: ALL_STAFF },   // après les 4 onglets du téléphone (lmfc_v28.sql)
-  { key: 'rpe',         href: 'suivi-rpe.html',      label: 'Suivi RPE',         roles: ALL_STAFF },   // ressenti des joueurs (lmfc_v29.sql)
-  { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: [...ALL_STAFF, READER] },
-  { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: [...STAFF_ROLES, READER] },
-  { key: 'library',     href: 'bibliotheque.html',   label: 'Bibliothèque vidéo', roles: ALL_STAFF },   // prépa : ce qu'on lui ouvre (lmfc_v24.sql)
-  { key: 'schemas',     href: 'schemas.html',        label: 'Bibliothèque de schémas', roles: STAFF_ROLES },   // schémas enregistrés (session-templates.js)
-  { key: 'tactical',    href: 'tactical-board.html', label: 'Tableau tactique',  roles: STAFF_ROLES },
-  { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: STAFF_ROLES },
-  { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: [...ALL_STAFF, READER] },
+  { key: 'dashboard',   href: 'dashboard.html',      label: 'Accueil',           roles: COACH_INTERFACE },
+  { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: COACH_INTERFACE },   // prépa et analyste : selon les droits de lecture
+  { key: 'matches',     href: 'matchs.html',         label: 'Retours de match',  roles: COACH_INTERFACE },
+  { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
+  { key: 'calendar',    href: 'calendrier.html',     label: 'Calendrier',        roles: COACH_INTERFACE },   // après les 4 onglets du téléphone (lmfc_v28.sql)
+  { key: 'rpe',         href: 'suivi-rpe.html',      label: 'Suivi RPE',         roles: COACH_INTERFACE },   // ressenti des joueurs (lmfc_v29.sql)
+  { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
+  { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: [...STAFF_ROLES, VIDEO_ANALYST, READER] },
+  { key: 'library',     href: 'bibliotheque.html',   label: 'Bibliothèque vidéo', roles: COACH_INTERFACE },   // lecture selon les droits accordés
+  { key: 'schemas',     href: 'schemas.html',        label: 'Bibliothèque de schémas', roles: COACH_TOOLS },   // schémas enregistrés (session-templates.js)
+  { key: 'tactical',    href: 'tactical-board.html', label: 'Tableau tactique',  roles: COACH_TOOLS },
+  { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: COACH_TOOLS },
+  { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
   { key: 'club',        href: 'club.html',           label: 'Mon club',          roles: ['admin'] },
   { key: 'notifications', href: 'notifications.html', label: 'Notifications',    roles: ['admin'] },   // lmfc_v16.sql
-  { key: 'trash',       href: 'trash.html',          label: 'Corbeille',         roles: ALL_STAFF },
+  { key: 'trash',       href: 'trash.html',          label: 'Corbeille',         roles: COACH_INTERFACE },
 ];
 
 /* Pages sans entrée de menu : rubrique qu'elles « allument ». */

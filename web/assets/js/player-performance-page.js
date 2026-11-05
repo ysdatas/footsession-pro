@@ -34,7 +34,7 @@ let clubLogoUrl = null;
 let currentSeason = null;  // saison affichée : la plus récente du joueur
 
 /* Rôles du staff ayant accès à la performance (can_view_performance()
-   côté base) : admin, coach, préparateur physique, et le lecteur, qui
+   côté base) : admin, coach, préparateur physique, Analyste vidéo, et le lecteur, qui
    consulte la même vue sans rien modifier (isStaffRole, auth.js). Les
    données physiques ne sont modifiées que par l'admin et le préparateur
    (is_performance_editor()). */
@@ -873,7 +873,7 @@ async function loadPage() {
   const readOnly = level === 'lecture' || isReader(ctxProfile.role);
   canEditPerformance = !readOnly && canEditPerformanceData(ctxProfile.role);
   canEditPlans = !readOnly && canManagePlans(ctxProfile.role);
-  canEditPlayer = !readOnly && canEdit(ctxProfile.role);
+  canEditPlayer = !readOnly && canEditPlayers(ctxProfile.role);
   document.getElementById('perfRoleLabel').textContent = ctxProfile.role === 'joueur' ? 'Espace joueur'
     : readOnly ? 'Dossier individuel · consultation (accès en lecture)'
     : canEditPerformance ? 'Dossier individuel' : 'Dossier individuel · consultation (données physiques : préparateur)';
@@ -934,7 +934,7 @@ async function loadPage() {
   const [[mRes, tRes], notesError] = await Promise.all([
     early.physical || fetchPhysical(),
     initNotes({ player, canEdit: canEditPlans, userId: ctxProfile.id, lists, onError: (m) => notify(m, 'error'),
-      canUploadVideo: canManageVideos(ctxProfile.role),
+      canUploadVideo: canManagePlayerVideos(ctxProfile.role),
       program: staffProgram ? {
         exercises: () => prog.exercises || [],
         open: openExercise,
@@ -1324,9 +1324,9 @@ function setupVisibilityToggles() {
    ouverture de leur onglet. */
 const PF_TABS = ['fiche', 'performance', 'matchs', 'videos'];
 /* Vidéos : le staff qui les gère, et le lecteur en consultation (player-videos.js). */
-const canSeeVideosTab = () => canManageVideos(ctxProfile.role) || isReader(ctxProfile.role);
+const canSeeVideosTab = () => canManagePlayerVideos(ctxProfile.role) || isReader(ctxProfile.role);
 /* Matchs : admin, coachs, préparateurs (le lecteur et le joueur ne lisent aucun match : lmfc_v19 / v22). */
-const canSeeMatchesTab = () => ['admin', 'coach', 'prepa'].includes(ctxProfile.role);
+const canSeeMatchesTab = () => canAccessTeamReviewTools(ctxProfile.role);
 let pfVideosMounted = false, pfMatchesMounted = false;
 function setupTabs() {
   const nav = document.getElementById('pfTabs');

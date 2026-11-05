@@ -6,7 +6,7 @@
        événements du club (club_events) ;
      - vues Mois, Semaine, À venir ; filtre par type (mémorisé sur
        l'appareil) ; l'équipe est celle du sélecteur du menu (staff) ;
-     - staff : une séance ouvre l'éditeur, un match sa fiche ; joueur :
+     - staff : un clic sur séance ou match ouvre son résumé (calendar-summary.js) ; joueur :
        une fiche résumée (my_calendar : jamais les notes du staff) et,
        pour une séance, son RPE (rpe.js, lmfc_v29.sql) ;
      - ajouter une séance ou un événement, seul ou en série, et modifier
@@ -45,12 +45,12 @@ function calMemo(save) {
     fillUserBlock(ctx.profile.nom || 'Utilisateur', ROLE_LABELS[ctx.profile.role] || ctx.profile.role);
     document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
   }
-  document.getElementById('calAdd').classList.toggle('hidden', !canEdit(ctx.profile.role));
+  document.getElementById('calAdd').classList.toggle('hidden', !canEditTeamContent(ctx.profile.role));
   calMemo();
   if (CAL.view === 'list') CAL.anchor = calToday();
   bindCal();
   loadCal();
-  if (canEdit(ctx.profile.role)) calNotify();   // changements encore en attente (éditeur de séance, envoi interrompu)
+  if (canEditTeamContent(ctx.profile.role)) calNotify();   // changements encore en attente (éditeur de séance, envoi interrompu)
 })();
 
 function calError(e) {
@@ -71,8 +71,8 @@ async function fetchItems(from, to) {
       team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, rpeTodo: toRate.has(`${r.kind}:${r.id}`) }));
   }
   const [s, m, e] = await Promise.all([
-    byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, serie_id, lieu, duree_min')).gte('date_seance', from).lte('date_seance', to),
-    byTeam(sb.from('matches').select('id, adversaire, date_match, heure, team_id, lieu, stade, competition, score_pour, score_contre'))
+    byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, serie_id, lieu, duree_min, created_by')).gte('date_seance', from).lte('date_seance', to),
+    byTeam(sb.from('matches').select('id, adversaire, date_match, heure, team_id, lieu, stade, competition, score_pour, score_contre, created_by'))
       .gte('date_match', from).lte('date_match', to),
     byTeam(sb.from('club_events').select('*')).gte('date_event', from).lte('date_event', to),
   ]);
@@ -81,7 +81,7 @@ async function fetchItems(from, to) {
   return [
     ...s.data.map(x => ({ kind: 'seance', id: x.id, date: x.date_seance, heure: hhmm(x.heure), titre: x.titre, team_id: x.team_id, lieu: x.lieu, row: x })),
     ...m.data.map(x => ({ kind: 'match', id: x.id, date: x.date_match, heure: hhmm(x.heure), titre: x.adversaire, team_id: x.team_id,
-      lieu: x.lieu, stade: x.stade, sub: x.competition, score: score(x) })),
+      lieu: x.lieu, stade: x.stade, sub: x.competition, score: score(x), row: x })),
     ...e.data.map(x => ({ kind: 'evenement', id: x.id, date: x.date_event, heure: hhmm(x.heure), titre: x.titre, team_id: x.team_id,
       lieu: x.lieu, notes: x.notes, row: x })),
   ];
@@ -177,12 +177,9 @@ function renderCal() {
 /* ---------- Ouvrir un élément ---------- */
 function openCalItem(i) {
   if (!i) return;
-  // Événement, ou séance d'une série : la fenêtre de calendar-edit.js ; une séance seule s'ouvre dans l'éditeur.
-  if (canEdit(CAL.profile.role) && (i.kind === 'evenement' || i.row?.serie_id)) return openCalEdit(i);
-  if (i.kind !== 'evenement' && !CAL.asPlayer) {
-    window.location.href = i.kind === 'seance' ? `session-edit.html?id=${i.id}` : `matchs.html?id=${i.id}`;
-    return;
-  }
+  // Un clic calendrier affiche toujours le résumé d'une séance ou d'un match.
+  if (i.kind !== 'evenement' && !CAL.asPlayer) return openCalSummary(i);
+  if (canEditTeamContent(CAL.profile.role) && i.kind === 'evenement') return openCalEdit(i);
   const rows = [['Date', calCap(calDayLabel(i.date))], ['Heure', i.heure], ['Lieu', CAL_LIEUX[i.lieu] || i.lieu],
     ['Stade', i.stade], ['Score', i.score], ['Informations', i.notes]].filter(([, v]) => v);
   document.getElementById('calDetailTitle').textContent = calTitleOf(i);

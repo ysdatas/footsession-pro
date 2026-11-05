@@ -23,11 +23,12 @@ const TPL_FIELDS = ['nom', 'duree_min', 'objectif', 'effectif', 'taille_terrain'
   'type_procede', 'nb_sequences', 'duree_sequence_min'];
 const TPL = { rows: [], urls: new Map(), tagsOn: false, q: '', cat: '', tags: [], mode: 'all', bound: false, filter: false,
   insertLabel: 'Insérer',   // page Bibliothèque de schémas (schemas-page.js) : « Nouvelle séance »
-  ownerOn: false, scope: 'mine', staff: [] };   // créateur et partage (lmfc_v37.sql) ; staff : club_staff()
+  ownerOn: false, scope: 'mine', staff: [], targetUid: null, pendingImport: null };   // créateur et partage (lmfc_v37.sql) ; staff : club_staff()
 const tplMe = () => window.CURRENT_PROFILE || {};
 const tplAdmin = () => tplMe().role === 'admin';
 const tplMine = (t) => t.created_by === tplMe().id;
 const tplCanManage = (t) => !TPL.ownerOn || tplMine(t) || tplAdmin();
+const tplCanShare = (t) => tplMe().role !== 'analyste' && tplCanManage(t);
 
 /* Schémas qui répondent à tous les critères : à soi ou aux autres (scope,
    me), nom (sans casse ni accents), type, tags (tous, ou au moins un). */
@@ -98,10 +99,17 @@ async function loadTemplates() {
   }
 }
 
-async function openLibrary() {
+async function openLibrary(targetUid = null) {
+  // Le clic sur #btnLibrary passe l'événement DOM ; seul un uid est un import ciblé.
+  TPL.targetUid = typeof targetUid === 'string' ? targetUid : null;
+  TPL.pendingImport = null;
+  if (TPL.targetUid) syncFromDom();
   openModal('libraryModal');
+  const title = document.querySelector('#libraryModal h2');
+  if (title) title.textContent = TPL.targetUid ? 'Importer un schéma dans le procédé' : 'Schémas enregistrés';
   const list = document.getElementById('libraryList');
   list.innerHTML = '<p class="text-muted">Chargement…</p>';
+  document.getElementById('tplTagsManage')?.classList.toggle('hidden', tplMe().role === 'analyste');
   bindTemplateTools();
   try { await loadTemplates(); } catch (e) { list.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`; return; }
   const cats = [...new Set(TPL.rows.map(t => t.categorie).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
@@ -135,7 +143,7 @@ function templateCard(t) {
   const url = t.image_path && TPL.urls.get(t.image_path);
   const tags = t.tag_ids.map(id => libTags.byId.get(id)).filter(Boolean);
   return `<div class="library-card" data-tpl="${t.id}">
-    ${url ? `<img src="${escapeHtml(url)}" alt="" loading="lazy">` : '<div class="lib-noimg">Sans schéma</div>'}
+    ${url ? `<button class="tpl-preview" type="button" data-tpl-preview="${t.id}" aria-label="Aperçu du schéma ${escapeHtml(t.nom)}"><img src="${escapeHtml(url)}" alt="" loading="lazy"><span>Aperçu</span></button>` : '<div class="lib-noimg">Sans dessin</div>'}
     <div class="lib-body">
       <div class="lib-name">${escapeHtml(t.nom)}</div>
       <div class="lib-cat">${escapeHtml(t.categorie || '')}</div>
@@ -143,8 +151,8 @@ function templateCard(t) {
       ${TPL.tagsOn ? `<div class="lib-tags tpl-tags">${tags.map(g => libTagChip(g, { remove: 'data-tpl-untag' })).join('')}
         <button type="button" class="lib-tag is-quick" data-tpl-tagadd aria-label="Ajouter un tag à ${escapeHtml(t.nom)}">+ tag</button></div>` : ''}
       <div class="lib-actions">
-        <button class="btn btn-sm btn-primary" type="button" data-do="insertTemplate" data-arg="${t.id}">${TPL.insertLabel}</button>
-        ${TPL.ownerOn && tplCanManage(t) ? `<button class="btn btn-sm" type="button" data-tpl-share aria-pressed="${!!t.partage}">${t.partage ? 'Rendre privé' : 'Partager'}</button>` : ''}
+        <button class="btn btn-sm btn-primary" type="button" data-do="${TPL.targetUid ? 'chooseTemplateForProcedure' : 'insertTemplate'}" data-arg="${t.id}">${TPL.targetUid ? 'Choisir ce schéma' : TPL.insertLabel}</button>
+        ${TPL.ownerOn && tplCanShare(t) ? `<button class="btn btn-sm" type="button" data-tpl-share aria-pressed="${!!t.partage}">${t.partage ? 'Rendre privé' : 'Partager'}</button>` : ''}
         ${tplCanManage(t) ? `<button class="btn btn-sm btn-danger" type="button" data-do="deleteTemplate" data-arg="${t.id}">Supprimer</button>` : ''}
       </div>
     </div>
@@ -186,7 +194,12 @@ function bindTemplateTools() {
   modal.addEventListener('click', (e) => {
     const mode = e.target.closest('[data-tpl-mode]'), del = e.target.closest('[data-tpl-untag]'), add = e.target.closest('[data-tpl-tagadd]');
     const scope = e.target.closest('[data-tpl-scope]'), share = e.target.closest('[data-tpl-share]');
-    if (scope) {
+    const preview = e.target.closest('[data-tpl-preview]');
+    if (preview) {
+      const t = TPL.rows.find(x => x.id === Number(preview.dataset.tplPreview));
+      const src = t?.image_path && TPL.urls.get(t.image_path);
+      if (src) openLightbox({ title: t.nom, items: [{ type: 'image', src }] });
+    } else if (scope) {
       TPL.scope = scope.dataset.tplScope;
       renderTemplates();
     } else if (share) {
@@ -202,7 +215,7 @@ function bindTemplateTools() {
       const box = document.createElement('span');
       box.className = 'tpl-tag-combo';
       add.replaceWith(box);
-      attachTagCombo(box, { allowCreate: true, label: `Ajouter un tag à ${row?.nom || 'ce schéma'}`,
+      attachTagCombo(box, { allowCreate: tplMe().role !== 'analyste', label: `Ajouter un tag à ${row?.nom || 'ce schéma'}`,
         exclude: () => new Set(row?.tag_ids), onChoose: (t) => tagTemplate(id, t) }).input.focus();
     }
   });
@@ -264,6 +277,71 @@ window.insertTemplate = async (id) => {
     toast('Procédé ajouté depuis les schémas', 'success');
   } catch (e) { toast(e.message, 'error'); }
 };
+
+const TPL_FIELD_LABELS = {
+  nom: 'Nom du procédé', duree_min: 'Durée', objectif: 'Objectif', effectif: 'Effectif',
+  taille_terrain: 'Taille du terrain', consignes: 'Consignes', principes_jeu: 'Principe de jeu',
+  comportements_individuels: 'Comportements individuels', temps_recup_min: 'Temps de récupération',
+  type_procede: 'Type de procédé', nb_sequences: 'Nombre de séquences', duree_sequence_min: 'Durée des séquences',
+};
+function templateOverwrittenFields(data, procedure) {
+  return TPL_FIELDS.filter(k => String(procedure?.[k] ?? '').trim() !== ''
+    && String(procedure?.[k] ?? '').trim() !== String(data?.[k] ?? '').trim())
+    .map(k => TPL_FIELD_LABELS[k] || k);
+}
+
+async function chooseTemplateForProcedure(id) {
+  const procedure = procedures.find(p => p._uid === TPL.targetUid && p.id);
+  if (!procedure) return toast('Enregistrez d’abord le procédé avant d’y importer un schéma.', 'error');
+  try {
+    const { data: tpl, error } = await sb.from('exercise_templates')
+      .select('id, nom, data, image_path, canvas_json').eq('id', id).single();
+    if (error) throw error;
+    TPL.pendingImport = { tpl, uid: procedure._uid };
+    document.getElementById('tplImportName').textContent = tpl.nom;
+    document.getElementById('tplImportTarget').textContent = procedure.nom || 'Procédé sans nom';
+    const fields = templateOverwrittenFields(tpl.data, procedure);
+    document.getElementById('tplImportOverwrite').innerHTML = fields.length
+      ? `Ces informations déjà renseignées seront remplacées : <strong>${fields.map(escapeHtml).join(', ')}</strong>. Les champs vides du modèle les videront.`
+      : 'Aucune information déjà renseignée ne sera écrasée.';
+    const hasDrawing = !!(tpl.image_path || tpl.canvas_json);
+    const drawingBtn = document.getElementById('tplImportDrawing');
+    drawingBtn.disabled = !hasDrawing;
+    drawingBtn.textContent = hasDrawing ? 'Importer le dessin uniquement' : 'Ce modèle ne contient pas de dessin';
+    document.getElementById('tplImportDrawingNote').textContent = hasDrawing
+      ? 'Le dessin remplacera celui du procédé. L’enregistrement se fera automatiquement ; si une étape échoue, l’import reste en attente et sera réessayé.'
+      : 'Ce modèle ne contient pas de dessin : l’import des informations conservera le schéma actuel du procédé.';
+    document.getElementById('tplImportAll').textContent = hasDrawing
+      ? 'Importer le dessin et les informations' : 'Importer les informations';
+    openModal('tplImportModal');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function applyTemplateImport(mode) {
+  const pending = TPL.pendingImport;
+  if (!pending) return;
+  syncFromDom();
+  const p = procedures.find(x => x._uid === pending.uid && x.id);
+  if (!p) return toast('Le procédé n’est plus disponible.', 'error');
+  const tpl = pending.tpl;
+  if (mode === 'all') {
+    TPL_FIELDS.forEach(k => { p[k] = tpl.data?.[k] ?? ''; });
+  }
+  if (mode === 'drawing' || (mode === 'all' && (tpl.image_path || tpl.canvas_json))) {
+    // Un brouillon tactique local antérieur ne doit pas écraser ce modèle au prochain autosave.
+    // Ses données restent dans le navigateur ; seule la liaison avec ce procédé est retirée.
+    p.draft_key = null;
+    p.from_template = { image_path: tpl.image_path || null, canvas_json: tpl.canvas_json || null };
+    p.has_canvas = !!tpl.canvas_json;
+  }
+  markDirty();
+  renderProcedures();
+  updateMeta();
+  TPL.pendingImport = null;
+  closeModal('tplImportModal');
+  closeModal('libraryModal');
+  toast(mode === 'drawing' ? 'Dessin importé. Enregistrement automatique en cours.' : 'Schéma importé. Enregistrement automatique en cours.', 'success');
+}
 window.deleteTemplate = async (id) => {
   if (!confirm(`Supprimer ce modèle ?${await trashNote()}`)) return;
   try {
@@ -277,6 +355,9 @@ window.deleteTemplate = async (id) => {
 
 Object.assign(EDIT_DO, {
   insertTemplate: (b) => insertTemplate(Number(b.dataset.arg)),
+  chooseTemplateForProcedure: (b) => chooseTemplateForProcedure(Number(b.dataset.arg)),
+  applyTemplateDrawing: () => applyTemplateImport('drawing'),
+  applyTemplateAll: () => applyTemplateImport('all'),
   deleteTemplate: (b) => deleteTemplate(Number(b.dataset.arg)),
   saveAsTemplate: (b) => saveAsTemplate(b.dataset.arg),
 });

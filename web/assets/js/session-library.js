@@ -13,7 +13,7 @@
    ============================================================ */
 
 const LIB = { loaded: false, info: new Map(), current: new Map(), gaps: new Map(), browser: null, target: null };
-const libInEditor = () => ['admin', 'coach', 'prepa'].includes(myProfile?.role);
+const libInEditor = () => canAccessTeamReviewTools(myProfile?.role);
 
 /* Versions liées : numéro, fichier, procédé (titre, statut, version en cours). */
 async function libLoadInfo() {

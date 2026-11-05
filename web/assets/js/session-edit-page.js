@@ -32,12 +32,15 @@ const nextUid = () => 'p' + (uidSeq++);
 let sessionTeamId = null; // équipe du club concernée (table teams), null = sans équipe
 let loadedSession = null; // la séance telle que lue (créateur, accès de base)
 const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
+/* Équipes où ce compte range une séance (lmfc_v39.sql : la base refuse les autres) ; une séance ouverte garde la sienne. */
+const teamsForSession = () => (window.CLUB_TEAMS || []).filter(t => myProfile.role === 'admin'
+  || (myProfile.team_ids || []).includes(t.id) || t.id === loadedSession?.team_id);
 
 (async () => {
   const ctx = await requireAuth();
   if (!ctx) return;
   myProfile = ctx.profile;
-  CAN_WRITE = canEdit(myProfile.role);
+  CAN_WRITE = canEditTeamContent(myProfile.role);
   // Tout ce qui ne dépend que du compte part en même temps que la séance.
   loadPrincipleSuggestions();
   loadProcSuggestions();
@@ -91,7 +94,8 @@ const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
     showSavedSession();
   } else {
     document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
-    sessionTeamId = currentTeamId();
+    const mine = teamsForSession();
+    sessionTeamId = mine.some(t => t.id === currentTeamId()) ? currentTeamId() : mine.length === 1 ? mine[0].id : null;
     await loadPlayersForNew();
     addProcedure({ nom: 'Échauffement', duree_min: 15 });
   }
@@ -197,7 +201,7 @@ function mountTeamSelect() {
   const input = document.getElementById('f-equipe');
   const select = el('select', { id: 'f-team', disabled: CAN_WRITE ? null : 'disabled' },
     el('option', { value: '' }, 'Sans équipe'),
-    window.CLUB_TEAMS.map(t => el('option', { value: t.id, selected: t.id === sessionTeamId ? 'selected' : null }, t.nom)));
+    teamsForSession().map(t => el('option', { value: t.id, selected: t.id === sessionTeamId ? 'selected' : null }, t.nom)));
   input.classList.add('hidden');
   input.after(select);
   document.querySelector('label[for="f-equipe"]')?.setAttribute('for', 'f-team');   // le libellé suit la liste
@@ -463,9 +467,14 @@ const lsJson = (key) => { try { return JSON.parse(localStorage.getItem(key) || '
 const schemaUrl = (path, v) => `${sb.storage.from('schemas').getPublicUrl(path).data.publicUrl}${v ? `?v=${v}` : ''}`;
 function schemaBoxHtml(p) {
   if (p.id) {
-    const draw = !p.image_path ? 'Dessiner le schéma →' : p.has_canvas ? 'Modifier le schéma →' : 'Dessiner à la place →';
-    return `${p.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(p.image_path, p.image_v))}" alt="Schéma du procédé" loading="lazy" data-fail-uid="${p._uid}">` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
+    const shownPath = p.from_template?.image_path || p.image_path;
+    const shownVersion = p.from_template ? null : p.image_v;
+    const hasCanvas = p.from_template ? !!p.from_template.canvas_json : p.has_canvas;
+    const draw = !shownPath && !hasCanvas ? 'Dessiner le schéma →' : hasCanvas ? 'Ouvrir le tableau tactique →' : 'Dessiner à la place →';
+    return `${shownPath ? `<button class="schema-preview" type="button" data-do="previewProcedureSchema" data-arg="${p._uid}" aria-label="Aperçu du schéma du procédé"><img class="schema-thumb" src="${escapeHtml(schemaUrl(shownPath, shownVersion))}" alt="Schéma du procédé" loading="lazy"${p.from_template ? '' : ` data-fail-uid="${p._uid}"`}></button>` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
        <button class="btn btn-sm" type="button" data-do="openBoard" data-arg="${p.id}">${draw}</button>
+       ${p.from_template ? '<p class="schema-empty">Import en attente de la sauvegarde automatique.</p>' : ''}
+       ${CAN_WRITE ? `<button class="btn btn-sm" type="button" data-do="importTemplateToProcedure" data-arg="${p._uid}">Importer depuis les schémas</button>` : ''}
        ${CAN_WRITE ? `<button class="btn btn-sm" type="button" data-do="importSchemaImage" data-arg="${p._uid}">${p.image_path ? 'Remplacer par une image' : 'Importer une image'}</button>` : ''}
        ${p.video_id ? `<button class="btn btn-sm" type="button" data-do="openLinkedVideo" data-arg="${p.video_id}">▶ Vidéo liée</button>` : ''}`;
   }
@@ -538,8 +547,13 @@ async function commitDraftSchemas() {
   if (failed) throw failed.reason;
 }
 async function commitDraft(p) {
-  const json = lsJson('tb_draft_' + p.draft_key);
   const meta = lsJson('tb_draftmeta_' + p.draft_key);
+  const draftKey = 'tb_draft_' + p.draft_key;
+  const lastEditAt = Number(localStorage.getItem(`${draftKey}_edit_at`)) || 0;
+  if (meta && lastEditAt > (Number(meta.at) || 0)) {
+    throw new Error(`Le schéma de « ${p.nom || 'procédé'} » a été modifié depuis son dernier enregistrement. Enregistrez-le dans le tableau avant de sauvegarder la séance.`);
+  }
+  const json = meta?.json_key ? lsJson(meta.json_key) : lsJson(draftKey);  // compatibilité avec les anciens brouillons
   if (!json || !meta) return;
   const image_path = meta.image_path ? await copySchemaImage(meta.image_path, p) : p.image_path;
   await setSchema(p, { canvas_json: json, image_path, vue_terrain: json.view || 'complet' });
@@ -547,7 +561,9 @@ async function commitDraft(p) {
     const { error: delErr } = await sb.storage.from('schemas').remove([meta.image_path]);
     if (delErr) console.warn('Image de brouillon restée dans le stockage', delErr);
   }
-  localStorage.removeItem('tb_draft_' + p.draft_key);
+  localStorage.removeItem(draftKey);
+  if (meta.json_key) localStorage.removeItem(meta.json_key);
+  localStorage.removeItem(`${draftKey}_edit_at`);
   localStorage.removeItem('tb_draftmeta_' + p.draft_key);
   p.has_canvas = true;
   refreshSchemaBox(p);
@@ -558,7 +574,17 @@ async function commitDraft(p) {
 async function attachTemplateSchema(p) {
   const { image_path: src, canvas_json } = p.from_template;
   const image_path = src ? await copySchemaImage(src, p) : null;
-  await setSchema(p, { canvas_json: canvas_json || null, image_path });
+  try {
+    await setSchema(p, { canvas_json: canvas_json || null, image_path });
+  } catch (e) {
+    if (image_path) {
+      try {
+        const { error } = await sb.storage.from('schemas').remove([image_path]);
+        if (error) console.warn('Copie du schéma non rattachée restée dans le stockage', error);
+      } catch (cleanupError) { console.warn('Copie du schéma non rattachée restée dans le stockage', cleanupError); }
+    }
+    throw e;
+  }
   Object.assign(p, { has_canvas: !!canvas_json, from_template: null });
   refreshSchemaBox(p);
 }
@@ -567,7 +593,13 @@ async function attachTemplateSchema(p) {
    l'image en place reste intacte tant que la copie n'a pas réussi. Échec :
    l'enregistrement est signalé et réessayé, rien n'est effacé. */
 async function copySchemaImage(src, p) {
-  const dest = `${myProfile.club_id}/procedure-${p.id}-${Date.now()}.${src.split('.').pop()}`;   // .jpg ou .png, comme la source
+  const ext = src.split('.').pop();
+  const dest = myProfile.role === 'analyste'
+    ? `${myProfile.club_id}/sessions/${Number(savedSessionId)}/procedure-${p.id}-${Date.now()}.${ext}`
+    : `${myProfile.club_id}/procedure-${p.id}-${Date.now()}.${ext}`;
+  if (myProfile.role === 'analyste' && !Number(savedSessionId)) {
+    throw new Error('Le schéma doit être rattaché à une séance de votre équipe.');
+  }
   const { error } = await sb.storage.from('schemas').copy(src, dest);
   if (error) throw new Error(`image du schéma de « ${p.nom || 'procédé'} » non copiée (${error.message})`);
   return dest;
@@ -577,6 +609,7 @@ async function setSchema(p, fields) {
   const { data, error } = await sb.from('tactical_schemas').upsert({ procedure_id: p.id, ...fields }, { onConflict: 'procedure_id' })
     .select('updated_at').maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error(`Schéma non enregistré pour « ${p.nom || 'procédé'} » : aucune ligne confirmée par la base.`);
   const old = p.image_path;
   p.image_path = fields.image_path;
   p.image_v = data?.updated_at ? Date.parse(data.updated_at) : Date.now();
@@ -602,7 +635,13 @@ window.importSchemaImage = (uid) => {
     try {
       const img = await shrinkImage(file);
       if (!['image/png', 'image/jpeg'].includes(img.type)) throw new Error('choisissez une image JPEG ou PNG');
-      const path = `${myProfile.club_id}/procedure-${p.id}-${Date.now()}.${img.type === 'image/png' ? 'png' : 'jpg'}`;
+      const ext = img.type === 'image/png' ? 'png' : 'jpg';
+      const path = myProfile.role === 'analyste'
+        ? `${myProfile.club_id}/sessions/${Number(savedSessionId)}/procedure-${p.id}-${Date.now()}.${ext}`
+        : `${myProfile.club_id}/procedure-${p.id}-${Date.now()}.${ext}`;
+      if (myProfile.role === 'analyste' && !Number(savedSessionId)) {
+        throw new Error('Le schéma doit être rattaché à une séance de votre équipe.');
+      }
       const { error: upErr } = await sb.storage.from('schemas').upload(path, img, { contentType: img.type });
       if (upErr) throw upErr;
       await setSchema(p, { image_path: path, canvas_json: null });
@@ -695,7 +734,22 @@ window.openLinkedVideo = async (videoId) => {
   if (!src) return toast('Vidéo introuvable.', 'error');
   openLightbox({ title: v.titre, items: [{ type: 'video', src }] });
 };
-window.openBoard = (procId) => { window.open('tactical-board.html?procedure_id=' + procId, '_blank'); };
+window.openBoard = async (procId) => {
+  const tab = window.open('about:blank', '_blank');
+  if (!tab) return toast('Autorisez l’ouverture d’un nouvel onglet pour ouvrir le tableau tactique.', 'error');
+  if (savePending() && !(await flushSave())) {
+    tab.close();
+    return toast('Le schéma n’est pas encore enregistré. Réessayez après la sauvegarde.', 'error');
+  }
+  tab.location.replace('tactical-board.html?procedure_id=' + procId);
+};
+window.previewProcedureSchema = (uid) => {
+  const p = procedures.find(x => x._uid === uid);
+  const image = document.querySelector(`.proc[data-uid="${uid}"] .schema-thumb`);
+  const src = image?.currentSrc || (p?.from_template?.image_path && schemaUrl(p.from_template.image_path))
+    || (p?.image_path && schemaUrl(p.image_path, p.image_v));
+  if (src) openLightbox({ title: p?.nom || 'Schéma du procédé', items: [{ type: 'image', src }] });
+};
 
 /* ---------- Méta ---------- */
 function updateMeta() {
@@ -720,6 +774,8 @@ const EDIT_DO = {
   removeProc: (b) => removeProc(b.dataset.arg),
   toggleProc: (b) => toggleProc(b.dataset.arg),
   openBoard: (b) => openBoard(Number(b.dataset.arg)),
+  previewProcedureSchema: (b) => previewProcedureSchema(b.dataset.arg),
+  importTemplateToProcedure: (b) => openLibrary(b.dataset.arg),
   importSchemaImage: (b) => importSchemaImage(b.dataset.arg),
   openLinkedVideo: (b) => openLinkedVideo(Number(b.dataset.arg)),
   openDraftBoard: (b) => openDraftBoard(b.dataset.arg),

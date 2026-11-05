@@ -11,7 +11,7 @@
    Les droits restent ceux de Supabase : le Worker interroge l'API
    Supabase avec le jeton de l'utilisateur, la RLS décide. Lire une
    vidéo = pouvoir lire sa ligne player_videos ; envoyer ou supprimer
-   = can_manage_videos(), le club du chemin est le sien et le compte
+   = can_manage_player_videos(), le club du chemin est le sien et le compte
    peut modifier le joueur du chemin (player_level, lmfc_v19.sql).
    Bibliothèque (r2/<club>/lib/…, lmfc_v24.sql) : lire = pouvoir lire
    sa ligne library_files ; envoyer = can_manage_videos() dans son club ;
@@ -75,7 +75,7 @@ async function canManage(request, env, key) {
     const [can, club] = await Promise.all([rpc('can_manage_videos'), rpc('my_club_id')]);
     return can === true && club !== null && String(club) === clubId;
   }
-  const [can, club, level] = await Promise.all([rpc('can_manage_videos'), rpc('my_club_id'), rpc('player_level', { p_player: Number(playerId) })]);
+  const [can, club, level] = await Promise.all([rpc('can_manage_player_videos'), rpc('my_club_id'), rpc('player_level', { p_player: Number(playerId) })]);
   return can === true && club !== null && String(club) === clubId && level === 'modification';
 }
 
@@ -189,7 +189,13 @@ async function multipart(request, env, key, url) {
   if (!(await canManage(request, env, key))) return fail(403, 'Envoi réservé au staff vidéo du club.');
   const id = url.searchParams.get('mpu');
   if (id === 'start' && request.method === 'POST') {
+    if (await env.VIDEOS.head(key)) return fail(409, 'Ce chemin vidéo est déjà utilisé.');
     return Response.json({ uploadId: (await env.VIDEOS.createMultipartUpload(key, { httpMetadata: videoType(request) })).uploadId });
+  }
+  // Après une coupure pendant la réponse de complete(), le navigateur peut
+  // vérifier si R2 a déjà assemblé l'objet avant de renvoyer les morceaux.
+  if (request.method === 'GET' && url.searchParams.get('status') === '1') {
+    return Response.json({ complete: !!(await env.VIDEOS.head(key)) });
   }
   const up = env.VIDEOS.resumeMultipartUpload(key, id);
   if (request.method === 'PUT') {
@@ -197,13 +203,19 @@ async function multipart(request, env, key, url) {
     if (!Number.isInteger(n) || n < 1 || n > 10000) return fail(400, 'Morceau invalide.');
     if (!len) return fail(411, 'Taille du morceau inconnue.');
     if (len > MAX_BYTES) return fail(413, 'Morceau trop volumineux.');
-    return Response.json(await up.uploadPart(n, request.body));
+    try { return Response.json(await up.uploadPart(n, request.body)); }
+    catch (e) { if (/NoSuchUpload/i.test(`${e?.name || ''} ${e?.message || ''}`)) return fail(410, 'Cet envoi a expiré. Il peut être recommencé.'); throw e; }
   }
   if (request.method !== 'POST') return fail(405, 'Méthode non autorisée.');
   const { parts, abort } = await request.json().catch(() => ({}));
-  if (abort) { await up.abort(); return Response.json({ ok: true }); }
+  if (abort) {
+    try { await up.abort(); return Response.json({ ok: true }); }
+    catch (e) { if (/NoSuchUpload/i.test(`${e?.name || ''} ${e?.message || ''}`)) return fail(410, 'Cet envoi a expiré.'); throw e; }
+  }
   if (!Array.isArray(parts) || !parts.length) return fail(400, 'Morceaux manquants.');
-  const obj = await up.complete(parts.map(p => ({ partNumber: Number(p.partNumber), etag: String(p.etag) })));
+  let obj;
+  try { obj = await up.complete(parts.map(p => ({ partNumber: Number(p.partNumber), etag: String(p.etag) }))); }
+  catch (e) { if (/NoSuchUpload/i.test(`${e?.name || ''} ${e?.message || ''}`)) return fail(410, 'Cet envoi a expiré. Il peut être recommencé.'); throw e; }
   if (obj.size > MAX_TOTAL) {
     await env.VIDEOS.delete(key);
     return fail(413, `Fichier trop volumineux : ${MAX_TOTAL / 1024 ** 3} Go au maximum.`);

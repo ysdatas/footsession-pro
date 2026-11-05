@@ -189,6 +189,24 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            player_match_rpe_ok (sans feuille le groupe, avec feuille ceux qui ont joué),
                                            my_rpe_matches(), rpe_history() avec les matchs ; ni autres joueurs ni
                                            lecteur ; corbeille (rejouable)
+57. supabase/lmfc_v39.sql                  cloisons entre équipes : joueur sans équipe réservé à l'admin, lecteur limité à ses
+                                           équipes s'il en a, anciennes séances « tout le club » rendues au staff de l'équipe
+                                           (sauvegarde lmfc_v39_acces_club), séance et fiche joueur rangées seulement dans ses
+                                           équipes, compte lié réservé à Mon club, corbeille par équipe et par créateur,
+                                           stockage logos et schemas limité à son club ; retour arrière à l'identique :
+                                           lmfc_v39_retour.sql (rejouable)
+58. supabase/lmfc_v40.sql                  un coach ne peut plus retirer son dernier rattachement d'équipe à un joueur et
+                                           perdre ainsi l'accès à sa fiche ; l'administrateur conserve la gestion libre
+59. supabase/lmfc_v41.sql                  rôle Analyste vidéo : joueurs, performance et vidéos joueurs limités aux équipes
+                                           affectées ; Pro attribuée par défaut si l'équipe existe ; bibliothèque et
+                                           administration globale restent réservées aux rôles actuels ; retour arrière :
+                                           lmfc_v41_retour.sql (refusé tant que le rôle est attribué)
+60. supabase/lmfc_v42.sql                  interface et outils d'équipe de l'Analyste vidéo : séances, matchs, calendrier,
+                                           RPE et schémas dans ses équipes ; plans et feuilles joueur restent bornés par
+                                           player_level ; bibliothèque vidéo globale et réglages du club réservés ; retour :
+                                           lmfc_v42_retour.sql (conserve le rôle de v41)
+61. supabase/lmfc_v43.sql                  sauvegarde transactionnelle des informations et participants depuis le récapitulatif
+                                           calendrier ; retour arrière : lmfc_v43_retour.sql
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -282,10 +300,11 @@ de visionnage n'enregistre rien.**
 | `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, couleur du club, suppression de fiches ; toute la corbeille |
 | `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
 | `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique. Bibliothèque vidéo : consulte ce qu'on lui ouvre (`lmfc_v24.sql`) |
-| `lecteur` | Consultation seule (un scout) : **tous les joueurs du club**, toutes équipes (fiche, parcours, objectifs, préventions, programme, tests physiques et radar, vidéos, séquences, statistiques de visionnage). Ni mesures physiques (taille, poids, masse grasse : données de santé, `lmfc_v23.sql`), ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
+| `analyste` | Analyste vidéo : mêmes pages de travail que le coach, avec écriture **uniquement dans ses équipes attribuées** : joueurs, performance, séances, matchs, calendrier, RPE, schémas, vidéos et séquences (`lmfc_v41.sql`, `lmfc_v42.sql`). Pro est affectée par défaut si l'équipe existe ; l'admin peut ajouter N2. Pas de réglages du club, gestion des rôles ni gestion de la bibliothèque vidéo globale |
+| `lecteur` | Consultation seule (un scout) : **les joueurs des équipes cochées dans Mon club**, ou tous ceux rattachés à une équipe s'il n'en a aucune (`lmfc_v39.sql`) (fiche, parcours, objectifs, préventions, programme, tests physiques et radar, vidéos, séquences, statistiques de visionnage). Ni mesures physiques (taille, poids, masse grasse : données de santé, `lmfc_v23.sql`), ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
 | `joueur` | **Uniquement ses données**, en lecture : poids, masse grasse, chronos, radar /10, objectifs, préventions, programme terrain, ses vidéos, son calendrier (séances, matchs et événements de ses équipes, sans les notes du staff). Il découpe, sélectionne et annote ses séquences et les envoie au staff ; il note son RPE après chaque séance (`lmfc_v29.sql`) et donne son avis après chaque match (`lmfc_v36.sql`). Jamais l'asymétrie, les plis cutanés, le ratio Shirado/Sorensen, les statistiques de visionnage ni le RPE des autres |
 
-`platform_v2.sql` avait fondu `analyste`, `prepa` et `viewer` dans `coach` ; `lmfc_v4.sql` rétablit `prepa`.
+`platform_v2.sql` avait fondu `analyste`, `prepa` et `viewer` dans `coach` ; `lmfc_v4.sql` rétablit `prepa`, puis `lmfc_v41.sql` rétablit Analyste vidéo avec des droits limités par équipe, complétés par `lmfc_v42.sql`.
 
 **Toute nouvelle table protégée (RLS) doit refuser l'écriture au lecteur** : les trois règles
 restrictives de `lmfc_v22.sql` (`lecteur_no_insert`, `lecteur_no_update`, `lecteur_no_delete`,
@@ -293,7 +312,7 @@ restrictives de `lmfc_v22.sql` (`lecteur_no_insert`, `lecteur_no_update`, `lecte
 tables qui existaient alors. `tests/rights-sql.test.mjs` vérifie que chaque table les porte.
 
 Les droits sont appliqués deux fois : dans l'interface (`auth.js`, `nav.js`) **et** dans la
-base (helpers `can_manage_videos()`, `can_manage_plans()`, `is_performance_editor()`).
+base (helpers `can_manage_videos()`, `can_manage_player_videos()`, `can_manage_plans()`, `is_performance_editor()`).
 Le joueur ne lit plus les tables de performance : il passe par `my_physical_measurements()`
 et `my_physical_tests()`, qui ne renvoient que les colonnes qui lui sont destinées.
 
@@ -312,9 +331,10 @@ sont calculées au sein de l'équipe du joueur.
 - **Droits appliqués par la base** (`lmfc_v19.sql`). Pour un joueur, `player_level()` :
   admin → modification ; exception réglée par l'admin (`staff_player_access` : aucun /
   lecture / modification) ; joueur d'une de ses équipes (principale ou « joue aussi en ») →
-  modification ; joueur sans équipe et compte qui a une équipe → modification ; club sans
-  équipe → modification ; « Lecture sur toutes les équipes » (`profiles.lecture_club`) →
-  lecture ; sinon rien. Le rôle borne la modification (préparateur : physique ; coach :
+  modification ; club sans équipe → modification ; « Lecture sur toutes les équipes »
+  (`profiles.lecture_club`) → lecture ; sinon rien. Un joueur sans aucune équipe n'est vu que
+  de l'admin, sauf exception (`lmfc_v39.sql`) : la page Joueurs lui propose de le rattacher.
+  Le rôle borne la modification (préparateur : physique ; coach :
   fiches, vidéos). Toutes les tables d'un joueur (fiche, vidéos, séquences, vues, tests,
   mesures, points, médias, programme, exercices, parcours), le stockage (photos, médias,
   anciennes vidéos : dossier `club/joueur/…`), la corbeille (vue et restauration) et le Worker
@@ -326,6 +346,14 @@ sont calculées au sein de l'équipe du joueur.
   Membres → Accès** : lecture club et exceptions ; un coach ou préparateur sans aucun accès est
   marqué « Aucun accès ». L'interface suit (`my_player_levels()`, `player_level()`) : joueur en
   lecture = pas de crayon, fiche en consultation ; match d'une autre équipe en lecture.
+- **Cloisons entre équipes** (`lmfc_v39.sql`, `tests/access-matrix-sql.test.mjs`) : une séance ne
+  se crée ou ne se déplace que dans une équipe où l'on modifie (`sessions_insert`,
+  `guard_session_access`) ; sur une fiche, un coach n'ajoute ou ne retire que ses équipes et le
+  compte lié ne change que par les fonctions de Mon club (`guard_player_links`) ; à la corbeille, un
+  match suit son équipe, un schéma privé son créateur, un procédé sa séance (`trash_root_visible`) ;
+  les buckets `logos` et `schemas` ne se lisent et ne se listent que dans son club, et l'image d'un
+  schéma privé reste cachée à ceux qui ne le lisent pas. Le bucket `schemas` reste public en
+  production : le lien de partage sans compte en dépend, une adresse connue reste donc lisible.
 - **Compte rattaché à une ou plusieurs équipes** (`profiles.team_ids`, `lmfc_v14.sql` ;
   `team_id` = la première, pour compatibilité) : dans **Mon club → Membres**, l'admin coche
   les équipes d'un coach ou d'un préparateur (aucune = aucun joueur depuis `lmfc_v19.sql`, sauf
@@ -343,7 +371,7 @@ sont calculées au sein de l'équipe du joueur.
 ### Accès : adresse e-mail + fonction (+ fiche joueur)
 
 Plus de codes. L'admin enregistre dans **Mon club → Donner un accès** une adresse e-mail,
-une fonction (joueur, coach, préparateur physique, lecteur, admin) et, pour un joueur, sa fiche (`club_access`). La
+une fonction (joueur, coach, préparateur physique, analyste vidéo, lecteur, admin) et, pour un joueur, sa fiche (`club_access`). La
 personne crée son compte avec cette adresse sur `index.html` (page unique de connexion)
 et confirme l'e-mail ; à la connexion, `claim_club_access()` la rattache au club avec son
 rôle et sa fiche. Seule une adresse **confirmée** est acceptée, et un compte déjà membre
@@ -1063,10 +1091,15 @@ Vérifications (Node ≥ 18, aucun framework, aucun `node_modules`) :
 ```bash
 node tests/perf-logic.test.mjs    # détection du joueur dans l'Excel + radar partiel
 node tests/excel-import.test.mjs  # import validé sur le vrai Tests_Physiques_N2-5.xlsx
-node tests/nav.test.mjs           # menu : rôles (dont prépa), ordre, rubriques masquées, pages interdites
+node tests/nav.test.mjs           # menu : rôles (dont analyste), ordre, rubriques masquées, pages interdites
 node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classement de chaque test
 node tests/video-worker.test.mjs  # Worker vidéo : droits (club, joueur), liens signés, lecture partielle (Range)
 node tests/rights-sql.test.mjs    # droits par équipe et par joueur : matrice rôles × données (PGlite)
+node tests/access-matrix-sql.test.mjs tests/v39-sql.test.mjs  # droits par profil et retour arrière, sur toutes les migrations réelles (PGlite)
+node tests/analyst-role-sql.test.mjs  # rôle Analyste vidéo : portée, RLS, outils d'équipe, défaut Pro et retours (PGlite)
+node tests/tactical-save.test.mjs  # publication immuable d'image tactique puis référence en base
+node tests/page-globals.test.mjs  # deux scripts d'une même page ne déclarent pas le même nom
+node tests/calendar-summary-ui.test.mjs  # champs et visibilité du récapitulatif calendrier
 node tests/push-worker.test.mjs   # notifications : chiffrement (exemple de la RFC 8291), VAPID, droits
 node tests/session-principle.test.mjs  # principe de jeu : séance, anciennes séances, héritage
 node tests/video-status.test.mjs   # statuts des séquences vidéo

@@ -38,7 +38,7 @@ let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton r
   document.getElementById('uAvatar').textContent = (myProfile.nom || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
-  if (canManageVideos(myProfile.role)) {
+  if (canManagePlayerVideos(myProfile.role)) {
     const btn = document.getElementById('btnNewVideo');
     btn.classList.remove('hidden');
     btn.addEventListener('click', () => openVideoUpload({
@@ -199,7 +199,7 @@ function render() {
     .filter(x => !vpQuery || fullName(x.pl).toLowerCase().includes(vpQuery))
     .sort((a, b) => (b.todo - a.todo) || String(b.last || '').localeCompare(String(a.last || '')) || fullName(a.pl).localeCompare(fullName(b.pl), 'fr'));
   const box = document.getElementById('vpView');
-  const canPick = canManageVideos(myProfile.role) && videosCache.length > 0;
+  const canPick = canManagePlayerVideos(myProfile.role) && videosCache.length > 0;
   if (!canPick) vsel.on = false;
   if (vsel.on) return renderVideoPick(box, shown);
   box.innerHTML = `

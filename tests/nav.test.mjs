@@ -42,6 +42,8 @@ assert.equal(keys('coach', {}).slice(0, 4).join(), 'dashboard,sessions,matches,p
 
 // Lecteur (scout, lmfc_v22.sql) : joueurs, performance, vidéos et FAQ, rien d'autre.
 assert.equal(keys('lecteur', {}).join(), 'players,performance,videos,faq', 'lecteur : menu de consultation');
+assert.deepEqual(keys('analyste', {}), keys('coach', {}), 'analyste : mêmes pages de travail que le coach');
+for (const k of ['club', 'notifications']) assert.ok(!keys('analyste', {}).includes(k), `analyste : pas de ${k}`);
 
 // Ordre et masquage choisis par l'utilisateur.
 const prefs = { nav: { order: ['players', 'dashboard', 'sessions'], hidden: ['analytics'] } };
@@ -93,6 +95,7 @@ assert.equal(redirected, 'dashboard.html', 'staff : toujours renvoyé au tableau
 redirected = null;
 // Page d'accueil après connexion (auth.js).
 assert.equal(run(`homeFor({ role: 'lecteur', club_id: 1 })`), 'players.html');
+assert.equal(run(`homeFor({ role: 'analyste', club_id: 1 })`), 'dashboard.html');
 assert.equal(run(`homeFor({ role: 'coach', club_id: 1 })`), 'dashboard.html');
 assert.equal(run(`homeFor({ role: 'joueur', club_id: 1 })`), 'mon-espace.html');
 assert.equal(run(`homeFor({ role: 'lecteur', club_id: null })`), 'onboarding.html');
@@ -102,6 +105,13 @@ assert.equal(run(`isStaffRole('lecteur') && isReader('lecteur') && canSeeVideoSt
 for (const f of ['canEdit', 'canEditPerformanceData', 'canManageVideos', 'canManagePlans', 'canChangePlayerPhoto']) {
   assert.equal(run(`${f}('lecteur')`), false, `lecteur : pas de ${f}`);
 }
+assert.equal(run(`isStaffRole('analyste') && canEditPlayers('analyste') && canEditPerformanceData('analyste')
+  && canManagePlayerVideos('analyste') && canSeeVideoStats('analyste')`), true, 'analyste : outils d’équipe');
+assert.equal(run(`canManageVideos('analyste')`), false, 'analyste : pas de gestion globale / bibliothèque vidéo');
+assert.equal(run(`canEdit('analyste')`), false, 'les fonctions globales réservées au coach restent fermées');
+assert.equal(run(`canEditTeamContent('analyste') && canManagePlans('analyste')`), true, 'écriture d’équipe et objectifs activés');
+assert.equal(run(`canAccessTeamReviewTools('analyste') && canAccessTeamReviewTools('prepa')`), true, 'outils de suivi d’équipe pour analyste et prépa');
+assert.equal(run(`canAccessTeamReviewTools('lecteur') || canAccessTeamReviewTools('joueur')`), false, 'outils de suivi fermés au lecteur et au joueur');
 assert.equal(run(`isReader('coach')`), false);
 
 // Équipe courante : seulement si elle existe encore dans le club.
