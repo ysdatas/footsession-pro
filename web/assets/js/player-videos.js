@@ -137,7 +137,7 @@ function pvVideo(v) {
         ${thumbHtml(PV.urls.get(v.id), 1, 'Vidéo', v.thumb, manage && !v.thumb ? `player_videos:${v.id}` : null)}
         <span class="pvx-video-body">
           <strong>${escapeHtml(v.titre || 'Vidéo')}</strong>
-          <span class="pvx-seq-meta">Envoyée le ${escapeHtml(pvDay(v.created_at))}${SEP}${escapeHtml(pvViews(v))}</span>
+          <span class="pvx-seq-meta">Envoyée le ${escapeHtml(pvDay(v.created_at))} | ${escapeHtml(pvViews(v))}</span>
           <span class="pvx-seq-meta">${escapeHtml(count)}</span>
         </span>
       </button>

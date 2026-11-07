@@ -127,7 +127,7 @@ function renderObjectivesTab() {
             <span class="badge ${NOTE_KINDS[r.kind]?.cls || 'badge-gold'}">${objKindLabel(r.kind)}</span>
             <strong>${esc(title)}</strong>
             ${body ? `<p>${esc(body.length > 160 ? `${body.slice(0, 157)}…` : body)}</p>` : ''}
-            <span class="obj-meta">Créé le ${esc(new Date(r.created_at).toLocaleDateString('fr-FR'))}${files ? `${SEP}${files} fichier${files > 1 ? 's' : ''}` : ''}</span>
+            <span class="obj-meta">Créé le ${esc(new Date(r.created_at).toLocaleDateString('fr-FR'))}${files ? ` | ${files} fichier${files > 1 ? 's' : ''}` : ''}</span>
           </div>
           <div class="obj-actions">
             ${objStatusControl(r, edit)}

@@ -230,9 +230,9 @@ function renderSr() {
   swapKeepView(body, `<div class="sr-wrap"><table class="sr-grid">
       <thead><tr><th scope="col" class="sr-corner">Joueur</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
     <p class="sr-legend"><span class="sr-c is-miss" aria-hidden="true">?</span> réponse manquante (délai passé)
-     ${SEP}<span class="sr-c is-wait" aria-hidden="true">…</span> en attente : le joueur peut encore répondre
-     ${SEP}<span class="sr-c is-abs" aria-hidden="true">abs.</span> absence enregistrée
-     ${SEP}<span class="rpe-staff">staff</span> saisi ou corrigé par le staff.
+      | <span class="sr-c is-wait" aria-hidden="true">…</span> en attente : le joueur peut encore répondre
+      | <span class="sr-c is-abs" aria-hidden="true">abs.</span> absence enregistrée
+      | <span class="rpe-staff">staff</span> saisi ou corrigé par le staff.
       Touchez une case pour saisir ou corriger à la place du joueur. Les joueurs répondent depuis leur espace jusqu’à ${RPE_DAYS} jours après la séance ;
       la présence non cochée compte comme attendue. Un match attend ceux qui ont joué d’après la feuille, tout le groupe s’il n’y en a pas.</p>`);
 }

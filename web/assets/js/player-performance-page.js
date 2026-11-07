@@ -312,7 +312,7 @@ function squadPanel(m, colspan) {
         ${avg.value !== null
           ? `moyenne <strong>${fmt(avg.value, m.digits)}${esc(unit)}</strong> sur ${avg.n} joueur${avg.n > 1 ? 's' : ''}`
           : `${avg.n} joueur${avg.n > 1 ? 's' : ''} testé${avg.n > 1 ? 's' : ''} : moyenne affichée à partir de 3`}
-        ${flagged.length ? `${SEP}${flagged.length} valeur${flagged.length > 1 ? 's' : ''} écartée${flagged.length > 1 ? 's' : ''}` : ''}
+        ${flagged.length ? ` | ${flagged.length} valeur${flagged.length > 1 ? 's' : ''} écartée${flagged.length > 1 ? 's' : ''}` : ''}
         ${m.key === 'core_ratio' ? '<div class="squad-hint">Classement : du plus proche au plus éloigné de la zone idéale 0,7 – 0,8.</div>' : ''}
         ${m.key === 'five05_asymmetry_pct' ? '<div class="squad-hint">Classement : de la plus faible à la plus forte asymétrie.</div>' : ''}
       </div>
@@ -652,7 +652,7 @@ function renderCareer() {
       <div class="career-body">
         <strong>${esc(c.club_name)}</strong>
         ${c.categorie ? `<span class="career-cat">${esc(c.categorie)}</span>` : ''}
-        <span class="career-range">${esc(capFirst(range))}${duration ? `${SEP}${esc(duration)}` : ''}</span>
+        <span class="career-range">${esc(capFirst(range))}${duration ? ` | ${esc(duration)}` : ''}</span>
         ${c.notes ? `<p class="career-notes">${esc(c.notes)}</p>` : ''}
       </div>
     </li>`;

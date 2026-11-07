@@ -67,7 +67,7 @@ function renderVideoList() {
     + (list.length ? list.map(v => `
       <button type="button" class="tb-video${tbLinkedVideo?.id === v.id ? ' active' : ''}" data-link-video="${v.id}">
         <strong>${escapeHtml(v.titre)}</strong>
-        <span>${[videoOwner(v), new Date(v.created_at).toLocaleDateString('fr-FR')].filter(Boolean).map(escapeHtml).join(SEP)}</span>
+        <span>${[videoOwner(v), new Date(v.created_at).toLocaleDateString('fr-FR')].filter(Boolean).map(escapeHtml).join(' | ')}</span>
       </button>`).join('') : '<p class="tb-card-hint">Aucune vidéo trouvée.</p>');
 }
 document.getElementById('videoSearch').addEventListener('input', renderVideoList);

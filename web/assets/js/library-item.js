@@ -55,7 +55,7 @@ function renderLibItem() {
   document.getElementById('libItemBody').innerHTML = `
     <h2 class="as-h3">${escapeHtml(it.titre)}</h2>
     <p class="lib-item-meta">${LIB_STATUT[it.statut] ? `<span class="badge">${LIB_STATUT[it.statut]}</span> ` : ''}v${cur?.version_no || 1}
-     ${SEP}ajouté par ${escapeHtml(libWho(it.created_by))} le ${escapeHtml(libDate(it.created_at))}</p>
+      | ajouté par ${escapeHtml(libWho(it.created_by))} le ${escapeHtml(libDate(it.created_at))}</p>
     <div class="lib-player" id="li-player">${libThumbHtml(cur?.library_files?.id, cur?.library_files?.duree_sec)}
       <button class="lib-play-big" type="button" data-li="play" aria-label="Lire la vidéo">▶</button></div>
     <section class="lib-sec" aria-labelledby="li-h1"><h3 class="as-h4" id="li-h1">Description et consignes</h3>
@@ -73,7 +73,7 @@ function renderLibItem() {
     </section>
     <section class="lib-sec" aria-labelledby="li-h3"><h3 class="as-h4" id="li-h3">Versions de la vidéo</h3>
       <ul class="lib-versions">${libItem.versions.map(v => `<li>
-        <span>v${v.version_no}${SEP}${escapeHtml(libDate(v.created_at))}${SEP}${escapeHtml(libWho(v.created_by))}${v.note ? `${SEP}${escapeHtml(v.note)}` : ''}</span>
+        <span>v${v.version_no} | ${escapeHtml(libDate(v.created_at))} | ${escapeHtml(libWho(v.created_by))}${v.note ? ` | ${escapeHtml(v.note)}` : ''}</span>
         ${v.id === it.current_version_id ? '<span class="badge badge-gold">En cours</span>' : ''}
         <button class="btn btn-sm" type="button" data-li-vplay="${v.id}">Lire</button>
         ${gestion && v.id !== it.current_version_id ? `<button class="btn btn-sm btn-danger" type="button" data-li-vdel="${v.id}">Supprimer</button>` : ''}</li>`).join('')}</ul>
@@ -83,7 +83,7 @@ function renderLibItem() {
     </section>
     <section class="lib-sec" aria-labelledby="li-h4"><h3 class="as-h4" id="li-h4">Séances qui l’utilisent</h3>
       ${libItem.uses.length ? `<ul class="lib-sessions">${libItem.uses.map(u => `<li><a class="lib-session-link" href="session-edit?id=${u.session_id}">
-        <strong>${escapeHtml(u.titre)}</strong><span>${escapeHtml(fmtDate(u.date_seance))}${SEP}${escapeHtml(u.procedure_nom)}${SEP}v${u.version_no}</span></a></li>`).join('')}</ul>`
+        <strong>${escapeHtml(u.titre)}</strong><span>${escapeHtml(fmtDate(u.date_seance))} | ${escapeHtml(u.procedure_nom)} | v${u.version_no}</span></a></li>`).join('')}</ul>`
         : '<p class="text-muted">Aucune séance visible.</p>'}
       ${hidden ? `<p class="field-hint">${hidden > 1 ? `Et ${hidden} autres séances auxquelles` : 'Et 1 autre séance à laquelle'} vous n’avez pas accès.</p>` : ''}
       ${libItem.count.corbeille ? `<p class="field-hint">${libItem.count.corbeille} procédé${libItem.count.corbeille > 1 ? 's' : ''} de séance dans la corbeille.</p>` : ''}

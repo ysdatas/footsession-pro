@@ -91,7 +91,7 @@ function fffState(r) {
   if (r.side === 'none') return { todo: false, html: '<span class="fff-st">Sans Le Mans FC : ignorée</span>' };
   if (!r.side) return { todo: false, html: '<span class="fff-st is-warn">Deux équipes du club : choisissez la nôtre</span>' };
   const ex = FFF.existing.get(r.key);
-  const other = ex && ex.team_id !== r.team ? `${SEP}rangé en ${escapeHtml(teamName(ex.team_id) || 'sans équipe')}` : '';
+  const other = ex && ex.team_id !== r.team ? ` | rangé en ${escapeHtml(teamName(ex.team_id) || 'sans équipe')}` : '';
   if (!ex) return { todo: true, html: '<span class="fff-st is-new">Nouveau</span>' };
   const { changed, kept } = fffMerge(ex, fffIncoming(r.m, r.side));
   const keptHtml = kept.length ? ` <span class="fff-st is-warn">Gardé (modifié à la main) : ${fffLabels(kept)}</span>` : '';
@@ -106,7 +106,7 @@ function fffRowHtml(r, i) {
   return `<div class="fff-row${r.on ? '' : ' is-off'}">
     <input type="checkbox" id="fffr-${i}" data-fff-row="${i}"${r.on ? ' checked' : ''}${fffOk(r) ? '' : ' disabled'}>
     <label for="fffr-${i}" class="fff-what">
-      <span class="fff-date">${fmtDateFr(m.date)}${m.heure ? `${SEP}${m.heure}` : ''}${m.journee ? `${SEP}${escapeHtml(m.journee)}` : ''}</span>
+      <span class="fff-date">${fmtDateFr(m.date)}${m.heure ? ` | ${m.heure}` : ''}${m.journee ? ` | ${escapeHtml(m.journee)}` : ''}</span>
       <span class="fff-teams">${name(m.home, 'home')} <span class="fff-mid">${escapeHtml(mid)}</span> ${name(m.away, 'away')}</span>
       ${m.statut ? `<span class="fff-st is-warn">${escapeHtml(m.statut)}</span>` : ''}
     </label>

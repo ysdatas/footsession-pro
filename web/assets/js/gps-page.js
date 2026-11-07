@@ -74,7 +74,7 @@ async function renderGps(content, keepView = false) {
   const html = `
     <div class="gps-head">
       <div class="segmented" role="group" aria-label="Vue GPS">${views.map(([k, l]) => `<button type="button" data-gps-view="${k}" aria-pressed="${GPS.view === k}">${l}</button>`).join('')}</div>
-      <div class="gps-actions">${GPS.imports.length ? `<button class="btn" type="button" data-gps="imports">Imports${SEP}${GPS.imports.length}</button>` : ''}
+      <div class="gps-actions">${GPS.imports.length ? `<button class="btn" type="button" data-gps="imports">Imports | ${GPS.imports.length}</button>` : ''}
         ${gpsCanEdit() ? '<button class="btn btn-primary" type="button" data-gps="import">Importer des données GPS</button>' : ''}</div>
     </div>
     ${!live.length ? '<div class="empty">Aucune donnée GPS pour l’instant. Importez l’export de la séance (CSV ou Excel).</div>'
@@ -131,8 +131,8 @@ function gpsImportsOpen() {
 }
 function gpsHistoryHtml() {
   return `<section class="gps-history"><ul>${GPS.imports.map(i => `
-    <li class="${i.annule_at ? 'is-off' : ''}"><span><strong>${gpsDate(i.date_seance)}${SEP}${escapeHtml(i.libelle || i.fichier)}</strong>
-      <small>${i.nb_joueurs} joueur${i.nb_joueurs > 1 ? 's' : ''}${SEP}${escapeHtml(i.fichier)}${SEP}${escapeHtml(i.fournisseur)}${SEP}importé le ${gpsDate(i.created_at)}${i.annule_at ? `${SEP}annulé le ${gpsDate(i.annule_at)}` : ''}</small></span>
+    <li class="${i.annule_at ? 'is-off' : ''}"><span><strong>${gpsDate(i.date_seance)} | ${escapeHtml(i.libelle || i.fichier)}</strong>
+      <small>${i.nb_joueurs} joueur${i.nb_joueurs > 1 ? 's' : ''} | ${escapeHtml(i.fichier)} | ${escapeHtml(i.fournisseur)} | importé le ${gpsDate(i.created_at)}${i.annule_at ? ` | annulé le ${gpsDate(i.annule_at)}` : ''}</small></span>
       ${gpsCanEdit() && !i.annule_at ? `<button class="btn btn-sm btn-danger" type="button" data-gps="cancel" data-id="${i.id}">Annuler l’import</button>` : ''}</li>`).join('')}</ul></section>`;
 }
 function gpsSettingsHtml(keys) {

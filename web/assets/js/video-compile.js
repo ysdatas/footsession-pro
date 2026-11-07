@@ -266,7 +266,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
         <span class="vc-num">${i + 1}</span>
         ${thumbHtml(urlOf(s), s.start_sec, fmtDur(len), s.thumb)}
         <span class="vc-body"><strong>${escapeHtml(s.label || 'Séquence')}</strong>
-          <small>${escapeHtml(videoOf(s)?.titre || 'Vidéo')}${SEP}${n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans habillage'}</small></span>
+          <small>${escapeHtml(videoOf(s)?.titre || 'Vidéo')} | ${n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans habillage'}</small></span>
         <span class="vc-actions">
           <button class="btn btn-sm" type="button" data-one="${id}" title="Générer et télécharger cette séquence seule, habillage compris">Séquence</button>
           ${sources.length > 1 && origUrl(s) ? `<a class="btn btn-sm" href="${escapeHtml(origUrl(s))}" download title="Vidéo source complète, telle qu’elle a été envoyée (sans habillage)">Vidéo d’origine</a>` : ''}

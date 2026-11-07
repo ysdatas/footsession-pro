@@ -63,7 +63,7 @@ function sheetRender() {
   document.getElementById('sheetPreview').innerHTML = `
     ${h ? `<label class="sheet-head"><input type="checkbox" id="sheetScore"${val('m-pour') === '' ? ' checked' : ''}>
       Reporter dans la fiche : <strong>${escapeHtml(h.home)} ${h.score_home ?? '–'} – ${h.score_away ?? '–'} ${escapeHtml(h.away)}</strong>
-     ${SEP}${escapeHtml(h.competition)}${SEP}${fmtDateFr(h.date)}${h.heure ? `${SEP}${h.heure}` : ''}</label>` : ''}
+      | ${escapeHtml(h.competition)} | ${fmtDateFr(h.date)}${h.heure ? ` | ${h.heure}` : ''}</label>` : ''}
     ${counts.confirm ? '<button class="btn btn-sm" type="button" id="sheetConfirmAll">Tout confirmer</button>' : ''}
     <div class="sheet-wrap"><table class="table sheet-table">
       <thead><tr><th scope="col"><span class="sr-only">Retenu</span></th><th scope="col">Feuille</th><th scope="col">Fiche du club</th>

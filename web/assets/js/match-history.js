@@ -130,11 +130,11 @@ function mhHistoryHtml(rows, { link = false } = {}) {
     <div class="mt-list">${rows.map(r => {
       const m = r.matches, tag = link ? 'a' : 'button';
       const line = [STATUT_MATCH_LABEL[r.statut], r.minutes != null ? `${r.minutes}'` : '',
-        r.buts ? `${r.buts} but${r.buts > 1 ? 's' : ''}` : '', r.passes ? `${r.passes} passe${r.passes > 1 ? 's' : ''} déc.` : ''].filter(Boolean).join(SEP);
+        r.buts ? `${r.buts} but${r.buts > 1 ? 's' : ''}` : '', r.passes ? `${r.passes} passe${r.passes > 1 ? 's' : ''} déc.` : ''].filter(Boolean).join(' | ');
       return `<${tag} ${link ? `href="matchs?id=${m.id}"` : `type="button" data-open-match="${m.id}"`} class="mt-row mt-hist">
         <span class="mt-date">${fmtDateFr(m.date_match)}</span>
         <span class="mt-main"><strong>${escapeHtml(m.adversaire)}</strong>
-          <small>${[m.competition, LIEUX[m.lieu]].filter(Boolean).map(escapeHtml).join(SEP) || '&nbsp;'}</small>
+          <small>${[m.competition, LIEUX[m.lieu]].filter(Boolean).map(escapeHtml).join(' | ') || '&nbsp;'}</small>
           <small class="mh-line">${escapeHtml(line || 'Statut non saisi')} ${mhCards(r)}</small>
           ${r.commentaire ? `<em class="mt-comment">${escapeHtml(r.commentaire)}</em>` : ''}</span>
         ${noteHtml(r.note) || '<span></span>'}

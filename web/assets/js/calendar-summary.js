@@ -119,7 +119,7 @@ function csPlayerRowsHtml() {
     const stateLabel = CS.item.kind === 'seance' ? 'Présence' : 'Statut';
     return `<div class="cs-player-row" data-cs-player="${id}">
       <label class="cs-include"><input type="checkbox" data-cs-include="${id}"${entry.included ? ' checked' : ''} ${dis}><span>${escapeHtml(csName(p))}</span>
-        <small>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? `${SEP}#${p.numero}` : ''}</small></label>
+        <small>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? ` | #${p.numero}` : ''}</small></label>
       ${entry.included ? `<select data-cs-status="${id}" aria-label="${stateLabel} de ${escapeHtml(csName(p))}" ${dis}>${csStatusOptions(status, entry.statut)}</select>` : '<span class="cs-excluded">Non concerné</span>'}
       ${CS.item.kind === 'seance' && entry.included && entry.statut === 'autre' ? `<label class="cs-free"><span>Motif</span><input data-cs-free="${id}" maxlength="40" value="${escapeHtml(entry.statut_libre)}" ${dis}></label>
         <label class="cs-participates"><input type="checkbox" data-cs-present="${id}"${entry.present ? ' checked' : ''} ${dis}> Participe</label>` : ''}
@@ -132,7 +132,7 @@ function csRender() {
   csEl('calSummaryBody').innerHTML = `${!CS.editable ? '<p class="cs-readonly">Consultation seule pour cet élément.</p>' : ''}
     <div class="cs-section"><h3>Informations</h3>${csFieldsHtml(item)}</div>
     <div class="cs-section"><div class="cs-player-heading"><h3>Joueurs concernés</h3><span id="csCount"></span></div>
-      <p class="text-muted">${team ? `Effectif ${escapeHtml(team)}${SEP}ajoutez un joueur d’une autre équipe si besoin.` : 'Participants associés à cet élément.'}</p>
+      <p class="text-muted">${team ? `Effectif ${escapeHtml(team)} | ajoutez un joueur d’une autre équipe si besoin.` : 'Participants associés à cet élément.'}</p>
       ${CS.editable ? `<label class="cs-add"><span>Ajouter un joueur</span><input id="csAddPlayer" list="csPlayerOptions" autocomplete="off" placeholder="Rechercher un joueur du club…"><datalist id="csPlayerOptions"></datalist></label>` : ''}
       <div class="cs-player-list" id="csPlayerList">${csPlayerRowsHtml()}</div>
     </div>

@@ -87,7 +87,7 @@ function renderAccess() {
     const level = teamManagedAnalyst ? accessDefault(m) : fixed ? 'modification' : (access.overrides.get(m.id) || accessDefault(m));
     const tag = m.id === access.creator ? 'Créateur' : (ROLE_LABELS[m.role] || m.role);
     return `<div class="access-row" data-member="${escapeHtml(m.id)}">
-      <span class="access-name">${escapeHtml(m.nom || 'Sans nom')}<span class="access-role">${[tag, ...(m.team_ids || []).map(teamName).filter(Boolean)].map(escapeHtml).join(SEP)}</span></span>
+      <span class="access-name">${escapeHtml(m.nom || 'Sans nom')}<span class="access-role">${[tag, ...(m.team_ids || []).map(teamName).filter(Boolean)].map(escapeHtml).join(' | ')}</span></span>
       ${fixed ? `<span class="access-fixed">${teamManagedAnalyst ? (level === 'modification' ? 'Équipe attribuée' : 'Hors équipes attribuées') : 'Accès complet'}</span>` : `<span class="access-seg" role="group" aria-label="Accès de ${escapeHtml(m.nom || '')}">
         ${ACCESS_LEVELS.map(([k, label]) => `<button type="button" data-access="${k}" aria-pressed="${k === level}"
           ${k === 'modification' && !['admin', 'coach'].includes(m.role) ? 'disabled title="Réservé aux comptes admin ou coach"' : ''}>${label}</button>`).join('')}

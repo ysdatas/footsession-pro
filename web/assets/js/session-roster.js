@@ -106,7 +106,7 @@ function renderGuestResults() {
   const input = document.getElementById('guestSearch'), box = document.getElementById('guestResults');
   const list = guestCandidates(input.value);
   box.innerHTML = list.map(p => `<button type="button" class="guest-hit" data-add-guest="${p.id}">
-      <strong>${escapeHtml(rosterName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? `${SEP}#${p.numero}` : ''}</span></button>`).join('')
+      <strong>${escapeHtml(rosterName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? ` | #${p.numero}` : ''}</span></button>`).join('')
     || (input.value.trim().length >= 2 ? '<p class="text-muted guest-none">Aucun joueur du club ne correspond.</p>' : '');
 }
 function addGuest(id) {

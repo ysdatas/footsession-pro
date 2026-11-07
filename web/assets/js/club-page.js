@@ -163,7 +163,7 @@ async function loadMembers() {
           ${!['joueur', 'admin'].includes(m.role) ? `<button type="button" class="btn btn-sm" data-rights title="${m.role === 'lecteur' ? 'Exceptions par joueur' : 'Lecture sur toutes les équipes, exceptions par joueur'}">Accès</button>` : ''}
           <button type="button" class="btn btn-sm btn-danger" data-remove>Retirer</button>
         </div>`
-      : `<span class="badge badge-gold">${self ? 'Vous' + SEP + '' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
+      : `<span class="badge badge-gold">${self ? 'Vous | ' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
     const search = fold(`${m.nom || ''} ${linked ? `${playerName(linked)} ${teamName(linked.team_id) || ''}` : ''} ${ROLE_LABELS[m.role] || ''} ${teamsTxt}`);
     return `<div class="member-row${acc.none ? ' is-noaccess' : ''}" data-search="${escapeHtml(search)}"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small></span>${controls}</div>`;
   };
@@ -237,7 +237,7 @@ function renderAccess(pending) {
   document.getElementById('pendingList').innerHTML = pending.length
     ? `<div class="access-list"><h4>En attente de première connexion</h4>${pending.map(a => {
         const p = roster.find(x => x.id === a.player_id);
-        return `<div class="member-row"><span class="member-name">${escapeHtml(a.email)}<small>${ROLE_LABELS[a.role] || a.role}${p ? `${SEP}${escapeHtml(playerName(p))}` : ''}</small></span>
+        return `<div class="member-row"><span class="member-name">${escapeHtml(a.email)}<small>${ROLE_LABELS[a.role] || a.role}${p ? ` | ${escapeHtml(playerName(p))}` : ''}</small></span>
           <button class="btn btn-sm" type="button" data-access-delete="${a.id}">Annuler</button></div>`;
       }).join('')}</div>`
     : '';

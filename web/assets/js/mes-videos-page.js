@@ -62,7 +62,7 @@ function render() {
         ${thumbHtml(pv.urls.get(v.id), 1, 'Source', v.thumb)}
         <span class="vp-card-body">
           <span class="vp-card-top"><strong>${escapeHtml(v.titre)}</strong>${back ? `<span class="vw-status is-attn">${plural(back, 'retour', 'retours')}</span>` : ''}</span>
-          <span class="vp-card-meta">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}${SEP}${list.length ? plural(list.length, 'séquence', 'séquences') : 'pas encore de séquence'}</span>
+          <span class="vp-card-meta">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))} | ${list.length ? plural(list.length, 'séquence', 'séquences') : 'pas encore de séquence'}</span>
           ${v.description ? `<em>${escapeHtml(v.description).replace(/\n/g, '<br>')}</em>` : ''}
         </span>
       </a>`;
@@ -75,7 +75,7 @@ function render() {
         ${thumbHtml(pv.urls.get(s.video_id), s.start_sec, fmtDur(len), s.thumb)}
         <span class="vp-card-body">
           <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s)}</span>
-          <span class="vp-card-meta">${escapeHtml(v?.titre || 'Vidéo')}${SEP}${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}</span>
+          <span class="vp-card-meta">${escapeHtml(v?.titre || 'Vidéo')} | ${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}</span>
         </span>
       </a>`;
     }).join('')}</div>` : `<div class="empty">${pv.seqs.length ? 'Aucune séquence dans ce filtre.' : 'Pas encore de séquence. Ouvre une vidéo, puis « Sélectionner une portion ».'}</div>`;

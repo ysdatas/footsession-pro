@@ -87,7 +87,7 @@ function soreCardHtml() {
   return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="mon-espace" data-sore>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Courbatures au réveil', done ? 'Courbatures du matin' : 'Tes courbatures ce matin ?'))}</strong>${phIc('check')}</span>
     <span class="home-attn-value">${done ? s.niveau : '?'}<small class="rpe-of">/10</small></span>
-    <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''}${SEP}touche pour changer` : 'Aucune' + SEP + 'touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>
+    <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''} | touche pour changer` : 'Aucune | touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>
   </a>`;
 }
 function openSoreFromCard(e) {
@@ -104,7 +104,7 @@ function mfCardHtml() {
   return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="calendrier" data-mf>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(m.form_titre, 'Ton avis sur le match', done ? 'Ton avis sur le match' : 'Donne ton avis sur le match'))}</strong>${phIc('chat')}</span>
     <span class="home-attn-value">${done ? '✓' : '?'}</span>
-    <small>Contre ${escapeHtml(m.titre)}${SEP}${phDay(m.date)}${done ? '' + SEP + 'touche pour compléter' : ''}</small>
+    <small>Contre ${escapeHtml(m.titre)} | ${phDay(m.date)}${done ? ' | touche pour compléter' : ''}</small>
   </a>`;
 }
 function openMfFromCard(e) {
@@ -127,7 +127,7 @@ function rpeCardHtml() {
   return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" id="phRpe" href="calendrier"${todo.length ? ' data-rpe' : ''}>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Ton effort', todo.length ? 'Note ton effort' : 'Ton effort'))}</strong>${phIc('activity')}</span>
     <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
-    <small>${escapeHtml(s.titre)}${SEP}${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? `${SEP}${todo.length} à noter` : ''}</small>
+    <small>${escapeHtml(s.titre)} | ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` | ${todo.length} à noter` : ''}</small>
   </a>`;
 }
 function openRpeFromCard(e) {

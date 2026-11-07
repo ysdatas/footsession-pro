@@ -59,7 +59,7 @@ function renderProgramList(container, exercises, { staff = false } = {}) {
           <div class="prog-body">
             <strong>${progEsc(e.title)}</strong>
             ${e.dosage ? `<span class="prog-dosage">${progEsc(e.dosage)}</span>` : ''}
-            <span class="prog-tags">${[e.image_url && 'Image', e.schema_url && 'Schéma', e.video_id && 'Vidéo'].filter(Boolean).join(SEP)}</span>
+            <span class="prog-tags">${[e.image_url && 'Image', e.schema_url && 'Schéma', e.video_id && 'Vidéo'].filter(Boolean).join(' | ')}</span>
             ${staff && e.player_feedback ? `<span class="prog-feedback">« ${progEsc(e.player_feedback)} »</span>` : ''}
           </div>
         </article>`;

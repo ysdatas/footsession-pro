@@ -221,7 +221,7 @@ async function calRpe(i, form) {
   if (!data && !form) { box.remove(); return; }   // son équipe ne reçoit pas le RPE
   if (match && !data && !i.rpeTodo && !upcoming) { box.remove(); return; }   // il n'a pas joué, ou le délai est passé
   box.innerHTML = data
-    ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong>${SEP}${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
+    ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> | ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
     : i.rpeTodo ? '<button type="button" class="btn btn-primary" id="calRpeBtn">Noter mon effort</button>'
       : `<p class="text-muted">${upcoming ? `Tu pourras noter ton effort après ${match ? 'le match' : 'la séance'}.` : `La saisie est fermée (${RPE_DAYS} jours après la séance).`}</p>`;
   document.getElementById('calRpeBtn')?.addEventListener('click', () => openRpeSheet({

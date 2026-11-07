@@ -148,7 +148,7 @@ function cfRenderResponses() {
     const date = response.submitted_at ? new Date(response.submitted_at) : null;
     const when = date && !Number.isNaN(date.getTime()) ? date.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue';
     return `<article class="cf-response-row"><div><strong>${escapeHtml(response.form_title_snapshot)}</strong>
-      <small>${escapeHtml(response.player_name_snapshot)}${SEP}${escapeHtml(response.team_name_snapshot)}${SEP}Version ${Number(response.version_no) || 1}${SEP}${escapeHtml(when)}</small></div>
+      <small>${escapeHtml(response.player_name_snapshot)} | ${escapeHtml(response.team_name_snapshot)} | Version ${Number(response.version_no) || 1} | ${escapeHtml(when)}</small></div>
       <button class="btn btn-sm" type="button" data-cf-response="${Number(response.id)}">Voir les réponses</button></article>`;
   }).join('') : '<div class="empty">Aucune réponse visible dans le périmètre de tes équipes.</div>';
 }
@@ -186,10 +186,10 @@ function cfRender() {
     const shared = form.source && !form.created_by && CF.profile.role !== 'admin';
     return `<article class="cf-card">
       <div class="cf-card-head"><h2>${escapeHtml(form.titre)}</h2><span class="cf-badge${form.actif ? ' is-active' : ''}">${form.actif ? 'Actif' : 'Désactivé'}</span></div>
-      ${source ? `<p>${source.quand}${SEP}réponses dans <a href="${source.page}">${source.lieu}</a></p>` : ''}
+      ${source ? `<p>${source.quand} | réponses dans <a href="${source.page}">${source.lieu}</a></p>` : ''}
       ${form.description ? `<p>${escapeHtml(form.description)}</p>` : ''}
-      <div class="cf-meta"><span>Version ${form.version?.version_no || 0}${SEP}${form.versions?.length || (form.version ? 1 : 0)} conservée${(form.versions?.length || 1) > 1 ? 's' : ''}</span><span>${questions.length} question${questions.length === 1 ? '' : 's'}</span>
-        <span>${teams.length ? teams.map(escapeHtml).join(SEP) : 'Aucune équipe affectée'}</span></div>
+      <div class="cf-meta"><span>Version ${form.version?.version_no || 0} | ${form.versions?.length || (form.version ? 1 : 0)} conservée${(form.versions?.length || 1) > 1 ? 's' : ''}</span><span>${questions.length} question${questions.length === 1 ? '' : 's'}</span>
+        <span>${teams.length ? teams.map(escapeHtml).join(' | ') : 'Aucune équipe affectée'}</span></div>
       <div class="cf-card-actions">
         ${shared ? '' : `<button class="btn btn-sm" type="button" data-cf-edit="${form.id}">Modifier</button>
         <button class="btn btn-sm" type="button" data-cf-toggle="${form.id}">${form.actif ? 'Désactiver' : 'Réactiver'}</button>`}

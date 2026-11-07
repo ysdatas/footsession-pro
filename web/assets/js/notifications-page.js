@@ -58,7 +58,7 @@ async function loadPlayers() {
 function renderPlayers() {
   const box = document.getElementById('ntPlayers');
   box.innerHTML = ntPlayers.length ? ntPlayers.map(p => {
-    const status = p.devices ? `Activé${p.devices > 1 ? `${SEP}${p.devices} appareils` : ''}` : p.auth_user_id ? 'Pas activé' : 'Pas de compte';
+    const status = p.devices ? `Activé${p.devices > 1 ? ` | ${p.devices} appareils` : ''}` : p.auth_user_id ? 'Pas activé' : 'Pas de compte';
     return `<label class="nt-player${p.devices ? '' : ' is-off'}">
       <input type="checkbox" data-player="${p.id}"${ntChecked.has(p.id) ? ' checked' : ''}${p.devices ? '' : ' disabled'}>
       <span>${escapeHtml(playerFullName(p))}${p.numero != null ? ` <small>n° ${p.numero}</small>` : ''}</span>

@@ -1201,7 +1201,7 @@ function openTextEditor(it, p = it) {
   const box = document.createElement('div');
   box.className = 'tb-textedit';
   box.innerHTML = '<textarea rows="1" wrap="off" spellcheck="false" aria-label="Texte" placeholder="Texte…"></textarea>'
-    + `<small>${matchMedia('(pointer: coarse)').matches ? 'Retour : à la ligne' + SEP + 'touchez à côté pour valider'
+    + `<small>${matchMedia('(pointer: coarse)').matches ? 'Retour : à la ligne | touchez à côté pour valider'
       : 'Entrée : à la ligne – Ctrl/⌘ + Entrée : valider – Échap : annuler'}</small>`;
   const ta = box.firstChild;
   ta.value = it?.text || '';

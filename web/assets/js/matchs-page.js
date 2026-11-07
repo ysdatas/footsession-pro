@@ -373,7 +373,7 @@ function initEditor() {
   const renderResults = () => {
     const list = candidates(search.value);
     results.innerHTML = list.map(p => `<button type="button" class="guest-hit" data-add="${p.id}">
-        <strong>${escapeHtml(playerName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? `${SEP}#${p.numero}` : ''}</span></button>`).join('')
+        <strong>${escapeHtml(playerName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? ` | #${p.numero}` : ''}</span></button>`).join('')
       || (search.value.trim().length >= 2 ? '<p class="text-muted guest-none">Aucun joueur du club ne correspond.</p>' : '');
   };
   search.addEventListener('input', renderResults);

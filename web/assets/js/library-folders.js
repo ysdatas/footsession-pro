@@ -53,7 +53,7 @@ function lfRender() {
     <button class="btn btn-sm" type="button" data-lf="${f.archived ? 'unarchive' : 'archive'}" data-id="${f.id}">${f.archived ? 'Réactiver' : 'Archiver'}</button>
     <button class="btn btn-sm btn-danger" type="button" data-lf="delete" data-id="${f.id}" data-n="${f.n}">Supprimer</button></li>`;
   lfEl('lfList').innerHTML = (active.length ? `<ul>${active.map(row).join('')}</ul>` : '<p class="text-muted">Aucun dossier pour l’instant.</p>')
-    + (archived.length ? `<details class="lf-archived"><summary>Dossiers archivés${SEP}${archived.length}</summary><ul>${archived.map(row).join('')}</ul></details>` : '');
+    + (archived.length ? `<details class="lf-archived"><summary>Dossiers archivés | ${archived.length}</summary><ul>${archived.map(row).join('')}</ul></details>` : '');
 }
 
 async function lfDone(promise, ok) {

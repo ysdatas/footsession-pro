@@ -157,12 +157,12 @@ async function renderRpeTrend(playerId) {
   if (!data?.length) { box.innerHTML = '<p class="text-muted">Aucun RPE pour l’instant : il se renseigne après chaque séance et chaque match (Mon espace, Calendrier).</p>'; return; }
   const rows = [...data].reverse(), avg = rows.reduce((s, r) => s + r.rpe, 0) / rows.length;
   const sameDay = (r) => rows.filter(x => x.date_seance === r.date_seance).length > 1;   // l'heure les distingue
-  box.innerHTML = `<p class="rpe-trend-sum">${rows.length} réponse${rows.length > 1 ? 's' : ''}${SEP}moyenne <strong>${rpeFr(avg)}</strong>${SEP}dernière <strong>${rows.at(-1).rpe}</strong> (${escapeHtml(rpeLabel(rows.at(-1).rpe))})</p>
+  box.innerHTML = `<p class="rpe-trend-sum">${rows.length} réponse${rows.length > 1 ? 's' : ''} | moyenne <strong>${rpeFr(avg)}</strong> | dernière <strong>${rows.at(-1).rpe}</strong> (${escapeHtml(rpeLabel(rows.at(-1).rpe))})</p>
     <div class="rpe-cols" role="list">${rows.map(r => `<div class="rpe-col" role="listitem"
         title="${escapeHtml(`${rpeWhen({ date: r.date_seance, heure: r.heure })} – ${r.titre} : ${r.rpe} (${rpeLabel(r.rpe)})${r.corrige ? ' – saisi ou corrigé par le staff' : ''}`)}">
         <span class="rpe-col-v">${r.rpe}${r.corrige ? '*' : ''}</span>
         <span class="rpe-col-bar" style="--h:${r.rpe * 11}px;--rpe:${rpeColor(r.rpe)}"></span>
         <span class="rpe-col-d">${rpeDate(r.date_seance).slice(0, 5)}${sameDay(r) && r.heure ? `<br>${r.heure.slice(0, 5)}` : ''}${r.session_id == null ? '<br>M' : ''}</span>
       </div>`).join('')}</div>
-    ${rows.some(r => r.corrige || r.session_id == null) ? `<p class="rpe-note">${[rows.some(r => r.corrige) && '* saisi ou corrigé par le staff', rows.some(r => r.session_id == null) && 'M : match'].filter(Boolean).join(SEP)}</p>` : ''}`;
+    ${rows.some(r => r.corrige || r.session_id == null) ? `<p class="rpe-note">${[rows.some(r => r.corrige) && '* saisi ou corrigé par le staff', rows.some(r => r.session_id == null) && 'M : match'].filter(Boolean).join(' | ')}</p>` : ''}`;
 }

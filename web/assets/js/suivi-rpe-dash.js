@@ -23,7 +23,7 @@ function renderSrDash(body, sessions, players, cells) {
   swapKeepView(body, `
     <div class="kpi-grid kpi-band sr-kpis">
       ${srKpi(t.avg === null ? '—' : rpeFr(t.avg), 'RPE moyen')}
-      ${srKpi(`${t.n}<span class="kpi-of">/${t.due}</span>`, `Réponses${t.rate === null ? '' : `${SEP}${Math.round(t.rate * 100)} %`}`)}
+      ${srKpi(`${t.n}<span class="kpi-of">/${t.due}</span>`, `Réponses${t.rate === null ? '' : ` | ${Math.round(t.rate * 100)} %`}`)}
       ${srKpi(t.missing, `Réponses manquantes${t.pending ? ` – ${t.pending} en attente` : ''}`)}
       ${t.gapN ? srKpi(rpeGapFr(t.gap), 'Écart à la RPE attendue') : ''}
       ${srKpi(srInt(t.load), 'Charge ressentie moyenne (UA)')}

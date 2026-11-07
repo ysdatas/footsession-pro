@@ -47,7 +47,7 @@ function libraryBoxHtml(p) {
     const gaps = LIB.gaps.get(p.id) || [];
     return `<div class="lib-proc"><div class="lib-proc-row">${libThumbHtml(v?.library_files?.id, v?.library_files?.duree_sec)}
       <div class="lib-proc-body"><span class="lib-proc-title">${titre}</span>
-        <span class="lib-proc-meta">Bibliothèque vidéo${SEP}v${v?.version_no ?? '…'}${LIB_STATUT[v?.item?.statut] ? `${SEP}${LIB_STATUT[v.item.statut]}` : ''}</span>
+        <span class="lib-proc-meta">Bibliothèque vidéo | v${v?.version_no ?? '…'}${LIB_STATUT[v?.item?.statut] ? ` | ${LIB_STATUT[v.item.statut]}` : ''}</span>
         <div class="lib-proc-actions">${btn('libPlayProc', '<span class="arr arr-play" aria-hidden="true"></span>Lire')}
           <a class="btn btn-sm" href="bibliotheque?item=${p.library_item_id}" target="_blank" rel="noopener">Fiche</a>
           ${CAN_WRITE && newer ? btn('libUpdateProc', `Passer à la v${cur.version_no}`, ' btn-primary') : ''}
@@ -117,7 +117,7 @@ async function libShowGaps(p, row, gaps) {
   document.getElementById('libGapsBody').innerHTML = `
     <p>La vidéo « ${escapeHtml(row.titre)} » n’a pas été ajoutée : ${gaps.length > 1 ? 'ces personnes voient' : 'cette personne voit'} la séance
       sans avoir accès à la vidéo.</p>
-    <ul class="lib-gaps">${gaps.map(g => `<li>${escapeHtml(g.nom)}${SEP}${escapeHtml(ROLE_LABELS[g.role] || g.role)}</li>`).join('')}</ul>
+    <ul class="lib-gaps">${gaps.map(g => `<li>${escapeHtml(g.nom)} | ${escapeHtml(ROLE_LABELS[g.role] || g.role)}</li>`).join('')}</ul>
     <p class="field-hint">L’accès à une séance ne donne jamais accès à une vidéo de la bibliothèque.
       ${lvl === 'gestion' ? `Vous pouvez ${them} ouvrir la vidéo (consultation).`
         : `Demandez à son créateur ou à l’administrateur de ${them} ouvrir la vidéo, ou retirez-${gaps.length > 1 ? 'les' : 'la'} de la séance.`}</p>`;

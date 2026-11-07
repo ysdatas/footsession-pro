@@ -34,11 +34,11 @@ function gpsPlayerHtml(live) {
     </div>`;
   if (!list.length) return `${bar}<div class="empty">Aucune séance GPS sur cette période.</div>`;
   return `${bar}
-    <section class="card chart-card gps-chart"><h2 class="chart-title">${escapeHtml(metric.label)} <span>${escapeHtml(metric.unit || '')}${SEP}séance par séance</span></h2>
+    <section class="card chart-card gps-chart"><h2 class="chart-title">${escapeHtml(metric.label)} <span>${escapeHtml(metric.unit || '')} | séance par séance</span></h2>
       <div class="chart-box"><canvas id="gpsPlayerChart" role="img" aria-label="${escapeHtml(metric.label)} à chaque séance (détail dans le tableau)"></canvas></div></section>
     <div class="cmp-table-wrap"><table class="cmp-table gps-table"><thead><tr><th scope="col" class="p-name">Séance</th>
       ${keys.map(c => `<th scope="col" title="${escapeHtml(c.label)}">${escapeHtml(c.short || c.label)}${c.unit ? ` <small>${escapeHtml(c.unit)}</small>` : ''}</th>`).join('')}<th scope="col">RPE</th><th scope="col" title="Charge ressentie">sRPE <small>UA</small></th></tr></thead>
-      <tbody>${[...list].reverse().map(x => `<tr><td class="p-name">${gpsDate(x.imp.date_seance)}${SEP}${escapeHtml(x.imp.libelle || x.imp.fichier)}</td>
+      <tbody>${[...list].reverse().map(x => `<tr><td class="p-name">${gpsDate(x.imp.date_seance)} | ${escapeHtml(x.imp.libelle || x.imp.fichier)}</td>
         ${keys.map(c => `<td>${gpsNum(gpsKeyValue(x.metrics, c), gpsDec(c))}</td>`).join('')}<td>${x.rpe ?? '—'}</td><td>${gpsNum(x.load, 0)}</td></tr>`).join('')}</tbody></table></div>
     <p class="text-muted cmp-foot">RPE et charge ressentie : réponse du joueur sur la séance liée à l’import. Case vide : donnée absente.</p>`;
 }
@@ -86,7 +86,7 @@ function gpsCompareHtml(keys) {
   const durs = list.map(x => x.cur.values.duree).filter(Boolean), spread = durs.length > 1 && Math.max(...durs) / Math.min(...durs) > 1.2;
   const info = gpsInfo(GPS.metric), unit = GPS.perMin && GPS_PER_MIN.has(info.kind) ? `${info.unit || ''}/min` : info.unit;
   return `${spread && !GPS.perMin ? `<p class="gps-warn">Temps de jeu différents (de ${gpsNum(Math.min(...durs), 0)} à ${gpsNum(Math.max(...durs), 0)} min) : comparez « Par minute » pour des valeurs comparables.</p>` : ''}
-    <section class="card chart-card gps-chart"><h2 class="chart-title">${escapeHtml(info.label)} <span>${escapeHtml(unit || '')}${GPS.pick === 'periode' ? `${SEP}moyenne sur ${GPS.days} jours` : ''}</span></h2>
+    <section class="card chart-card gps-chart"><h2 class="chart-title">${escapeHtml(info.label)} <span>${escapeHtml(unit || '')}${GPS.pick === 'periode' ? ` | moyenne sur ${GPS.days} jours` : ''}</span></h2>
       <div class="chart-box" style="height:${Math.max(140, GPS.chartRows.length * 26 + 24)}px"><canvas id="gpsChart" role="img" aria-label="${escapeHtml(info.label)} par joueur (détail dans le tableau)"></canvas></div></section>
     <div class="cmp-table-wrap"><table class="cmp-table gps-table"><thead><tr><th class="p-name">Joueur</th>${keys.map(k => `<th title="${escapeHtml(gpsInfo(k).label)}">${escapeHtml(gpsInfo(k).label)}</th>`).join('')}
       ${GPS.pick === 'periode' ? '<th>Séances</th><th>Période précédente</th>' : ''}</tr></thead>

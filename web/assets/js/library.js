@@ -189,7 +189,7 @@ function createLibBrowser(root, opts = {}) {
       <div class="lib-folder${f.archived ? ' is-off' : ''}" role="listitem" data-lib-drop="${f.id}">
         <button type="button" class="lib-folder-open" data-lib-folder="${f.id}">${LIB_FOLDER_IC}
           <span class="lib-folder-name">${escapeHtml(f.nom)}</span>
-          <span class="lib-folder-n">${f.archived ? 'Archivé' + SEP + '' : ''}${f.n} vidéo${f.n > 1 ? 's' : ''}</span></button>
+          <span class="lib-folder-n">${f.archived ? 'Archivé | ' : ''}${f.n} vidéo${f.n > 1 ? 's' : ''}</span></button>
         ${opts.manage ? `<details class="lib-folder-menu"><summary aria-label="Actions du dossier ${escapeHtml(f.nom)}">⋯</summary>
           <div class="lib-folder-pop"><button type="button" data-lf="rename" data-id="${f.id}">Renommer</button>
             <button type="button" data-lf="${f.archived ? 'unarchive' : 'archive'}" data-id="${f.id}">${f.archived ? 'Réactiver' : 'Archiver'}</button>

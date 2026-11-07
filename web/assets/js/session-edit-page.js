@@ -145,7 +145,7 @@ async function offerPlanned() {
   if (!list.length) return;
   const label = (s) => new Date(`${s.date_seance}T12:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
   document.getElementById('plannedList').innerHTML = list.map(s => `<button type="button" class="btn" data-planned="${s.id}">
-    ${escapeHtml(label(s))}${s.heure ? `${SEP}${s.heure.slice(0, 5)}` : ''}${SEP}${escapeHtml(s.titre)}</button>`).join('');
+    ${escapeHtml(label(s))}${s.heure ? ` | ${s.heure.slice(0, 5)}` : ''} | ${escapeHtml(s.titre)}</button>`).join('');
   openModal('plannedModal');
 }
 document.getElementById('plannedModal').addEventListener('click', (e) => {
@@ -449,7 +449,7 @@ function procTemplate(p, index) {
       <div>
         <p class="proc-group">Schéma tactique</p>
         <div class="schema-box" data-schema-box>${tac}</div>
-        <div class="schema-recap">Procédé ${index + 1} / ${procedures.length}${SEP}${escapeHtml(sequenceLabel(p))}</div>
+        <div class="schema-recap">Procédé ${index + 1} / ${procedures.length} | ${escapeHtml(sequenceLabel(p))}</div>
         <div data-lib-box="${p._uid}">${libraryBoxHtml(p)}</div>
       </div>
       ${procExtrasHtml(p)}

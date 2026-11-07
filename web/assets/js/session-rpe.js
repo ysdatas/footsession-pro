@@ -42,17 +42,17 @@ function renderSessionRpe() {
   const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
   const att = Number(document.getElementById('f-rpe-att')?.value) || null;   // RPE attendue (lmfc_v34.sql), à part de la charge
   const sum = (vals.length
-    ? `${vals.length} réponse${vals.length > 1 ? 's' : ''}${SEP}moyenne <strong>${rpeFr(avg)}</strong>
-      ${SEP}plus bas <strong>${Math.min(...vals)}</strong>${SEP}plus haut <strong>${Math.max(...vals)}</strong>`
+    ? `${vals.length} réponse${vals.length > 1 ? 's' : ''} | moyenne <strong>${rpeFr(avg)}</strong>
+       | plus bas <strong>${Math.min(...vals)}</strong> | plus haut <strong>${Math.max(...vals)}</strong>`
     : 'Aucune réponse pour l’instant.')
-    + (att ? `<br>RPE attendue <strong>${att}</strong>${avg !== null ? `${SEP}écart <strong class="rpe-gap">${rpeGapFr(avg - att)}</strong> (moyenne déclarée − attendue)` : ''}` : '');
+    + (att ? `<br>RPE attendue <strong>${att}</strong>${avg !== null ? ` | écart <strong class="rpe-gap">${rpeGapFr(avg - att)}</strong> (moyenne déclarée − attendue)` : ''}` : '');
   const noPresence = attendance.length && !attendance.some(a => savedAtt.has(a.player_id));
   document.getElementById('srpeBody').innerHTML = `<p class="srpe-sum">${sum}</p>
     ${answered.length ? `<div class="srpe-list">${answered.map(({ a, r, exp }) => `<div class="srpe-row">
       <span class="srpe-name">${escapeHtml(rosterName(a))}</span>
       <span class="srpe-bar" aria-hidden="true"><span style="--w:${r.rpe * 10}%;--rpe:${rpeColor(r.rpe)}"></span></span>
       <strong class="srpe-v">${r.rpe}</strong>
-      <span class="srpe-l">${escapeHtml(rpeLabel(r.rpe))}${r.corrige_par ? ' <span class="rpe-staff">staff</span>' : ''}${exp ? '' : '' + SEP + 'noté absent'}</span>
+      <span class="srpe-l">${escapeHtml(rpeLabel(r.rpe))}${r.corrige_par ? ' <span class="rpe-staff">staff</span>' : ''}${exp ? '' : ' | noté absent'}</span>
       <button class="btn btn-sm" type="button" data-srpe="${a.player_id}" aria-label="Corriger le RPE de ${escapeHtml(rosterName(a))}">Corriger</button>
     </div>`).join('')}</div>` : ''}
     ${missing.length ? `<p class="srpe-miss-h">Sans réponse (${missing.length})</p><div class="srpe-miss">${missing.map(({ a }) =>

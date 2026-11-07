@@ -156,7 +156,7 @@ function seqCard(s) {
     ${thumbHtml(urlCache.get(s.video_id), s.start_sec, fmtDur(len), s.thumb)}
     <span class="vp-card-body">
       <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s, 'staff')}</span>
-      <span class="vp-card-meta">${escapeHtml(fullName(playersCache.find(p => p.id === s.player_id)))}${SEP}${escapeHtml(v?.titre || 'Vidéo')}${SEP}${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}${s.submitted_at ? `${SEP}envoyée le ${escapeHtml(shortDate(s.submitted_at))}` : ''}</span>
+      <span class="vp-card-meta">${escapeHtml(fullName(playersCache.find(p => p.id === s.player_id)))} | ${escapeHtml(v?.titre || 'Vidéo')} | ${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}${s.submitted_at ? ` | envoyée le ${escapeHtml(shortDate(s.submitted_at))}` : ''}</span>
       ${note ? `<em>« ${escapeHtml(note.length > 90 ? `${note.slice(0, 87)}…` : note)} »</em>` : ''}
     </span>
   </button>`;
@@ -219,7 +219,7 @@ function render() {
           <span class="vp-avatar" aria-hidden="true">${escapeHtml(initials(x.pl))}</span>
           <span class="vp-player-main">
             <strong>${escapeHtml(fullName(x.pl))}</strong>
-            <span>${x.vids || x.seqs ? `${plural(x.vids, 'vidéo', 'vidéos')}${SEP}${plural(x.seqs, 'séquence', 'séquences')}` : 'Aucune vidéo'}</span>
+            <span>${x.vids || x.seqs ? `${plural(x.vids, 'vidéo', 'vidéos')} | ${plural(x.seqs, 'séquence', 'séquences')}` : 'Aucune vidéo'}</span>
           </span>
           ${x.todo ? `<span class="vw-status is-attn" title="À traiter"><span class="sr-only">À traiter : </span>${x.todo}</span>` : x.last ? `<span class="vp-last">${escapeHtml(shortDate(x.last))}</span>` : ''}
           <span class="vp-chevron" aria-hidden="true">›</span>

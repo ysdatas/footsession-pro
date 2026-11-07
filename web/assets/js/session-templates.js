@@ -133,7 +133,7 @@ function templateOwnerHtml(t) {
   const who = tplMine(t) ? '' : t.created_by ? `Par ${TPL.staff.find(s => s.id === t.created_by)?.nom || 'un ancien membre'}` : 'Créateur inconnu';
   const state = tplCanManage(t) ? (t.partage ? 'Partagé avec le club' : 'Privé') : '';
   const owners = TPL.staff.filter(s => ['admin', 'coach'].includes(s.role));
-  return `<div class="lib-owner">${[who, state].filter(Boolean).map(escapeHtml).join(SEP)}${tplAdmin() ? `
+  return `<div class="lib-owner">${[who, state].filter(Boolean).map(escapeHtml).join(' | ')}${tplAdmin() ? `
     <select data-tpl-owner aria-label="Attribuer « ${escapeHtml(t.nom)} » à un membre du staff">
       <option value="">Attribuer à…</option>${owners.map(s => `<option value="${escapeHtml(s.id)}"${s.id === t.created_by ? ' selected' : ''}>${escapeHtml(s.nom || 'Sans nom')}</option>`).join('')}
     </select>` : ''}</div>`;
