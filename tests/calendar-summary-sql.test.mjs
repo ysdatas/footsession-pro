@@ -16,7 +16,7 @@ try {
 }
 
 const { db, rest } = await fullDb({ PGlite, pgcrypto, pg_trgm, unaccent }, { until: 'lmfc_v42.sql' });
-assert.deepEqual(rest, ['lmfc_v43.sql'], 'v43 est la migration suivante');
+assert.deepEqual(rest.slice(0, 1), ['lmfc_v43.sql'], 'v43 est la migration suivante');
 await seed(db);
 const as = actor(db);
 const q = (sql, params = []) => db.query(sql, params);

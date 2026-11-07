@@ -17,7 +17,7 @@ try {
 }
 
 const { db, rest } = await fullDb(pg, { until: 'lmfc_v41.sql' });
-assert.deepEqual(rest, ['lmfc_v42.sql', 'lmfc_v43.sql'], 'v42 et la migration calendrier suivante');
+assert.deepEqual(rest.slice(0, 2), ['lmfc_v42.sql', 'lmfc_v43.sql'], 'v42 et la migration calendrier suivante');
 await seed(db);
 const as = actor(db), q = (s, p) => db.query(s, p);
 const ids = (uid, s, p) => as(uid, async () => (await q(s, p)).rows.map(r => Number(r.id)));

@@ -47,6 +47,8 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
   const ctx = await requireAuth();
   if (!ctx) return;
   fillUserBlock(ctx.profile.nom || 'Utilisateur', ROLE_LABELS[ctx.profile.role] || ctx.profile.role);
+  const formsLink = document.getElementById('btnSrForms');
+  if (formsLink) formsLink.classList.toggle('hidden', !['admin', 'prepa', 'coach', 'analyste'].includes(ctx.profile.role));
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
   if (window.Chart) setChartDefaults();
   const url = new URL(location.href), teams = srTeams(), asked = Number(url.searchParams.get('team'));

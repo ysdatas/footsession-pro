@@ -31,9 +31,9 @@ function openSorenessSheet({ today, onSaved }) {
     document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="soreSheet">
       <div class="modal rpe-modal" role="dialog" aria-modal="true" aria-labelledby="soreTitle">
         <button type="button" class="modal-x" data-close="soreSheet" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-        <h2 class="as-h3" id="soreTitle">Courbatures au réveil</h2>
+        <h2 class="as-h3" id="soreTitle"></h2>
         <p class="rpe-session" id="soreSession"></p>
-        <p class="rpe-q" id="soreQ">Ton niveau de courbature au réveil (0 = aucune, 10 = très fortes) :</p>
+        <p class="rpe-q" id="soreQ"></p>
         <div class="sore-scale" role="group" aria-labelledby="soreQ" id="soreScale"></div>
         <div class="sore-muscles hidden" id="soreMuscles" role="group" aria-label="Muscles courbaturés"></div>
         <p class="rpe-status" id="soreStatus" role="status" aria-live="polite"></p>
@@ -48,19 +48,21 @@ function openSorenessSheet({ today, onSaved }) {
     });
   }
   const sheet = document.getElementById('soreSheet');
-  sheet.sore = { niveau: today.niveau ?? null, muscles: [...(today.muscles || [])], onSaved };
+  sheet.sore = { niveau: today.niveau ?? null, muscles: [...(today.muscles || [])], today, onSaved };
+  document.getElementById('soreTitle').textContent = today.form_titre || 'Courbatures au réveil';
+  document.getElementById('soreQ').textContent = formLabel(today, 'niveau') || 'Ton niveau de courbature au réveil (0 = aucune, 10 = très fortes) :';
   document.getElementById('soreSession').textContent = [today.titre, 'aujourd’hui'].filter(Boolean).join(' · ');
   document.getElementById('soreStatus').textContent = today.niveau != null ? 'Ta réponse d’aujourd’hui : change-la si besoin.' : '';
   soreDraw();
   openModal('soreSheet');
 }
 function soreDraw() {
-  const { niveau, muscles } = document.getElementById('soreSheet').sore;
+  const { niveau, muscles, today } = document.getElementById('soreSheet').sore;
   document.getElementById('soreScale').innerHTML = Array.from({ length: 11 }, (_, v) => `<button type="button" class="sore-opt" data-sore-v="${v}"
     aria-pressed="${v === niveau}" style="--rpe:${soreColor(v)}">${v}</button>`).join('');
   const box = document.getElementById('soreMuscles');
   box.classList.toggle('hidden', !niveau);
-  box.innerHTML = niveau ? `<p class="rpe-q">Quels muscles sont courbaturés ?</p>${SORE_ZONES.map(([zone, title]) => `
+  box.innerHTML = niveau ? `<p class="rpe-q">${escapeHtml(formLabel(today, 'muscles') || 'Quels muscles sont courbaturés ?')}</p>${SORE_ZONES.map(([zone, title]) => `
     <div class="sore-zone is-${zone}"><span class="sore-zone-t">${title}</span><div class="sore-zone-list">
       ${SORE_MUSCLES.filter(m => m[3] === zone).map(([k, label]) => `<button type="button" class="sore-m is-${zone}" data-sore-m="${k}" aria-pressed="${muscles.includes(k)}">${label}</button>`).join('')}
     </div></div>`).join('')}` : '';
@@ -90,6 +92,7 @@ async function soreSave() {
   if (data.alerte) siteApi('push/soreness', { method: 'POST' }, 'Notifications').catch(e => console.warn('Alerte courbatures non envoyée sur les téléphones', e));
   status.textContent = 'Envoyé, merci !';
   st.onSaved?.({ niveau: data.niveau, muscles: data.muscles });
+  if (formHasMore(st.today)) { status.innerHTML = `Envoyé, merci ! ${FORM_MORE}`; return; }
   setTimeout(() => closeModal('soreSheet'), 800);
 }
 

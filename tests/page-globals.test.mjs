@@ -2,7 +2,8 @@
    (ou une « const » et une fonction) empêchent tout le second fichier de se
    charger, et la page se casse sans qu'aucun autre test le voie. Ce test lit
    chaque page, ses scripts dans l'ordre, et cherche ces collisions. Le code
-   de premier niveau du site commence en début de ligne. */
+   de premier niveau du site commence en début de ligne. Il refuse aussi une
+   fenêtre (.modal-backdrop) qui porte .hidden. */
 import { readFileSync, readdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -24,6 +25,8 @@ function declared(src) {
 
 let scripts = 0;
 for (const page of pages) {
+  // .hidden (main.css) est en !important : une fenêtre qui le porte ne s'ouvre jamais (openModal ajoute .open).
+  assert.doesNotMatch(read(page), /class="modal-backdrop[^"]*\bhidden\b/, `${page} : une fenêtre porte .hidden et ne pourra pas s'ouvrir`);
   const seen = new Map();
   for (const [, src] of read(page).matchAll(/<script src="(assets\/js\/[^"?]+)/g)) {
     scripts++;

@@ -202,11 +202,26 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            administration globale restent réservées aux rôles actuels ; retour arrière :
                                            lmfc_v41_retour.sql (refusé tant que le rôle est attribué)
 60. supabase/lmfc_v42.sql                  interface et outils d'équipe de l'Analyste vidéo : séances, matchs, calendrier,
-                                           RPE et schémas dans ses équipes ; plans et feuilles joueur restent bornés par
-                                           player_level ; bibliothèque vidéo globale et réglages du club réservés ; retour :
-                                           lmfc_v42_retour.sql (conserve le rôle de v41)
+                                           RPE, GPS, avis de match et schémas dans ses équipes ; plans et feuilles joueur
+                                           restent bornés par player_level ; bibliothèque vidéo globale et réglages du club
+                                           réservés ; peut se passer après v43 et v46 ; retour : lmfc_v42_retour.sql
+                                           (conserve le rôle de v41)
 61. supabase/lmfc_v43.sql                  sauvegarde transactionnelle des informations et participants depuis le récapitulatif
                                            calendrier ; retour arrière : lmfc_v43_retour.sql
+62. supabase/lmfc_v44.sql                  gestion sécurisée des formulaires personnalisés ; versions immuables et affectation par équipe (un
+                                           préparateur sans équipe n'en gère aucune) ; retour arrière : lmfc_v44_retour.sql (refusé si des
+                                           formulaires existent)
+63. supabase/lmfc_v45.sql                  réponses de formulaires par les joueurs ; contrôle du périmètre (équipe et joueur), instantané des
+                                           versions et historique ; renommer ne repropose rien ; les réponses suivent le joueur à la corbeille ;
+                                           retour arrière : lmfc_v45_retour.sql (refusé si des réponses existent)
+64. supabase/lmfc_v46.sql                  récapitulatif du calendrier : une ligne de feuille de match n'est plus effacée parce qu'elle manque à la
+                                           liste (joueur que le compte ne voit pas), un joueur avec des données se retire dans le retour de match,
+                                           retirer un joueur d'une séance sans présence saisie le sort bien du calendrier ; ne dépend que de
+                                           lmfc_v43.sql ; retour arrière : lmfc_v46_retour.sql (rejouable)
+65. supabase/lmfc_v47.sql                  le RPE de séance, le RPE de match, les courbatures et l'avis de match deviennent des formulaires du
+                                           club, attribués à toutes les équipes : nom et intitulés modifiables, équipes au choix, questions
+                                           ajoutées et copies par catégorie ; leurs réponses restent dans leurs tables ; après lmfc_v45.sql ;
+                                           retour arrière : lmfc_v47_retour.sql (refusé si des joueurs ont répondu aux questions ajoutées)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1096,6 +1111,9 @@ node tests/lines-ranks.test.mjs    # lignes de jeu déduites du poste, classemen
 node tests/video-worker.test.mjs  # Worker vidéo : droits (club, joueur), liens signés, lecture partielle (Range)
 node tests/rights-sql.test.mjs    # droits par équipe et par joueur : matrice rôles × données (PGlite)
 node tests/access-matrix-sql.test.mjs tests/v39-sql.test.mjs  # droits par profil et retour arrière, sur toutes les migrations réelles (PGlite)
+node tests/v42-sql.test.mjs       # Analyste : ce que v42 ouvre, sans rien retirer aux autres comptes (RPE, admin, GPS), dans l'ordre de la production et du README (PGlite)
+node tests/v46-sql.test.mjs       # récapitulatif du calendrier : feuille de match, retrait de séance, sur l'état de production et le code complet (PGlite)
+node tests/v47-sql.test.mjs       # RPE, courbatures et avis dans Formulaires : réponses intactes, équipes, copies, questions ajoutées, droits, retour arrière (PGlite)
 node tests/analyst-role-sql.test.mjs  # rôle Analyste vidéo : portée, RLS, outils d'équipe, défaut Pro et retours (PGlite)
 node tests/tactical-save.test.mjs  # publication immuable d'image tactique puis référence en base
 node tests/page-globals.test.mjs  # deux scripts d'une même page ne déclarent pas le même nom

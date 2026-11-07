@@ -16,7 +16,7 @@
    ============================================================ */
 
 // Icônes du menu (NAV_IC, nav-mobile.js) : une seule collection pour tout le site.
-const PH_IC_KEY = { video: 'videos', activity: 'performance' };
+const PH_IC_KEY = { video: 'videos', activity: 'performance', forms: 'check' };
 const phIc = (k) => navIc(PH_IC_KEY[k] || k);
 /* Une case « Pour toi » : libellé court, chiffre, précision éventuelle (même gabarit que l'accueil du staff). */
 const phCard = ({ href, icon, value, label, detail, tone = '' }) => `
@@ -42,7 +42,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${player.prenom ? `, ${player.prenom}` : ''}`;
 
-  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes, cRes, mf] = await Promise.all([
+  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes, cRes, mf, formRes, sourcesRes] = await Promise.all([
     player.team_id ? sb.from('teams').select('nom').eq('id', player.team_id).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('player_videos').select('id, titre, created_at').eq('player_id', player.id).order('created_at', { ascending: false }),
     sb.from('video_sequences').select('id, label, staff_feedback, feedback_at, submitted_at').eq('player_id', player.id),
@@ -53,6 +53,8 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     myRpeItems(),                  // séances et matchs (lmfc_v38.sql)
     sb.rpc('my_soreness_today'),   // lmfc_v35.sql : rien sans séance aujourd'hui
     myMatchToReview(),             // lmfc_v36.sql : rien sans match joué ces 30 jours
+    sb.rpc('custom_forms_my_pending'), // lmfc_v45.sql : formulaires attribués, lecture joueur seulement
+    sb.rpc('my_form_sources'),         // lmfc_v47.sql : ce que reçoivent ses équipes
   ]);
   [vRes, sRes, nRes, eRes, mRes, tRes].forEach(r => { if (r.error) console.warn('Mon espace : donnée indisponible', r.error.message); });
 
@@ -61,10 +63,13 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
 
   if (rRes.error && rRes.error.code !== 'PGRST202') console.warn('Mon espace : RPE indisponible', rRes.error.message);
   phRpe = rRes.rows;
-  phRpeOn = !rRes.error;   // sans lmfc_v29.sql : pas de carte
+  // Sans lmfc_v29.sql, ou si ses équipes ne reçoivent pas le RPE (Formulaires) : pas de carte.
+  phRpeOn = !rRes.error && (phRpe.length > 0 || !!sourcesRes.error || sourcesRes.data.some(s => s.startsWith('rpe_')));
   if (cRes.error && cRes.error.code !== 'PGRST202') console.warn('Mon espace : courbatures indisponibles', cRes.error.message);
   phSore = cRes.data?.[0] || null;
   phMf = mf;
+  phFormsPending = formRes.error ? 0 : (formRes.data || []).length;
+  if (formRes.error && !['PGRST202', 'PGRST203'].includes(formRes.error.code)) console.warn('Mon espace : formulaires indisponibles', formRes.error.message);
   document.getElementById('homeAttn').addEventListener('click', openMfFromCard);
   document.getElementById('homeAttn').addEventListener('click', openRpeFromCard);
   document.getElementById('homeAttn').addEventListener('click', openSoreFromCard);
@@ -74,10 +79,13 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
 
 /* Courbatures au réveil : le jour d'une séance seulement (soreness.js). */
 let phSore = null;
+let phFormsPending = 0;
+/* Le nom d'un formulaire s'il a été changé (Formulaires), sinon l'appel d'origine. */
+const phFormName = (titre, origine, appel) => (titre && titre !== origine ? titre : appel);
 function soreCardHtml() {
   const s = phSore, done = s.niveau != null;
   return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="mon-espace.html" data-sore>
-    <span class="home-attn-head"><strong>${done ? 'Courbatures du matin' : 'Tes courbatures ce matin ?'}</strong>${phIc('check')}</span>
+    <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Courbatures au réveil', done ? 'Courbatures du matin' : 'Tes courbatures ce matin ?'))}</strong>${phIc('check')}</span>
     <span class="home-attn-value">${done ? s.niveau : '?'}<small class="rpe-of">/10</small></span>
     <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''} · touche pour changer` : 'Aucune · touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>
   </a>`;
@@ -94,7 +102,7 @@ let phMf = null;   // { match: { id, titre, date }, value }
 function mfCardHtml() {
   const { match: m, value } = phMf, done = mfAnswered(value);
   return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="calendrier.html" data-mf>
-    <span class="home-attn-head"><strong>${done ? 'Ton avis sur le match' : 'Donne ton avis sur le match'}</strong>${phIc('chat')}</span>
+    <span class="home-attn-head"><strong>${escapeHtml(phFormName(m.form_titre, 'Ton avis sur le match', done ? 'Ton avis sur le match' : 'Donne ton avis sur le match'))}</strong>${phIc('chat')}</span>
     <span class="home-attn-value">${done ? '✓' : '?'}</span>
     <small>Contre ${escapeHtml(m.titre)} · ${phDay(m.date)}${done ? ' · touche pour compléter' : ''}</small>
   </a>`;
@@ -117,7 +125,7 @@ function rpeCardHtml() {
   if (!s) return phCard({ href: 'calendrier.html', icon: 'activity', tone: 'calm', value: '—', label: 'Ton effort (RPE)',
     detail: `Rien à noter. Après chaque séance et chaque match, ton effort se note ici (jusqu’à ${RPE_DAYS} jours après).` });
   return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" id="phRpe" href="calendrier.html"${todo.length ? ' data-rpe' : ''}>
-    <span class="home-attn-head"><strong>${todo.length ? 'Note ton effort' : 'Ton effort'}</strong>${phIc('activity')}</span>
+    <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Ton effort', todo.length ? 'Note ton effort' : 'Ton effort'))}</strong>${phIc('activity')}</span>
     <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
     <small>${escapeHtml(s.titre)} · ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` · ${todo.length} à noter` : ''}</small>
   </a>`;
@@ -135,6 +143,8 @@ function openRpeFromCard(e) {
 
 function renderAttention(videos, seqs, notes, exercises) {
   const cards = [];
+  if (phFormsPending) cards.push(phCard({ href: 'mes-formulaires.html', icon: 'forms', tone: 'urgent',
+    value: phFormsPending, label: 'Questionnaires à remplir', detail: 'Touche pour répondre' }));
   if (phSore) cards.push(soreCardHtml());
   if (phMf && !mfAnswered(phMf.value)) cards.push(mfCardHtml());   // sans réponse : devant
   if (phRpeOn) cards.push(rpeCardHtml());

@@ -31,6 +31,11 @@ const rpeDate = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.sl
 /* Séance telle que le joueur la reconnaît, même s'il y en a deux dans la journée. */
 const rpeWhen = (s) => [s.date && rpeDate(s.date), s.heure?.slice(0, 5)].filter(Boolean).join(' à ');
 const rpeWhat = (s) => (s.match ? 'tout le match' : 'toute la séance');
+/* Textes réglés dans Formulaires (lmfc_v47.sql), portés par la séance ou le match ; sinon ceux
+   d'origine. Les questions ajoutées se posent dans « Mes formulaires », après la réponse. */
+const formLabel = (item, id) => item?.form_questions?.find(q => q.id === id)?.label;
+const formHasMore = (item) => (item?.form_questions || []).some(q => !q.fixe);
+const FORM_MORE = '<a class="btn btn-sm" href="mes-formulaires.html">Répondre aux questions suivantes</a>';
 /* Une séance est-elle dans le délai de saisie du joueur ? (la base tranche.) Avec son heure,
    pas avant qu'elle commence : la réponse est définitive, et le calendrier ouvre dès le matin. */
 function rpeOpen(iso, heure = null) {
@@ -65,7 +70,7 @@ function openRpeSheet({ session, value = null, player = null, onSaved, pending =
     document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="rpeSheet">
       <div class="modal rpe-modal" role="dialog" aria-modal="true" aria-labelledby="rpeTitle">
         <button type="button" class="modal-x" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-        <h2 class="as-h3" id="rpeTitle">Ton effort</h2>
+        <h2 class="as-h3" id="rpeTitle"></h2>
         <p class="rpe-session" id="rpeSession"></p>
         <div class="field hidden" id="rpePickBox"><label for="rpePick">À noter</label><select id="rpePick"></select></div>
         <p class="rpe-q" id="rpeQ"></p>
@@ -87,7 +92,6 @@ function openRpeSheet({ session, value = null, player = null, onSaved, pending =
   }
   const sheet = document.getElementById('rpeSheet');
   sheet.rpe = { session, player, onSaved, pending };
-  document.getElementById('rpeTitle').textContent = player ? `RPE de ${player.nom}` : 'Ton effort';
   document.getElementById('rpeHelp').textContent = player
     ? 'Saisie du staff à la place du joueur : elle reste marquée « saisi par le staff ».'
     : '1 = très, très facile · 10 = effort maximal. Ta réponse va au staff, jamais aux autres joueurs. Une fois enregistrée, elle ne se modifie plus.';
@@ -99,7 +103,9 @@ function openRpeSheet({ session, value = null, player = null, onSaved, pending =
 /* La séance ou le match affiché : date et heure, la liste s'il en reste plusieurs à noter, l'échelle. */
 function rpeRender(value = null) {
   const { session, pending, player } = document.getElementById('rpeSheet').rpe;
-  document.getElementById('rpeQ').textContent = player ? `Effort ressenti par le joueur sur ${rpeWhat(session)} :` : `Comment as-tu ressenti l’effort de ${rpeWhat(session)} ?`;
+  document.getElementById('rpeTitle').textContent = player ? `RPE de ${player.nom}` : session.form_titre || 'Ton effort';
+  document.getElementById('rpeQ').textContent = player ? `Effort ressenti par le joueur sur ${rpeWhat(session)} :`
+    : formLabel(session, 'rpe') || `Comment as-tu ressenti l’effort de ${rpeWhat(session)} ?`;
   document.getElementById('rpeSession').textContent = [session.titre, rpeWhen(session)].filter(Boolean).join(' · ');
   document.getElementById('rpePickBox').classList.toggle('hidden', pending.length < 2);
   document.getElementById('rpePick').innerHTML = pending.map((s, i) => `<option value="${i}"${s === session ? ' selected' : ''}>${escapeHtml(`${rpeWhen(s)} · ${s.titre}`)}</option>`).join('');
@@ -128,6 +134,7 @@ async function rpeSave(v) {
   const done = v == null ? 'RPE effacé.' : `Enregistré : ${v} · ${rpeLabel(v)}${player ? ' (saisi par le staff)' : '. Merci !'}`;
   status.textContent = done;
   onSaved?.(v, session);
+  sheet.rpe.more ||= !player && formHasMore(session);
   // D'autres à noter : le suivant, sans refermer.
   const rest = pending.filter(s => s !== session);
   if (rest.length) {
@@ -136,6 +143,7 @@ async function rpeSave(v) {
     status.textContent = `${done} Encore ${rest.length} à noter.`;
     return;
   }
+  if (sheet.rpe.more) { status.innerHTML = `${escapeHtml(done)} ${FORM_MORE}`; status.scrollIntoView({ block: 'nearest' }); return; }
   setTimeout(() => { if (sheet.rpe?.session === session) closeModal('rpeSheet'); }, 900);
 }
 

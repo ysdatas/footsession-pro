@@ -24,7 +24,8 @@ const GPS = { imports: [], rows: [], settings: [], loaded: false, view: 'seance'
   GPS.player = Number(q.get('joueur')) || null;
 }
 const GPS_PER_MIN = new Set(['distance', 'count', 'plain']);   // ramenés à la minute ; vitesse, rythme, durée : non
-const gpsCanEdit = () => ['admin', 'prepa'].includes(myProfile?.role);
+const gpsCanEdit = () => ['admin', 'prepa', 'analyste'].includes(myProfile?.role);   // importer, annuler : l'analyste dans ses équipes (lmfc_v42.sql)
+const gpsCanSetClub = () => ['admin', 'prepa'].includes(myProfile?.role);   // ce que voient les joueurs : un réglage du club
 const gpsInfo = (key) => GPS.imports.flatMap(i => i.colonnes || []).find(c => c.key === key) || { key, label: key, unit: '' };
 const gpsNum = (v, d = 1) => (v === null || v === undefined || Number.isNaN(v) ? '—' : (Math.round(v * 10 ** d) / 10 ** d).toLocaleString('fr-FR'));
 const gpsDec = (c) => (['speed', 'rate', 'plain'].includes(c.kind) ? 1 : 0);
@@ -124,7 +125,7 @@ function gpsImportsOpen() {
       <div class="modal-actions"><button class="btn" type="button" data-close="gpsImportsModal">Fermer</button></div></div></div>`);
   }
   const keys = [...new Set(gpsLive().flatMap(i => (i.colonnes || []).map(c => c.key)))].filter(k => k !== 'duree');
-  document.getElementById('gpsImportsBody').innerHTML = gpsHistoryHtml() + (gpsCanEdit() && keys.length ? gpsSettingsHtml(keys) : '');
+  document.getElementById('gpsImportsBody').innerHTML = gpsHistoryHtml() + (gpsCanSetClub() && keys.length ? gpsSettingsHtml(keys) : '');
   openModal('gpsImportsModal');
 }
 function gpsHistoryHtml() {

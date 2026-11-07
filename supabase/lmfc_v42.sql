@@ -1,7 +1,10 @@
 /* LMFC v42 — Analyste vidéo : interface et actions d'équipe
-   Prérequis : migrations jusqu'à lmfc_v41.sql.
-   Étend les écritures aux seules équipes attribuées. Les droits globaux du
-   club, l'administration des membres et la bibliothèque vidéo restent séparés.
+   Prérequis : migrations jusqu'à lmfc_v41.sql. Elle peut se passer après
+   lmfc_v43.sql et lmfc_v46.sql : elle ne touche pas à leur fonction.
+   Étend les écritures aux seules équipes attribuées, GPS et avis de match
+   compris. Les droits globaux du club, l'administration des membres, les
+   réglages GPS du club et la bibliothèque vidéo restent séparés.
+   Les autres comptes gardent ce qu'ils avaient : tests/v42-sql.test.mjs.
    Retour arrière : lmfc_v42_retour.sql (conserve le rôle Analyste de v41). */
 begin;
 
@@ -93,8 +96,9 @@ create policy matches_write on public.matches for all
     and (public.team_level(team_id) = 'modification'
       or (team_id is null and created_by = auth.uid() and not public.has_role('analyste'))))
   with check (public.can_edit_team_content() and club_id = public.my_club_id()
-    and (team_id is not null and public.team_level(team_id) = 'modification'
-      or team_id is null and created_by = auth.uid() and not public.has_role('analyste')));
+    and (team_id is null or exists (select 1 from public.teams t where t.id = team_id and t.club_id = public.my_club_id()))
+    and (public.team_level(team_id) = 'modification'
+      or (team_id is null and created_by = auth.uid() and not public.has_role('analyste'))));
 
 drop policy if exists match_players_write on public.match_players;
 create policy match_players_write on public.match_players for all
@@ -126,7 +130,7 @@ drop policy if exists club_events_write on public.club_events;
 create policy club_events_write on public.club_events for all
   using (club_id = public.my_club_id() and public.can_edit_team_content() and public.team_level(team_id) = 'modification')
   with check (club_id = public.my_club_id() and public.can_edit_team_content() and public.team_level(team_id) = 'modification'
-    and team_id is not null and exists (select 1 from public.teams t where t.id = team_id and t.club_id = public.my_club_id()));
+    and (team_id is null or exists (select 1 from public.teams t where t.id = team_id and t.club_id = public.my_club_id())));
 
 drop policy if exists club_event_players_read on public.club_event_players;
 create policy club_event_players_read on public.club_event_players for select using (
@@ -326,34 +330,51 @@ language sql stable security definer set search_path = public as $$
    limit least(greatest(coalesce(p_limit, 30), 1), 100);
 $$;
 
--- Corrections RPE réservées au staff des équipes autorisées.
+-- RPE : les règles de lmfc_v37.sql et lmfc_v38.sql, à l'identique (une seule
+-- réponse du joueur, correction par le staff qui suit le joueur) ; seul le rôle
+-- analyste s'ajoute.
 create or replace function public.rpe_set(p_session bigint, p_rpe integer, p_player bigint default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare v_date date; v_club bigint; v_me bigint; v_row public.session_rpe;
 begin
-  if p_rpe is not null and p_rpe not between 1 and 10 then raise exception 'Le RPE va de 1 à 10.' using errcode = '22023'; end if;
+  if p_rpe is not null and p_rpe not between 1 and 10 then
+    raise exception 'Le RPE va de 1 à 10.' using errcode = '22023';
+  end if;
   select s.date_seance, s.club_id into v_date, v_club from public.sessions s where s.id = p_session;
-  if v_club is null or v_club is distinct from public.my_club_id() then raise exception 'Séance introuvable.' using errcode = '42501'; end if;
+  if v_club is null or v_club is distinct from public.my_club_id() then
+    raise exception 'Séance introuvable.' using errcode = '42501';
+  end if;
+
   if p_player is null then
-    select p.id into v_me from public.players p where p.auth_user_id = auth.uid() and p.club_id = v_club and public.has_role('joueur') limit 1;
-    if v_me is null or not public.player_session_ok(v_me, p_session) then raise exception 'Cette séance ne te concerne pas.' using errcode = '42501'; end if;
-    if p_rpe is null then raise exception 'Choisis une valeur de 1 à 10.' using errcode = '22023'; end if;
-    if not public.rpe_open(v_date) then raise exception 'La saisie est fermée : demande au staff de la faire.' using errcode = '42501'; end if;
-    if exists (select 1 from public.session_rpe r where r.session_id = p_session and r.player_id = v_me and r.corrige_par is not null) then
-      raise exception 'Le staff a corrigé ce RPE : demande-lui pour le changer.' using errcode = '42501';
+    select p.id into v_me from public.players p
+     where p.auth_user_id = auth.uid() and p.club_id = v_club and public.has_role('joueur') limit 1;
+    if v_me is null or not public.player_session_ok(v_me, p_session) then
+      raise exception 'Cette séance ne te concerne pas.' using errcode = '42501';
     end if;
-    insert into public.session_rpe (club_id, session_id, player_id, rpe, saisi_par) values (v_club, p_session, v_me, p_rpe, auth.uid())
-    on conflict (session_id, player_id) do update set rpe = excluded.rpe, saisi_par = excluded.saisi_par, updated_at = now() returning * into v_row;
+    if p_rpe is null then raise exception 'Choisis une valeur de 1 à 10.' using errcode = '22023'; end if;
+    if not public.rpe_open(v_date) then
+      raise exception 'La saisie est fermée (jusqu’à 14 jours après la séance) : demande au staff de la faire.' using errcode = '42501';
+    end if;
+    if exists (select 1 from public.session_rpe r where r.session_id = p_session and r.player_id = v_me) then
+      raise exception 'Ton RPE de cette séance est déjà enregistré : demande au staff pour le changer.' using errcode = '42501';
+    end if;
+    insert into public.session_rpe (club_id, session_id, player_id, rpe, saisi_par)
+    values (v_club, p_session, v_me, p_rpe, auth.uid())
+    returning * into v_row;
   else
     if not public.has_role('admin', 'coach', 'prepa', 'analyste') or public.is_lecteur()
-       or public.player_level(p_player) <> 'modification' or public.session_access_level(p_session) <> 'modification'
+       or public.player_level(p_player) <> 'modification' or public.session_access_level(p_session) = 'aucun'
        or not public.player_session_ok(p_player, p_session) then
       raise exception 'Correction réservée au staff qui suit ce joueur sur cette séance.' using errcode = '42501';
     end if;
-    if p_rpe is null then delete from public.session_rpe r where r.session_id = p_session and r.player_id = p_player; return null; end if;
+    if p_rpe is null then
+      delete from public.session_rpe r where r.session_id = p_session and r.player_id = p_player;
+      return null;
+    end if;
     insert into public.session_rpe (club_id, session_id, player_id, rpe, saisi_par, corrige_par)
     values (v_club, p_session, p_player, p_rpe, auth.uid(), auth.uid())
-    on conflict (session_id, player_id) do update set rpe = excluded.rpe, corrige_par = auth.uid(), updated_at = now() returning * into v_row;
+    on conflict (session_id, player_id) do update set rpe = excluded.rpe, corrige_par = auth.uid(), updated_at = now()
+    returning * into v_row;
   end if;
   return jsonb_build_object('rpe', v_row.rpe, 'corrige', v_row.corrige_par is not null);
 end; $$;
@@ -362,26 +383,45 @@ create or replace function public.match_rpe_set(p_match bigint, p_rpe integer, p
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare v_m public.matches; v_me bigint; v_row public.match_rpe;
 begin
-  if p_rpe is not null and p_rpe not between 1 and 10 then raise exception 'Le RPE va de 1 à 10.' using errcode = '22023'; end if;
+  if p_rpe is not null and p_rpe not between 1 and 10 then
+    raise exception 'Le RPE va de 1 à 10.' using errcode = '22023';
+  end if;
   select * into v_m from public.matches m where m.id = p_match;
-  if v_m.club_id is null or v_m.club_id is distinct from public.my_club_id() then raise exception 'Match introuvable.' using errcode = '42501'; end if;
+  if v_m.club_id is null or v_m.club_id is distinct from public.my_club_id() then
+    raise exception 'Match introuvable.' using errcode = '42501';
+  end if;
+
   if p_player is null then
-    select p.id into v_me from public.players p where p.auth_user_id = auth.uid() and p.club_id = v_m.club_id and public.has_role('joueur') limit 1;
-    if v_me is null or not public.player_match_rpe_ok(v_me, p_match) then raise exception 'Ce match ne te concerne pas.' using errcode = '42501'; end if;
+    select p.id into v_me from public.players p
+     where p.auth_user_id = auth.uid() and p.club_id = v_m.club_id and public.has_role('joueur') limit 1;
+    if v_me is null or not public.player_match_rpe_ok(v_me, p_match) then
+      raise exception 'Ce match ne te concerne pas : si la feuille de match est fausse, demande au staff.' using errcode = '42501';
+    end if;
     if p_rpe is null then raise exception 'Choisis une valeur de 1 à 10.' using errcode = '22023'; end if;
-    if not public.rpe_open(v_m.date_match) then raise exception 'La saisie est fermée : demande au staff de la faire.' using errcode = '42501'; end if;
-    if exists (select 1 from public.match_rpe r where r.match_id = p_match and r.player_id = v_me) then raise exception 'Ton RPE de ce match est déjà enregistré.' using errcode = '42501'; end if;
-    insert into public.match_rpe (club_id, match_id, player_id, rpe, saisi_par) values (v_m.club_id, p_match, v_me, p_rpe, auth.uid()) returning * into v_row;
+    if not public.rpe_open(v_m.date_match) then
+      raise exception 'La saisie est fermée (jusqu’à 14 jours après le match) : demande au staff de la faire.' using errcode = '42501';
+    end if;
+    if exists (select 1 from public.match_rpe r where r.match_id = p_match and r.player_id = v_me) then
+      raise exception 'Ton RPE de ce match est déjà enregistré : demande au staff pour le changer.' using errcode = '42501';
+    end if;
+    insert into public.match_rpe (club_id, match_id, player_id, rpe, saisi_par)
+    values (v_m.club_id, p_match, v_me, p_rpe, auth.uid())
+    returning * into v_row;
   else
     if not public.has_role('admin', 'coach', 'prepa', 'analyste') or public.is_lecteur()
        or public.player_level(p_player) <> 'modification'
-       or public.team_level(v_m.team_id) = 'aucun' or not public.player_match_ok(p_player, p_match) then
+       or not (public.team_level(v_m.team_id) <> 'aucun' or v_m.created_by = auth.uid())   -- règles du match (lmfc_v19.sql)
+       or not public.player_match_ok(p_player, p_match) then
       raise exception 'Correction réservée au staff qui suit ce joueur sur ce match.' using errcode = '42501';
     end if;
-    if p_rpe is null then delete from public.match_rpe r where r.match_id = p_match and r.player_id = p_player; return null; end if;
+    if p_rpe is null then
+      delete from public.match_rpe r where r.match_id = p_match and r.player_id = p_player;
+      return null;
+    end if;
     insert into public.match_rpe (club_id, match_id, player_id, rpe, saisi_par, corrige_par)
     values (v_m.club_id, p_match, p_player, p_rpe, auth.uid(), auth.uid())
-    on conflict (match_id, player_id) do update set rpe = excluded.rpe, corrige_par = auth.uid(), updated_at = now() returning * into v_row;
+    on conflict (match_id, player_id) do update set rpe = excluded.rpe, corrige_par = auth.uid(), updated_at = now()
+    returning * into v_row;
   end if;
   return jsonb_build_object('rpe', v_row.rpe, 'corrige', v_row.corrige_par is not null);
 end; $$;
@@ -428,6 +468,60 @@ begin
         order by ps.created_at desc limit 40) ps) s on s.subs is not null;
   return jsonb_build_object('messages', v_out);
 end $$;
+
+-- GPS : l'analyste lit et importe pour ses équipes, jamais un import sans équipe.
+-- Les indicateurs ouverts aux joueurs sont un réglage du club : il les lit, sans les changer.
+drop policy if exists gps_imports_read on public.gps_imports;
+create policy gps_imports_read on public.gps_imports for select using (
+  club_id = (select public.my_club_id()) and (
+    ((select public.has_role('admin', 'coach', 'prepa')) and (team_id is null or public.team_level(team_id) <> 'aucun'))
+    or ((select public.has_role('analyste')) and team_id is not null and public.team_level(team_id) <> 'aucun')));
+drop policy if exists gps_imports_insert on public.gps_imports;
+create policy gps_imports_insert on public.gps_imports for insert with check (
+  club_id = (select public.my_club_id()) and importe_par = auth.uid() and (
+    ((select public.has_role('admin', 'prepa'))
+     and (team_id is null or exists (select 1 from public.teams t where t.id = gps_imports.team_id and t.club_id = gps_imports.club_id)))
+    or ((select public.has_role('analyste')) and team_id is not null and public.team_level(team_id) = 'modification')));
+drop policy if exists gps_imports_cancel on public.gps_imports;
+create policy gps_imports_cancel on public.gps_imports for update
+  using (club_id = (select public.my_club_id()) and ((select public.has_role('admin', 'prepa'))
+    or ((select public.has_role('analyste')) and team_id is not null and public.team_level(team_id) = 'modification')))
+  with check (club_id = (select public.my_club_id()) and ((select public.has_role('admin', 'prepa'))
+    or ((select public.has_role('analyste')) and team_id is not null and public.team_level(team_id) = 'modification')));
+
+drop policy if exists gps_rows_read on public.gps_rows;
+create policy gps_rows_read on public.gps_rows for select using (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'coach', 'prepa', 'analyste')) and public.player_level(player_id) <> 'aucun');
+drop policy if exists gps_rows_insert on public.gps_rows;
+create policy gps_rows_insert on public.gps_rows for insert with check (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'prepa', 'analyste')) and public.player_level(player_id) = 'modification'
+  and exists (select 1 from public.gps_imports i where i.id = gps_rows.import_id and i.club_id = gps_rows.club_id and i.annule_at is null));
+
+-- Un nom lu sur un export désigne un joueur : l'analyste ne voit et n'écrit que ceux de ses équipes.
+drop policy if exists gps_aliases_read on public.gps_player_aliases;
+create policy gps_aliases_read on public.gps_player_aliases for select using (
+  club_id = (select public.my_club_id()) and ((select public.has_role('admin', 'coach', 'prepa'))
+    or ((select public.has_role('analyste')) and public.player_level(player_id) <> 'aucun')));
+drop policy if exists gps_aliases_write on public.gps_player_aliases;
+create policy gps_aliases_write on public.gps_player_aliases for all
+  using (club_id = (select public.my_club_id()) and ((select public.has_role('admin', 'prepa'))
+    or ((select public.has_role('analyste')) and public.player_level(player_id) = 'modification')))
+  with check (club_id = (select public.my_club_id()) and ((select public.has_role('admin', 'prepa'))
+    or ((select public.has_role('analyste')) and public.player_level(player_id) = 'modification'))
+    and exists (select 1 from public.players p where p.id = gps_player_aliases.player_id and p.club_id = gps_player_aliases.club_id));
+
+drop policy if exists gps_settings_read on public.gps_settings;
+create policy gps_settings_read on public.gps_settings for select using (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'coach', 'prepa', 'analyste')));
+
+-- Avis des joueurs après le match : comme le reste du staff, pour les joueurs qu'il suit.
+drop policy if exists match_feedback_read on public.match_feedback;
+create policy match_feedback_read on public.match_feedback for select using (
+  club_id = (select public.my_club_id()) and (
+    exists (select 1 from public.players p where p.id = player_id and p.auth_user_id = auth.uid())
+    or ((select public.has_role('admin', 'coach', 'prepa', 'analyste'))
+        and public.player_level(player_id) <> 'aucun'
+        and exists (select 1 from public.matches m where m.id = match_id))));   -- règles du match (lmfc_v19.sql)
 
 -- Restauration/suppression de contenu d'équipe ; chaque ligne reste filtrée
 -- par trash_root_visible et trash_player_visible.

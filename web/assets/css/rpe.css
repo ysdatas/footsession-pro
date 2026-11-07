@@ -18,6 +18,7 @@
 .rpe-opt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .rpe-help { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 .rpe-status { min-height: 1.5em; margin: 8px 0 0; font-weight: 600; }
+.rpe-status .btn { margin-left: 8px; }
 .rpe-of { margin-left: 2px; font-size: var(--fs-sm); color: var(--text-secondary); }
 
 /* Fiche d'une séance dans le calendrier (joueur) */

@@ -188,35 +188,45 @@ function openCalItem(i) {
     ${CAL.asPlayer && i.kind !== 'evenement' ? '<div class="cal-rpe" id="calRpe" aria-live="polite"></div>' : ''}
     ${CAL.asPlayer && i.kind === 'match' && i.date <= calToday() ? '<div class="cal-rpe" id="calAvis" aria-live="polite"></div>' : ''}`;
   openModal('calDetailModal');
-  if (CAL.asPlayer && i.kind !== 'evenement') calRpe(i);
-  if (CAL.asPlayer && i.kind === 'match' && i.date <= calToday()) calAvis(i);
+  if (CAL.asPlayer && i.kind !== 'evenement') calPlayerForms(i);
+}
+
+/* Joueur : ce que l'équipe de l'événement lui propose (Formulaires, lmfc_v47.sql). */
+async function calPlayerForms(i) {
+  const { data, error } = await sb.rpc('my_event_forms', { p_kind: i.kind, p_id: i.id });
+  if (error) console.warn('Formulaires de l’événement indisponibles', error.message);
+  const form = (source) => (data || []).find(f => f.source === source);
+  calRpe(i, form(i.kind === 'match' ? 'rpe_match' : 'rpe_seance'));
+  if (i.kind === 'match' && i.date <= calToday()) calAvis(i, form('avis_match'));
 }
 
 /* Joueur : son avis sur un match joué (match-feedback.js, lmfc_v36.sql), à compléter quand il veut. */
-async function calAvis(i) {
+async function calAvis(i, form) {
   const box = document.getElementById('calAvis');
   const { data, error } = await sb.from('match_feedback').select('individuel, collectif').eq('match_id', i.id).maybeSingle();
   if (error) { if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('Avis de match illisible', error.message); box.remove(); return; }
   const done = mfAnswered(data);
+  if (!form && !done) { box.remove(); return; }   // son équipe ne reçoit pas l'avis
   box.innerHTML = `<p>${done ? 'Ton avis sur ce match est enregistré.' : 'Ton avis sur ta performance et sur celle de l’équipe ?'}</p>
     <button type="button" class="btn${done ? '' : ' btn-primary'}" id="calAvisBtn">${done ? 'Relire ou compléter' : 'Donner mon avis'}</button>`;
   document.getElementById('calAvisBtn').addEventListener('click', () => openMatchFeedbackSheet({
-    match: { id: i.id, titre: i.titre, date: i.date }, value: data, onSaved: () => calAvis(i) }));
+    match: { id: i.id, titre: i.titre, date: i.date, form_titre: form?.titre, form_questions: form?.questions }, value: data, onSaved: () => calAvis(i, form) }));
 }
 
 /* Joueur : son RPE de la séance ou du match, définitif ; sinon la saisie, de l'heure prévue à J+14. */
-async function calRpe(i) {
+async function calRpe(i, form) {
   const box = document.getElementById('calRpe'), match = i.kind === 'match', upcoming = i.date >= calToday();
   const { data, error } = await sb.from(match ? 'match_rpe' : 'session_rpe').select('rpe, corrige_par').eq(match ? 'match_id' : 'session_id', i.id).maybeSingle();
   if (error) { if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('RPE illisible', error.message); box.remove(); return; }
+  if (!data && !form) { box.remove(); return; }   // son équipe ne reçoit pas le RPE
   if (match && !data && !i.rpeTodo && !upcoming) { box.remove(); return; }   // il n'a pas joué, ou le délai est passé
   box.innerHTML = data
     ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> · ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
     : i.rpeTodo ? '<button type="button" class="btn btn-primary" id="calRpeBtn">Noter mon effort</button>'
       : `<p class="text-muted">${upcoming ? `Tu pourras noter ton effort après ${match ? 'le match' : 'la séance'}.` : `La saisie est fermée (${RPE_DAYS} jours après la séance).`}</p>`;
   document.getElementById('calRpeBtn')?.addEventListener('click', () => openRpeSheet({
-    session: { id: i.id, titre: match ? `Match contre ${i.titre}` : i.titre, date: i.date, heure: i.heure, match },
-    onSaved: () => { i.rpeTodo = false; renderCal(); calRpe(i); } }));
+    session: { id: i.id, titre: match ? `Match contre ${i.titre}` : i.titre, date: i.date, heure: i.heure, match, form_titre: form?.titre, form_questions: form?.questions },
+    onSaved: () => { i.rpeTodo = false; renderCal(); calRpe(i, form); } }));
 }
 
 /* ---------- Commandes ---------- */

@@ -56,7 +56,7 @@ await as(P.coachU14, () => q(`delete from public.sessions where titre = 'U14 anc
 const before = (await q(`select updated_at from public.sessions where id = 1`)).rows[0].updated_at;
 
 /* ---------- La migration, deux fois ---------- */
-assert.deepEqual(rest, ['lmfc_v39.sql', 'lmfc_v40.sql', 'lmfc_v41.sql', 'lmfc_v42.sql', 'lmfc_v43.sql'], 'migrations après lmfc_v38');
+assert.deepEqual(rest.slice(0, 5), ['lmfc_v39.sql', 'lmfc_v40.sql', 'lmfc_v41.sql', 'lmfc_v42.sql', 'lmfc_v43.sql'], 'migrations après lmfc_v38');
 for (const file of rest.slice(0, 4)) { await db.exec(sqlFile(file)); await db.exec(sqlFile(file)); }
 
 /* ---------- Anciennes séances ---------- */

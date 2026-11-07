@@ -457,4 +457,47 @@ create policy "logos_schemas_delete" on storage.objects for delete
 drop function if exists public.analyst_schema_path_write(text);
 drop function if exists public.analyst_schema_path_read(text);
 drop function if exists public.can_edit_team_content();
+-- GPS et avis de match : les règles de lmfc_v32.sql et lmfc_v36.sql.
+drop policy if exists gps_imports_read on public.gps_imports;
+drop policy if exists gps_imports_insert on public.gps_imports;
+drop policy if exists gps_imports_cancel on public.gps_imports;
+create policy gps_imports_read on public.gps_imports for select using (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'coach', 'prepa'))
+  and (team_id is null or public.team_level(team_id) <> 'aucun'));
+create policy gps_imports_insert on public.gps_imports for insert with check (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'prepa')) and importe_par = auth.uid()
+  and (team_id is null or exists (select 1 from public.teams t where t.id = gps_imports.team_id and t.club_id = gps_imports.club_id)));
+create policy gps_imports_cancel on public.gps_imports for update
+  using (club_id = (select public.my_club_id()) and (select public.has_role('admin', 'prepa')))
+  with check (club_id = (select public.my_club_id()) and (select public.has_role('admin', 'prepa')));
+
+drop policy if exists gps_rows_read on public.gps_rows;
+drop policy if exists gps_rows_insert on public.gps_rows;
+create policy gps_rows_read on public.gps_rows for select using (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'coach', 'prepa')) and public.player_level(player_id) <> 'aucun');
+create policy gps_rows_insert on public.gps_rows for insert with check (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'prepa')) and public.player_level(player_id) = 'modification'
+  and exists (select 1 from public.gps_imports i where i.id = gps_rows.import_id and i.club_id = gps_rows.club_id and i.annule_at is null));
+
+drop policy if exists gps_aliases_read on public.gps_player_aliases;
+drop policy if exists gps_aliases_write on public.gps_player_aliases;
+create policy gps_aliases_read on public.gps_player_aliases for select using (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'coach', 'prepa')));
+create policy gps_aliases_write on public.gps_player_aliases for all
+  using (club_id = (select public.my_club_id()) and (select public.has_role('admin', 'prepa')))
+  with check (club_id = (select public.my_club_id()) and (select public.has_role('admin', 'prepa'))
+    and exists (select 1 from public.players p where p.id = gps_player_aliases.player_id and p.club_id = gps_player_aliases.club_id));
+
+drop policy if exists gps_settings_read on public.gps_settings;
+create policy gps_settings_read on public.gps_settings for select using (
+  club_id = (select public.my_club_id()) and (select public.has_role('admin', 'coach', 'prepa')));
+
+drop policy if exists match_feedback_read on public.match_feedback;
+create policy match_feedback_read on public.match_feedback for select using (
+  club_id = (select public.my_club_id()) and (
+    exists (select 1 from public.players p where p.id = player_id and p.auth_user_id = auth.uid())
+    or ((select public.has_role('admin', 'coach', 'prepa'))
+        and public.player_level(player_id) <> 'aucun'
+        and exists (select 1 from public.matches m where m.id = match_id))));   -- règles du match (lmfc_v19.sql)
+
 commit;

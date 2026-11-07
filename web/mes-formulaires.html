@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>Mes formulaires — LMFC Performance</title>
+  <link rel="preload" href="assets/fonts/plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/videos.css">
+  <link rel="stylesheet" href="assets/css/formulaires.css">
+  <link rel="stylesheet" href="assets/css/mes-formulaires.css">
+  <script src="assets/js/theme.js"></script>
+</head>
+<body data-shell="player">
+  <main class="pv-wrap pv-wide mf-page">
+    <header class="pv-head">
+      <div>
+        <p class="page-kicker">Mon espace</p>
+        <h1>Mes formulaires</h1>
+        <p class="subtitle" id="mfSubtitle">Chargement…</p>
+      </div>
+      <a class="btn" href="mon-espace.html">Retour à l’accueil</a>
+    </header>
+    <div class="cf-preview hidden" id="mfPreviewNotice" role="status">Aperçu local : tes réponses d’essai restent dans cette page et ne sont envoyées à aucun serveur.</div>
+    <section class="mf-section" aria-labelledby="mfPendingTitle">
+      <div class="mf-section-head"><h2 id="mfPendingTitle">À remplir</h2><span id="mfPendingCount" class="mf-count"></span></div>
+      <div class="mf-list" id="mfPending"><div class="empty">Chargement des formulaires…</div></div>
+    </section>
+    <section class="mf-section" aria-labelledby="mfHistoryTitle">
+      <div class="mf-section-head"><h2 id="mfHistoryTitle">Mes réponses</h2><span id="mfHistoryCount" class="mf-count"></span></div>
+      <div class="mf-history" id="mfHistory"><div class="empty">Chargement de l’historique…</div></div>
+      <button class="btn mf-history-more hidden" id="mfHistoryMore" type="button">Charger les réponses précédentes</button>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/nav-mobile.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/player-nav.js"></script>
+  <script src="assets/js/mes-formulaires-page.js"></script>
+</body>
+</html>
