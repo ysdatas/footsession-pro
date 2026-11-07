@@ -27,7 +27,7 @@ function render() {
   renderNoteLists();   // les Exo des points (fait / pas fait)
   const n = (exercises || []).length, done = (exercises || []).filter(e => e.done_at).length;
   document.getElementById('progSub').textContent = n
-    ? `· ${done} fait${done > 1 ? 's' : ''} sur ${n}${SEP}touche un exercice pour l’ouvrir en grand` : '';
+    ? `· ${done} fait${done > 1 ? 's' : ''} sur ${n} – touche un exercice pour l’ouvrir en grand` : '';
 }
 
 function openExercise(id) {

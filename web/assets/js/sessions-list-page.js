@@ -123,7 +123,7 @@ function render() {
   const total = sessionsCache.length;
   document.getElementById('sessSub').textContent = q
     ? `${visible.length} résultat${visible.length > 1 ? 's' : ''} sur ${total} séance${total > 1 ? 's' : ''}`
-    : `${total} séance${total > 1 ? 's' : ''} au total${plannedLater ? `${SEP}${plannedLater} prévue${plannedLater > 1 ? 's' : ''} plus loin, au calendrier` : ''}`;
+    : `${total} séance${total > 1 ? 's' : ''} au total${plannedLater ? ` – ${plannedLater} prévue${plannedLater > 1 ? 's' : ''} plus loin, au calendrier` : ''}`;
 
   if (!total) { wrap.innerHTML = `<div class="empty">Aucune séance enregistrée.</div>`; return; }
   if (!visible.length) { wrap.innerHTML = `<div class="empty">Aucune séance ne correspond à « ${escapeHtml(q)} ».</div>`; return; }

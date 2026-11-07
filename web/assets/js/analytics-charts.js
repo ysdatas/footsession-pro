@@ -24,7 +24,7 @@ const valuesOf = rows => rows.map(r => Number(r.c));
 function make(id, config) {
   charts[id]?.destroy();
   const el = document.getElementById(id);
-  if (el) charts[id] = new Chart(el, config);
+  if (el) charts[id] = new Chart(el, { ...config, options: { animation: false, ...config.options } });   // pas d'animation de croissance à chaque redessin
 }
 const noLegend = { plugins: { legend: { display: false } }, maintainAspectRatio: false };
 const fr = (v) => String(Math.round(v * 10) / 10).replace('.', ',');

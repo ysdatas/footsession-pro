@@ -20,7 +20,7 @@ function renderSrDash(body, sessions, players, cells) {
   const ranked = players.map((p, i) => ({ p, ...st.perPlayer[i] })).filter(x => x.n).sort((a, b) => b.avg - a.avg);
   const rows = sessions.map((s, j) => ({ s, ...st.perSession[j] })).reverse();   // la plus récente en haut
   const mNote = sessions.some(s => s.match) ? ' – M : match' : '';
-  body.innerHTML = `
+  swapKeepView(body, `
     <div class="kpi-grid kpi-band sr-kpis">
       ${srKpi(t.avg === null ? '—' : rpeFr(t.avg), 'RPE moyen')}
       ${srKpi(`${t.n}<span class="kpi-of">/${t.due}</span>`, `Réponses${t.rate === null ? '' : `${SEP}${Math.round(t.rate * 100)} %`}`)}
@@ -54,7 +54,7 @@ function renderSrDash(body, sessions, players, cells) {
       Variation : charge ressentie comparée à la séance précédente.
       <strong>Écart RPE</strong> = RPE moyen déclaré − RPE attendue (saisie dans la séance) : +2 = séance ressentie 2 points plus dure que prévu ; il ne dépend pas de la durée.
       Une réponse manquante n’est jamais remplacée : elle sort des moyennes ; « en attente » = le joueur peut encore répondre (jusqu’à J+${RPE_DAYS}).
-      La charge mesurée par GPS n’est jamais additionnée à ces chiffres.</p>`;
+      La charge mesurée par GPS n’est jamais additionnée à ces chiffres.</p>`);
   if (!window.Chart) return;   // CDN indisponible : tuiles et tableau suffisent
   make('srRpeChart', { type: 'bar',
     data: { labels: sessions.map(srDay), datasets: [{ data: st.perSession.map(x => x.avg ?? 0),

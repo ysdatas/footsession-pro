@@ -758,7 +758,7 @@ function updateMeta() {
   const travail = sessionWorkMin(procedures), total = sessionTotalMin(procedures);
   const recup = total - travail;
   document.getElementById('editorMeta').textContent =
-    `${n} procédé${n > 1 ? 's' : ''}${SEP}${fmtMin(travail)} min de travail`
+    `${n} procédé${n > 1 ? 's' : ''} – ${fmtMin(travail)} min de travail`
     + (recup > 0 ? ` + ${fmtMin(recup)} min de récup` : '')
     + ` – ${fmtMin(total)} min au total`;
   document.getElementById('procCount').textContent = n;

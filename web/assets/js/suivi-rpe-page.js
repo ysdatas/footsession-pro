@@ -26,7 +26,7 @@
    rpe-stats.js, analytics-charts.js, suivi-rpe-dash.js.
    ============================================================ */
 
-const SR = { n: 10, period: null, sore: { rows: [], alerts: [], error: null }, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
+const SR = { cache: new Map(), n: 10, period: null, sore: { rows: [], alerts: [], error: null }, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
 const srKey = (s, p) => `${s}:${p}`;
 const srIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const srToday = () => srIso(new Date());
@@ -55,7 +55,7 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
   SR.team = (teams.find(t => t.id === asked) || teams.find(t => t.id === currentTeamId()) || teams[0])?.id ?? null;
   SR.view = { joueurs: 'grid', courbatures: 'sore' }[url.searchParams.get('vue')] || 'dash';
   document.getElementById('srBody').addEventListener('click', srClick);
-  document.querySelector('.page-actions').addEventListener('click', (e) => {
+  document.getElementById('srBar').addEventListener('click', (e) => {
     const n = e.target.closest('[data-sr-n]'), v = e.target.closest('[data-sr-view]');
     if (n) srChoose(n.dataset.srN);
     if (v && v.dataset.srView !== SR.view) { SR.view = v.dataset.srView; srUrl(); renderSr(); }
@@ -117,9 +117,19 @@ function renderSrTeams() {
     aria-pressed="${t.id === SR.team}">${escapeHtml(t.nom)}</button>`).join('');
 }
 
-async function loadSr() {
-  const status = document.getElementById('srStatus'), body = document.getElementById('srBody'), seq = ++SR.seq;
-  status.textContent = 'Chargement…';
+/* Clé du jeu de données affiché : équipe + (n dernières séances | période). */
+const srCacheKey = () => `${SR.team}|${SR.period ? `${SR.period.from}>${SR.period.to}` : SR.n}`;
+const SR_FIELDS = ['sessions', 'att', 'rpe', 'sore', 'players', 'cells'];
+
+/* force = true : une saisie vient d'être enregistrée, on relit tout. Sinon un jeu déjà lu depuis moins d'une minute s'affiche
+   sans attendre le réseau ; sinon l'écran reste tel quel (légèrement atténué) pendant la lecture, rien ne bouge. */
+async function loadSr(force = false) {
+  const status = document.getElementById('srStatus'), body = document.getElementById('srBody'), seq = ++SR.seq, key = srCacheKey();
+  if (force) SR.cache.clear();
+  const hit = SR.cache.get(key);
+  if (hit && Date.now() - hit.at < 60000) { SR_FIELDS.forEach(f => { SR[f] = hit[f]; }); body.classList.remove('is-loading'); renderSr(); return; }
+  if (!SR.sessions.length) status.textContent = 'Chargement…';
+  body.classList.add('is-loading');
   try {
     const [s, p] = await Promise.all([
       byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
@@ -154,10 +164,13 @@ async function loadSr() {
     if (SR.sore.error) console.warn('Courbatures indisponibles', SR.sore.error);
     SR.players = p.data.filter(pl => SR.sessions.some(se => srConcerned(se, pl)));
     SR.cells = SR.players.map(pl => SR.sessions.map(se => srCell(se, pl)));
+    SR.cache.set(key, { at: Date.now(), ...Object.fromEntries(SR_FIELDS.map(f => [f, SR[f]])) });
+    body.classList.remove('is-loading');
     renderSr();
   } catch (e) {
     console.error('Suivi RPE illisible', e);
     status.textContent = '';
+    body.classList.remove('is-loading');
     body.innerHTML = `<div class="empty text-danger">${escapeHtml(['42P01', 'PGRST205'].includes(e?.code)
       ? 'Le RPE n’est pas encore installé : passez lmfc_v29.sql dans Supabase.' : e?.message || String(e))}</div>`;
   }
@@ -190,11 +203,7 @@ function renderSr() {
     body.innerHTML = `<div class="empty">${SR.period ? 'Aucune séance de cette équipe sur cette période.' : 'Aucune séance passée pour cette équipe. Le RPE s’ouvre pour chaque séance posée au Calendrier, sans attendre le coach.'}</div>`;
     return;
   }
-  const missing = SR.cells.flat().filter(c => c === 'miss').length, pending = SR.cells.flat().filter(c => c === 'wait').length;
-  const nM = SR.sessions.filter(s => s.match).length, nS = SR.sessions.length - nM, plural = nS > 1 ? 's' : '', matchs = nM ? `, ${nM} match${nM > 1 ? 's' : ''}` : '';
-  document.getElementById('srStatus').textContent = [team?.nom, SR.period ? `${nS} séance${plural}${matchs} du ${srShort(SR.period.from)} au ${srShort(SR.period.to)}` : `${nS} dernière${plural} séance${plural}${matchs}`,
-    missing ? `${missing} réponse${missing > 1 ? 's' : ''} manquante${missing > 1 ? 's' : ''}` : 'aucune réponse manquante',
-    pending ? `${pending} en attente` : ''].filter(Boolean).join(' – ');
+  document.getElementById('srStatus').textContent = [team?.nom, SR.period ? `du ${srShort(SR.period.from)} au ${srShort(SR.period.to)}` : (SR.sessions.length > 1 ? `${SR.sessions.length} dernières séances` : 'dernière séance')].filter(Boolean).join(' – ');
   if (SR.view === 'dash') { renderSrDash(body, SR.sessions, SR.players, SR.cells); return; }
   if (SR.view === 'sore') {
     const inTeam = new Set(SR.players.map(p => p.id)), err = SR.sore.error;
@@ -204,11 +213,10 @@ function renderSr() {
     return;
   }
   const head = SR.sessions.map((s, j) => {
-    const col = SR.cells.map(row => row[j]), vals = col.filter(c => c?.v).map(c => c.v), due = col.filter(c => c?.v || c === 'miss' || c === 'wait').length;
-    return `<th scope="col"><a class="sr-sess" href="${srHref(s)}" title="${escapeHtml(s.titre)}">
-      <span class="sr-date">${srWhen(s)}</span>${s.match ? '<span class="sr-kind">Match</span>' : ''}<span class="sr-t">${escapeHtml(s.adversaire || s.titre)}</span>
-      <span class="sr-avg"${vals.length ? ` style="--rpe:${rpeColor(vals.reduce((a, b) => a + b, 0) / vals.length)}"` : ''}>${vals.length ? rpeFr(vals.reduce((a, b) => a + b, 0) / vals.length) : '—'}</span>
-      <span class="sr-rate">${vals.length}/${due}${s.rpe_attendue ? `${SEP}att. ${s.rpe_attendue}` : ''}</span></a></th>`;
+    const col = SR.cells.map(row => row[j]), late = col.filter(c => c === 'miss').length, none = late + col.filter(c => c === 'wait').length;
+    const tip = `${s.match ? 'Match – ' : ''}${s.adversaire || s.titre}${none ? ` : ${none} sans réponse${late ? ` (${late} en retard)` : ''}` : ''}`;
+    return `<th scope="col"><a class="sr-sess" href="${srHref(s)}" title="${escapeHtml(tip)}">
+      <span class="sr-date">${srWhen(s)}</span><span class="sr-none${late ? ' is-late' : ''}">${none || ''}</span></a></th>`;
   }).join('');
   const rows = SR.players.map((p, i) => `<tr><th scope="row">${playerLink(p.id, playerFullName(p))}</th>${SR.cells[i].map((c, j) => {
     const s = SR.sessions[j], label = `${playerFullName(p)}, ${srWhen(s)}`;
@@ -219,14 +227,14 @@ function renderSr() {
     return `<td><button type="button" class="sr-c" style="--rpe:${rpeColor(c.v)}" data-sr="${j}:${i}"
       aria-label="${escapeHtml(`${label} : ${c.v} (${rpeLabel(c.v)})${c.staff ? ', saisi par le staff' : ''}, corriger`)}">${c.v}${c.staff ? '<i>staff</i>' : ''}</button></td>`;
   }).join('')}</tr>`).join('');
-  body.innerHTML = `<div class="sr-wrap"><table class="sr-grid">
+  swapKeepView(body, `<div class="sr-wrap"><table class="sr-grid">
       <thead><tr><th scope="col" class="sr-corner">Joueur</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
     <p class="sr-legend"><span class="sr-c is-miss" aria-hidden="true">?</span> réponse manquante (délai passé)
      ${SEP}<span class="sr-c is-wait" aria-hidden="true">…</span> en attente : le joueur peut encore répondre
      ${SEP}<span class="sr-c is-abs" aria-hidden="true">abs.</span> absence enregistrée
      ${SEP}<span class="rpe-staff">staff</span> saisi ou corrigé par le staff.
       Touchez une case pour saisir ou corriger à la place du joueur. Les joueurs répondent depuis leur espace jusqu’à ${RPE_DAYS} jours après la séance ;
-      la présence non cochée compte comme attendue. Un match attend ceux qui ont joué d’après la feuille, tout le groupe s’il n’y en a pas.</p>`;
+      la présence non cochée compte comme attendue. Un match attend ceux qui ont joué d’après la feuille, tout le groupe s’il n’y en a pas.</p>`);
 }
 
 async function srClick(e) {
@@ -242,5 +250,5 @@ async function srClick(e) {
   if (!b) return;
   const [j, i] = b.dataset.sr.split(':').map(Number), s = SR.sessions[j], p = SR.players[i];
   openRpeSheet({ session: { id: s.id, titre: s.titre, date: s.date_seance, heure: s.heure, match: s.match }, value: SR.rpe.get(srKey(s.key, p.id))?.rpe ?? null,
-    player: { id: p.id, nom: playerFullName(p) }, onSaved: () => loadSr() });
+    player: { id: p.id, nom: playerFullName(p) }, onSaved: () => loadSr(true) });
 }

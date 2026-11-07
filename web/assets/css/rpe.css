@@ -58,8 +58,11 @@
 .rpe-staff { display: inline-block; padding: 0 6px; border-radius: 999px; background: var(--bg-hover); color: var(--text-secondary); font-size: 11px; font-weight: 500; vertical-align: 1px; }
 
 /* Suivi RPE (suivi-rpe.html) : joueurs × séances ; la grille défile seule sur téléphone */
-.sr-intro { margin: -6px 0 14px; max-width: 70ch; color: var(--text-secondary); font-size: var(--fs-sm); }
-.sr-body { min-height: 320px; }
+.sr-body { min-height: 320px; display: flow-root; transition: opacity 120ms ease; }
+/* Relecture en cours : l'écran reste tel quel, un peu atténué, rien ne se déplace. */
+.sr-body.is-loading { opacity: .55; pointer-events: none; }
+/* Barre d'outils : vue, nombre de séances et période sur une seule ligne, mêmes 32 px. */
+.sr-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; }
 .sr-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); }
 .sr-grid { border-collapse: separate; border-spacing: 0; min-width: 100%; font-size: var(--fs-sm); }
 .sr-grid th, .sr-grid td { padding: 4px; border-bottom: 1px solid var(--border); text-align: center; }
@@ -67,13 +70,11 @@
 .sr-grid tbody th, .sr-corner { position: sticky; left: 0; z-index: 1; min-width: 150px; max-width: 190px; padding: 4px 12px; background: var(--bg-card);
   text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sr-corner { color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 500; }
-.sr-sess { display: grid; justify-items: center; gap: 2px; width: 74px; padding: 6px 2px; border-radius: var(--radius-sm); color: inherit; text-decoration: none; }
+.sr-sess { display: grid; justify-items: center; gap: 4px; width: 72px; padding: 6px 2px; border-radius: var(--radius-sm); color: inherit; text-decoration: none; }
 .sr-sess:hover { background: var(--bg-hover); }
-.sr-date { font: 500 var(--fs-xs)/1.2 var(--font-num); color: var(--text-secondary); }
-.sr-kind { font: 500 11px/1 var(--font-main); color: var(--gold); }
-.sr-t { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); font-weight: 500; }
-.sr-avg { font: 600 var(--fs-md)/1.1 var(--font-num); color: var(--rpe, var(--text-secondary)); }
-.sr-rate { font: 400 10px/1 var(--font-num); color: var(--text-secondary); }
+.sr-date { font: 500 var(--fs-xs)/1.2 var(--font-num); color: var(--text-secondary); white-space: nowrap; }
+.sr-none { min-height: 12px; font: 500 var(--fs-xs)/1 var(--font-num); color: var(--text-muted); }
+.sr-none.is-late { color: var(--gold); }   /* des réponses en retard : seul cas où le nombre prend la couleur */
 .sr-c { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 44px; height: 36px; border: 0; border-radius: var(--radius-sm);
   background: var(--rpe); color: #0A0A0A; font: 600 var(--fs-md)/1 var(--font-num); cursor: pointer; }
 .sr-c i { font: 500 8px/1 system-ui, sans-serif; font-style: normal; opacity: .7; }
@@ -86,18 +87,18 @@
 .sr-legend .sr-c { width: 28px; height: 20px; font-size: var(--fs-xs); cursor: default; vertical-align: middle; }
 @media (max-width: 600px) {
   .sr-grid tbody th, .sr-corner { min-width: 110px; max-width: 120px; padding: 4px 8px; }
-  .sr-sess { width: 60px; }
+  .sr-sess { width: 68px; }
 }
 
 /* Suivi RPE : capsules d'équipes (une ligne qui défile sur téléphone ; place réservée, rien ne bouge) */
-.sr-period { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: -4px 0 12px; font-size: var(--fs-sm); }
+.sr-period { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0; font-size: var(--fs-sm); }
 .sr-period label { margin: 0; color: var(--text-secondary); text-transform: none; letter-spacing: normal; font-size: var(--fs-sm); }
-.sr-period input[type="date"] { width: auto; min-height: 34px; padding: 4px 8px; }
+.sr-period input[type="date"] { width: auto; min-height: 32px; padding: 4px 8px; }
 .sr-period .btn { min-width: 36px; justify-content: center; }
 .sr-teams { display: flex; gap: 6px; min-height: 32px; margin: 0 0 12px; overflow-x: auto; scrollbar-width: none; }
 .sr-teams::-webkit-scrollbar { display: none; }
-.sr-team { flex: 0 0 auto; min-height: 32px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card);
-  color: var(--text-secondary); font: 600 var(--fs-sm)/1 var(--font-main); cursor: pointer; }
+.sr-team { flex: 0 0 auto; min-height: 32px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card);
+  color: var(--text-secondary); font: 500 var(--fs-sm)/1 var(--font-main); cursor: pointer; }
 .sr-team:hover { color: var(--text-primary); background: var(--bg-hover); }
 .sr-team[aria-pressed="true"] { background: rgba(var(--gold-rgb), .1); border-color: var(--gold-border); color: var(--text-primary); }
 .sr-team:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }

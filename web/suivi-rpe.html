@@ -35,25 +35,26 @@
         <p class="subtitle" id="srStatus" role="status" aria-live="polite">Chargement…</p>
       </div>
       <div class="page-actions">
-        <div class="segmented" role="group" aria-label="Vue">
-          <button type="button" data-sr-view="dash" aria-pressed="true">Tableau de bord</button>
-          <button type="button" data-sr-view="grid" aria-pressed="false">Détail joueurs</button>
-          <button type="button" data-sr-view="sore" aria-pressed="false">Courbatures</button>
-        </div>
-        <div class="segmented" role="group" aria-label="Séances affichées">
-          <button type="button" data-sr-n="10" aria-pressed="true">10 séances</button>
-          <button type="button" data-sr-n="20" aria-pressed="false">20 séances</button>
-          <button type="button" data-sr-n="50" aria-pressed="false">50 séances</button>
-          <button type="button" data-sr-n="week" aria-pressed="false">Semaine</button>
-          <button type="button" data-sr-n="dates" aria-pressed="false">Dates</button>
-        </div>
         <button class="btn" id="btnSrPdf" type="button">Exporter PDF</button>
         <a class="btn hidden" id="btnSrForms" href="formulaires">Formulaires</a>
       </div>
     </div>
+    <div class="sr-bar" id="srBar">
+      <div class="segmented" role="group" aria-label="Vue">
+        <button type="button" data-sr-view="dash" aria-pressed="true">Tableau de bord</button>
+        <button type="button" data-sr-view="grid" aria-pressed="false">Détail joueurs</button>
+        <button type="button" data-sr-view="sore" aria-pressed="false">Courbatures</button>
+      </div>
+      <div class="segmented" role="group" aria-label="Séances affichées">
+        <button type="button" data-sr-n="10" aria-pressed="true">10</button>
+        <button type="button" data-sr-n="20" aria-pressed="false">20</button>
+        <button type="button" data-sr-n="50" aria-pressed="false">50</button>
+        <button type="button" data-sr-n="week" aria-pressed="false">Semaine</button>
+        <button type="button" data-sr-n="dates" aria-pressed="false">Dates</button>
+      </div>
+      <div class="sr-period hidden" id="srPeriod" role="group" aria-label="Période"></div>
+    </div>
     <div class="sr-teams" id="srTeams" role="group" aria-label="Équipe"></div>
-    <div class="sr-period hidden" id="srPeriod" role="group" aria-label="Période"></div>
-    <p class="sr-intro">Le ressenti des joueurs après chaque séance et chaque match (RPE, 1 à 10), à part du bilan du staff, équipe par équipe.</p>
     <div id="srBody" class="sr-body"></div>
   </main>
 

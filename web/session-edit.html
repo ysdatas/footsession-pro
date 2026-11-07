@@ -44,23 +44,21 @@
 
     <div class="card">
       <h2 class="as-h3">Informations de la séance</h2>
-      <div class="field-row">
-        <div class="field" style="flex:2;"><label for="f-titre">Titre</label>
+      <div class="field-grid">
+        <div class="field span-4"><label for="f-titre">Titre</label>
           <input id="f-titre" placeholder="Ex: Travail des transitions" required></div>
-        <div class="field" style="flex:2;"><label for="f-principe">Principe de jeu</label>
+        <div class="field span-4"><label for="f-principe">Principe de jeu</label>
           <input id="f-principe" list="principesList" placeholder="Ex: Conservation, transitions…" autocomplete="off"></div>
-        <div class="field"><label for="f-date">Date</label>
+        <div class="field span-2"><label for="f-date">Date</label>
           <input id="f-date" type="date"></div>
-        <div class="field"><label for="f-heure">Heure</label>
+        <div class="field span-2"><label for="f-heure">Heure</label>
           <input id="f-heure" type="time"></div>
-      </div>
-      <datalist id="principesList"></datalist>
-      <div class="field-row">
-        <div class="field"><label for="f-equipe">Équipe</label>
+        <datalist id="principesList"></datalist>
+        <div class="field span-4"><label for="f-equipe">Équipe</label>
           <input id="f-equipe" placeholder="Ex: U17"></div>
-        <div class="field"><label for="f-duree">Durée totale (min)</label>
+        <div class="field span-4"><label for="f-duree">Durée totale (min)</label>
           <input id="f-duree" type="text" inputmode="decimal" value="90"></div>
-        <div class="field"><label for="f-rpe-att">RPE attendue</label>
+        <div class="field span-4"><label for="f-rpe-att">RPE attendue</label>
           <select id="f-rpe-att" aria-describedby="f-rpe-att-help"><option value="">—</option>
             <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
             <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select>
