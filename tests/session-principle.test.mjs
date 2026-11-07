@@ -12,7 +12,7 @@ const { sessionPrinciple, procPrinciple } = ctx.window;
 
 assert.equal(sessionPrinciple({ principes_jeu: '  Conservation ' }, [{ principes_jeu: 'Autre' }]), 'Conservation', 'la séance fait foi');
 assert.equal(sessionPrinciple({ principes_jeu: null }, [{ principes_jeu: 'Transitions' }, { principes_jeu: ' Transitions' }, { principes_jeu: 'Pressing' }, {}]),
-  'Transitions · Pressing', 'ancienne séance : principes de ses procédés, sans doublon, dans l’ordre');
+  'Transitions – Pressing', 'ancienne séance : principes de ses procédés, sans doublon, dans l’ordre');
 assert.equal(sessionPrinciple({}, []), '', 'rien : vide (affiché « — »)');
 assert.equal(procPrinciple({ principes_jeu: '' }, { principes_jeu: 'Jeu de position' }), 'Jeu de position', 'un procédé hérite de la séance');
 assert.equal(procPrinciple({ principes_jeu: 'Pressing' }, { principes_jeu: 'Jeu de position' }), 'Pressing', 'un ancien procédé garde le sien');

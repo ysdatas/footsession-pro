@@ -25,7 +25,7 @@
 }
 .proc.expanded .proc-num { background: var(--gold); color: var(--on-gold); }
 .proc-name {
-  flex: 1; min-height: 36px; background: transparent; border: 1px solid transparent;
+  flex: 1; min-height: 32px; background: transparent; border: 1px solid transparent;
   font-size: var(--fs-lg); font-weight: 600; padding: 6px 8px; width: auto;
 }
 .proc-name:hover:not(:focus) { border-color: var(--border); }
@@ -55,10 +55,10 @@
 .proc-fields .field { margin-bottom: 12px; }
 /* Familles de champs (organisation, temps de jeu, schéma) : petit titre gris, trait rouge. */
 .proc-group {
-  display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: var(--fs-xs); font-weight: 600;
-  letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: var(--fs-xs); font-weight: 500;
+  color: var(--text-secondary);
 }
-.proc-group::before { content: ''; width: 12px; height: 2px; background: var(--red-ui); }
+.proc-group::before { content: none; }
 .proc-body > div > .proc-group:first-child { margin-top: 0; }
 
 /* Schéma tactique côté droit */
@@ -85,7 +85,7 @@
 
 /* ----- Blocs dépliables (présences, équipes, staff, bilan) ----- */
 .attendance-head {
-  width: 100%; min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: transparent; border: none; border-radius: var(--radius-sm); color: var(--text-primary);
   font-size: var(--fs-lg); font-weight: 600; padding: 0; text-align: left;
 }
@@ -197,7 +197,7 @@
 .team-head input[type="text"] { flex: 1; max-width: 220px; }
 .team-head input[type="color"] { width: 34px; height: 30px; padding: 2px; flex-shrink: 0; }
 .team-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,.3); }
-.team-count { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.team-count { font-size: var(--fs-xs); color: var(--text-muted); }
 .team-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; }
 .team-chips:empty::after {
   content: 'Aucun joueur — cliquez sur un nom du vivier ci-dessous';
@@ -222,9 +222,9 @@
 .lt-group { display: flex; align-items: center; gap: 7px; }
 .lt-group label { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); white-space: nowrap; }
 .lt-group select { width: auto; }
-#sortDir { min-width: 38px; min-height: 38px; justify-content: center; }
+#sortDir { min-width: 38px; min-height: 32px; justify-content: center; }
 #groupToggle.active { border-color: #4a4a4a; color: var(--text-primary); background: #2E2E2E; }
-.list-toolbar .btn { min-height: 38px; }
+.list-toolbar .btn { min-height: 32px; }
 .chevron { display: grid; place-items: center; }
 .chevron .ic { width: 18px; height: 18px; }
 
@@ -274,8 +274,8 @@
 .proc-extras { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px;
   border-top: 1px solid var(--border); padding-top: 16px; }
 .proc-sub-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-.proc-sub-title { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
-.proc-sub-title::before { content: ''; width: 12px; height: 2px; background: var(--red-ui); }
+.proc-sub-title { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-xs); font-weight: 500; color: var(--text-secondary); }
+.proc-sub-title::before { content: none; }
 .proc-sub-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .proc-sub-empty { font-size: var(--fs-sm); margin: 0 0 6px; }
 .copy-from { width: auto; max-width: 220px; min-height: 30px; padding: 4px 28px 4px 8px; font-size: var(--fs-sm); }
@@ -307,7 +307,7 @@
 .bilan-bar { flex: 1; display: flex; max-width: 280px; height: 18px; border-radius: 999px; overflow: hidden; margin-left: auto; }
 .bilan-bar:empty { display: none; }
 .bilan-bar span { display: flex; align-items: center; justify-content: center; min-width: 18px;
-  font-size: var(--fs-xs); font-weight: 700; color: #0A0A0A; }
+  font-size: var(--fs-xs); font-weight: 600; color: #0A0A0A; }
 .bb-plus { background: var(--success); } .bb-egal { background: #9E9E9E; } .bb-moins { background: var(--danger); color: #fff !important; }
 .bb-none { background: var(--bg-hover); color: var(--text-secondary) !important; }
 .bilan-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
@@ -325,7 +325,7 @@
 .bilan-name { font-weight: 600; font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bilan-notes { display: inline-flex; gap: 4px; }
 .bn { width: 36px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card);
-  color: var(--text-secondary); font-size: 1rem; font-weight: 700; cursor: pointer; line-height: 1;
+  color: var(--text-secondary); font-size: 1rem; font-weight: 600; cursor: pointer; line-height: 1;
   transition: background-color var(--dur-micro) ease, transform var(--dur-micro) ease; }
 .bn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
 .bn:active:not(:disabled) { transform: scale(.94); }
@@ -400,7 +400,7 @@
 .pitch-token.is-dragging { opacity: .25; }
 .pitch-token.is-ghost { position: fixed; z-index: 200; pointer-events: none; cursor: grabbing; }
 .pt-dot { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--pt, var(--gold)); color: var(--pt-ink, #0A0A0A);
-  font-size: 10px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,.45); }
+  font-size: 10px; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.45); }
 .pt-name { max-width: 64px; padding: 0 3px; border-radius: 3px; background: rgba(0,0,0,.45); font-size: 9.5px; font-weight: 600; line-height: 1.35;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pitch-token:focus-visible .pt-dot { outline: 2px solid #fff; outline-offset: 1px; }
@@ -443,6 +443,6 @@
 .load-failure .btn { margin-left: auto; }
 .conflict-choices { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: var(--fs-sm); line-height: 1.5; }
 /* Bouton à côté d'un champ de recherche : même hauteur que le champ. */
-.roster-tools .btn, .mt-tools .btn { min-height: 38px; }
+.roster-tools .btn, .mt-tools .btn { min-height: 32px; }
 .list-toolbar > input[type="search"] { max-width: 320px; }
 @media (max-width: 640px) { .list-toolbar > input[type="search"] { max-width: none; flex: 1 1 100%; } }

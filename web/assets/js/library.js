@@ -117,7 +117,7 @@ async function libPlay(path, title) {
 const LIB_STATUT = { archive: 'Archivé', retire: 'Retiré' };
 function libCardHtml(r, { pick = false, hl = 2, drag = false, folder = false } = {}) {
   const tags = (r.tag_ids || []).map(id => libTags.byId.get(id)).filter(Boolean);
-  const meta = [folder && r.folder_id ? libFolderName(r.folder_id) : '', `v${r.version_no || 1}`, libDate(r.updated_at)].filter(Boolean).join(' · ');
+  const meta = [folder && r.folder_id ? libFolderName(r.folder_id) : '', `v${r.version_no || 1}`, libDate(r.updated_at)].filter(Boolean).join(' – ');
   return `<article class="lib-card" data-lib-id="${r.id}" role="listitem"${drag ? ' draggable="true"' : ''}>
     <button class="lib-card-thumb" type="button" data-lib-open="${r.id}" aria-label="Ouvrir « ${escapeHtml(r.titre)} »">
       ${libThumbHtml(r.file_id, r.duree_sec)}</button>
@@ -126,7 +126,7 @@ function libCardHtml(r, { pick = false, hl = 2, drag = false, folder = false } =
       <p class="lib-card-meta">${LIB_STATUT[r.statut] ? `<span class="badge">${LIB_STATUT[r.statut]}</span> ` : ''}${escapeHtml(meta)}</p>
       ${tags.length ? `<p class="lib-tags">${tags.map(t => libTagChip(t)).join('')}</p>` : ''}
       <div class="lib-card-actions">
-        <button class="btn btn-sm" type="button" data-lib-play="${r.id}">▶ Lire</button>
+        <button class="btn btn-sm" type="button" data-lib-play="${r.id}"><span class="arr arr-play" aria-hidden="true"></span>Lire</button>
         ${pick ? `<button class="btn btn-sm btn-primary" type="button" data-lib-pick="${r.id}">Choisir</button>` : ''}
       </div>
     </div>
@@ -189,7 +189,7 @@ function createLibBrowser(root, opts = {}) {
       <div class="lib-folder${f.archived ? ' is-off' : ''}" role="listitem" data-lib-drop="${f.id}">
         <button type="button" class="lib-folder-open" data-lib-folder="${f.id}">${LIB_FOLDER_IC}
           <span class="lib-folder-name">${escapeHtml(f.nom)}</span>
-          <span class="lib-folder-n">${f.archived ? 'Archivé · ' : ''}${f.n} vidéo${f.n > 1 ? 's' : ''}</span></button>
+          <span class="lib-folder-n">${f.archived ? 'Archivé' + SEP + '' : ''}${f.n} vidéo${f.n > 1 ? 's' : ''}</span></button>
         ${opts.manage ? `<details class="lib-folder-menu"><summary aria-label="Actions du dossier ${escapeHtml(f.nom)}">⋯</summary>
           <div class="lib-folder-pop"><button type="button" data-lf="rename" data-id="${f.id}">Renommer</button>
             <button type="button" data-lf="${f.archived ? 'unarchive' : 'archive'}" data-id="${f.id}">${f.archived ? 'Réactiver' : 'Archiver'}</button>

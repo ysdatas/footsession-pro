@@ -39,7 +39,7 @@ const DEFAULT_PREFS = {
   document.getElementById('p-email').value = ctx.user.email || '';
   document.getElementById('p-role').value = ROLE_LABELS[myProfile.role] || myProfile.role;
   document.getElementById('settingsSub').textContent =
-    (myProfile.clubs?.nom || 'Club') + ' · ' + (ROLE_LABELS[myProfile.role] || myProfile.role);
+    (myProfile.clubs?.nom || 'Club') + ' – ' + (ROLE_LABELS[myProfile.role] || myProfile.role);
 
   document.getElementById('saveAccount').addEventListener('click', saveAccount);
   document.getElementById('savePassword').addEventListener('click', savePassword);

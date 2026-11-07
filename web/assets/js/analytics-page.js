@@ -174,7 +174,7 @@ async function exportAnalyticsPdf() {
     k.cover({
       kicker: `${club} · Bilan`,
       title: 'Bilan des séances',
-      subtitle: [team || 'Toutes les équipes', period].filter(Boolean).join(' · '),
+      subtitle: [team || 'Toutes les équipes', period].filter(Boolean).join(' – '),
       facts: [['Période', range], ['Édité le', new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })]],
     });
     const val = (id) => document.getElementById(id)?.textContent.trim() || '—';

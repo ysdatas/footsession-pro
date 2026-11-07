@@ -151,7 +151,7 @@ function drawTeamColumns(doc, { x, y, w, teams, fs = 8, dry = false, maxCols = 6
 window.sessionTeams = sessionTeams;
 
 /* Lien vers la fiche d'un joueur, à poser sur son nom dans un PDF. */
-const playerUrl = (id) => new URL(`player-performance.html?id=${id}`, location.href).href;
+const playerUrl = (id) => new URL(`player-performance?id=${id}`, location.href).href;
 window.playerUrl = playerUrl;
 
 /* Terrain d'effectif (sessions.terrain, lmfc_v15.sql) en paysage : le terrain
@@ -361,7 +361,7 @@ window.generateSessionPDF = async function (sessionId) {
     const orphan = procedures.map((p, i) => (procIsFilmed(p, s) && !staffOf(p).some(m => isVideoRole(m.role)) ? `P${i + 1}` : null)).filter(Boolean);
     const filmedN = procedures.filter(p => procIsFilmed(p, s)).length;
     const txt = [`Séance filmée : ${filmedN} procédé${filmedN > 1 ? 's' : ''} sur ${procedures.length}`,
-      who.size && `Gestion vidéo : ${[...who].map(([n, ps]) => `${n} (${ps.join(', ')})`).join(' · ')}`,
+      who.size && `Gestion vidéo : ${[...who].map(([n, ps]) => `${n} (${ps.join(', ')})`).join(' – ')}`,
       orphan.length && `Sans responsable vidéo : ${orphan.join(', ')}`].filter(Boolean).join('   ·   ');
     doc.setFontSize(8.2);
     const vl = doc.splitTextToSize(str(txt), CW - 7);
@@ -438,7 +438,7 @@ window.generateSessionPDF = async function (sessionId) {
       const vals = [
         String(i + 1), p.nom || 'Procédé', p.type_procede || '—', sequenceLabel(p),
         fmtMin(totalMin(p)) + "'",
-        [p.taille_terrain, p.effectif].filter(Boolean).join(' · ') || '—',
+        [p.taille_terrain, p.effectif].filter(Boolean).join(' – ') || '—',
         p.objectif || '—',
       ];
       let cx = M;

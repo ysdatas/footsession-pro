@@ -132,17 +132,17 @@ document.addEventListener('click', async (e) => {
   const t = libTags.byId.get(Number(b.dataset.tmRename || b.dataset.tmMerge || b.dataset.tmMergeGo || b.dataset.tmDel));
   if (!t) return;
   if (b.dataset.tmRename) {
-    const label = prompt('Nouveau nom du tag :', t.label);
+    const label = await promptDialog('Nouveau nom du tag :', t.label);
     if (label && libTagClean(label) !== t.label) tagAction(sb.rpc('library_tag_rename', { p_tag: t.id, p_label: label }), 'Tag renommé.');
   } else if (b.dataset.tmMerge) {
     renderTagManager(t.id);
   } else if (b.dataset.tmMergeGo) {
     const into = libTags.byId.get(Number(document.getElementById('tm-into').value));
-    if (into && confirm(`Fusionner #${t.label} dans #${into.label} ?\n\nLes procédés de #${t.label} reçoivent #${into.label}, puis #${t.label} disparaît.`)) {
+    if (into && await confirmDialog(`Fusionner #${t.label} dans #${into.label} ?\n\nLes procédés de #${t.label} reçoivent #${into.label}, puis #${t.label} disparaît.`)) {
       tagAction(sb.rpc('library_tag_merge', { p_from: t.id, p_into: into.id }), `#${t.label} fusionné dans #${into.label}.`);
     }
-  } else if (t.uses === 0 ? confirm(`Supprimer #${t.label} ?`)
-    : confirm(`#${t.label} est utilisé par ${t.uses} procédé${t.uses > 1 ? 's' : ''}.\n\nLe retirer de ${t.uses > 1 ? 'ces procédés' : 'ce procédé'} et le supprimer ?\nPour le garder sous un autre nom, choisissez plutôt « Fusionner ».`)) {
+  } else if (t.uses === 0 ? await confirmDialog(`Supprimer #${t.label} ?`)
+    : await confirmDialog(`#${t.label} est utilisé par ${t.uses} procédé${t.uses > 1 ? 's' : ''}.\n\nLe retirer de ${t.uses > 1 ? 'ces procédés' : 'ce procédé'} et le supprimer ?\nPour le garder sous un autre nom, choisissez plutôt « Fusionner ».`)) {
     tagAction(sb.rpc('library_tag_delete', { p_tag: t.id, p_expected: t.uses }), `#${t.label} supprimé.`);
   }
 });

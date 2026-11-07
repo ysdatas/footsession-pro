@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — player-home.js (mon-espace.html)
+   LMFC Performance — player-home.js (mon-espace)
    Accueil du joueur, même signature que l'accueil du staff :
      - « Bonjour, Prénom », date, club · poste · équipe ;
      - « Pour toi en ce moment » : RPE de la séance à noter, ou où il
@@ -59,7 +59,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   [vRes, sRes, nRes, eRes, mRes, tRes].forEach(r => { if (r.error) console.warn('Mon espace : donnée indisponible', r.error.message); });
 
   document.getElementById('clubLine').textContent =
-    [window.PLAYER_CLUB || 'Le Mans FC', player.poste, teamRes.data?.nom].filter(Boolean).join(' · ');
+    [window.PLAYER_CLUB || 'Le Mans FC', player.poste, teamRes.data?.nom].filter(Boolean).join(' – ');
 
   if (rRes.error && rRes.error.code !== 'PGRST202') console.warn('Mon espace : RPE indisponible', rRes.error.message);
   phRpe = rRes.rows;
@@ -84,10 +84,10 @@ let phFormsPending = 0;
 const phFormName = (titre, origine, appel) => (titre && titre !== origine ? titre : appel);
 function soreCardHtml() {
   const s = phSore, done = s.niveau != null;
-  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="mon-espace.html" data-sore>
+  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="mon-espace" data-sore>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Courbatures au réveil', done ? 'Courbatures du matin' : 'Tes courbatures ce matin ?'))}</strong>${phIc('check')}</span>
     <span class="home-attn-value">${done ? s.niveau : '?'}<small class="rpe-of">/10</small></span>
-    <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''} · touche pour changer` : 'Aucune · touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>
+    <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''}${SEP}touche pour changer` : 'Aucune' + SEP + 'touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>
   </a>`;
 }
 function openSoreFromCard(e) {
@@ -101,10 +101,10 @@ function openSoreFromCard(e) {
 let phMf = null;   // { match: { id, titre, date }, value }
 function mfCardHtml() {
   const { match: m, value } = phMf, done = mfAnswered(value);
-  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="calendrier.html" data-mf>
+  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="calendrier" data-mf>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(m.form_titre, 'Ton avis sur le match', done ? 'Ton avis sur le match' : 'Donne ton avis sur le match'))}</strong>${phIc('chat')}</span>
     <span class="home-attn-value">${done ? '✓' : '?'}</span>
-    <small>Contre ${escapeHtml(m.titre)} · ${phDay(m.date)}${done ? ' · touche pour compléter' : ''}</small>
+    <small>Contre ${escapeHtml(m.titre)}${SEP}${phDay(m.date)}${done ? '' + SEP + 'touche pour compléter' : ''}</small>
   </a>`;
 }
 function openMfFromCard(e) {
@@ -122,12 +122,12 @@ const phRpeTodo = () => phRpe.filter(s => s.rpe == null && rpeOpen(s.date_seance
 function rpeCardHtml() {
   const todo = phRpeTodo(), s = todo[0] || phRpe.find(x => x.rpe != null);
   // Toujours là : le joueur sait où noter même quand aucune séance n'attend.
-  if (!s) return phCard({ href: 'calendrier.html', icon: 'activity', tone: 'calm', value: '—', label: 'Ton effort (RPE)',
+  if (!s) return phCard({ href: 'calendrier', icon: 'activity', tone: 'calm', value: '—', label: 'Ton effort (RPE)',
     detail: `Rien à noter. Après chaque séance et chaque match, ton effort se note ici (jusqu’à ${RPE_DAYS} jours après).` });
-  return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" id="phRpe" href="calendrier.html"${todo.length ? ' data-rpe' : ''}>
+  return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" id="phRpe" href="calendrier"${todo.length ? ' data-rpe' : ''}>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Ton effort', todo.length ? 'Note ton effort' : 'Ton effort'))}</strong>${phIc('activity')}</span>
     <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
-    <small>${escapeHtml(s.titre)} · ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` · ${todo.length} à noter` : ''}</small>
+    <small>${escapeHtml(s.titre)}${SEP}${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? `${SEP}${todo.length} à noter` : ''}</small>
   </a>`;
 }
 function openRpeFromCard(e) {
@@ -143,14 +143,14 @@ function openRpeFromCard(e) {
 
 function renderAttention(videos, seqs, notes, exercises) {
   const cards = [];
-  if (phFormsPending) cards.push(phCard({ href: 'mes-formulaires.html', icon: 'forms', tone: 'urgent',
+  if (phFormsPending) cards.push(phCard({ href: 'mes-formulaires', icon: 'forms', tone: 'urgent',
     value: phFormsPending, label: 'Questionnaires à remplir', detail: 'Touche pour répondre' }));
   if (phSore) cards.push(soreCardHtml());
   if (phMf && !mfAnswered(phMf.value)) cards.push(mfCardHtml());   // sans réponse : devant
   if (phRpeOn) cards.push(rpeCardHtml());
   if (phMf && mfAnswered(phMf.value)) cards.push(mfCardHtml());
   const fresh = videos.filter(v => daysAgo(v.created_at) <= 7);
-  cards.push(phCard({ href: 'mes-videos.html', icon: 'video', tone: fresh.length ? 'urgent' : (videos.length ? '' : 'calm'),
+  cards.push(phCard({ href: 'mes-videos', icon: 'video', tone: fresh.length ? 'urgent' : (videos.length ? '' : 'calm'),
     value: fresh.length || videos.length, label: fresh.length ? 'Nouvelles vidéos' : 'Vidéos du staff',
     detail: videos.length ? escapeHtml(videos[0].titre || 'Vidéo') : '' }));
 
@@ -158,19 +158,19 @@ function renderAttention(videos, seqs, notes, exercises) {
   const waiting = seqs.filter(s => s.submitted_at && !s.staff_feedback);
   const quote = (t) => `« ${escapeHtml(t.length > 50 ? `${t.slice(0, 47)}…` : t)} »`;
   cards.push(answered.length
-    ? phCard({ href: 'mes-videos.html?tab=seqs', icon: 'chat', tone: daysAgo(answered[0].feedback_at || 0) <= 7 ? 'urgent' : '',
+    ? phCard({ href: 'mes-videos?tab=seqs', icon: 'chat', tone: daysAgo(answered[0].feedback_at || 0) <= 7 ? 'urgent' : '',
         value: answered.length, label: 'Retours du staff', detail: quote(answered[0].staff_feedback) })
-    : phCard({ href: 'mes-videos.html?tab=seqs', icon: 'chat', tone: 'calm', value: waiting.length,
+    : phCard({ href: 'mes-videos?tab=seqs', icon: 'chat', tone: 'calm', value: waiting.length,
         label: 'Séquences envoyées', detail: waiting.length ? 'En attente de retour' : '' }));
 
   const active = notes.filter(n => (n.kind === 'objective' || n.kind === 'prevention') && (n.status || 'active') === 'active');
   const prev = active.filter(n => n.kind === 'prevention').length;
-  cards.push(phCard({ href: 'mon-programme.html', icon: 'target', tone: active.length ? '' : 'calm',
+  cards.push(phCard({ href: 'mon-programme', icon: 'target', tone: active.length ? '' : 'calm',
     value: active.length, label: 'Objectifs en cours', detail: prev ? `dont ${prev} ${plural(prev, 'prévention')}` : '' }));
 
   if (exercises?.length) {
     const todo = exercises.filter(e => !e.done_at).length;
-    cards.push(phCard({ href: 'mon-programme.html#exercices', icon: 'check', tone: todo ? '' : 'calm',
+    cards.push(phCard({ href: 'mon-programme#exercices', icon: 'check', tone: todo ? '' : 'calm',
       value: todo, label: 'Exercices à faire', detail: `${exercises.length - todo} sur ${exercises.length} faits` }));
   }
   document.getElementById('homeAttn').innerHTML = cards.join('');
@@ -195,7 +195,7 @@ function renderStats(measures, tests, hidden) {
   ].filter(Boolean);
   document.getElementById('homeStats').closest('section').hidden = !stats.length;
   document.getElementById('homeStats').innerHTML = stats.some(([, r]) => r)
-    ? stats.map(([label, r, val, when]) => `<a class="home-stat" href="player-performance.html">
+    ? stats.map(([label, r, val, when]) => `<a class="home-stat" href="player-performance">
         <span>${label}</span><strong>${r ? escapeHtml(val(r)) : '—'}</strong><small>${r ? escapeHtml(when(r) || '') : 'Pas encore mesuré'}</small></a>`).join('')
     : '<p class="text-muted">Aucune mesure pour l’instant : ton préparateur physique les ajoutera.</p>';
 }
@@ -215,7 +215,7 @@ const AUTH_ERRORS = {
 function bindAccount(user) {
   const showEmail = (u) => {
     document.getElementById('emailNow').textContent = `Actuelle : ${u.email}`
-      + (u.new_email ? ` · en attente de confirmation : ${u.new_email}` : '');
+      + (u.new_email ? ` – en attente de confirmation : ${u.new_email}` : '');
   };
   showEmail(user);
   const submit = (formId, run) => document.getElementById(formId).addEventListener('submit', async (e) => {

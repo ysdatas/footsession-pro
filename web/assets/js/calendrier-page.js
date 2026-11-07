@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — calendrier-page.js (calendrier.html)
+   LMFC Performance — calendrier-page.js (calendrier)
    Calendrier commun du staff et des joueurs (lmfc_v28.sql) :
      - séances et matchs lus là où ils vivent : rien n'est recopié, une
        date changée dans sa rubrique se voit ici aussitôt ; plus les
@@ -112,10 +112,10 @@ async function loadCal() {
 /* ---------- Affichage ---------- */
 const calShown = () => CAL.items.filter(i => CAL.kinds.has(i.kind));
 const calByDay = (items) => items.reduce((m, i) => m.set(i.date, [...(m.get(i.date) || []), i]), new Map());
-const calTitleOf = (i) => (i.kind === 'match' ? `Match · ${i.titre}` : i.titre);
+const calTitleOf = (i) => (i.kind === 'match' ? `Match – ${i.titre}` : i.titre);
 function calSub(i) {
   const team = !CAL.asPlayer && !currentTeamId() ? teamName(i.team_id) : '';
-  return [i.kind === 'match' ? CAL_LIEUX[i.lieu] : i.lieu, i.stade, i.sub, team].filter(Boolean).join(' · ');
+  return [i.kind === 'match' ? CAL_LIEUX[i.lieu] : i.lieu, i.stade, i.sub, team].filter(Boolean).join(' – ');
 }
 function calItemHtml(i) {
   const sub = calSub(i);
@@ -168,7 +168,7 @@ function renderCal() {
   const items = calShown(), body = document.getElementById('calBody');
   if (!CAL.loading && !CAL.failed) {
     document.getElementById('calStatus').textContent = `${items.length} élément${items.length > 1 ? 's' : ''}`
-      + `${!CAL.asPlayer && currentTeam() ? ` · ${currentTeam().nom} et tout le club` : ''}`;
+      + `${!CAL.asPlayer && currentTeam() ? ` – ${currentTeam().nom} et tout le club` : ''}`;
   }
   body.className = `cal-body is-${CAL.view}`;
   body.innerHTML = CAL.view === 'month' ? calMonthHtml(items) : CAL.view === 'week' ? calWeekHtml(items) : calListHtml(items);
@@ -221,7 +221,7 @@ async function calRpe(i, form) {
   if (!data && !form) { box.remove(); return; }   // son équipe ne reçoit pas le RPE
   if (match && !data && !i.rpeTodo && !upcoming) { box.remove(); return; }   // il n'a pas joué, ou le délai est passé
   box.innerHTML = data
-    ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> · ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
+    ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong>${SEP}${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
     : i.rpeTodo ? '<button type="button" class="btn btn-primary" id="calRpeBtn">Noter mon effort</button>'
       : `<p class="text-muted">${upcoming ? `Tu pourras noter ton effort après ${match ? 'le match' : 'la séance'}.` : `La saisie est fermée (${RPE_DAYS} jours après la séance).`}</p>`;
   document.getElementById('calRpeBtn')?.addEventListener('click', () => openRpeSheet({

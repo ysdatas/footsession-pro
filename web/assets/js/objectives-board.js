@@ -100,7 +100,7 @@ function renderObjectivesTab() {
     const p = objPlayer(pid);
     return `<section class="obj-group">
       <div class="obj-group-head">
-        <a href="player-performance.html?id=${pid}" class="obj-player">${esc(playerName(p))}${p.poste ? ` <span>${esc(p.poste)}</span>` : ''}</a>
+        <a href="player-performance?id=${pid}" class="obj-player">${esc(playerName(p))}${p.poste ? ` <span>${esc(p.poste)}</span>` : ''}</a>
         ${edit ? `<span class="obj-group-add">
           <button class="btn btn-sm" type="button" data-obj-new="${pid}" data-kind="objective">+ Objectif</button>
           <button class="btn btn-sm" type="button" data-obj-new="${pid}" data-kind="prevention">+ Prévention</button>
@@ -127,7 +127,7 @@ function renderObjectivesTab() {
             <span class="badge ${NOTE_KINDS[r.kind]?.cls || 'badge-gold'}">${objKindLabel(r.kind)}</span>
             <strong>${esc(title)}</strong>
             ${body ? `<p>${esc(body.length > 160 ? `${body.slice(0, 157)}…` : body)}</p>` : ''}
-            <span class="obj-meta">Créé le ${esc(new Date(r.created_at).toLocaleDateString('fr-FR'))}${files ? ` · ${files} fichier${files > 1 ? 's' : ''}` : ''}</span>
+            <span class="obj-meta">Créé le ${esc(new Date(r.created_at).toLocaleDateString('fr-FR'))}${files ? `${SEP}${files} fichier${files > 1 ? 's' : ''}` : ''}</span>
           </div>
           <div class="obj-actions">
             ${objStatusControl(r, edit)}
@@ -376,7 +376,7 @@ async function deleteObjective(id) {
   const r = objBoard.rows.find(x => x.id === id);
   if (!r) return;
   const files = (objBoard.media.get(id) || []).map(m => m.storage_path);
-  if (!confirm(`Supprimer « ${noteTitle(r)} » (${objKindLabel(r.kind).toLowerCase()}) de ${playerName(objPlayer(r.player_id))}${files.length ? ' et ses images' : ''} ?${await trashNote()}`)) return;
+  if (!await confirmDialog(`Supprimer « ${noteTitle(r)} » (${objKindLabel(r.kind).toLowerCase()}) de ${playerName(objPlayer(r.player_id))}${files.length ? ' et ses images' : ''} ?${await trashNote()}`)) return;
   try {
     const { error } = await sb.from('player_performance_notes').delete().eq('id', id);
     if (error) throw error;
@@ -418,8 +418,8 @@ async function deletePicked() {
   const list = objBoard.rows.filter(r => objBoard.pick.ids.has(r.id));
   if (!list.length) return;
   const files = list.flatMap(r => (objBoard.media.get(r.id) || []).map(m => m.storage_path));
-  if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} éléments` : 'cet élément'}${files.length ? ' et leurs images' : ''} ?\n\n`
-    + `${namesList(list.map(r => `${objKindLabel(r.kind)} · ${noteTitle(r)} (${playerName(objPlayer(r.player_id))})`))}${await trashNote()}`)) return;
+  if (!await confirmDialog(`Supprimer ${list.length > 1 ? `ces ${list.length} éléments` : 'cet élément'}${files.length ? ' et leurs images' : ''} ?\n\n`
+    + `${namesList(list.map(r => `${objKindLabel(r.kind)} – ${noteTitle(r)} (${playerName(objPlayer(r.player_id))})`))}${await trashNote()}`)) return;
   try {
     const { error } = await sb.from('player_performance_notes').delete().in('id', list.map(r => r.id));
     if (error) throw error;

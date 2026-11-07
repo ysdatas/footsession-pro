@@ -266,7 +266,7 @@ async function fastCompile(items, opts) {
     opts.onStatus?.('Génération rapide en cours…');
     for (const [i, it] of items.entries()) {
       const seq = it.seq, src = sources.get(it.src), label = seq.label || 'Séquence';
-      const caption = `${i + 1} / ${items.length} · ${label}`;
+      const caption = `${i + 1} / ${items.length} – ${label}`;
       if (opts.titles) {
         drawTitleCard(ctx, W, H, { index: i + 1, count: items.length, label, player: opts.playerName, dur: seq.end_sec - seq.start_sec });
         await still(COMPILE_TITLE_MS / 1000);

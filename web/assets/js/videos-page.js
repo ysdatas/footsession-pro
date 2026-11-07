@@ -156,7 +156,7 @@ function seqCard(s) {
     ${thumbHtml(urlCache.get(s.video_id), s.start_sec, fmtDur(len), s.thumb)}
     <span class="vp-card-body">
       <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s, 'staff')}</span>
-      <span class="vp-card-meta">${escapeHtml(fullName(playersCache.find(p => p.id === s.player_id)))} · ${escapeHtml(v?.titre || 'Vidéo')} · ${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}${s.submitted_at ? ` · envoyée le ${escapeHtml(shortDate(s.submitted_at))}` : ''}</span>
+      <span class="vp-card-meta">${escapeHtml(fullName(playersCache.find(p => p.id === s.player_id)))}${SEP}${escapeHtml(v?.titre || 'Vidéo')}${SEP}${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}${s.submitted_at ? `${SEP}envoyée le ${escapeHtml(shortDate(s.submitted_at))}` : ''}</span>
       ${note ? `<em>« ${escapeHtml(note.length > 90 ? `${note.slice(0, 87)}…` : note)} »</em>` : ''}
     </span>
   </button>`;
@@ -168,7 +168,7 @@ function render() {
   const back = document.getElementById('videoBackLink');
   back.classList.toggle('hidden', !p);
   if (p) {
-    back.href = `player-performance.html?id=${p.id}`;
+    back.href = `player-performance?id=${p.id}`;
     document.getElementById('videosTitle').textContent = fullName(p);
     document.getElementById('videosSub').textContent = 'Chargement…';
     return mountPlayerVideos(document.getElementById('vpView'), {
@@ -176,7 +176,7 @@ function render() {
       onChange: ({ videos, seqs }) => {
         const todo = toSeeOf(seqs).length;
         document.getElementById('videosSub').textContent =
-          `${plural(videos.length, 'vidéo', 'vidéos')} · ${plural(seqs.length, 'séquence', 'séquences')}${todo ? ` · ${todo} à traiter` : ''}`;
+          `${plural(videos.length, 'vidéo', 'vidéos')} – ${plural(seqs.length, 'séquence', 'séquences')}${todo ? ` – ${todo} à traiter` : ''}`;
       },
     });
   }
@@ -204,7 +204,7 @@ function render() {
   if (vsel.on) return renderVideoPick(box, shown);
   box.innerHTML = `
     ${todo.length ? `<section class="vp-section" aria-labelledby="vpTodoTitle">
-      <h2 id="vpTodoTitle">À traiter <span class="vw-status is-sent">${todo.length}</span></h2>
+      <h2 id="vpTodoTitle">À traiter<span class="vp-count">${todo.length}</span></h2>
       <p class="pvx-lead">${reader ? 'Séquences envoyées par les joueurs, en attente d’un retour du staff.' : 'Séquences que vos joueurs vous ont envoyées, en attente de votre retour.'}</p>
       <div class="vp-cards">${todo.map(seqCard).join('')}</div>
     </section>` : ''}
@@ -219,9 +219,9 @@ function render() {
           <span class="vp-avatar" aria-hidden="true">${escapeHtml(initials(x.pl))}</span>
           <span class="vp-player-main">
             <strong>${escapeHtml(fullName(x.pl))}</strong>
-            <span>${x.vids || x.seqs ? `${plural(x.vids, 'vidéo', 'vidéos')} · ${plural(x.seqs, 'séquence', 'séquences')}` : 'Aucune vidéo'}</span>
+            <span>${x.vids || x.seqs ? `${plural(x.vids, 'vidéo', 'vidéos')}${SEP}${plural(x.seqs, 'séquence', 'séquences')}` : 'Aucune vidéo'}</span>
           </span>
-          ${x.todo ? `<span class="vw-status is-sent">${x.todo} à traiter</span>` : x.last ? `<span class="vp-last">${escapeHtml(shortDate(x.last))}</span>` : ''}
+          ${x.todo ? `<span class="vw-status is-attn" title="À traiter"><span class="sr-only">À traiter : </span>${x.todo}</span>` : x.last ? `<span class="vp-last">${escapeHtml(shortDate(x.last))}</span>` : ''}
           <span class="vp-chevron" aria-hidden="true">›</span>
         </button>`).join('') : '<p class="vp-empty">Aucun joueur ne correspond.</p>'}</div>
     </section>`;

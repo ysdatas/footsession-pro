@@ -21,22 +21,22 @@ const COACH_TOOLS = [...STAFF_ROLES, VIDEO_ANALYST];
 /* Paramètres n'est pas une rubrique : on y va par son nom, en bas du
    menu (renderUserMenu). */
 const NAV_ITEMS = [
-  { key: 'dashboard',   href: 'dashboard.html',      label: 'Accueil',           roles: COACH_INTERFACE },
-  { key: 'sessions',    href: 'sessions.html',       label: 'Séances',           roles: COACH_INTERFACE },   // prépa et analyste : selon les droits de lecture
-  { key: 'matches',     href: 'matchs.html',         label: 'Retours de match',  roles: COACH_INTERFACE },
-  { key: 'players',     href: 'players.html',        label: 'Joueurs',           roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
-  { key: 'calendar',    href: 'calendrier.html',     label: 'Calendrier',        roles: COACH_INTERFACE },   // après les 4 onglets du téléphone (lmfc_v28.sql)
-  { key: 'rpe',         href: 'suivi-rpe.html',      label: 'Suivi RPE',         roles: COACH_INTERFACE },   // ressenti des joueurs (lmfc_v29.sql)
-  { key: 'performance', href: 'comparaison.html',    label: 'Performance',       roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
-  { key: 'videos',      href: 'videos.html',         label: 'Vidéos joueurs',    roles: [...STAFF_ROLES, VIDEO_ANALYST, READER] },
-  { key: 'library',     href: 'bibliotheque.html',   label: 'Bibliothèque vidéo', roles: COACH_INTERFACE },   // lecture selon les droits accordés
-  { key: 'schemas',     href: 'schemas.html',        label: 'Bibliothèque de schémas', roles: COACH_TOOLS },   // schémas enregistrés (session-templates.js)
-  { key: 'tactical',    href: 'tactical-board.html', label: 'Tableau tactique',  roles: COACH_TOOLS },
-  { key: 'analytics',   href: 'analytics.html',      label: 'Bilan & Analytics', roles: COACH_TOOLS },
-  { key: 'faq',         href: 'faq.html',            label: 'FAQ',               roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
-  { key: 'club',        href: 'club.html',           label: 'Mon club',          roles: ['admin'] },
-  { key: 'notifications', href: 'notifications.html', label: 'Notifications',    roles: ['admin'] },   // lmfc_v16.sql
-  { key: 'trash',       href: 'trash.html',          label: 'Corbeille',         roles: COACH_INTERFACE },
+  { key: 'dashboard',   href: 'dashboard',      label: 'Accueil',           roles: COACH_INTERFACE },
+  { key: 'sessions',    href: 'sessions',       label: 'Séances',           roles: COACH_INTERFACE },   // prépa et analyste : selon les droits de lecture
+  { key: 'matches',     href: 'matchs',         label: 'Retours de match',  roles: COACH_INTERFACE },
+  { key: 'players',     href: 'players',        label: 'Joueurs',           roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
+  { key: 'calendar',    href: 'calendrier',     label: 'Calendrier',        roles: COACH_INTERFACE },   // après les 4 onglets du téléphone (lmfc_v28.sql)
+  { key: 'rpe',         href: 'suivi-rpe',      label: 'Suivi RPE',         roles: COACH_INTERFACE },   // ressenti des joueurs (lmfc_v29.sql)
+  { key: 'performance', href: 'comparaison',    label: 'Performance',       roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
+  { key: 'videos',      href: 'videos',         label: 'Vidéos joueurs',    roles: [...STAFF_ROLES, VIDEO_ANALYST, READER] },
+  { key: 'library',     href: 'bibliotheque',   label: 'Bibliothèque vidéo', roles: COACH_INTERFACE },   // lecture selon les droits accordés
+  { key: 'schemas',     href: 'schemas',        label: 'Bibliothèque de schémas', roles: COACH_TOOLS },   // schémas enregistrés (session-templates.js)
+  { key: 'tactical',    href: 'tactical-board', label: 'Tableau tactique',  roles: COACH_TOOLS },
+  { key: 'analytics',   href: 'analytics',      label: 'Bilan & Analytics', roles: COACH_TOOLS },
+  { key: 'faq',         href: 'faq',            label: 'FAQ',               roles: [...ALL_STAFF, VIDEO_ANALYST, READER] },
+  { key: 'club',        href: 'club',           label: 'Mon club',          roles: ['admin'] },
+  { key: 'notifications', href: 'notifications', label: 'Notifications',    roles: ['admin'] },   // lmfc_v16.sql
+  { key: 'trash',       href: 'trash',          label: 'Corbeille',         roles: COACH_INTERFACE },
 ];
 
 /* Pages sans entrée de menu : rubrique qu'elles « allument ». */
@@ -65,7 +65,7 @@ function orderedNavItems(role, prefs) {
    renverrait en boucle). */
 function navGuard(profile) {
   const page = currentPageName();
-  const key = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;
+  const key = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === page)?.key;
   const item = NAV_ITEMS.find(i => i.key === key);
   if (!item || item.roles.includes(profile.role)) return true;
   console.warn(`navGuard: page « ${page} » interdite au rôle ${profile.role}`);
@@ -145,14 +145,14 @@ function renderNav(profile, teams = window.CLUB_TEAMS || []) {
   // haut (sauf sur le tableau tactique, plein écran).
   if (!document.querySelector('.m-appbar, .tb-page')) {
     document.body.insertAdjacentHTML('afterbegin',
-      '<header class="m-appbar"><a class="m-brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC&nbsp;<span class="brand-pro">Performance</span></a></header>');
+      '<header class="m-appbar"><a class="m-brand" href="dashboard" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC&nbsp;<span class="brand-pro">Performance</span></a></header>');
   }
   // Le logo mène à l'accueil du rôle (le lecteur n'a pas de tableau de bord).
   // Pages du joueur : pas d'auth.js, rien à changer.
-  const home = typeof roleHome === 'function' ? roleHome(profile.role) : 'dashboard.html';
+  const home = typeof roleHome === 'function' ? roleHome(profile.role) : 'dashboard';
   document.querySelectorAll('#sidebar .brand, .m-brand').forEach(a => { if (a.getAttribute('href') !== home) a.setAttribute('href', home); });
   const page = currentPageName();
-  const activeKey = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === `${page}.html`)?.key;
+  const activeKey = NAV_PARENT[page] || NAV_ITEMS.find(i => i.href === page)?.key;
   const html = orderedNavItems(profile.role, profile.prefs)
     .filter(item => !item.hidden)
     .map(item => `<a class="nav-item${item.key === activeKey ? ' active' : ''}" href="${item.href}" data-mem="${item.key}"${item.key === activeKey ? ' aria-current="page"' : ''}>`
@@ -209,11 +209,11 @@ function renderPageKicker(profile, teams = window.CLUB_TEAMS || []) {
   if (!head) return;
   const team = teams.find(t => t.id === (Number(document.body.dataset.team) || teamIdOf(profile, teams)));
   const parts = [profile.clubs?.nom || 'Le Mans FC', team ? team.nom : (teams.length ? 'Toutes les équipes' : null)];
-  const text = parts.filter(Boolean).join(' · ');
+  const text = parts.filter(Boolean).map(escapeHtml).join(SEP);   // filet fin entre club et équipe
   const kicker = head.querySelector('.page-kicker');
   // Ligne réservée dans la page (page-kicker vide) : remplie sur place, rien ne bouge.
-  if (kicker) { if (kicker.textContent !== text) kicker.textContent = text; kicker.removeAttribute('aria-hidden'); return; }
-  head.insertAdjacentHTML('afterbegin', `<p class="page-kicker">${escapeHtml(text)}</p>`);
+  if (kicker) { if (kicker.innerHTML !== text) kicker.innerHTML = text; kicker.removeAttribute('aria-hidden'); return; }
+  head.insertAdjacentHTML('afterbegin', `<p class="page-kicker">${text}</p>`);
 }
 
 /* ---------- Menu instantané ----------
@@ -287,7 +287,7 @@ function renderUserMenu(profile) {
   box.prepend(trigger);
 
   const menu = el('div', { class: 'user-menu', id: 'userMenu', role: 'menu', hidden: 'hidden' });
-  menu.innerHTML = `<a role="menuitem" href="settings.html">${SETTINGS_IC}Paramètres</a>`;
+  menu.innerHTML = `<a role="menuitem" href="settings">${SETTINGS_IC}Paramètres</a>`;
   box.append(menu);
 
   const setOpen = (open) => {

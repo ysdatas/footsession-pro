@@ -32,7 +32,7 @@ document.getElementById('tbDrawer').addEventListener('click', (e) => { if (e.tar
 document.getElementById('tbClose').addEventListener('click', () => {
   if (window.opener && !window.opener.closed) window.close();
   else if (history.length > 1) history.back();
-  else location.href = 'dashboard.html';
+  else location.href = 'dashboard';
 });
 
 /* ---------- Vidéo liée ---------- */
@@ -67,7 +67,7 @@ function renderVideoList() {
     + (list.length ? list.map(v => `
       <button type="button" class="tb-video${tbLinkedVideo?.id === v.id ? ' active' : ''}" data-link-video="${v.id}">
         <strong>${escapeHtml(v.titre)}</strong>
-        <span>${escapeHtml([videoOwner(v), new Date(v.created_at).toLocaleDateString('fr-FR')].filter(Boolean).join(' · '))}</span>
+        <span>${[videoOwner(v), new Date(v.created_at).toLocaleDateString('fr-FR')].filter(Boolean).map(escapeHtml).join(SEP)}</span>
       </button>`).join('') : '<p class="tb-card-hint">Aucune vidéo trouvée.</p>');
 }
 document.getElementById('videoSearch').addEventListener('input', renderVideoList);
@@ -183,7 +183,7 @@ BOOTED.then(async () => {
    « Schémas » l'insère comme procédé, schéma compris et modifiable. */
 BOOTED.then(() => document.getElementById('saveToLibrary').classList.toggle('hidden', !CAN_EDIT));
 document.getElementById('saveToLibrary').addEventListener('click', async (e) => {
-  const nom = prompt('Nom du schéma :', PROC_ROW?.nom || EXO_ROW?.title || '')?.trim();
+  const nom = (await promptDialog('Nom du schéma :', PROC_ROW?.nom || EXO_ROW?.title || ''))?.trim();
   if (!nom) return;
   const btn = e.currentTarget;
   btn.disabled = true;

@@ -57,7 +57,7 @@ async function renderLibAccess(box, it, onSaved) {
       || '<li class="text-muted">Aucune.</li>'}</ul>
     ${addable.length ? `<div class="lib-people-add">
       <label class="sr-only" for="la-who">Personne</label>
-      <select id="la-who">${addable.map(s => `<option value="${s.id}" data-role="${s.role}">${escapeHtml(s.nom)} · ${escapeHtml(ROLE_LABELS[s.role] || s.role)}</option>`).join('')}</select>
+      <select id="la-who">${addable.map(s => `<option value="${s.id}" data-role="${s.role}">${escapeHtml(s.nom)} – ${escapeHtml(ROLE_LABELS[s.role] || s.role)}</option>`).join('')}</select>
       <label class="sr-only" for="la-wlvl">Accès</label>
       <select id="la-wlvl">${lvlOptions('coach', 'lecture')}</select>
       <button class="btn btn-sm" type="button" data-la-add>Ajouter</button></div>` : ''}`;

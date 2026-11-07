@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — library-folders.js (bibliotheque.html)
+   LMFC Performance — library-folders.js (bibliotheque)
    « Gérer les dossiers » (lmfc_v31.sql), admin et coachs :
      - créer, renommer, archiver / réactiver, supprimer (ses vidéos
        restent, sans dossier ; les séances gardent leurs liens) ;
@@ -53,7 +53,7 @@ function lfRender() {
     <button class="btn btn-sm" type="button" data-lf="${f.archived ? 'unarchive' : 'archive'}" data-id="${f.id}">${f.archived ? 'Réactiver' : 'Archiver'}</button>
     <button class="btn btn-sm btn-danger" type="button" data-lf="delete" data-id="${f.id}" data-n="${f.n}">Supprimer</button></li>`;
   lfEl('lfList').innerHTML = (active.length ? `<ul>${active.map(row).join('')}</ul>` : '<p class="text-muted">Aucun dossier pour l’instant.</p>')
-    + (archived.length ? `<details class="lf-archived"><summary>Dossiers archivés · ${archived.length}</summary><ul>${archived.map(row).join('')}</ul></details>` : '');
+    + (archived.length ? `<details class="lf-archived"><summary>Dossiers archivés${SEP}${archived.length}</summary><ul>${archived.map(row).join('')}</ul></details>` : '');
 }
 
 async function lfDone(promise, ok) {
@@ -86,7 +86,7 @@ async function lfClick(e) {
   }
   if (act === 'delete') {
     const n = Number(b.dataset.n);
-    if (!confirm(`Supprimer ce dossier ?\n\n${n ? `Ses ${n} vidéo${n > 1 ? 's' : ''} restent dans la bibliothèque, « Sans dossier ».` : 'Il est vide.'} Les séances ne changent pas.`)) return;
+    if (!await confirmDialog(`Supprimer ce dossier ?\n\n${n ? `Ses ${n} vidéo${n > 1 ? 's' : ''} restent dans la bibliothèque, « Sans dossier ».` : 'Il est vide.'} Les séances ne changent pas.`)) return;
     lfDone(sb.from('library_folders').delete().eq('id', id).select('id'), 'Dossier supprimé');
   }
   if (act === 'pick') lfOpenPick(id);
@@ -139,7 +139,7 @@ async function lfMoveTo(folder, ids) {
   const { data, error } = await sb.from('library_items').update({ folder_id: folder || null }).in('id', ids).select('id');
   if (error) return toast(lfError(error), 'error');
   const moved = data.length, refused = ids.length - moved;
-  toast(`${moved} vidéo${moved > 1 ? 's' : ''} rangée${moved > 1 ? 's' : ''} dans « ${libFolderName(folder)} »${refused ? ` · ${refused} refusée${refused > 1 ? 's' : ''} (droits : vidéos d’un collègue)` : ''}`, refused ? 'error' : 'success');
+  toast(`${moved} vidéo${moved > 1 ? 's' : ''} rangée${moved > 1 ? 's' : ''} dans « ${libFolderName(folder)} »${refused ? ` – ${refused} refusée${refused > 1 ? 's' : ''} (droits : vidéos d’un collègue)` : ''}`, refused ? 'error' : 'success');
   lfEl('lfPick')?.classList.add('hidden');
   await libPage.browser.refreshFolders();
   lfRender();

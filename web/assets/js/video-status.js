@@ -41,9 +41,15 @@ function seqStatus(s) {
 /* Envoyée et sans retour postérieur : le staff a quelque chose à voir. */
 const seqToSee = (s) => !!s.submitted_at && (!s.feedback_at || isAfter(s.submitted_at, s.feedback_at));
 
+/* Statut d'une séquence : un point et un mot discret. Seul ce qui demande une action prend le point doré
+   (staff : une séquence envoyée à traiter, ou modifiée ; joueur : un retour reçu, ou à renvoyer).
+   Staff : « à traiter » se réduit au point (le titre de la section le dit), « vue » ne montre rien. */
 function statusPill(s, viewer = 'player') {
-  const st = SEQ_STATUS[seqStatus(s)];
-  return `<span class="vw-status ${st.cls}" title="${st.hint}">${viewer === 'staff' ? st.staff : st.label}</span>`;
+  const key = seqStatus(s), st = SEQ_STATUS[key], staff = viewer === 'staff';
+  if (staff && key === 'seen') return '';
+  const attn = staff ? (key === 'sent' || key === 'modified') : (key === 'answered' || key === 'modified');
+  const label = staff ? st.staff : st.label;
+  return `<span class="vw-status ${st.cls}${attn ? ' is-attn' : ''}" title="${st.hint}">${staff && key === 'sent' ? `<span class="sr-only">${label}</span>` : label}</span>`;
 }
 
 /* Nom par défaut d'une nouvelle séquence : le numéro suivant, jamais un doublon. */

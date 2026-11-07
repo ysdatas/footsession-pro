@@ -171,7 +171,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     if (!s) {
       head.innerHTML = `
         ${backHref ? `<a class="back-inline" href="${escapeHtml(backHref)}">${vwIc('back')}Mes vidéos</a>` : ''}
-        <div class="vw-kind"><span class="vw-chip">Vidéo source</span><span class="vw-muted">${D ? `${fmtDur(D)} · ` : ''}jamais modifiée</span></div>
+        <div class="vw-kind"><span class="vw-chip">Vidéo source</span><span class="vw-muted">${D ? `${fmtDur(D)}${SEP}` : ''}jamais modifiée</span></div>
         <h1 class="vw-h1">${escapeHtml(video.titre || 'Vidéo')}</h1>
         ${video.description ? `<p class="vw-sub">${escapeHtml(video.description).replace(/\n/g, '<br>')}</p>` : ''}`;
       return;
@@ -183,7 +183,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
       ${w.fresh === s.id ? `<div class="vw-created" role="status">${vwIc('check')}<span><strong>Séquence créée.</strong> C’est une nouvelle vidéo : la vidéo source reste intacte.</span></div>` : ''}
       ${readOnly ? `<h1 class="vw-h1">${escapeHtml(s.label || 'Séquence')}</h1>`
         : `<label class="vw-titlefield">${vwIc('pen')}<input type="text" data-el="label" value="${escapeHtml(s.label || '')}" maxlength="80" enterkeyhint="done" aria-label="Titre de la séquence"></label>`}
-      <p class="vw-sub">${fmtDur(r.end - r.start)} · de ${fmtT(r.start)} à ${fmtT(r.end)} dans la vidéo source${s.created_at ? ` · créée le ${escapeHtml(vwDate(s.created_at))}` : ''}</p>`;
+      <p class="vw-sub">${fmtDur(r.end - r.start)}${SEP}de ${fmtT(r.start)} à ${fmtT(r.end)} dans la vidéo source${s.created_at ? `${SEP}créée le ${escapeHtml(vwDate(s.created_at))}` : ''}</p>`;
   }
   function renderActions() {
     const box = $w('[data-el="actions"]'), s = cur();
@@ -219,7 +219,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     box.innerHTML = `<button class="btn" type="button" data-act="annotate">${vwIc('pen')}<span>Annoter</span></button>
       ${['draft', 'modified'].includes(st)
         ? `<button class="btn btn-primary" type="button" data-act="send">${vwIc('send')}<span>${st === 'modified' ? 'Renvoyer au staff' : 'Envoyer au staff'}</span></button>`
-        : `<span class="vw-sent-line">${vwIc('check')}<span>Envoyée le ${escapeHtml(vwDate(s.submitted_at))} · ${SEQ_STATUS[st].label}</span></span>`}`;
+        : `<span class="vw-sent-line">${vwIc('check')}<span>Envoyée le ${escapeHtml(vwDate(s.submitted_at))}${SEP}${SEQ_STATUS[st].label}</span></span>`}`;
   }
   const clipCard = (s) => {
     const r = range(s), n = (s.drawings || []).length;
@@ -227,7 +227,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
       ${thumbHtml(src, r.start, fmtDur(r.end - r.start), s.thumb)}
       <span class="vw-clip-body">
         <strong>${escapeHtml(s.label || 'Séquence')}</strong>
-        <span class="vw-clip-meta">${fmtT(r.start)} → ${fmtT(r.end)}${n ? ` · ${n} annotation${n > 1 ? 's' : ''}` : ''}</span>
+        <span class="vw-clip-meta">${fmtT(r.start)} → ${fmtT(r.end)}${n ? `${SEP}${n} annotation${n > 1 ? 's' : ''}` : ''}</span>
         ${statusPill(s, viewer)}
       </span>
     </button>`;
@@ -251,7 +251,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
         ${fr.length ? `<div class="vw-anns">${fr.map((f, i) => `
           <div class="vw-ann">
             <button type="button" class="vw-ann-main" data-frame="${i}"><strong>${rel(f.t)} → ${rel(Math.min(f.t + f.d, r.end))}</strong>
-              <span>${escapeHtml([...new Set(f.shapes.map(x => INK_NAMES[x.type] || 'Élément'))].join(', ') || 'Vide')}${f.freeze ? ' · arrêt sur image' : ''}</span></button>
+              <span>${escapeHtml([...new Set(f.shapes.map(x => INK_NAMES[x.type] || 'Élément'))].join(', ') || 'Vide')}${f.freeze ? '' + SEP + 'arrêt sur image' : ''}</span></button>
             ${staff || readOnly ? '' : `<button type="button" data-frame-edit="${i}" aria-label="Modifier l’annotation">${vwIc('pen')}</button>
             <button type="button" data-frame-del="${i}" aria-label="Supprimer l’annotation">${vwIc('x')}</button>`}
           </div>`).join('')}</div>`
@@ -281,7 +281,7 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   }
   function syncSelText() {
     const el = $w('[data-el="selRange"]'); if (!el || !w.sel) return;
-    el.textContent = `${fmtT(w.sel.start)} → ${fmtT(w.sel.end)} · ${fmtDur(w.sel.end - w.sel.start)}`;
+    el.textContent = `${fmtT(w.sel.start)} → ${fmtT(w.sel.end)} – ${fmtDur(w.sel.end - w.sel.start)}`;
   }
   function syncTimeline() {
     const s = cur();
@@ -570,12 +570,12 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     if (useHistory && depth > 0) history.back();
     else swap(seq, ui);
   }
-  const onPop = (e) => {
+  const onPop = async (e) => {
     if (!vid.isConnected) return window.removeEventListener('popstate', onPop);
     if (!e.state?.vw) return;
     depth = Math.max(0, depth - 1);
     if (w.ui === 'annotate' && e.state.ui !== 'annotate' && annot?.dirty
-        && !confirm('Ton annotation n’est pas enregistrée. La quitter quand même ?')) {
+        && !await confirmDialog('Ton annotation n’est pas enregistrée. La quitter quand même ?')) {
       depth++; history.pushState(viewState(), '', urlFor());
       return;
     }
@@ -735,10 +735,10 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
   }
   /* Changer de séquence (Précédent / Suivant) : rien de non enregistré ne se
      perd sans le demander (annotation du joueur, retour du staff en cours). */
-  const canLeave = () => {
-    if (w.ui === 'annotate' && annot?.dirty) return confirm('Ton annotation n’est pas enregistrée. La quitter quand même ?');
+  const canLeave = async () => {
+    if (w.ui === 'annotate' && annot?.dirty) return await confirmDialog('Ton annotation n’est pas enregistrée. La quitter quand même ?');
     const fb = root.querySelector('[data-el="feedback"]');
-    if (fb && fb.value.trim() !== (cur()?.staff_feedback || '').trim()) return confirm('Votre retour n’est pas envoyé. Changer de séquence quand même ?');
+    if (fb && fb.value.trim() !== (cur()?.staff_feedback || '').trim()) return await confirmDialog('Votre retour n’est pas envoyé. Changer de séquence quand même ?');
     return true;
   };
   return { video: vid, canLeave };

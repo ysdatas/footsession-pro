@@ -100,6 +100,21 @@ async function shrinkImage(file, max = 1600) {
   }
 }
 
+/* Séparateur entre deux informations d'une même ligne : un filet fin tracé en CSS (.sep), à la place du « · ».
+   Dans un texte brut (option, titre, message) on met un tiret « – » à la main. */
+const SEP = '<i class="sep" aria-hidden="true"></i>';
+
+/* Remplace le contenu d'une zone sans que la page bouge (tri, filtre) : hauteur tenue le temps
+   du remplacement, défilement de la page et des tableaux larges conservé. */
+function swapKeepView(zone, html) {
+  const wraps = '.cmp-table-wrap, .mh-wrap', y = window.scrollY, x = [...zone.querySelectorAll(wraps)].map(w => w.scrollLeft);
+  zone.style.minHeight = `${zone.offsetHeight}px`;
+  zone.innerHTML = html;
+  zone.querySelectorAll(wraps).forEach((w, i) => { w.scrollLeft = x[i] || 0; });
+  window.scrollTo(window.scrollX, y);
+  requestAnimationFrame(() => { zone.style.minHeight = ''; });
+}
+
 function toast(message, type = '') {
   let stack = document.getElementById('toast-stack');
   if (!stack) {
@@ -114,6 +129,50 @@ function toast(message, type = '') {
 /* ---------- Modales ---------- */
 function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+/* Confirmation et saisie dans la page : remplacent confirm() et prompt() du
+   navigateur (fenêtre grise, sans le style du site). Le message se lit comme
+   avant : la 1re phrase en titre, le reste en texte. Suppression, retrait ou
+   départ : bouton rouge, et le focus part sur « Annuler ».
+   confirmDialog(message, { ok, cancel }) → true / false
+   promptDialog(message, valeur) → texte, ou null si abandonné */
+function askDialog(message, { input = null, ok = '', cancel = 'Annuler' } = {}) {
+  const [p0, ...rest] = String(message).split(/\n\s*\n/);
+  const cut = input === null ? p0.search(/\?\s+\S/) : -1;
+  const title = cut < 0 ? p0 : p0.slice(0, cut + 1);
+  const body = [cut < 0 ? '' : p0.slice(cut + 1).trim(), ...rest].filter(Boolean).join('\n\n');
+  const danger = /^(supprimer|retirer|tout effacer|quitter|remplacer)/i.test(title);
+  ok = ok || title.match(/^(supprimer|retirer|désactiver|arrêter|fusionner|envoyer|remplacer|rattacher|réunir|modifier|quitter|tout effacer)/i)?.[0].replace(/^./, c => c.toUpperCase()) || 'Confirmer';
+  return new Promise((resolve) => {
+    const back = document.activeElement;
+    const field = input === null ? null : el('input', { type: 'text', value: input, 'aria-label': title });
+    const no = el('button', { type: 'button', class: 'btn' }, cancel);
+    const yes = el('button', { type: 'button', class: 'btn ' + (danger ? 'btn-danger-fill' : 'btn-primary') }, ok);
+    const box = el('div', { class: 'modal-backdrop open dlg', 'data-busy': '' },   // data-busy : le clic sur le voile est géré ici
+      el('div', { class: 'modal dlg-box', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': title },
+        el('h2', { class: 'as-h3' }, title),
+        body && el('p', { class: 'dlg-body' }, body),
+        field,
+        el('div', { class: 'modal-actions' }, no, yes)));
+    const done = (v) => { box.remove(); back?.focus?.(); resolve(v); };
+    yes.addEventListener('click', () => done(field ? field.value : true));
+    no.addEventListener('click', () => done(field ? null : false));
+    box.addEventListener('click', (e) => { if (e.target === box) no.click(); });
+    box.addEventListener('keydown', (e) => {
+      e.stopPropagation();   // les raccourcis de la page (tableau tactique…) restent à l'écart
+      if (e.key === 'Escape') no.click();
+      else if (e.key === 'Enter' && e.target === field) { e.preventDefault(); yes.click(); }
+      else if (e.key === 'Tab') {   // le focus reste dans la fenêtre
+        const f = [...box.querySelectorAll('input, button')], i = f.indexOf(document.activeElement);
+        e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+      }
+    });
+    document.body.append(box);
+    (field || (danger ? no : yes)).focus(); field?.select();
+  });
+}
+function confirmDialog(message, opts) { return askDialog(message, opts); }
+function promptDialog(message, value = '') { return askDialog(message, { input: value, ok: 'Valider' }); }
 
 document.addEventListener('click', (e) => {
   // data-busy : une opération en cours (un envoi) garde la fenêtre ouverte.
@@ -153,7 +212,7 @@ const updateNeeded = (detail) => { console.warn('Base à mettre à jour :', deta
 /* Nom d'un joueur, « Prénom NOM » : la seule mise en forme, partagée par les pages. */
 const playerFullName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
 /* Nom d'un joueur qui ouvre sa fiche (clic simple ; Ctrl/Cmd : nouvel onglet). */
-const playerHref = (id) => `player-performance.html?id=${id}`;
+const playerHref = (id) => `player-performance?id=${id}`;
 const playerLink = (id, text, extra = '') => `<a class="player-link" href="${playerHref(id)}"${extra}>${escapeHtml(text)}</a>`;
 const capFirst = (s) => { const t = String(s ?? ''); return t.charAt(0).toUpperCase() + t.slice(1); };
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -311,7 +370,7 @@ const memRead = () => { try { return JSON.parse(sessionStorage.getItem(NAV_MEM))
 const memWrite = (m) => { try { sessionStorage.setItem(NAV_MEM, JSON.stringify(m)); } catch { /* stockage bloqué : pas de mémoire */ } };
 const pageOf = (href) => (String(href).split(/[?#]/)[0].split('/').pop() || 'index').replace(/\.html$/i, '') || 'index';
 const PAGE = pageOf(location.pathname);
-const hereUrl = () => `${location.pathname.split('/').pop() || 'index.html'}${location.search}${location.hash}`;
+const hereUrl = () => `${location.pathname.split('/').pop() || '/'}${location.search}${location.hash}`;
 
 function pageState() { return memRead().state?.[PAGE] || {}; }
 function savePageState(patch) {
@@ -510,7 +569,7 @@ function bulkEditDialog({ noun: [one, many], rows, names, fields, blocked = [] }
   openModal('bulkEdit');
   document.getElementById('bulkEdit-0')?.focus();
   return new Promise((resolve) => {
-    document.getElementById('bulkEditOk').addEventListener('click', () => {
+    document.getElementById('bulkEditOk').addEventListener('click', async () => {
       const patch = {}, lines = [];
       fields.forEach((f, i) => {
         const raw = document.getElementById(`bulkEdit-${i}`).value;
@@ -519,7 +578,7 @@ function bulkEditDialog({ noun: [one, many], rows, names, fields, blocked = [] }
         lines.push(`${f.label} → ${shown(f, f.options ? raw : raw.trim())}`);
       });
       if (!lines.length) return toast('Choisissez au moins une nouvelle valeur.', 'error');
-      if (!confirm(`Modifier ${what} ?\n\n${lines.join('\n')}\n\n${namesList(names)}`
+      if (!await confirmDialog(`Modifier ${what} ?\n\n${lines.join('\n')}\n\n${namesList(names)}`
         + (blocked.length ? `\n\nNon modifiable${blocked.length > 1 ? 's' : ''} avec vos droits (laissé${blocked.length > 1 ? 's' : ''} tel${blocked.length > 1 ? 's' : ''} quel${blocked.length > 1 ? 's' : ''}) :\n${namesList(blocked, 3)}` : ''))) return;
       closeModal('bulkEdit');
       resolve(patch);
@@ -529,7 +588,7 @@ function bulkEditDialog({ noun: [one, many], rows, names, fields, blocked = [] }
 /* Bilan d'une écriture groupée : la base ne renvoie que les lignes qu'elle a acceptées. */
 function bulkReport(done, asked, [one, many, fem], verb) {
   const refused = asked - done, e = fem ? 'e' : '';
-  toast(`${done} ${done > 1 ? many : one} ${verb}${e}${done > 1 ? 's' : ''}${refused ? ` · ${refused} refusé${e}${refused > 1 ? 's' : ''} (droits)` : ''}`, refused ? 'error' : 'success');
+  toast(`${done} ${done > 1 ? many : one} ${verb}${e}${done > 1 ? 's' : ''}${refused ? ` – ${refused} refusé${e}${refused > 1 ? 's' : ''} (droits)` : ''}`, refused ? 'error' : 'success');
 }
 
 /* ---------- Changement de page quasi instantané ----------
@@ -546,7 +605,7 @@ if (HTMLScriptElement.supports?.('speculationrules') && !['index', 'onboarding',
     { href_matches: '/*' },
     { not: { selector_matches: [
       'a[href*="session-edit"]:not([href*="id="])', 'a[href*="tactical-board"]', 'a[href*="voir-video"]',
-      'a[href*="index"]', 'a[href*="onboarding"]', 'a[href*="/api/"]', 'a[href^="#"]', 'a[href^="javascript"]',
+      'a[href="/"]', 'a[href*="index"]', 'a[href*="onboarding"]', 'a[href*="/api/"]', 'a[href^="#"]', 'a[href^="javascript"]',
       'a[data-no-prerender]', 'a[download]', 'a[target]', '#logoutLink',
     ].join(', ') } },
   ] } }] });

@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — bibliotheque-page.js (bibliotheque.html)
+   LMFC Performance — bibliotheque-page.js (bibliotheque)
    Bibliothèque vidéo : explorateur (library.js), ajout d'un procédé,
    gestion des tags (library-tags.js), fiche (library-item.js).
    Un fichier déjà présent dans le club (même empreinte SHA-256) n'est
@@ -121,9 +121,9 @@ $la('file').addEventListener('change', () => {
   const f = $la('file').files[0];
   if (f && !$la('titre').value.trim()) $la('titre').value = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim().slice(0, 200);
 });
-$la('cancel').addEventListener('click', () => {
+$la('cancel').addEventListener('click', async () => {
   if (!libPage.ctrl) return closeModal('libAddModal');
-  if (confirm('Arrêter l’envoi ?')) libPage.ctrl.abort();
+  if (await confirmDialog('Arrêter l’envoi ?')) libPage.ctrl.abort();
 });
 window.addEventListener('beforeunload', (e) => { if (libPage.ctrl) e.preventDefault(); });
 
@@ -143,7 +143,7 @@ $la('submit').addEventListener('click', async () => {
       signal: libPage.ctrl.signal, onStep: step,
       onProgress: (x) => { $la('bar').style.width = `${Math.round(x * 100)}%`; step(`Envoi de la vidéo… ${Math.round(x * 100)} %`); },
     });
-    if (up.item && confirm(`Cette vidéo est déjà dans la bibliothèque : « ${up.item.titre} ».\n\nOK : ouvrir ce procédé.\nAnnuler : créer un nouveau procédé avec la même vidéo (sans la renvoyer).`)) {
+    if (up.item && await confirmDialog(`Cette vidéo est déjà dans la bibliothèque : « ${up.item.titre} ».\n\nOuvrir ce procédé, ou en créer un nouveau avec la même vidéo (sans la renvoyer).`, { ok: 'Ouvrir ce procédé', cancel: 'Créer un nouveau' })) {
       closeModal('libAddModal');
       return openLibItem(up.item.id);
     }
@@ -173,13 +173,13 @@ $la('submit').addEventListener('click', async () => {
 /* ---------- Ajouter à une séance (séances modifiables, ou une nouvelle) ---------- */
 async function openToSession(item) {
   document.getElementById('lts-what').textContent = `« ${item.titre} » devient un procédé de la séance choisie (version en cours).`;
-  document.getElementById('lts-new').href = `session-edit.html?lib=${item.id}`;
+  document.getElementById('lts-new').href = `session-edit?lib=${item.id}`;
   const list = document.getElementById('lts-list');
   list.innerHTML = '<li class="text-muted">Chargement…</li>';
   openModal('libToSessionModal');
   const { data, error } = await sb.rpc('my_editable_sessions', { p_limit: 40 });
   if (error) { list.innerHTML = `<li class="text-danger">${escapeHtml(libError(error))}</li>`; return; }
-  list.innerHTML = (data || []).map(s => `<li><a class="lib-session-link" href="session-edit.html?id=${s.id}&lib=${item.id}">
+  list.innerHTML = (data || []).map(s => `<li><a class="lib-session-link" href="session-edit?id=${s.id}&lib=${item.id}">
     <strong>${escapeHtml(s.titre)}</strong><span>${escapeHtml(fmtDate(s.date_seance))}</span></a></li>`).join('')
     || '<li class="text-muted">Aucune séance que vous pouvez modifier : créez-en une.</li>';
 }

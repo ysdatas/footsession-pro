@@ -121,10 +121,10 @@ const teamsForSession = () => (window.CLUB_TEAMS || []).filter(t => myProfile.ro
     }));
   }
   startAutosave(loadedSession);
-  // Depuis la Bibliothèque de schémas (schemas.html) : le schéma choisi devient un procédé.
+  // Depuis la Bibliothèque de schémas (schemas) : le schéma choisi devient un procédé.
   if (TEMPLATE_ID && CAN_WRITE) {
     await insertTemplate(TEMPLATE_ID);
-    history.replaceState(null, '', SESSION_ID ? `session-edit.html?id=${SESSION_ID}` : 'session-edit.html');
+    history.replaceState(null, '', SESSION_ID ? `session-edit?id=${SESSION_ID}` : 'session-edit');
   }
   offerPlanned();
   initSessionLibrary();   // vidéos de la bibliothèque (session-library.js)
@@ -145,7 +145,7 @@ async function offerPlanned() {
   if (!list.length) return;
   const label = (s) => new Date(`${s.date_seance}T12:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
   document.getElementById('plannedList').innerHTML = list.map(s => `<button type="button" class="btn" data-planned="${s.id}">
-    ${escapeHtml(label(s))}${s.heure ? ` · ${s.heure.slice(0, 5)}` : ''} · ${escapeHtml(s.titre)}</button>`).join('');
+    ${escapeHtml(label(s))}${s.heure ? `${SEP}${s.heure.slice(0, 5)}` : ''}${SEP}${escapeHtml(s.titre)}</button>`).join('');
   openModal('plannedModal');
 }
 document.getElementById('plannedModal').addEventListener('click', (e) => {
@@ -153,7 +153,7 @@ document.getElementById('plannedModal').addEventListener('click', (e) => {
   if (e.target.closest('#plannedNew')) closeModal('plannedModal');
   if (!b) return;
   dirty = false;   // rien à garder ici : on part sur la séance prévue
-  location.href = `session-edit.html?id=${b.dataset.planned}${TEMPLATE_ID ? `&template=${TEMPLATE_ID}` : ''}`;
+  location.href = `session-edit?id=${b.dataset.planned}${TEMPLATE_ID ? `&template=${TEMPLATE_ID}` : ''}`;
 });
 
 /* Séance enregistrée : titre, exports et partage disponibles. */
@@ -166,7 +166,7 @@ function showSavedSession() {
 function onSessionCreated() {
   showSavedSession();
   renderShare();
-  document.getElementById('editorSubtitle').textContent = `Créée le ${new Date().toISOString().slice(0, 10)} · enregistrée à chaque modification`;
+  document.getElementById('editorSubtitle').textContent = `Créée le ${new Date().toISOString().slice(0, 10)} – enregistrée à chaque modification`;
 }
 
 /* Principes déjà utilisés par le club : proposés à la saisie, pour que le
@@ -234,7 +234,7 @@ let shareToken = null;
 function renderShare() {
   const area = document.getElementById('shareArea');
   if (shareToken) {
-    const url = location.origin + baseUrl('share.html') + '?token=' + shareToken;
+    const url = location.origin + baseUrl('share') + '?token=' + shareToken;
     area.innerHTML = `<input readonly value="${url}" data-do="select" style="margin-bottom:8px;">
       <div class="flex gap-sm"><button class="btn btn-sm" type="button" id="shareCopy">Copier</button>
       ${CAN_WRITE ? '<button class="btn btn-sm btn-danger" type="button" id="shareToggle">Désactiver</button>' : ''}</div>`;
@@ -279,7 +279,7 @@ async function loadSession() {
       loadClubPlayers(),
     ]);
     // Introuvable (ou plus de droit) : retour à la liste. Panne : on le dit, sans rien enregistrer.
-    if (!s && (!e1 || e1.code === 'PGRST116')) { toast('Séance introuvable.', 'error'); setTimeout(() => location.href = 'sessions.html', 1200); return null; }
+    if (!s && (!e1 || e1.code === 'PGRST116')) { toast('Séance introuvable.', 'error'); setTimeout(() => location.href = 'sessions', 1200); return null; }
     if (e1 || e2 || e3) throw e1 || e2 || e3;
     shareToken = s.share_token || null;
     loadedSession = s;
@@ -441,7 +441,7 @@ function procTemplate(p, index) {
             <input data-field="temps_recup_min" id="${fid('temps_recup_min')}" type="text" inputmode="decimal" value="${decStr(p.temps_recup_min)}" placeholder="Ex: 0,5" ${dis}></div>
           <div class="field"><label for="${fid('recap')}">Récapitulatif</label>
             <input id="${fid('recap')}" value="${escapeHtml(sequenceLabel(p))}" readonly tabindex="-1"
-                   title="Travail ${fmtMin(workMin(p))}' · récup ${fmtMin(recupMin(p))}' · total ${fmtMin(totalMin(p))}'"></div>
+                   title="Travail ${fmtMin(workMin(p))}' – récup ${fmtMin(recupMin(p))}' – total ${fmtMin(totalMin(p))}'"></div>
         </div>
         <div class="field"><label for="${fid('consignes')}">Consignes</label><textarea data-field="consignes" id="${fid('consignes')}" placeholder="Instructions détaillées…" ${dis}>${f(p.consignes)}</textarea></div>
         <div class="field"><label for="${fid('comportements_individuels')}">Comportements individuels</label><textarea data-field="comportements_individuels" id="${fid('comportements_individuels')}" placeholder="Ex: Présenter le pied…" ${dis}>${f(p.comportements_individuels)}</textarea></div>
@@ -449,7 +449,7 @@ function procTemplate(p, index) {
       <div>
         <p class="proc-group">Schéma tactique</p>
         <div class="schema-box" data-schema-box>${tac}</div>
-        <div class="schema-recap">Procédé ${index + 1} / ${procedures.length} · ${escapeHtml(sequenceLabel(p))}</div>
+        <div class="schema-recap">Procédé ${index + 1} / ${procedures.length}${SEP}${escapeHtml(sequenceLabel(p))}</div>
         <div data-lib-box="${p._uid}">${libraryBoxHtml(p)}</div>
       </div>
       ${procExtrasHtml(p)}
@@ -470,13 +470,13 @@ function schemaBoxHtml(p) {
     const shownPath = p.from_template?.image_path || p.image_path;
     const shownVersion = p.from_template ? null : p.image_v;
     const hasCanvas = p.from_template ? !!p.from_template.canvas_json : p.has_canvas;
-    const draw = !shownPath && !hasCanvas ? 'Dessiner le schéma →' : hasCanvas ? 'Ouvrir le tableau tactique →' : 'Dessiner à la place →';
+    const draw = !shownPath && !hasCanvas ? 'Dessiner le schéma<span class="arr arr-r" aria-hidden="true"></span>' : hasCanvas ? 'Ouvrir le tableau tactique<span class="arr arr-r" aria-hidden="true"></span>' : 'Dessiner à la place<span class="arr arr-r" aria-hidden="true"></span>';
     return `${shownPath ? `<button class="schema-preview" type="button" data-do="previewProcedureSchema" data-arg="${p._uid}" aria-label="Aperçu du schéma du procédé"><img class="schema-thumb" src="${escapeHtml(schemaUrl(shownPath, shownVersion))}" alt="Schéma du procédé" loading="lazy"${p.from_template ? '' : ` data-fail-uid="${p._uid}"`}></button>` : '<p class="schema-empty">Aucun schéma pour ce procédé.</p>'}
        <button class="btn btn-sm" type="button" data-do="openBoard" data-arg="${p.id}">${draw}</button>
        ${p.from_template ? '<p class="schema-empty">Import en attente de la sauvegarde automatique.</p>' : ''}
        ${CAN_WRITE ? `<button class="btn btn-sm" type="button" data-do="importTemplateToProcedure" data-arg="${p._uid}">Importer depuis les schémas</button>` : ''}
        ${CAN_WRITE ? `<button class="btn btn-sm" type="button" data-do="importSchemaImage" data-arg="${p._uid}">${p.image_path ? 'Remplacer par une image' : 'Importer une image'}</button>` : ''}
-       ${p.video_id ? `<button class="btn btn-sm" type="button" data-do="openLinkedVideo" data-arg="${p.video_id}">▶ Vidéo liée</button>` : ''}`;
+       ${p.video_id ? `<button class="btn btn-sm" type="button" data-do="openLinkedVideo" data-arg="${p.video_id}"><span class="arr arr-play" aria-hidden="true"></span>Vidéo liée</button>` : ''}`;
   }
   if (!CAN_WRITE) return '<p class="schema-empty">Aucun schéma pour ce procédé.</p>';
   if (p.from_template) {
@@ -488,9 +488,9 @@ function schemaBoxHtml(p) {
   if (meta || started) {
     return `${meta?.image_path ? `<img class="schema-thumb" src="${escapeHtml(schemaUrl(meta.image_path, meta.at))}" alt="Aperçu du schéma">` : ''}
       <p class="schema-empty">${meta ? 'Schéma prêt : il est rattaché au procédé dès que la séance est enregistrée (titre et date).' : 'Schéma commencé : cliquez « Enregistrer » dans le tableau.'}</p>
-      <button class="btn btn-sm" type="button" data-do="openDraftBoard" data-arg="${p._uid}">Modifier le schéma →</button>`;
+      <button class="btn btn-sm" type="button" data-do="openDraftBoard" data-arg="${p._uid}">Modifier le schéma<span class="arr arr-r" aria-hidden="true"></span></button>`;
   }
-  return `<button class="btn btn-sm btn-primary" type="button" data-do="openDraftBoard" data-arg="${p._uid}">Dessiner le schéma →</button>
+  return `<button class="btn btn-sm btn-primary" type="button" data-do="openDraftBoard" data-arg="${p._uid}">Dessiner le schéma<span class="arr arr-r" aria-hidden="true"></span></button>
     <p class="schema-empty">Le schéma est rattaché au procédé dès que la séance est enregistrée.</p>`;
 }
 /* Image du schéma illisible (cache, réseau) : un essai par lien signé,
@@ -516,7 +516,7 @@ window.openDraftBoard = (uid) => {
   if (!p) return;
   if (!p.draft_key) { p.draft_key = randomToken().slice(0, 16); markDirty(); }
   const name = p.nom.trim() || `Procédé ${procedures.indexOf(p) + 1}`;
-  window.open(`tactical-board.html?draft=${p.draft_key}&name=${encodeURIComponent(name)}`, '_blank');
+  window.open(`tactical-board?draft=${p.draft_key}&name=${encodeURIComponent(name)}`, '_blank');
   refreshSchemaBox(p);
 };
 /* Le tableau, ouvert dans un autre onglet, prévient quand il enregistre :
@@ -631,7 +631,7 @@ window.importSchemaImage = (uid) => {
   input.addEventListener('change', async () => {
     const file = input.files[0];
     if (!file) return;
-    if (p.has_canvas && !confirm('Remplacer le schéma dessiné par cette image ? Le dessin sera perdu.')) return;
+    if (p.has_canvas && !await confirmDialog('Remplacer le schéma dessiné par cette image ? Le dessin sera perdu.')) return;
     try {
       const img = await shrinkImage(file);
       if (!['image/png', 'image/jpeg'].includes(img.type)) throw new Error('choisissez une image JPEG ou PNG');
@@ -685,12 +685,12 @@ function refreshProcTimes(node) {
   const recap = node.querySelector('.proc-body .field-row input[readonly][tabindex="-1"]');
   if (recap) {
     recap.value = sequenceLabel(p);
-    recap.title = `Travail ${fmtMin(workMin(p))}' · récup ${fmtMin(recupMin(p))}' · total ${fmtMin(totalMin(p))}'`;
+    recap.title = `Travail ${fmtMin(workMin(p))}' – récup ${fmtMin(recupMin(p))}' – total ${fmtMin(totalMin(p))}'`;
   }
   const schemaRecap = node.querySelector('.schema-recap');
   if (schemaRecap) {
     const idx = procedures.indexOf(p);
-    schemaRecap.textContent = `Procédé ${idx + 1} / ${procedures.length} · ${sequenceLabel(p)}`;
+    schemaRecap.textContent = `Procédé ${idx + 1} / ${procedures.length} – ${sequenceLabel(p)}`;
   }
 }
 
@@ -741,7 +741,7 @@ window.openBoard = async (procId) => {
     tab.close();
     return toast('Le schéma n’est pas encore enregistré. Réessayez après la sauvegarde.', 'error');
   }
-  tab.location.replace('tactical-board.html?procedure_id=' + procId);
+  tab.location.replace('tactical-board?procedure_id=' + procId);
 };
 window.previewProcedureSchema = (uid) => {
   const p = procedures.find(x => x._uid === uid);
@@ -758,9 +758,9 @@ function updateMeta() {
   const travail = sessionWorkMin(procedures), total = sessionTotalMin(procedures);
   const recup = total - travail;
   document.getElementById('editorMeta').textContent =
-    `${n} procédé${n > 1 ? 's' : ''} · ${fmtMin(travail)} min de travail`
+    `${n} procédé${n > 1 ? 's' : ''}${SEP}${fmtMin(travail)} min de travail`
     + (recup > 0 ? ` + ${fmtMin(recup)} min de récup` : '')
-    + ` · ${fmtMin(total)} min au total`;
+    + ` – ${fmtMin(total)} min au total`;
   document.getElementById('procCount').textContent = n;
 }
 

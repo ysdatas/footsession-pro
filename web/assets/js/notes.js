@@ -329,7 +329,7 @@ function mountNoteModal() {
 function renderNoteVideos() {
   const sel = document.getElementById('noteVideo');
   sel.innerHTML = '<option value="">Aucune vidéo</option>' + noteStore.videos.map(v =>
-    `<option value="${v.id}">${escapeHtml(v.titre || 'Vidéo')} · ${new Date(v.created_at).toLocaleDateString('fr-FR')}</option>`).join('');
+    `<option value="${v.id}">${escapeHtml(v.titre || 'Vidéo')} – ${new Date(v.created_at).toLocaleDateString('fr-FR')}</option>`).join('');
   sel.value = noteStore.draft.video ? String(noteStore.draft.video) : '';
 }
 function renderNoteExos() {
@@ -493,7 +493,7 @@ async function setNoteStatus(id, status) {
 
 async function deleteNote(id) {
   const n = noteStore.notes.find(x => x.id === id);
-  if (!noteStore.canEdit || !n || !confirm(`Supprimer « ${noteTitle(n)} »${noteImages(id).length ? ' et ses images' : ''} ?${await trashNote()}`)) return;
+  if (!noteStore.canEdit || !n || !await confirmDialog(`Supprimer « ${noteTitle(n)} »${noteImages(id).length ? ' et ses images' : ''} ?${await trashNote()}`)) return;
   const files = noteStore.media.filter(m => m.note_id === id).map(m => m.storage_path);
   const { error } = await sb.from('player_performance_notes').delete().eq('id', id);
   if (error) return noteStore.onError(error.message);

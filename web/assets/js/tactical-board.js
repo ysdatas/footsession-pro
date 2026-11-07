@@ -1201,8 +1201,8 @@ function openTextEditor(it, p = it) {
   const box = document.createElement('div');
   box.className = 'tb-textedit';
   box.innerHTML = '<textarea rows="1" wrap="off" spellcheck="false" aria-label="Texte" placeholder="Texte…"></textarea>'
-    + `<small>${matchMedia('(pointer: coarse)').matches ? 'Retour : à la ligne · touchez à côté pour valider'
-      : 'Entrée : à la ligne · Ctrl/⌘ + Entrée : valider · Échap : annuler'}</small>`;
+    + `<small>${matchMedia('(pointer: coarse)').matches ? 'Retour : à la ligne' + SEP + 'touchez à côté pour valider'
+      : 'Entrée : à la ligne – Ctrl/⌘ + Entrée : valider – Échap : annuler'}</small>`;
   const ta = box.firstChild;
   ta.value = it?.text || '';
   ta.style.font = `600 ${Math.max(14, (it?.size || 22) * k)}px ${it?.font || state.textFont}`;
@@ -1487,7 +1487,7 @@ function syncCrop() {
 document.getElementById('cropChip')?.addEventListener('click', clearCrop);
 $('#undoBtn').addEventListener('click', undo);
 $('#redoBtn')?.addEventListener('click', redo);
-$('#clearBtn').addEventListener('click', () => { if (confirm('Tout effacer ?')) { pushHistory(); state.items = []; state.selIds = []; commit(); } });
+$('#clearBtn').addEventListener('click', async () => { if (await confirmDialog('Tout effacer ?')) { pushHistory(); state.items = []; state.selIds = []; commit(); } });
 $('#logoInput').addEventListener('change', importLogo);
 $('#addStep').addEventListener('click', newStep);
 $('#playSteps').addEventListener('click', () => playSteps());
@@ -2097,9 +2097,9 @@ function goToStep(i) {
   renderSteps();
   tween(from, state.steps[i], 380, () => { applySnapshot(state.steps[i]); render(); scheduleSave(false); });
 }
-function deleteStep() {
+async function deleteStep() {
   if (state.curStep === null || state.playing) return;
-  if (!confirm(`Supprimer l’étape ${state.curStep + 1} ?`)) return;
+  if (!await confirmDialog(`Supprimer l’étape ${state.curStep + 1} ?`)) return;
   pushHistory();
   state.steps.splice(state.curStep, 1);
   if (state.steps.length < 2) {
@@ -2632,7 +2632,7 @@ async function saveExerciseSchema(validate) {
     if (validate) {
       toast('Schéma enregistré sur l’exercice.', 'success');
       // Onglet ouvert par la fiche : il se ferme. Sinon (même onglet), retour à la fiche.
-      setTimeout(() => { window.close(); if (!window.closed) location.href = `player-performance.html?id=${EXO_ROW.player_id}`; }, 1100);
+      setTimeout(() => { window.close(); if (!window.closed) location.href = `player-performance?id=${EXO_ROW.player_id}`; }, 1100);
     } else toast('Schéma enregistré', 'success');
   } catch (e) { console.error('Schéma d’exercice non enregistré', e); toast(e.message, 'error'); }
   finally { unlock(); if (btn) btn.disabled = false; }

@@ -43,7 +43,7 @@ async function requireAuth(opts = {}) {
   const requireClub = opts.requireClub !== false;
 
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) { window.location.href = 'index.html'; return null; }
+  if (!session) { window.location.href = '/'; return null; }
 
   // Profil et équipes partent ensemble. (Un compte joueur n'a pas l'usage des
   // équipes ici : la réponse est simplement ignorée.)
@@ -59,7 +59,7 @@ async function requireAuth(opts = {}) {
     profile = cached.profile;
     teamsRes = { data: cached.teams, error: null };
     loadProfile().then(([{ data: p, error }, t]) => {
-      if (error?.code === 'PGRST116') { clearAuthCache(); window.location.href = 'index.html'; return; }   // profil supprimé
+      if (error?.code === 'PGRST116') { clearAuthCache(); window.location.href = '/'; return; }   // profil supprimé
       if (error || !p) return console.warn('Profil non relu (réseau) : la page garde celui en mémoire', error?.message);
       const teams = t.error ? cached.teams : (t.data || []);
       writeAuthCache(p, teams);
@@ -73,7 +73,7 @@ async function requireAuth(opts = {}) {
     const [res, t] = await loadProfile();
     if (res.error) {
       console.error('requireAuth: lecture du profil impossible', res.error);
-      window.location.href = 'index.html';
+      window.location.href = '/';
       return null;
     }
     profile = res.data;
@@ -103,7 +103,7 @@ async function requireAuth(opts = {}) {
   }
 
   if (requireClub && !profile.club_id) {
-    window.location.href = 'onboarding.html';
+    window.location.href = 'onboarding';
     return null;
   }
 
@@ -127,10 +127,10 @@ async function requireAuth(opts = {}) {
    lecteur, tableau de bord du staff, ou création de club pour un compte
    qui n'a encore aucun accès. */
 function homeFor(profile) {
-  if (!profile?.club_id) return 'onboarding.html';
+  if (!profile?.club_id) return 'onboarding';
   return roleHome(profile.role);
 }
-const roleHome = (role) => ({ joueur: 'mon-espace.html', lecteur: 'players.html' }[role] || 'dashboard.html');
+const roleHome = (role) => ({ joueur: 'mon-espace', lecteur: 'players' }[role] || 'dashboard');
 
 /* Rattache le compte au club si l'administrateur a enregistré son adresse
    e-mail (Mon club → Accès). Sans effet sinon. */
@@ -144,7 +144,7 @@ async function logout() {
   if (typeof clearNavCache === 'function') clearNavCache();
   clearAuthCache();
   await sb.auth.signOut();
-  window.location.href = 'index.html';
+  window.location.href = '/';
 }
 
 /* Comptes staff : admin, coach, prepa, analyste, lecteur ; et joueur.

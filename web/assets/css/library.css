@@ -10,7 +10,7 @@
 .lib-toolbar, .lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
 .lib-search { flex: 1 1 260px; }
 .lib-toolbar select { flex: 0 0 auto; width: auto; }
-.lib-filters { min-height: 40px; }
+.lib-filters { min-height: 32px; }
 .lib-tagfilter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 320px; min-width: 0; }
 .lib-tf-chosen, .lib-tf-quick { display: contents; }
 .lib-tf-combo { flex: 0 1 180px; min-width: 140px; }
@@ -67,7 +67,7 @@ button.lib-tag { cursor: pointer; font-family: inherit; }
 .lib-card-title button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
 .lib-card-meta { margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 .lib-card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
-.lib-more { display: flex; justify-content: center; min-height: 44px; margin-top: 14px; }
+.lib-more { display: flex; justify-content: center; min-height: 36px; margin-top: 14px; }
 
 /* Vignette : 16:9 réservé, image posée quand elle arrive */
 .lib-thumb {
@@ -169,7 +169,7 @@ button.lib-tag { cursor: pointer; font-family: inherit; }
 }
 .lib-folder-open:hover { border-color: var(--gold-border); }
 .lib-folder-open:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.lib-folder-ic { width: 52px; height: 44px; margin-bottom: 6px; fill: rgba(var(--red-rgb), .22); stroke: var(--red-ui); stroke-width: 2; stroke-linejoin: round; }
+.lib-folder-ic { width: 52px; height: 44px; margin-bottom: 6px; fill: rgba(255, 255, 255, .05); stroke: var(--text-muted); stroke-width: 2; stroke-linejoin: round; }
 .lib-folder-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: 600; }
 .lib-folder-n { font-size: var(--fs-xs); color: var(--text-secondary); }
 .lib-folder.is-off .lib-folder-open { opacity: .6; }

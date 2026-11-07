@@ -219,7 +219,7 @@ async function exportNotes(k, kind, title, withImages) {
 async function exportExercise(k, e, label) {
   const head = `${label ? `${label} — ` : ''}${e.title}${e.done_at ? ' (fait)' : ''}`;
   const lines = k.lines(head, k.CW - 8, 9.8), hh = lines.length * k.lh(9.8) + 4;
-  const meta = [e.seance && `Séance : ${e.seance}`, e.dosage && `Dosage : ${e.dosage}`].filter(Boolean).join(' · ');
+  const meta = [e.seance && `Séance : ${e.seance}`, e.dosage && `Dosage : ${e.dosage}`].filter(Boolean).join(' – ');
   const imgs = [e.image_url && { src: e.image_url, caption: e.image_caption || 'Image' }, e.schema_url && { src: e.schema_url, caption: 'Schéma' }].filter(Boolean);
   const textH = (meta ? k.lines(meta, k.CW - 4, 8.6).length * k.lh(8.6) : 0) + (e.instructions ? k.lines(e.instructions, k.CW - 4, 8.8).length * k.lh(8.8) : 0);
   k.ensure(Math.min(hh + textH + (imgs.length ? 72 : 0) + 6, 200));
@@ -271,7 +271,7 @@ async function runExport() {
     k.cover({
       kicker: `${club} · Dossier performance`,
       title: fullName,
-      subtitle: [player.poste, team, age !== null ? `${age} ans` : null].filter(Boolean).join(' · '),
+      subtitle: [player.poste, team, age !== null ? `${age} ans` : null].filter(Boolean).join(' – '),
       facts: [
         season && ['Saison', season.replace('-', ' – ')],
         ['Sessions', stageKeys.length === 3 ? 'Toute la saison' : STAGES.filter(s => stageKeys.includes(s.key)).map(s => s.label).join(', ') || 'Aucune'],

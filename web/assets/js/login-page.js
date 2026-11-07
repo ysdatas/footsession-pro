@@ -1,5 +1,5 @@
 /* LMFC Performance — login-page.js
-   Page de connexion (index.html) : connexion, création de compte, renvoi de l’e-mail de confirmation.
+   Page de connexion (/) : connexion, création de compte, renvoi de l’e-mail de confirmation.
    Script sorti de la page pour la politique de contenu (CSP : aucun script en ligne). */
 const loginForm = document.getElementById('loginForm');
 const signupForm = document.getElementById('signupForm');

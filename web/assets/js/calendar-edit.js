@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — calendar-edit.js (calendrier.html)
+   LMFC Performance — calendar-edit.js (calendrier)
    Ajouter et modifier dans le calendrier (lmfc_v30.sql), staff :
      - Séance (une vraie séance : Séances, éditeur, RPE) ou Événement ;
      - Répéter chaque semaine ou toutes les 2 semaines, jours cochés,
@@ -77,7 +77,7 @@ function cePlayersHtml() {
   ceEl('ceTeam').innerHTML = team.length ? team.map(p => `<label><input type="checkbox" data-ce-player="${p.id}"${CE.remove.has(p.id) ? '' : ' checked'}> ${escapeHtml(ceName(p))}</label>`).join('')
     : '<p class="ce-hint">Aucun joueur dans cette équipe.</p>';
   ceEl('ceAddList').innerHTML = (CE.players || []).filter(p => !ids.has(p.id) && !CE.add.has(p.id))
-    .map(p => `<option value="${escapeHtml(`${ceName(p)} · ${teamName(p.team_id) || 'sans équipe'}`)}"></option>`).join('');
+    .map(p => `<option value="${escapeHtml(`${ceName(p)} – ${teamName(p.team_id) || 'sans équipe'}`)}"></option>`).join('');
   ceEl('ceAdded').innerHTML = [...CE.add.values()].map(p => `<span class="ce-chip">${escapeHtml(ceName(p))} <small>${escapeHtml(teamName(p.team_id) || '')}</small>
     <button type="button" data-ce-unadd="${p.id}" aria-label="Retirer ${escapeHtml(ceName(p))}">✕</button></span>`).join('');
   const kept = team.length - [...CE.remove].filter(id => ids.has(id)).length;
@@ -100,13 +100,13 @@ function cePreview() {
     if (CE.mode !== 'add') { out.textContent = ''; return; }
     const { dates, capped } = ceDates();
     if (!dates.length) { out.textContent = 'Choisissez une date (et les jours de la série).'; return; }
-    let text = dates.length === 1 ? `${cePlural(1, CE.kind)} · ${ceDay(dates[0])}`
+    let text = dates.length === 1 ? `${cePlural(1, CE.kind)} – ${ceDay(dates[0])}`
       : `${cePlural(dates.length, CE.kind)}, du ${ceDay(dates[0])} au ${ceDay(dates.at(-1))}${capped ? ` (${CAL_MAX_REPEAT} au plus : la série s’arrête là)` : ''}`;
     if (CE.kind === 'seance' && CE.team) {
       const { data } = await sb.from('sessions').select('date_seance').eq('team_id', CE.team).gte('date_seance', dates[0]).lte('date_seance', dates.at(-1));
       const taken = dates.filter(d => (data || []).some(s => s.date_seance === d));
-      if (taken.length) text += dates.length === 1 ? ' · l’équipe a déjà une séance ce jour-là, celle-ci s’y ajoute'
-        : ` · ${taken.length} date${taken.length > 1 ? 's' : ''} où l’équipe a déjà une séance, celle-ci s’y ajoute (${taken.slice(0, 3).map(ceDay).join(', ')}${taken.length > 3 ? '…' : ''})`;
+      if (taken.length) text += dates.length === 1 ? ' – l’équipe a déjà une séance ce jour-là, celle-ci s’y ajoute'
+        : ` – ${taken.length} date${taken.length > 1 ? 's' : ''} où l’équipe a déjà une séance, celle-ci s’y ajoute (${taken.slice(0, 3).map(ceDay).join(', ')}${taken.length > 3 ? '…' : ''})`;
     }
     out.textContent = text;
   }, 200);
@@ -144,7 +144,7 @@ async function openCalEdit(i) {
   for (const [id, v] of [['ev-titre', i.titre], ['ev-date', i.date], ['ev-heure', i.heure || ''], ['ev-lieu', r.lieu || ''], ['ev-notes', r.notes || ''], ['ev-duree', r.duree_min ?? 90]]) ceEl(id).value = v;
   ceEl('calEventTitle').textContent = i.kind === 'seance' ? 'Séance de la série' : 'Modifier l’événement';
   ceEl('ceOpenSession').classList.toggle('hidden', i.kind !== 'seance');
-  ceEl('ceOpenSession').href = `session-edit.html?id=${i.id}`;
+  ceEl('ceOpenSession').href = `session-edit?id=${i.id}`;
   ceEl('ceScopeOne').textContent = i.kind === 'seance' ? 'Cette séance' : 'Cet événement';
   document.querySelector('input[name="ce-scope"][value="one"]').checked = true;
   ceEl('ev-date').disabled = false;
@@ -214,7 +214,7 @@ async function ceSave() {
 async function ceDelete() {
   const it = CE.item, scope = ceEl('ceScope').classList.contains('hidden') ? 'one' : ceRadio('ce-scope') || 'one', seance = it.kind === 'seance';
   const what = { one: seance ? 'cette séance' : 'cet événement', next: 'cet élément et les suivants de la série', all: 'toute la série' }[scope];
-  if (!confirm(`Supprimer ${what} ?\n\n${seance ? 'Les séances vont dans la corbeille.' : 'C’est définitif.'} Les joueurs concernés sont prévenus.`)) return;
+  if (!await confirmDialog(`Supprimer ${what} ?\n\n${seance ? 'Les séances vont dans la corbeille.' : 'C’est définitif.'} Les joueurs concernés sont prévenus.`)) return;
   const table = seance ? 'sessions' : 'club_events', dcol = seance ? 'date_seance' : 'date_event';
   let q = sb.from(table).delete();
   q = scope === 'one' ? q.eq('id', it.id) : q.eq('serie_id', it.serie_id);
@@ -240,7 +240,7 @@ function bindCalEdit() {
     if (id) { if (e.target.checked) CE.remove.delete(id); else CE.remove.add(id); cePlayersHtml(); }
   });
   ceEl('ceAddInput').addEventListener('change', (e) => {
-    const p = (CE.players || []).find(x => `${ceName(x)} · ${teamName(x.team_id) || 'sans équipe'}` === e.target.value);
+    const p = (CE.players || []).find(x => `${ceName(x)} – ${teamName(x.team_id) || 'sans équipe'}` === e.target.value);
     if (p) { CE.add.set(p.id, p); e.target.value = ''; cePlayersHtml(); }
   });
   ceEl('ceAdded').addEventListener('click', (e) => { const b = e.target.closest('[data-ce-unadd]'); if (b) { CE.add.delete(Number(b.dataset.ceUnadd)); cePlayersHtml(); } });

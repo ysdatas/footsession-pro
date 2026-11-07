@@ -53,14 +53,14 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
         ['principes_jeu', 'Principe de jeu'], ['comportements_individuels', 'Comportements'],
       ].filter(([k]) => p[k] && (k !== 'principes_jeu' || own !== principe))
         .map(([k, lbl]) => `<div class="sp-field sp-text"><b>${lbl} :</b> ${escapeHtml(p[k])}</div>`).join('');
-      const meta = [p.type_procede, sequenceLabel(p), procIsFilmed(p, s) ? 'filmé' : ''].filter(Boolean).join(' · ');
+      const meta = [p.type_procede, sequenceLabel(p), procIsFilmed(p, s) ? 'filmé' : ''].filter(Boolean).join(' – ');
       const staff = (Array.isArray(p.staff) ? p.staff : []).filter(m => (m.nom || '').trim());
       return `<div class="card sp-proc">
         <h3><span>${i + 1}. ${escapeHtml(p.nom)}</span><span class="text-muted">${escapeHtml(meta)}</span></h3>
         ${imgUrl ? `<img src="${imgUrl}" alt="Schéma">` : ''}
         ${fields}
         ${perProc ? teamsHtml(p.equipes) : ''}
-        ${staff.length ? `<div class="sp-field"><b>Staff :</b> ${staff.map(m => escapeHtml(`${m.nom}${m.role ? ` (${m.role})` : ''}`)).join(' · ')}</div>` : ''}
+        ${staff.length ? `<div class="sp-field"><b>Staff :</b> ${staff.map(m => escapeHtml(`${m.nom}${m.role ? ` (${m.role})` : ''}`)).join(' – ')}</div>` : ''}
       </div>`;
     }).join('');
 
@@ -69,7 +69,7 @@ function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'
     const presents = attendance.filter(a => a.present);
     const absents = attendance.filter(a => !a.present);
     const pills = (list, color) => `<div class="tag-row" style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${list.map(a => `<span class="pill" style="border-color:${color};">${escapeHtml(nameOf(a))}${a.invite ? ' · invité' : ''}</span>`).join('')}
+        ${list.map(a => `<span class="pill" style="border-color:${color};">${escapeHtml(nameOf(a))}${a.invite ? ' – invité' : ''}</span>`).join('')}
       </div>`;
 
     const attHtml = attendance.length ? `<div class="card">

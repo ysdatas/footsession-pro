@@ -104,8 +104,8 @@ function saveFailed(e) {
 
 const SAVE_TEXT = {
   pending: 'Modifications en attente', saving: 'Enregistrement en cours…', saved: 'Enregistré',
-  error: 'Erreur d’enregistrement · Réessayer', invalid: 'Titre et date requis pour enregistrer',
-  conflict: 'Modifiée par quelqu’un d’autre · choisir', new: 'Pas encore enregistrée',
+  error: 'Erreur d’enregistrement – Réessayer', invalid: 'Titre et date requis pour enregistrer',
+  conflict: 'Modifiée par quelqu’un d’autre – choisir', new: 'Pas encore enregistrée',
 };
 function setSaveStatus(state, detail = '') {
   const b = document.getElementById('saveStatus');
@@ -113,7 +113,7 @@ function setSaveStatus(state, detail = '') {
   b.hidden = !CAN_WRITE;
   b.dataset.state = state;
   const at = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  b.textContent = state === 'saved' ? `${SAVE_TEXT.saved} · ${at}` : SAVE_TEXT[state];
+  b.textContent = state === 'saved' ? `${SAVE_TEXT.saved} – ${at}` : SAVE_TEXT[state];
   b.title = state === 'error' ? `${detail}. Nouvel essai automatique ; cliquez pour réessayer tout de suite.`
     : state === 'conflict' ? 'Quelqu’un a enregistré cette séance depuis son ouverture. Cliquez pour choisir : voir sa version ou garder la vôtre.'
     : state === 'saved' ? `Enregistré à ${at}` : '';
@@ -223,7 +223,7 @@ async function saveAll() {
     const data = await step('Séance', () => createSession(sessionRow));
     sid = savedSessionId = data.id;
     autosave.knownAt = data.updated_at;
-    history.replaceState(null, '', `session-edit.html?id=${sid}`);   // recharger rouvre la séance créée
+    history.replaceState(null, '', `session-edit?id=${sid}`);   // recharger rouvre la séance créée
     onSessionCreated();
   }
   await step('Procédés', () => saveProcedures(sid));

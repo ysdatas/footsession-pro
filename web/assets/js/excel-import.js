@@ -754,12 +754,12 @@ const ExcelImport = (() => {
   const team = (f) => (f.team_id && typeof teamName === 'function' ? teamName(f.team_id) : '');
   function identityLine(id) {
     return [id.birthDate && `né le ${day(id.birthDate)}`, id.height !== null && `${num1(id.height)} cm`,
-      id.weight !== null && `${num1(id.weight)} kg`].filter(Boolean).join(' · ') || 'ni date de naissance ni mesure';
+      id.weight !== null && `${num1(id.weight)} kg`].filter(Boolean).join(' – ') || 'ni date de naissance ni mesure';
   }
   function ficheLabel(f) {
     const hgt = st.heights.get(f.id);
     return [fullName(f), team(f), bornOf(f) && `né le ${day(bornOf(f))}`, hgt && `${num1(hgt)} cm`,
-      f.poste, f.numero !== null && f.numero !== undefined && `n° ${f.numero}`].filter(Boolean).join(' · ');
+      f.poste, f.numero !== null && f.numero !== undefined && `n° ${f.numero}`].filter(Boolean).join(' – ');
   }
   /* Ce qui rapproche (ou éloigne) la fiche choisie de la ligne de l'Excel. */
   function criteriaHtml(r) {
@@ -817,7 +817,7 @@ const ExcelImport = (() => {
     const when = st.fileDate ? new Date(st.fileDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
     const source = `<div class="xi-source">
         <div class="xi-source-file"><span class="xi-source-k">Source</span><strong>${h(st.fileName)}</strong>
-          <small>${kb} Ko${when ? ` · modifié le ${h(when)}` : ''} · ${st.workbook.SheetNames.length} onglets</small></div>
+          <small>${kb} Ko${when ? `${SEP}modifié le ${h(when)}` : ''}${SEP}${st.workbook.SheetNames.length} onglets</small></div>
         <ul class="xi-sheets">${SHEETS.map(n => `<li class="${st.workbook.SheetNames.includes(n) ? 'is-ok' : 'is-missing'}">${st.workbook.SheetNames.includes(n) ? '✓' : '—'} ${h(n)}</li>`).join('')}</ul>
         <div class="xi-source-target"><span class="xi-source-k">Vers</span><strong>Saison ${h(st.season)}</strong><small>${replaceMode() ? 'Remplacer' : 'Compléter'}</small></div>
       </div>`;
@@ -856,7 +856,7 @@ const ExcelImport = (() => {
       ${absent.length ? `<details class="xi-section">
         <summary>Fiches du club absentes du fichier (${absent.length})</summary>
         <p class="xi-hint">Rien n’est modifié sur ces fiches. Si l’une d’elles figure dans l’Excel sous une autre orthographe, choisissez-la sur la ligne correspondante.</p>
-        <p class="xi-absent">${absent.map(f => h(fullName(f))).join(' · ')}</p>
+        <p class="xi-absent">${absent.map(f => h(fullName(f))).join(SEP)}</p>
       </details>` : ''}`;
 
     $('xiBody').querySelectorAll('[data-detail]').forEach(b => b.addEventListener('click', () => {
@@ -894,7 +894,7 @@ const ExcelImport = (() => {
     const line = (label, metrics, r) => {
       const parts = metrics.filter(m => r[m.key] !== null && r[m.key] !== undefined && r[m.key] !== '')
         .map(m => `${h(m.short || m.label)} <b>${val(m, r[m.key])}</b>`);
-      return parts.length ? `<li><span>${h(label)}</span>${parts.join(' · ')}</li>` : '';
+      return parts.length ? `<li><span>${h(label)}</span>${parts.join(SEP)}</li>` : '';
     };
     const meas = e.measurements.map(r => line(r.month_label || 'Mesure', MORPHO_METRICS, r)).join('');
     const tests = e.tests.map(r => line(STAGES.find(x => x.key === r.stage)?.label || r.stage, PERF_METRICS, r)).join('');

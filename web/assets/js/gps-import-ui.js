@@ -70,10 +70,10 @@ async function giRead(file) {
       GI.rows = gpsCsvRows(text);
     }
   } catch (e) { console.error('Fichier GPS illisible', e); giEl('giStatus').innerHTML = `<span class="text-danger">Fichier illisible : ${escapeHtml(e.message)}</span>`; return; }
-  giEl('giLabel').value = file.name.replace(/\.[^.]+$/, '').replace(/_/g, ' · ');
+  giEl('giLabel').value = file.name.replace(/\.[^.]+$/, '').replace(/_/g, ' – ');
   const d = gpsFileDate(file.name);
   if (d) giEl('giDate').value = d;
-  giEl('giStatus').textContent = `${GI.rows.length - 1} ligne${GI.rows.length > 2 ? 's' : ''} lue${GI.rows.length > 2 ? 's' : ''}${d ? '' : ' · la date n’est pas dans le fichier : indiquez-la'}.`;
+  giEl('giStatus').textContent = `${GI.rows.length - 1} ligne${GI.rows.length > 2 ? 's' : ''} lue${GI.rows.length > 2 ? 's' : ''}${d ? '' : ' – la date n’est pas dans le fichier : indiquez-la'}.`;
   giSessions();
 }
 
@@ -84,7 +84,7 @@ async function giSessions() {
   let q = sb.from('sessions').select('id, titre, heure').eq('date_seance', date);
   if (team) q = q.eq('team_id', team);
   const { data } = await q;
-  sel.innerHTML += (data || []).map(s => `<option value="${s.id}">${escapeHtml(s.titre)}${s.heure ? ` · ${s.heure.slice(0, 5)}` : ''}</option>`).join('');
+  sel.innerHTML += (data || []).map(s => `<option value="${s.id}">${escapeHtml(s.titre)}${s.heure ? ` – ${s.heure.slice(0, 5)}` : ''}</option>`).join('');
   if ((data || []).length === 1) sel.value = String(data[0].id);   // une seule séance ce jour-là : proposée
 }
 
@@ -118,14 +118,14 @@ function giRender() {
   const teamPlayers = GI.club.filter(p => !team || p.team_id === team || (p.other_team_ids || []).includes(team));
   const count = (s) => GI.match.filter(m => m.status === s).length, picked = GI.match.filter(m => m.on && m.player).length;
   const overlap = GI.match.filter(m => m.on && m.player && GI.overlap.some(o => o.player_id === m.player.id));
-  giEl('giStatus').textContent = `${a.players.length} joueurs dans le fichier · ${count('ok') + count('alias')} reconnus · ${count('confirm')} à confirmer · ${count('choose')} à choisir · ${count('none')} non reconnus`;
+  giEl('giStatus').textContent = `${a.players.length} joueurs dans le fichier – ${count('ok') + count('alias')} reconnus – ${count('confirm')} à confirmer – ${count('choose')} à choisir – ${count('none')} non reconnus`;
   giEl('giPreview').innerHTML = `
     ${GI.dup ? `<p class="gps-warn is-bad">Ce fichier a déjà été importé (séance du ${gpsDate(GI.dup.date_seance)}, le ${gpsDate(GI.dup.created_at)}). Annulez cet import dans l’historique pour le remplacer.</p>` : ''}
     ${overlap.length ? `<p class="gps-warn">Déjà des données GPS ce jour-là pour ${overlap.map(m => escapeHtml(playerFullName(m.player))).join(', ')} (${escapeHtml([...new Set(GI.overlap.map(o => o.label))].join(', '))}). Rien ne sera écrasé : les deux imports compteront.</p>` : ''}
-    <h3 class="as-h4">Indicateurs reconnus · ${known.length}</h3>
+    <h3 class="as-h4">Indicateurs reconnus – ${known.length}</h3>
     <ul class="gi-cols">${known.map(c => `<li><span>${escapeHtml(c.header)}</span> → <strong>${escapeHtml(c.label)}</strong>${c.unit ? ` <small>${escapeHtml(c.unit)}${c.factor && c.factor !== 1 ? ` (converti ×${gpsFr(Math.round(c.factor * 1000) / 1000)})` : ''}</small>` : ' <small>sans unité</small>'}</li>`).join('')}</ul>
     ${a.checks.map(c => `<p class="gps-ok">✓ ${escapeHtml(c)}</p>`).join('')}${a.warnings.map(w => `<p class="gps-warn">⚠ ${escapeHtml(w)}</p>`).join('')}
-    ${unknown.length ? `<h3 class="as-h4">Colonnes non reconnues · ${unknown.length}</h3><p class="gps-help">Aucune signification n’est devinée. Cochez pour les garder sous leur nom d’origine, sans unité.</p>
+    ${unknown.length ? `<h3 class="as-h4">Colonnes non reconnues – ${unknown.length}</h3><p class="gps-help">Aucune signification n’est devinée. Cochez pour les garder sous leur nom d’origine, sans unité.</p>
       <div class="gi-unknown">${unknown.map(c => `<label><input type="checkbox" data-gi-keep="${escapeHtml(c.key)}"${GI.keep.has(c.key) ? ' checked' : ''}> ${escapeHtml(c.header)}</label>`).join('')}</div>` : ''}
     ${text.length ? `<p class="gps-help">Colonnes de texte ignorées : ${escapeHtml(text.map(c => c.header).join(', '))}.</p>` : ''}
     ${a.excluded.length ? `<p class="gps-help">Lignes exclues : ${a.excluded.map(x => `${escapeHtml(x.name)} (${escapeHtml(x.reason)})`).join(', ')}.</p>` : ''}

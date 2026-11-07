@@ -19,7 +19,7 @@ body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre
 .landing-hero { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; isolation: isolate; }
 /* Rond central et ligne médiane d'un terrain, en filigrane derrière le
    blason : la ligne fine, rouge à gauche et or à droite, traverse l'écran. */
-.landing-pitch { position: absolute; left: 50%; top: -22px; width: min(1040px, 100vw); height: 140px; transform: translateX(-50%); z-index: -1; pointer-events: none; }
+.landing-pitch { display: none; position: absolute; left: 50%; top: -22px; width: min(1040px, 100vw); height: 140px; transform: translateX(-50%); z-index: -1; pointer-events: none; }
 .landing-pitch::before {
   content: ''; position: absolute; left: 50%; top: 0; width: 140px; height: 140px; transform: translateX(-50%);
   border-radius: 50%; border: 1px solid rgba(255,255,255,.08);
@@ -28,23 +28,23 @@ body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre
   content: ''; position: absolute; left: 0; right: 0; top: 70px; height: 1px;
   background: rgba(255,255,255,.08);
 }
-.landing-crest { width: 96px; height: 96px; object-fit: contain; }
+.landing-crest { width: 64px; height: 64px; object-fit: contain; }
 .landing-brand {
   display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%;
-  margin: 18px 0 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: 0;
+  margin: 12px 0 0; font-size: var(--fs-lg); font-weight: 500; letter-spacing: 0;
 }
 .landing-brand .brand-pro { top: -2px; }
 .lp-line { flex: 1; height: 1px; max-width: 90px; }
 .lp-line:first-child { background: var(--red); }
 .lp-line:last-child { background: var(--gold); }
-.landing-club { margin: 4px 0 0; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
+.landing-club { margin: 4px 0 0; font-size: var(--fs-xs); font-weight: 500; color: var(--text-secondary); }
 /* Devise du club : une signature discrète sous la connexion. */
-.landing-motto { margin: -4px 0 0; font-size: var(--fs-xs); font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--text-secondary); text-align: center; }
+.landing-motto { margin: -4px 0 0; font-size: var(--fs-xs); font-weight: 500; color: var(--text-secondary); text-align: center; }
 .landing-legal { margin: 0; font-size: var(--fs-xs); text-align: center; }
 .landing-legal a, .auth-hint a { color: var(--text-secondary); text-decoration: underline; }
 @media (max-width: 560px) {
   .landing { gap: 20px; }
-  .landing-crest { width: 80px; height: 80px; }
+  .landing-crest { width: 56px; height: 56px; }
   .landing-pitch { top: -20px; height: 120px; }
   .landing-pitch::before { width: 120px; height: 120px; }
   .landing-pitch::after { top: 60px; }
@@ -58,19 +58,19 @@ body.auth { overflow-x: clip; }   /* le trait du terrain va d'un bord à l'autre
   background: var(--liseret) top / 100% 1px no-repeat, var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 36px 32px;
+  padding: 28px 24px;
 }
 .auth-title { margin: 0 0 4px; text-align: center; font-size: var(--fs-xl); }
 @media (max-width: 480px) { .auth-card { padding: 28px 20px; } }
 
 .auth-logo {
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px;
+  font-size: var(--fs-2xl); font-weight: 500; letter-spacing: 0; margin-bottom: 4px;
 }
 .auth-logo .brand-crest { width: 56px; height: 56px; }
 /* Même logo que partout (main.css : .brand-pro), en plus grand. */
 .auth-logo .brand-pro { margin-left: 8px; padding: 4px 7px; top: 0; }
-.auth-sub { text-align: center; color: var(--text-secondary); font-size: var(--fs-md); margin-bottom: 28px; }
+.auth-sub { text-align: center; color: var(--text-secondary); font-size: var(--fs-md); margin-bottom: 20px; }
 
 .auth-card .field { margin-bottom: 16px; }
 .auth-card .btn-primary { width: 100%; justify-content: center; margin-top: 6px; padding: 11px; }

@@ -214,7 +214,7 @@ window.generateCoachPDF = async function (sessionId) {
        La police se réduit si nécessaire pour ne jamais déborder du quart. */
     function drawText(tx, ty, tw, th) {
       let cy = ty;
-      const meta = show('meta') ? [p.type_procede, [p.taille_terrain, p.effectif].filter(Boolean).join(' · ')]
+      const meta = show('meta') ? [p.type_procede, [p.taille_terrain, p.effectif].filter(Boolean).join(' – ')]
         .filter(Boolean).join('   ·   ') : '';
       if (meta) {
         doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8);
@@ -235,7 +235,7 @@ window.generateCoachPDF = async function (sessionId) {
         });
       }
       // Staff du procédé (et « filmé »).
-      const staff = show('staff') ? staffOf(p).map(m => `${m.nom.trim()}${(m.role || '').trim() ? ` (${m.role.trim()})` : ''}`).join(' · ') : '';
+      const staff = show('staff') ? staffOf(p).map(m => `${m.nom.trim()}${(m.role || '').trim() ? ` (${m.role.trim()})` : ''}`).join(' – ') : '';
       const filmed = show('filme') && procIsFilmed(p, s);
       const staffTxt = staff ? `Staff : ${staff}${filmed ? ' · filmé' : ''}` : (filmed ? 'Procédé filmé' : '');
       if (staffTxt) {

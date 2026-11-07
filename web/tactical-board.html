@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#0A0A0A">
+  <meta name="theme-color" content="#131314">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
@@ -18,7 +18,7 @@
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <a class="brand" href="dashboard" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
     <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
@@ -112,8 +112,8 @@
       <!-- Gauche : joueurs, numéros 1 à 11 -->
       <div class="glass tb-float tb-players" role="toolbar" aria-label="Joueurs">
         <div class="tb-team" role="radiogroup" aria-label="Équipe">
-          <button class="glass-btn" type="button" data-team="player" aria-pressed="true" title="Mon équipe · touchez encore pour changer sa couleur" aria-label="Mon équipe"><span class="pion-dot" id="pionDotRed"></span></button>
-          <button class="glass-btn" type="button" data-team="opponent" aria-pressed="false" title="Adversaires · touchez encore pour changer leur couleur" aria-label="Adversaires"><span class="pion-dot" id="pionDotBlue"></span></button>
+          <button class="glass-btn" type="button" data-team="player" aria-pressed="true" title="Mon équipe – touchez encore pour changer sa couleur" aria-label="Mon équipe"><span class="pion-dot" id="pionDotRed"></span></button>
+          <button class="glass-btn" type="button" data-team="opponent" aria-pressed="false" title="Adversaires – touchez encore pour changer leur couleur" aria-label="Adversaires"><span class="pion-dot" id="pionDotBlue"></span></button>
         </div>
         <span class="tb-pill-sep is-h"></span>
         <button class="glass-btn tb-tool tb-num" data-tool="player" type="button" title="Pion (numéro suivant)" aria-label="Pion, numéro suivant"><svg class="ic"><use href="#i-circle"/></svg></button>
@@ -287,14 +287,14 @@
         <span class="tb-stepinfo" aria-live="polite"><strong id="stepInfo"></strong> <span id="stepHint"></span></span>
       </div>
 
-      <div class="tb-screenhint hidden" id="screenHint">Tracez la zone à exporter · Échap pour annuler</div>
+      <div class="tb-screenhint hidden" id="screenHint">Tracez la zone à exporter – Échap pour annuler</div>
       <button class="glass-btn glass tb-cropchip hidden" id="cropChip" type="button" title="Retirer le cadrage">Zone cadrée <svg class="ic"><use href="#i-x"/></svg></button>
       <div class="tb-presentbar" id="presentBar">
         <button type="button" id="presPrev" title="Étape précédente">◀</button>
         <span id="presStep"></span>
         <button type="button" id="presNext" title="Étape suivante">▶</button>
         <button type="button" id="presPlay">Lire</button>
-        <button type="button" id="presExit" class="tb-presexit">✕ Quitter</button>
+        <button type="button" id="presExit" class="tb-presexit"><span class="arr arr-x" aria-hidden="true"></span>Quitter</button>
       </div>
     </div>
   </main>

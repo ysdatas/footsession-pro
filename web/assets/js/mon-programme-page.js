@@ -1,5 +1,5 @@
 /* LMFC Performance — mon-programme-page.js
-   Mon programme (mon-programme.html), espace joueur.
+   Mon programme (mon-programme), espace joueur.
    Script sorti de la page pour la politique de contenu (CSP : aucun script en ligne). */
 /* Espace joueur, en lecture : objectifs et préventions (avec leur
    statut et leurs images), points forts, axes d'amélioration et
@@ -27,7 +27,7 @@ function render() {
   renderNoteLists();   // les Exo des points (fait / pas fait)
   const n = (exercises || []).length, done = (exercises || []).filter(e => e.done_at).length;
   document.getElementById('progSub').textContent = n
-    ? `· ${done} fait${done > 1 ? 's' : ''} sur ${n} · touche un exercice pour l’ouvrir en grand` : '';
+    ? `· ${done} fait${done > 1 ? 's' : ''} sur ${n}${SEP}touche un exercice pour l’ouvrir en grand` : '';
 }
 
 function openExercise(id) {
@@ -38,11 +38,11 @@ function openExercise(id) {
     text: [e.dosage ? `Dosage : ${e.dosage}` : '', e.instructions || ''].filter(Boolean).join('\n\n'),
     items: programItems(e),
     footer: `
-      ${e.video_id ? `<a class="btn btn-sm" href="voir-video.html?id=${e.video_id}">▶ Voir la vidéo</a>` : ''}
+      ${e.video_id ? `<a class="btn btn-sm" href="voir-video?id=${e.video_id}"><span class="arr arr-play" aria-hidden="true"></span>Voir la vidéo</a>` : ''}
       <label class="lb-feedback">Mon ressenti
         <textarea rows="2" id="lbFeedback" placeholder="Facile, difficile, douleur…">${progEsc(e.player_feedback || '')}</textarea>
       </label>
-      <button class="btn btn-primary" type="button" id="lbDone">${e.done_at ? 'Enregistrer' : '✓ C’est fait'}</button>
+      <button class="btn btn-primary" type="button" id="lbDone">${e.done_at ? 'Enregistrer' : '<span class="arr arr-check" aria-hidden="true"></span>C’est fait'}</button>
       ${e.done_at ? '<button class="btn" type="button" id="lbUndo">Pas encore fait</button>' : ''}`,
   });
   const save = async (done) => {

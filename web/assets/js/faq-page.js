@@ -1,5 +1,5 @@
 /* LMFC Performance — faq-page.js
-   FAQ (faq.html) : profil dans le menu, question ouverte par son ancre.
+   FAQ (faq) : profil dans le menu, question ouverte par son ancre.
    Script sorti de la page pour la politique de contenu (CSP : aucun script en ligne). */
 (async () => {
   const ctx = await requireAuth();

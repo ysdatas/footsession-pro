@@ -116,8 +116,8 @@ function createAnnotator(ws) {
     toast(shapes.length ? 'Annotation enregistrée : elle s’affichera pendant la lecture.' : 'Annotation retirée.', 'success');
     ws.leave();
   }
-  function cancel() {
-    if ((ws.ink.dirty || st.timingDirty) && !confirm('Quitter sans enregistrer cette annotation ?')) return;
+  async function cancel() {
+    if ((ws.ink.dirty || st.timingDirty) && !await confirmDialog('Quitter sans enregistrer cette annotation ?')) return;
     st.a = null;
     ws.leave();
   }

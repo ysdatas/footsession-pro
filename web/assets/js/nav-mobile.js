@@ -72,8 +72,8 @@ function renderContextBar() {
     if (on) {   // lu à l'affichage : le titre (fiche) et l'équipe arrivent parfois après coup
       const section = document.querySelector('#sidebar .nav-item.active > span')?.textContent.trim() || '';
       const page = h1.textContent.trim(), child = typeof NAV_PARENT === 'object' && NAV_PARENT[currentPageName()];
-      title.textContent = child && section ? `${section} · ${page}` : section || page;
-      kicker.textContent = document.querySelector('.page-kicker, .hero-kicker')?.textContent.trim() || '';
+      title.textContent = child && section ? `${section} – ${page}` : section || page;
+      kicker.innerHTML = document.querySelector('.page-kicker, .hero-kicker')?.innerHTML.trim() || '';
     }
     document.body.classList.toggle('ctx-on', on);
   }, { rootMargin: '-56px 0px 0px 0px' }).observe(h1);

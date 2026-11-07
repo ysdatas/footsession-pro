@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#0A0A0A">
+  <meta name="theme-color" content="#131314">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
@@ -18,7 +18,7 @@
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <a class="brand" href="dashboard" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
     <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
@@ -121,7 +121,7 @@
     <details class="faq-q">
       <summary>Où mettre le travail physique, où mettre le travail terrain ?</summary>
       <div class="faq-a"><ul>
-        <li><strong>Préventions</strong> : un titre (facultatif), des consignes, des images légendées ou un PDF, et un statut (En cours, Atteint, Non atteint). Visibles sur la fiche du joueur et dans <em>Performance → Objectifs · Préventions</em>. Les objectifs ne sont plus sur la fiche : mettez-les dans le PDF joint.</li>
+        <li><strong>Préventions</strong> : un titre (facultatif), des consignes, des images légendées ou un PDF, et un statut (En cours, Atteint, Non atteint). Visibles sur la fiche du joueur et dans <em>Performance → Objectifs – Préventions</em>. Les objectifs ne sont plus sur la fiche : mettez-les dans le PDF joint.</li>
         <li><strong>Fiche joueur → Programme terrain</strong> : développement footballistique. Chaque point fort ou axe d’amélioration a sa vidéo, la description du staff et ses exercices (Exo 1, Exo 2…).</li>
       </ul><p>Le joueur retrouve tout dans « Objectifs &amp; préventions », en lecture seule. Tout s’ouvre en grand au clic.</p></div>
     </details>
@@ -139,7 +139,7 @@
     </details>
     <details class="faq-q">
       <summary>Comment fixer un objectif ou une prévention à plusieurs joueurs d’un coup ?</summary>
-      <div class="faq-a"><p><em>Performance → Objectifs · Préventions</em> → « + Objectif » ou « + Prévention » : cochez un ou plusieurs joueurs (« Tout cocher » prend toute l’équipe affichée), écrivez un titre (facultatif) ou une description, choisissez un statut et ajoutez des images (PNG, JPG) ou un PDF : ils s’affichent tout de suite. Un élément est créé sur la fiche de chaque joueur coché, et seulement sur la sienne, avec sa propre copie des images. « Enregistrer et en ajouter un autre » enchaîne les saisies.</p>
+      <div class="faq-a"><p><em>Performance → Objectifs – Préventions</em> → « + Objectif » ou « + Prévention » : cochez un ou plusieurs joueurs (« Tout cocher » prend toute l’équipe affichée), écrivez un titre (facultatif) ou une description, choisissez un statut et ajoutez des images (PNG, JPG) ou un PDF : ils s’affichent tout de suite. Un élément est créé sur la fiche de chaque joueur coché, et seulement sur la sienne, avec sa propre copie des images. « Enregistrer et en ajouter un autre » enchaîne les saisies.</p>
       <p>Le statut se change directement sur la ligne ; « Modifier » et « Supprimer » agissent sur cet élément seul. Il reste attaché à son joueur : pour un autre joueur, on en crée un nouveau. Sur la fiche du joueur, les préventions sont aussi visibles, modifiables et supprimables (✕).</p></div>
     </details>
     <details class="faq-q">
@@ -191,13 +191,13 @@
     <details class="faq-q">
       <summary>La séance s’enregistre-t-elle toute seule ?</summary>
       <div class="faq-a"><p>Oui : chaque modification est enregistrée moins d’une seconde après (infos, durées, consignes, procédés, équipes, staff, présences, bilan, commentaire). Il n’y a plus de bouton « Sauvegarder ». L’indicateur en bas à droite dit où on en est : « Modifications en attente », « Enregistrement en cours… », puis « Enregistré » avec l’heure.</p>
-      <p>Une nouvelle séance s’enregistre dès qu’elle a un titre et une date. Connexion coupée : l’indicateur réessaie tout seul ; si ça dure, il passe au rouge (« Erreur d’enregistrement · Réessayer ») et dit au survol ce qui n’est pas parti ; un clic réessaie tout de suite. En quittant la page par le menu, l’enregistrement se termine d’abord.</p>
-      <p>Si quelqu’un d’autre (ou un autre onglet) a modifié la même séance entre-temps, rien n’est écrasé : « Modifiée par quelqu’un d’autre · choisir » propose de voir sa version ou de garder la vôtre. Si la séance ne se charge pas (réseau), un bandeau propose de réessayer et rien n’est modifiable, pour ne jamais enregistrer un écran vide.</p></div>
+      <p>Une nouvelle séance s’enregistre dès qu’elle a un titre et une date. Connexion coupée : l’indicateur réessaie tout seul ; si ça dure, il passe au rouge (« Erreur d’enregistrement – Réessayer ») et dit au survol ce qui n’est pas parti ; un clic réessaie tout de suite. En quittant la page par le menu, l’enregistrement se termine d’abord.</p>
+      <p>Si quelqu’un d’autre (ou un autre onglet) a modifié la même séance entre-temps, rien n’est écrasé : « Modifiée par quelqu’un d’autre – choisir » propose de voir sa version ou de garder la vôtre. Si la séance ne se charge pas (réseau), un bandeau propose de réessayer et rien n’est modifiable, pour ne jamais enregistrer un écran vide.</p></div>
     </details>
     <details class="faq-q">
       <summary>Comment noter les présences, les blessés et un joueur invité ?</summary>
       <div class="faq-a"><p>Dans la séance, bloc <em>Présences &amp; statuts</em> : chaque joueur a son statut : Présent, Reprise, Absent, Blessé, Sélection, Groupe pro, ou « Autre… » avec le motif de votre choix (Soins, Repos…). « Tous présents » passe les absents en présents sans toucher aux autres statuts. Présent et Reprise comptent comme présents (équipes, bilan, Bilan &amp; Analytics) ; Sélection et Groupe pro non ; pour « Autre », cochez « Participe » si le joueur fait la séance. Les anciennes séances gardent leurs statuts d’alors (Retard, Excusé, Malade).</p>
-      <p>Pour un joueur d’une autre équipe (un U15 en séance U18) : tapez son nom dans « Ajouter un joueur du club ». Il apparaît avec le badge « Invité · U15 », pour cette séance seulement : son équipe ne change pas. ✕ le retire. Le PDF le signale aussi.</p></div>
+      <p>Pour un joueur d’une autre équipe (un U15 en séance U18) : tapez son nom dans « Ajouter un joueur du club ». Il apparaît avec le badge « Invité – U15 », pour cette séance seulement : son équipe ne change pas. ✕ le retire. Le PDF le signale aussi.</p></div>
     </details>
     <details class="faq-q">
       <summary>Comment placer l’effectif sur le petit terrain de la séance ?</summary>
@@ -276,7 +276,7 @@
       <li><em>Joueurs</em> : « Modifier » l’équipe, le poste ou la ligne ; supprimer (administrateur) ;</li>
       <li><em>Vidéos joueurs</em> → « Sélectionner des vidéos » : les vidéos de plusieurs joueurs à la fois (« Toutes ses vidéos » pour un joueur), à supprimer ou télécharger ; dans un joueur : supprimer, télécharger les vidéos d’origine ;</li>
       <li>Onglet Séquences : compiler (dans l’ordre des clics), supprimer ; « Sélection du joueur » reprend celles qu’il a choisies ;</li>
-      <li><em>Performance</em> → Objectifs · Préventions : passer en cours, atteint ou non atteint, supprimer.</li></ul>
+      <li><em>Performance</em> → Objectifs – Préventions : passer en cours, atteint ou non atteint, supprimer.</li></ul>
       <p>« Modifier » ouvre une fenêtre où chaque champ reste « Inchangé » tant que vous n’y touchez pas (avec la valeur commune, ou « valeurs multiples ») : seul ce que vous changez s’applique. Un récapitulatif demande confirmation, et signale ce que vos droits ne permettent pas de modifier ; le bilan dit ce qui a été fait et ce qui a été refusé. « Terminer » quitte la sélection. Tout ce qui est supprimé va dans la Corbeille.</p></div>
     </details>
     <details class="faq-q">
@@ -406,7 +406,7 @@
       <p class="faq-formula">Note = 5 + 2 × z, bornée entre 0 et 10</p>
       <p><strong>z</strong> est l’écart du joueur à la moyenne du groupe, exprimé en écarts-types. Pour les tests où une valeur basse est meilleure (sprints, 505), l’écart est inversé : plus rapide que le groupe donne une note au-dessus de 5.</p>
       <ul>
-        <li><strong>5</strong> = moyenne du groupe · <strong>7</strong> = +1 écart-type · <strong>3</strong> = −1 écart-type · <strong>10</strong> = +2,5 écarts-types ou plus.</li>
+        <li><strong>5</strong> = moyenne du groupe – <strong>7</strong> = +1 écart-type – <strong>3</strong> = −1 écart-type – <strong>10</strong> = +2,5 écarts-types ou plus.</li>
         <li><strong>Groupe de référence</strong> : les joueurs de la même équipe, sur la même session de tests de la même saison.</li>
         <li><strong>Minimum 3 valeurs</strong> dans le groupe pour un test ; en dessous, la note reste vide. Si tous les joueurs ont la même valeur, la note vaut 5.</li>
         <li><strong>Core</strong> : moyenne des notes Shirado et Sorensen disponibles.</li>

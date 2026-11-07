@@ -93,7 +93,7 @@ function pvViews(v) {
   if (!views.length) return 'Pas encore vue par le joueur';
   const posMax = views.reduce((m, x) => Math.max(m, x.max_position_seconds || 0), 0);
   const pct = v.duree_sec ? Math.min(100, Math.round(posMax / v.duree_sec * 100)) : null;
-  return `Vue ${views.length}×${pct !== null ? ` · ${pct} %` : ''} par le joueur`;
+  return `Vue ${views.length}×${pct !== null ? ` – ${pct} %` : ''} par le joueur`;
 }
 
 /* Une séquence : miniature, titre, qui l'a créée, statut, durée, note du joueur. */
@@ -102,7 +102,7 @@ function pvSeq(s, { withVideo = false } = {}) {
   const n = (s.drawings || []).length;
   const meta = [withVideo ? (pvVideoOf(s)?.titre || 'Vidéo') : null, fmtDur(len),
     n ? pvPlural(n, 'annotation', 'annotations') : null,
-    s.submitted_at && mine ? `envoyée le ${pvDay(s.submitted_at)}` : null].filter(Boolean).join(' · ');
+    s.submitted_at && mine ? `envoyée le ${pvDay(s.submitted_at)}` : null].filter(Boolean).join(' – ');
   const rank = PV.pick.on && PV.pick.kind === 'seqs' ? PV.pick.ids.indexOf(s.id) + 1 : 0;
   const pickable = PV.pick.on && PV.pick.kind === 'seqs';
   const attrs = pickable ? `data-pv-pick="${s.id}" aria-pressed="${!!rank}"` : `data-pv-open="${s.video_id}" data-pv-seq="${s.id}"`;
@@ -137,7 +137,7 @@ function pvVideo(v) {
         ${thumbHtml(PV.urls.get(v.id), 1, 'Vidéo', v.thumb, manage && !v.thumb ? `player_videos:${v.id}` : null)}
         <span class="pvx-video-body">
           <strong>${escapeHtml(v.titre || 'Vidéo')}</strong>
-          <span class="pvx-seq-meta">Envoyée le ${escapeHtml(pvDay(v.created_at))} · ${escapeHtml(pvViews(v))}</span>
+          <span class="pvx-seq-meta">Envoyée le ${escapeHtml(pvDay(v.created_at))}${SEP}${escapeHtml(pvViews(v))}</span>
           <span class="pvx-seq-meta">${escapeHtml(count)}</span>
         </span>
       </button>
@@ -186,7 +186,7 @@ function pvRender() {
     </details>`}
 
     <section class="vp-section" aria-labelledby="pvxTodo">
-      <h2 id="pvxTodo">À traiter ${todo.length ? `<span class="vw-status is-sent">${todo.length}</span>` : ''}</h2>
+      <h2 id="pvxTodo">À traiter${todo.length ? `<span class="vp-count">${todo.length}</span>` : ''}</h2>
       ${todo.length
         ? `<p class="pvx-lead">Séquences envoyées par ${escapeHtml(pvName(p))}, en attente ${pvReader() ? 'd’un retour du staff' : 'de votre retour'}.</p>
            <div class="pvx-seqs is-todo">${todo.map(s => pvSeq(s, { withVideo: true })).join('')}</div>`
@@ -262,7 +262,7 @@ async function pvDeleteVideos(ids) {
 async function deleteVideos(list) {
   if (!list.length) return false;
   const who = new Set(list.map(v => v.player_id)).size;
-  if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} vidéos` : `« ${list[0].titre} »`}${who > 1 ? ` de ${who} joueurs` : ''} ?${list.length > 1 ? `\n\n${namesList(list.map(v => v.titre))}` : ''}\n\n${who > 1 ? 'Les joueurs n’y auront' : 'Le joueur n’y aura'} plus accès, leurs séquences partent avec elles.${await trashNote()}`)) return false;
+  if (!await confirmDialog(`Supprimer ${list.length > 1 ? `ces ${list.length} vidéos` : `« ${list[0].titre} »`}${who > 1 ? ` de ${who} joueurs` : ''} ?${list.length > 1 ? `\n\n${namesList(list.map(v => v.titre))}` : ''}\n\n${who > 1 ? 'Les joueurs n’y auront' : 'Le joueur n’y aura'} plus accès, leurs séquences partent avec elles.${await trashNote()}`)) return false;
   try {
     const { data, error } = await sb.from('player_videos').delete().in('id', list.map(v => v.id)).select('id');
     if (error) throw error;
@@ -277,7 +277,7 @@ async function deleteVideos(list) {
 async function pvDeleteSeqs() {
   const list = PV.seqs.filter(s => PV.pick.ids.includes(s.id));
   if (!list.length) return;
-  if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} séquences` : 'cette séquence'} ?\n\n${namesList(list.map(s => s.label || 'Séquence'))}${await trashNote()}`)) return;
+  if (!await confirmDialog(`Supprimer ${list.length > 1 ? `ces ${list.length} séquences` : 'cette séquence'} ?\n\n${namesList(list.map(s => s.label || 'Séquence'))}${await trashNote()}`)) return;
   try {
     // RLS peut refuser certaines lignes sans retourner d'erreur : compter les
     // identifiants effectivement supprimés et garder les refusés sélectionnés.
@@ -401,13 +401,13 @@ function renderWsNav() {
   const nav = document.getElementById('wsNav'), { list, i } = pvWs;
   nav.hidden = list.length < 2 || i < 0;
   if (nav.hidden) return;
-  nav.innerHTML = `<button class="btn btn-sm" type="button" data-ws-step="-1"${i > 0 ? '' : ' disabled'} aria-label="Séquence précédente">‹ Précédent</button>
+  nav.innerHTML = `<button class="btn btn-sm" type="button" data-ws-step="-1"${i > 0 ? '' : ' disabled'} aria-label="Séquence précédente"><span class="arr arr-prev" aria-hidden="true"></span>Précédent</button>
     <span class="ws-pos" aria-live="polite"><strong>${i + 1} / ${list.length}</strong><span>${escapeHtml(list[i].label || 'Séquence')}</span></span>
-    <button class="btn btn-sm" type="button" data-ws-step="1"${i < list.length - 1 ? '' : ' disabled'} aria-label="Séquence suivante">Suivant ›</button>`;
+    <button class="btn btn-sm" type="button" data-ws-step="1"${i < list.length - 1 ? '' : ' disabled'} aria-label="Séquence suivante">Suivant<span class="arr arr-next" aria-hidden="true"></span></button>`;
 }
 async function wsStep(d) {
   const it = pvWs.list[pvWs.i + d];
-  if (!it || pvWs.busy || pvWs.ws?.canLeave() === false) return;
+  if (!it || pvWs.busy || (await pvWs.ws?.canLeave()) === false) return;
   pvWs.busy = true;
   try {
     it.url ||= await videoUrl(it.video.storage_path);
@@ -559,7 +559,7 @@ document.addEventListener('input', (e) => {
   const row = e.target.classList.contains('upl-title') && e.target.closest('.upl-row');
   if (row) upl.items[Number(row.dataset.i)].title = e.target.value;
 });
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
   const rm = e.target.closest('[data-upl-remove]');
   if (rm && !upl.ctrl) {
     const [it] = upl.items.splice(Number(rm.dataset.uplRemove), 1);
@@ -569,7 +569,7 @@ document.addEventListener('click', (e) => {
   }
   if (e.target.id !== 'v-cancel') return;
   if (!upl.ctrl) return closeModal('videoModal');
-  if (confirm('Arrêter l’envoi ?\n\nLes vidéos déjà envoyées sont gardées.')) upl.ctrl.abort();
+  if (await confirmDialog('Arrêter l’envoi ?\n\nLes vidéos déjà envoyées sont gardées.')) upl.ctrl.abort();
 });
 window.addEventListener('beforeunload', (e) => { if (upl.ctrl) e.preventDefault(); });
 

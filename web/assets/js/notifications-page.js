@@ -58,7 +58,7 @@ async function loadPlayers() {
 function renderPlayers() {
   const box = document.getElementById('ntPlayers');
   box.innerHTML = ntPlayers.length ? ntPlayers.map(p => {
-    const status = p.devices ? `Activé${p.devices > 1 ? ` · ${p.devices} appareils` : ''}` : p.auth_user_id ? 'Pas activé' : 'Pas de compte';
+    const status = p.devices ? `Activé${p.devices > 1 ? `${SEP}${p.devices} appareils` : ''}` : p.auth_user_id ? 'Pas activé' : 'Pas de compte';
     return `<label class="nt-player${p.devices ? '' : ' is-off'}">
       <input type="checkbox" data-player="${p.id}"${ntChecked.has(p.id) ? ' checked' : ''}${p.devices ? '' : ' disabled'}>
       <span>${escapeHtml(playerFullName(p))}${p.numero != null ? ` <small>n° ${p.numero}</small>` : ''}</span>
@@ -70,7 +70,7 @@ function renderPlayers() {
 
 function renderCount() {
   const reachable = ntPlayers.filter(p => p.devices).length;
-  document.getElementById('ntCount').textContent = `${reachable} joueur${reachable > 1 ? 's' : ''} sur ${ntPlayers.length} ${reachable > 1 ? 'ont' : 'a'} activé les notifications · ${ntChecked.size} coché${ntChecked.size > 1 ? 's' : ''}.`;
+  document.getElementById('ntCount').textContent = `${reachable} joueur${reachable > 1 ? 's' : ''} sur ${ntPlayers.length} ${reachable > 1 ? 'ont' : 'a'} activé les notifications – ${ntChecked.size} coché${ntChecked.size > 1 ? 's' : ''}.`;
   document.getElementById('ntAll').textContent = reachable && ntPlayers.filter(p => p.devices).every(p => ntChecked.has(p.id)) ? 'Tout décocher' : 'Tout cocher';
   document.getElementById('ntSend').disabled = !ntChecked.size;
 }
@@ -86,7 +86,7 @@ async function sendToPlayers() {
   const msg = message();
   if (!msg.title) { toast('Ajoute un titre au message.', 'error'); document.getElementById('n-title').focus(); return; }
   const ids = [...ntChecked];
-  if (!confirm(`Envoyer « ${msg.title} » à ${ids.length} joueur${ids.length > 1 ? 's' : ''} ?`)) return;
+  if (!await confirmDialog(`Envoyer « ${msg.title} » à ${ids.length} joueur${ids.length > 1 ? 's' : ''} ?`)) return;
   const btn = document.getElementById('ntSend');
   btn.disabled = true;
   const total = { devices: 0, sent: 0, users: 0, gone: 0 };
@@ -97,7 +97,7 @@ async function sendToPlayers() {
       Object.keys(total).forEach(k => { total[k] += r[k] || 0; });
     }
     const missed = total.devices - total.sent;
-    toast(`Message reçu par ${total.users} joueur${total.users > 1 ? 's' : ''}${missed ? ` · ${missed} appareil${missed > 1 ? 's' : ''} injoignable${missed > 1 ? 's' : ''}` : ''}.`, total.sent ? 'success' : 'error');
+    toast(`Message reçu par ${total.users} joueur${total.users > 1 ? 's' : ''}${missed ? ` – ${missed} appareil${missed > 1 ? 's' : ''} injoignable${missed > 1 ? 's' : ''}` : ''}.`, total.sent ? 'success' : 'error');
     if (total.sent) { document.getElementById('n-title').value = ''; document.getElementById('n-body').value = ''; }
     if (total.gone) await loadPlayers();   // appareils désabonnés retirés
   } catch (e) {

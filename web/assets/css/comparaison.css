@@ -10,13 +10,13 @@
 }
 .cmp-field{display:grid;gap:6px;font-size:var(--fs-sm);font-weight:500;color:var(--text-secondary);}
 .cmp-field select,.cmp-field input{
-  min-height:38px;min-width:190px;font-size:var(--fs-md);
+  min-height: 32px;min-width:190px;font-size:var(--fs-md);
   text-transform:none;letter-spacing:0;font-weight:400;
 }
 .cmp-grow{flex:1 1 220px;}
 .cmp-grow input{width:100%;min-width:0;}
 .cmp-check{
-  display:flex;align-items:center;gap:8px;min-height:38px;
+  display:flex;align-items:center;gap:8px;min-height: 32px;
   font-size:var(--fs-sm);color:var(--text-secondary);cursor:pointer;
 }
 .cmp-check input{width:16px;height:16px;flex:0 0 auto;}
@@ -53,8 +53,7 @@
 }
 .cmp-table thead th{
   position:sticky;top:0;z-index:2;background:#191d21;
-  font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--text-secondary);border-bottom:1px solid rgba(255,255,255,.1);
+  font-size:var(--fs-xs);font-weight: 500;color:var(--text-secondary);border-bottom:1px solid rgba(255,255,255,.1);
 }
 .cmp-table th.sortable{cursor:pointer;user-select:none;}
 .cmp-table th.sortable:hover{color:var(--gold);}
@@ -94,12 +93,12 @@
 .flag-pill{font-size:var(--fs-xs);opacity:.85;}
 
 .cmp-table tfoot td{
-  background:#181c20;font-weight:700;font-variant-numeric:tabular-nums;
+  background:#181c20;font-weight: 600;font-variant-numeric:tabular-nums;
   border-top:1px solid rgba(255,255,255,.1);border-bottom:0;
   color:var(--text-secondary);
 }
 .cmp-table tfoot .p-name{background:#181c20;color:var(--text-secondary);
-  text-transform:uppercase;font-size:var(--fs-xs);letter-spacing:.06em;}
+  font-size:var(--fs-xs);}
 
 @media (max-width:720px){
   .cmp-field select,.cmp-field input{min-width:0;width:100%;}
@@ -113,7 +112,7 @@
 .obj-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .obj-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .obj-chip {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 6px 12px; border-radius: 999px;
   border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary);
   font-size: var(--fs-sm); font-weight: 600;
 }
@@ -147,7 +146,7 @@
 .obj-picker-tools input { flex: 1 1 100%; min-width: 0; }
 .obj-picker-list { max-height: 240px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px; padding: 6px; }
 .obj-picker-list label {
-  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 8px; border-radius: 8px; margin: 0;
+  display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 6px 8px; border-radius: 8px; margin: 0;
   text-transform: none; letter-spacing: 0; font-size: var(--fs-md); font-weight: 500; color: var(--text-primary); cursor: pointer;
 }
 .obj-picker-list label:hover { background: var(--bg-hover); }
@@ -170,7 +169,7 @@
 .obj-group-add { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .obj-main .badge { justify-self: start; }
 .obj-kind-pick { display: inline-flex; }
-.obj-kind-pick button { min-height: 36px; padding: 6px 16px; }
+.obj-kind-pick button { min-height: 32px; padding: 6px 16px; }
 /* Téléphone : les quatre rubriques visibles d'un coup, deux par ligne (rien de caché à droite). */
 @media (max-width: 560px) {
   #cmpTabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
@@ -182,3 +181,7 @@
    n'est pas là, et le sous-titre garde ses deux lignes sur téléphone (CLS). */
 .cmp-loading { min-height: 100vh; }
 @media (max-width: 640px) { #cmpSub { min-height: 2lh; } }
+
+/* Zone redessinée au tri et au filtre (app.js : swapKeepView) : la marge de son dernier
+   enfant reste dedans, la hauteur de la page ne varie pas quand on tient puis relâche la zone. */
+#cmpContent { display: flow-root; }

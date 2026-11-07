@@ -25,11 +25,11 @@ function renderAttendance() {
   const list = document.getElementById('attendanceList');
   const dis = CAN_WRITE ? '' : 'disabled';
   if (!attendance.length) {
-    list.innerHTML = `<p class="text-muted">Aucun joueur. <a class="text-gold" href="players.html">Ajouter des joueurs</a></p>`;
+    list.innerHTML = `<p class="text-muted">Aucun joueur. <a class="text-gold" href="players">Ajouter des joueurs</a></p>`;
   } else {
     list.innerHTML = attendance.map((a, i) => {
-      const meta = [a.numero != null ? '#' + a.numero : '', a.poste || ''].filter(Boolean).join(' · ');
-      const guest = a.invite ? `<span class="guest-badge" title="Présence exceptionnelle : son équipe ne change pas">Invité${teamName(a.team_id) ? ` · ${escapeHtml(teamName(a.team_id))}` : ''}</span>` : '';
+      const meta = [a.numero != null ? '#' + a.numero : '', a.poste || ''].filter(Boolean).join(' – ');
+      const guest = a.invite ? `<span class="guest-badge" title="Présence exceptionnelle : son équipe ne change pas">Invité${teamName(a.team_id) ? ` – ${escapeHtml(teamName(a.team_id))}` : ''}</span>` : '';
       const name = rosterName(a);
       return `<div class="att-item st-${a.statut}${a.invite ? ' is-guest' : ''}${CAN_WRITE ? ' is-tap' : ''}" data-tap="${i}">
         ${CAN_WRITE ? `<button type="button" class="att-grip" data-grip="${a.player_id}" aria-label="Placer ${escapeHtml(name)} sur le terrain" title="Glisser sur le terrain (ou cliquer)">⠿</button>` : ''}
@@ -66,7 +66,7 @@ function updatePresentCount() {
   const parts = [`${p} présent${p > 1 ? 's' : ''}`,
     ...[...other].map(([l, o]) => `${o.n} ${l}${o.n > 1 && o.plural ? 's' : ''}`),
     guests ? `${guests} invité${guests > 1 ? 's' : ''}` : ''].filter(Boolean);
-  document.getElementById('presentCount').textContent = parts.join(' · ');
+  document.getElementById('presentCount').textContent = parts.join(' – ');
 }
 
 /* Changement de statut : équipes, bilan et compteurs suivent. */
@@ -106,7 +106,7 @@ function renderGuestResults() {
   const input = document.getElementById('guestSearch'), box = document.getElementById('guestResults');
   const list = guestCandidates(input.value);
   box.innerHTML = list.map(p => `<button type="button" class="guest-hit" data-add-guest="${p.id}">
-      <strong>${escapeHtml(rosterName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? ` · #${p.numero}` : ''}</span></button>`).join('')
+      <strong>${escapeHtml(rosterName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? `${SEP}#${p.numero}` : ''}</span></button>`).join('')
     || (input.value.trim().length >= 2 ? '<p class="text-muted guest-none">Aucun joueur du club ne correspond.</p>' : '');
 }
 function addGuest(id) {
@@ -146,7 +146,7 @@ function renderBilans() {
   const none = players.filter(a => !noteOf(a)).length;
   const total = players.length || 1;
   document.getElementById('bilanCount').textContent = players.length
-    ? `${count('plus')} + · ${count('egal')} = · ${count('moins')} −` : 'aucun participant';
+    ? `${count('plus')} + – ${count('egal')} = – ${count('moins')} −` : 'aucun participant';
   document.getElementById('bilanBar').innerHTML = players.length ? [['plus', count('plus')], ['egal', count('egal')], ['moins', count('moins')], ['none', none]]
     .filter(([, n]) => n).map(([k, n]) => `<span class="bb-${k}" style="flex:${n}" title="${n} ${k === 'none' ? 'non noté' : BILAN_NOTES.find(x => x.key === k).label.toLowerCase()}${n > 1 && k === 'none' ? 's' : ''}">${n}</span>`).join('') : '';
   document.querySelectorAll('[data-bilan-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bilanFilter === bilanFilter)));

@@ -138,13 +138,13 @@ function renderMatches() {
   const shown = shownMatches(), n = (r) => shown.filter(m => resultOf(m) === r).length;
   const team = currentTeam();
   document.getElementById('matchSub').textContent = [`${shown.length} match${shown.length > 1 ? 's' : ''}`,
-    shown.length ? `${n('v')} V · ${n('n')} N · ${n('d')} D` : '', team?.nom].filter(Boolean).join(' · ');
+    shown.length ? `${n('v')} V – ${n('n')} N – ${n('d')} D` : '', team?.nom].filter(Boolean).join(' – ');
   const dupNote = comp === 'dup' ? '<p class="mt-dup-help">Même date, même adversaire : ouvrez celui à garder (de préférence l’import FFF), puis « Réunir dans ce match ». Tant qu’ils sont deux, un joueur présent dans les deux compte deux matchs.</p>' : '';
   document.getElementById('matchList').innerHTML = shown.length
     ? `${dupNote}<div class="mt-list">${shown.map(m => {
         const twin = dups.get(m.id);
         const players = (m.match_players?.[0]?.count || 0) + (m.hors_plateforme?.length || 0);
-        const sub = [m.heure?.slice(0, 5), m.competition, LIEUX[m.lieu], !currentTeamId() && teamName(m.team_id)].filter(Boolean).map(escapeHtml).join(' · ');
+        const sub = [m.heure?.slice(0, 5), m.competition, LIEUX[m.lieu], !currentTeamId() && teamName(m.team_id)].filter(Boolean).map(escapeHtml).join(' – ');
         const on = pick.ids.has(m.id);
         return `<button type="button" class="mt-row${pick.on ? ` is-selectable${on ? ' is-picked' : ''}` : ''}" data-match="${m.id}"${pick.on ? ` role="checkbox" aria-checked="${on}"` : ''}>
           ${pick.on ? selCheckHtml(on) : ''}<span class="mt-date">${fmtDateFr(m.date_match)}</span>
@@ -214,7 +214,7 @@ async function editPickedMatches(list) {
   }
 }
 async function deletePickedMatches(list) {
-  if (!list.length || !confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} matchs` : 'ce match'} et leurs joueurs ?\n\n${namesList(list.map(matchLabel))}${await trashNote()}`)) return;
+  if (!list.length || !await confirmDialog(`Supprimer ${list.length > 1 ? `ces ${list.length} matchs` : 'ce match'} et leurs joueurs ?\n\n${namesList(list.map(matchLabel))}${await trashNote()}`)) return;
   const { data, error } = await sb.from('matches').delete().in('id', list.map(m => m.id)).select('id');
   if (error) { console.error('Matchs non supprimés', error); return toast(error.message, 'error'); }
   bulkReport(data?.length || 0, list.length, MATCH_NOUN, 'supprimé');
@@ -255,7 +255,7 @@ async function openMatch(m) {
   document.getElementById('m-team').innerHTML = '<option value="">Sans équipe</option>'
     + mine.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
   set('m-team', m ? m.team_id : currentTeamId());
-  document.getElementById('matchModalTitle').textContent = !m ? 'Nouveau match' : editing.editable ? 'Modifier le match' : `${m.adversaire} · ${fmtDateFr(m.date_match)}`;
+  document.getElementById('matchModalTitle').textContent = !m ? 'Nouveau match' : editing.editable ? 'Modifier le match' : `${m.adversaire} – ${fmtDateFr(m.date_match)}`;
   // Lecture seule (préparateur, match d'une autre équipe) : tout se lit, rien ne s'enregistre.
   document.querySelectorAll('#matchModal input, #matchModal select, #matchModal textarea').forEach(f => { f.disabled = !editing.editable; });
   ['mpTools', 'm-save'].forEach(id => document.getElementById(id).classList.toggle('hidden', !editing.editable));
@@ -303,7 +303,7 @@ function renderRows() {
     const name = playerName(playerOf(r.player_id));
     return `<div class="mp-row" data-player="${r.player_id}">
       <span class="mp-name">${playerLink(r.player_id, name, ' target="_blank" rel="noopener" title="Fiche du joueur (nouvel onglet)"')}${r.ext_data
-        ? ` <span class="fff-st${mpEdited(r) ? ' is-warn' : ''}" title="Lu sur la feuille de match FFF">${mpEdited(r) ? 'FFF · modifié' : 'FFF'}</span>` : ''}</span>
+        ? ` <span class="fff-st${mpEdited(r) ? ' is-warn' : ''}" title="Lu sur la feuille de match FFF">${mpEdited(r) ? 'FFF – modifié' : 'FFF'}</span>` : ''}</span>
       <select data-k="statut" aria-label="Statut de ${escapeHtml(name)}" ${dis}><option value="">—</option>${STATUTS_MATCH.map(([k, l]) => `<option value="${k}"${r.statut === k ? ' selected' : ''}>${l}</option>`).join('')}</select>
       ${num(r, 'minutes', 130, 'min')}${num(r, 'buts', 20, 'buts')}${num(r, 'passes', 20, 'passes')}${num(r, 'cartons_jaunes', 2, 'jaune')}
       <label class="mp-red"><input type="checkbox" data-k="carton_rouge"${r.carton_rouge ? ' checked' : ''} ${dis}><span>rouge</span></label>
@@ -317,7 +317,7 @@ function renderRows() {
   document.getElementById('mpList').insertAdjacentHTML('beforeend', editing.extras.map((x, i) => `<div class="mp-extra-row">
       <span class="mp-name">${escapeHtml(x.nom)} <span class="fff-st is-warn" title="Sans fiche : sur la feuille de ce match seulement, dans aucune statistique">Hors plateforme</span></span>
       <span class="mp-extra">${escapeHtml([STATUT_MATCH_LABEL[x.statut], x.minutes != null && `${x.minutes} min`, x.buts && `${x.buts} but${x.buts > 1 ? 's' : ''}`,
-        x.cartons_jaunes && `${x.cartons_jaunes} jaune`, x.carton_rouge && 'rouge'].filter(Boolean).join(' · ') || '—')}</span>
+        x.cartons_jaunes && `${x.cartons_jaunes} jaune`, x.carton_rouge && 'rouge'].filter(Boolean).join(' – ') || '—')}</span>
       ${editing.editable ? `<button class="att-remove" type="button" data-remove-extra="${i}" aria-label="Retirer ${escapeHtml(x.nom)} du match" title="Retirer du match">✕</button>` : ''}
     </div>`).join(''));
 }
@@ -373,7 +373,7 @@ function initEditor() {
   const renderResults = () => {
     const list = candidates(search.value);
     results.innerHTML = list.map(p => `<button type="button" class="guest-hit" data-add="${p.id}">
-        <strong>${escapeHtml(playerName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? ` · #${p.numero}` : ''}</span></button>`).join('')
+        <strong>${escapeHtml(playerName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? `${SEP}#${p.numero}` : ''}</span></button>`).join('')
       || (search.value.trim().length >= 2 ? '<p class="text-muted guest-none">Aucun joueur du club ne correspond.</p>' : '');
   };
   search.addEventListener('input', renderResults);
@@ -389,7 +389,7 @@ function initEditor() {
   document.getElementById('m-delete').addEventListener('click', deleteMatch);
   document.getElementById('m-dup').addEventListener('click', async (e) => {
     const b = e.target.closest('[data-merge]');
-    if (!b || !confirm('Réunir l’autre match dans celui-ci ?\n\nSes joueurs absents d’ici y sont ajoutés ; pour ceux présents dans les deux, les cases vides d’ici sont complétées, comme le score ou la compétition. Puis l’autre match est supprimé (corbeille). Les modifications non enregistrées de cette fenêtre sont perdues.')) return;
+    if (!b || !await confirmDialog('Réunir l’autre match dans celui-ci ?\n\nSes joueurs absents d’ici y sont ajoutés ; pour ceux présents dans les deux, les cases vides d’ici sont complétées, comme le score ou la compétition. Puis l’autre match est supprimé (corbeille). Les modifications non enregistrées de cette fenêtre sont perdues.')) return;
     b.disabled = true;
     try {
       const r = await mergeMatches(editing.id, Number(b.dataset.merge));
@@ -460,7 +460,7 @@ async function saveMatch() {
 }
 
 async function deleteMatch() {
-  if (!editing?.id || !confirm(`Supprimer ce match et ses joueurs ?${await trashNote()}`)) return;
+  if (!editing?.id || !await confirmDialog(`Supprimer ce match et ses joueurs ?${await trashNote()}`)) return;
   const { data, error } = await sb.from('matches').delete().eq('id', editing.id).select('id');
   if (error || !data?.length) return toast(error?.message || 'Suppression refusée : droits insuffisants.', 'error');
   closeModal('matchModal');
@@ -487,7 +487,7 @@ function drawSquad() {
   const seen = new Set(SQUAD.rows.map(r => r.player_id));
   // L'effectif de l'équipe, et les joueurs d'autres équipes alignés sur ses matchs.
   const players = clubPlayers.filter(p => playerInTeam(p, currentTeamId()) || seen.has(p.id));
-  document.getElementById('squad').innerHTML = players.length ? mhSquadHtml(players, matchSquad(SQUAD.rows), SQUAD.sort) : '<div class="empty">Aucun joueur dans cette équipe.</div>';
+  swapKeepView(document.getElementById('squad'), players.length ? mhSquadHtml(players, matchSquad(SQUAD.rows), SQUAD.sort) : '<div class="empty">Aucun joueur dans cette équipe.</div>');
 }
 async function showPlayerHistory(pid) {
   const box = document.getElementById('playerHistory');
@@ -498,7 +498,7 @@ async function showPlayerHistory(pid) {
   box.innerHTML = '<p class="text-muted">Chargement…</p>';
   try {
     const rows = await loadPlayerMatchRows(pid);
-    box.innerHTML = `<div class="mh-head"><button type="button" class="btn btn-sm" data-mh-back>← Effectif</button>
+    box.innerHTML = `<div class="mh-head"><button type="button" class="btn btn-sm" data-mh-back><span class="arr arr-l" aria-hidden="true"></span>Effectif</button>
       <h2 class="as-h3">${escapeHtml(playerName(playerOf(pid)))}</h2>${playerLink(pid, 'Fiche du joueur →')}</div>${mhHistoryHtml(rows)}`;
   } catch (e) { console.error('Historique du joueur illisible', e); box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`; }
 }

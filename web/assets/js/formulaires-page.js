@@ -6,10 +6,10 @@ const CF = { profile: null, teams: [], forms: [], responses: [], editing: null, 
 const CF_PAGE = 300;   // réponses chargées à la fois
 /* Les questionnaires d'origine : quand le joueur les reçoit, où lire leurs réponses. */
 const cfSources = {
-  rpe_seance: { quand: 'Après chaque séance', lieu: 'Suivi RPE', page: 'suivi-rpe.html' },
-  rpe_match: { quand: 'Après chaque match', lieu: 'Suivi RPE', page: 'suivi-rpe.html' },
-  courbatures: { quand: 'Les jours de séance, au réveil', lieu: 'Suivi RPE', page: 'suivi-rpe.html' },
-  avis_match: { quand: 'Après chaque match', lieu: 'Matchs', page: 'matchs.html' },
+  rpe_seance: { quand: 'Après chaque séance', lieu: 'Suivi RPE', page: 'suivi-rpe' },
+  rpe_match: { quand: 'Après chaque match', lieu: 'Suivi RPE', page: 'suivi-rpe' },
+  courbatures: { quand: 'Les jours de séance, au réveil', lieu: 'Suivi RPE', page: 'suivi-rpe' },
+  avis_match: { quand: 'Après chaque match', lieu: 'Matchs', page: 'matchs' },
 };
 const cfTypeLabels = { text: 'Texte court', textarea: 'Texte long', number: 'Nombre', scale: 'Échelle 1–10', choice: 'Choix', boolean: 'Oui / non' };
 const cfUid = () => `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -42,17 +42,17 @@ const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.co
     fillUserBlock('Aperçu local', 'Administrateur');
     document.getElementById('logoutLink')?.remove();
     document.getElementById('cfPreviewNotice').classList.remove('hidden');
-    document.getElementById('cfResponsesStatus').textContent = '1 réponse · aperçu local';
+    document.getElementById('cfResponsesStatus').textContent = '1 réponse – aperçu local';
     cfRender();
     cfRenderResponses();
-    document.getElementById('cfStatus').textContent = '3 exemples · mode aperçu local';
+    document.getElementById('cfStatus').textContent = '3 exemples – mode aperçu local';
     return;
   }
   const ctx = await requireAuth();
   if (!ctx) return;
   if (!['admin', 'prepa', 'coach', 'analyste'].includes(ctx.profile.role)) {
     toast('Cette page est réservée au staff autorisé.', 'error');
-    location.replace('suivi-rpe.html');
+    location.replace('suivi-rpe');
     return;
   }
   CF.profile = ctx.profile;
@@ -148,7 +148,7 @@ function cfRenderResponses() {
     const date = response.submitted_at ? new Date(response.submitted_at) : null;
     const when = date && !Number.isNaN(date.getTime()) ? date.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue';
     return `<article class="cf-response-row"><div><strong>${escapeHtml(response.form_title_snapshot)}</strong>
-      <small>${escapeHtml(response.player_name_snapshot)} · ${escapeHtml(response.team_name_snapshot)} · Version ${Number(response.version_no) || 1} · ${escapeHtml(when)}</small></div>
+      <small>${escapeHtml(response.player_name_snapshot)}${SEP}${escapeHtml(response.team_name_snapshot)}${SEP}Version ${Number(response.version_no) || 1}${SEP}${escapeHtml(when)}</small></div>
       <button class="btn btn-sm" type="button" data-cf-response="${Number(response.id)}">Voir les réponses</button></article>`;
   }).join('') : '<div class="empty">Aucune réponse visible dans le périmètre de tes équipes.</div>';
 }
@@ -159,7 +159,7 @@ function cfOpenResponse(id) {
   document.getElementById('cfResponseTitle').textContent = response.form_title_snapshot || 'Réponse au formulaire';
   const date = response.submitted_at ? new Date(response.submitted_at) : null;
   const when = date && !Number.isNaN(date.getTime()) ? date.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue';
-  document.getElementById('cfResponseMeta').textContent = `${response.player_name_snapshot} · ${response.team_name_snapshot} · Version ${response.version_no} · ${when}`;
+  document.getElementById('cfResponseMeta').textContent = `${response.player_name_snapshot} – ${response.team_name_snapshot} – Version ${response.version_no} – ${when}`;
   const answers = response.answers && typeof response.answers === 'object' ? response.answers : {};
   document.getElementById('cfResponseAnswers').innerHTML = (response.questions_snapshot || []).map(q =>
     `<div><dt>${escapeHtml(q.label || 'Question')}</dt><dd>${escapeHtml(cfAnswerText(answers[q.id]))}</dd></div>`).join('');
@@ -186,10 +186,10 @@ function cfRender() {
     const shared = form.source && !form.created_by && CF.profile.role !== 'admin';
     return `<article class="cf-card">
       <div class="cf-card-head"><h2>${escapeHtml(form.titre)}</h2><span class="cf-badge${form.actif ? ' is-active' : ''}">${form.actif ? 'Actif' : 'Désactivé'}</span></div>
-      ${source ? `<p>${source.quand} · réponses dans <a href="${source.page}">${source.lieu}</a></p>` : ''}
+      ${source ? `<p>${source.quand}${SEP}réponses dans <a href="${source.page}">${source.lieu}</a></p>` : ''}
       ${form.description ? `<p>${escapeHtml(form.description)}</p>` : ''}
-      <div class="cf-meta"><span>Version ${form.version?.version_no || 0} · ${form.versions?.length || (form.version ? 1 : 0)} conservée${(form.versions?.length || 1) > 1 ? 's' : ''}</span><span>${questions.length} question${questions.length === 1 ? '' : 's'}</span>
-        <span>${teams.length ? escapeHtml(teams.join(' · ')) : 'Aucune équipe affectée'}</span></div>
+      <div class="cf-meta"><span>Version ${form.version?.version_no || 0}${SEP}${form.versions?.length || (form.version ? 1 : 0)} conservée${(form.versions?.length || 1) > 1 ? 's' : ''}</span><span>${questions.length} question${questions.length === 1 ? '' : 's'}</span>
+        <span>${teams.length ? teams.map(escapeHtml).join(SEP) : 'Aucune équipe affectée'}</span></div>
       <div class="cf-card-actions">
         ${shared ? '' : `<button class="btn btn-sm" type="button" data-cf-edit="${form.id}">Modifier</button>
         <button class="btn btn-sm" type="button" data-cf-toggle="${form.id}">${form.actif ? 'Désactiver' : 'Réactiver'}</button>`}
@@ -213,7 +213,7 @@ async function cfClick(e) {
   if (toggle) {
     const form = CF.forms.find(x => Number(x.id) === Number(toggle.dataset.cfToggle));
     if (!form) return;
-    if (form.actif && !confirm(`Désactiver « ${form.titre} » ? ${form.source ? 'Il ne sera plus proposé aux joueurs. Leurs réponses restent conservées.' : 'Ses versions restent conservées.'}`)) return;
+    if (form.actif && !await confirmDialog(`Désactiver « ${form.titre} » ? ${form.source ? 'Il ne sera plus proposé aux joueurs. Leurs réponses restent conservées.' : 'Ses versions restent conservées.'}`)) return;
     return cfPersist({ ...form, title: form.titre, active: !form.actif,
       questions: form.version?.questions || [], team_ids: form.team_ids,
       expected_version: form.version?.version_no ?? null });
@@ -255,9 +255,9 @@ async function cfPersist(form) {
         team_ids: form.team_ids, version: nextVersion, versions: changed ? [...versions, nextVersion] : versions };
       CF.forms = old ? CF.forms.map(x => x === old ? saved : x) : [saved, ...CF.forms];
       cfRender();
-      document.getElementById('cfStatus').textContent = `${CF.forms.length} formulaires · aperçu local uniquement`;
+      document.getElementById('cfStatus').textContent = `${CF.forms.length} formulaires – aperçu local uniquement`;
       if (editorOpen) closeModal('cfEditor');
-      toast(`Aperçu local : formulaire · version ${saved.version.version_no}.`, 'success');
+      toast(`Aperçu local : formulaire – version ${saved.version.version_no}.`, 'success');
       return;
     }
     if (form.copy_of) {
@@ -274,7 +274,7 @@ async function cfPersist(form) {
     if (error) throw error;
     await cfLoad();
     if (editorOpen) closeModal('cfEditor');
-    toast(`Formulaire enregistré · version ${data.version_no}.`, 'success');
+    toast(`Formulaire enregistré – version ${data.version_no}.`, 'success');
   } catch (e) {
     console.error('Formulaire non enregistré', e);
     message.textContent = cfError(e);

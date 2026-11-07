@@ -1,14 +1,14 @@
 /* LMFC Performance — mes-videos-page.js
-   Mes vidéos (mes-videos.html), espace joueur.
+   Mes vidéos (mes-videos), espace joueur.
    Script sorti de la page pour la politique de contenu (CSP : aucun script en ligne). */
 /* Les vidéos envoyées par le staff (sources) et les séquences créées
    par le joueur : deux rubriques, une carte par contenu, jamais de
-   doublon. Une séquence s'ouvre directement (voir-video.html?seq=…). */
+   doublon. Une séquence s'ouvre directement (voir-video?seq=…). */
 const pv = { videos: [], seqs: [], urls: new Map(), tab: new URLSearchParams(location.search).get('tab') === 'seqs' ? 'seqs' : 'videos', filter: 'all' };
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
 
 /* Séquence ouverte : la liste affichée, dans son ordre, passe au lecteur
-   (voir-video.html) pour Précédent / Suivant. */
+   (voir-video) pour Précédent / Suivant. */
 document.getElementById('pvContent').addEventListener('click', (e) => {
   if (!e.target.closest('a.vp-card[href*="&seq="]')) return;
   const list = [...document.querySelectorAll('#pvContent a.vp-card[href*="&seq="]')].map(a => {
@@ -58,11 +58,11 @@ function render() {
     box.innerHTML = pv.videos.length ? `<div class="vp-cards">${pv.videos.map(v => {
       const list = pv.seqs.filter(s => s.video_id === v.id);
       const back = list.filter(s => seqStatus(s) === 'answered').length;
-      return `<a class="vp-card" href="voir-video.html?id=${v.id}">
+      return `<a class="vp-card" href="voir-video?id=${v.id}">
         ${thumbHtml(pv.urls.get(v.id), 1, 'Source', v.thumb)}
         <span class="vp-card-body">
-          <span class="vp-card-top"><strong>${escapeHtml(v.titre)}</strong>${back ? `<span class="vw-status is-answered">${plural(back, 'retour', 'retours')}</span>` : ''}</span>
-          <span class="vp-card-meta">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))} · ${list.length ? plural(list.length, 'séquence', 'séquences') : 'pas encore de séquence'}</span>
+          <span class="vp-card-top"><strong>${escapeHtml(v.titre)}</strong>${back ? `<span class="vw-status is-attn">${plural(back, 'retour', 'retours')}</span>` : ''}</span>
+          <span class="vp-card-meta">${escapeHtml(new Date(v.created_at).toLocaleDateString('fr-FR'))}${SEP}${list.length ? plural(list.length, 'séquence', 'séquences') : 'pas encore de séquence'}</span>
           ${v.description ? `<em>${escapeHtml(v.description).replace(/\n/g, '<br>')}</em>` : ''}
         </span>
       </a>`;
@@ -71,11 +71,11 @@ function render() {
     const list = pv.seqs.filter(s => pv.filter === 'all' || (pv.filter === 'draft' ? !s.submitted_at : !!s.submitted_at));
     box.innerHTML = list.length ? `<div class="vp-cards">${list.map(s => {
       const v = pv.videos.find(x => x.id === s.video_id), len = s.end_sec - s.start_sec, n = (s.drawings || []).length;
-      return `<a class="vp-card" href="voir-video.html?id=${s.video_id}&seq=${s.id}">
+      return `<a class="vp-card" href="voir-video?id=${s.video_id}&seq=${s.id}">
         ${thumbHtml(pv.urls.get(s.video_id), s.start_sec, fmtDur(len), s.thumb)}
         <span class="vp-card-body">
           <span class="vp-card-top"><strong>${escapeHtml(s.label || 'Séquence')}</strong>${statusPill(s)}</span>
-          <span class="vp-card-meta">${escapeHtml(v?.titre || 'Vidéo')} · ${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}</span>
+          <span class="vp-card-meta">${escapeHtml(v?.titre || 'Vidéo')}${SEP}${n ? plural(n, 'annotation', 'annotations') : 'sans habillage'}</span>
         </span>
       </a>`;
     }).join('')}</div>` : `<div class="empty">${pv.seqs.length ? 'Aucune séquence dans ce filtre.' : 'Pas encore de séquence. Ouvre une vidéo, puis « Sélectionner une portion ».'}</div>`;

@@ -126,7 +126,7 @@ async function loadData() {
   const n = roster.length;
   // Sous-titre des tests ; l'onglet GPS pose le sien et tabChrome remet celui-ci en le quittant.
   const sub = document.getElementById('cmpSub');
-  sub.dataset.base = `${n} joueur${n > 1 ? 's' : ''}${cmpSeason ? ` · saison ${cmpSeason}` : ''} · ${allTests.length} session${allTests.length > 1 ? 's' : ''} de tests enregistrée${allTests.length > 1 ? 's' : ''}`;
+  sub.dataset.base = `${n} joueur${n > 1 ? 's' : ''}${cmpSeason ? ` – saison ${cmpSeason}` : ''} – ${allTests.length} session${allTests.length > 1 ? 's' : ''} de tests enregistrée${allTests.length > 1 ? 's' : ''}`;
   if (cmpTab !== 'gps') sub.textContent = sub.dataset.base;
 }
 
@@ -192,9 +192,10 @@ function sortRows(rows, key) {
   });
 }
 
+const SORT_IND = '<i class="sort-ind" aria-hidden="true"></i>';   // place réservée : le tableau ne bouge pas au tri
 function headerCell(key, label, title) {
-  const arrow = sortKey === key ? (sortAsc ? ' ▲' : ' ▼') : '';
-  return `<th class="sortable ${sortKey === key ? 'sorted' : ''}" data-sort="${key}"
+  const arrow = SORT_IND;
+  return `<th class="sortable ${sortKey === key ? `sorted${sortAsc ? ' asc' : ''}` : ''}" data-sort="${key}"
     ${title ? `title="${esc(title)}"` : ''}>${esc(label)}${arrow}</th>`;
 }
 
@@ -262,7 +263,7 @@ function renderTests() {
   const body = sortRows(shown, sortKey).map(r => `
     <tr>
       <td class="p-name">
-        <a href="player-performance.html?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a>
+        <a href="player-performance?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a>
         ${r.player.numero != null ? `<span class="p-num">#${r.player.numero}</span>` : ''}
       </td>
       ${PERF_METRICS.map(m => valueCell(m.key, r.values[m.key], ranks[m.key][r.player.id], total)).join('')}
@@ -319,7 +320,7 @@ function renderEvolution() {
       ? '<td class="v-empty">—</td>'
       : `<td class="v ${p >= 0 ? 'gain' : 'loss'}">${p >= 0 ? '↗ +' : '↘ −'}${fmtVal(Math.abs(p), m.digits)}</td>`;
     return `<tr>
-      <td class="p-name"><a href="player-performance.html?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a></td>
+      <td class="p-name"><a href="player-performance?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a></td>
       ${cells}${prog}
     </tr>`;
   }).join('');
@@ -359,7 +360,7 @@ function renderMorpho() {
 
   const body = sortRows(rows, sortKey).map(r => `
     <tr>
-      <td class="p-name"><a href="player-performance.html?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a></td>
+      <td class="p-name"><a href="player-performance?id=${r.player.id}&tab=performance">${esc(playerName(r.player))}</a></td>
       ${MORPHO_METRICS.map(m => valueCell(m.key, r.values[m.key], null, 0)).join('')}
       <td class="v-month">${esc(r.latestMonth || '—')}</td>
       ${monthsUsed.map(mo => {
@@ -377,7 +378,7 @@ function renderMorpho() {
   <div class="cmp-table-wrap"><table class="cmp-table">
     <thead>
       <tr>
-        <th rowspan="2" class="sortable ${sortKey === 'name' ? 'sorted' : ''}" data-sort="name">Joueur${sortKey === 'name' ? (sortAsc ? ' ▲' : ' ▼') : ''}</th>
+        <th rowspan="2" class="sortable ${sortKey === 'name' ? `sorted${sortAsc ? ' asc' : ''}` : ''}" data-sort="name">Joueur${SORT_IND}</th>
         <th colspan="${MORPHO_METRICS.length}">Dernière mesure</th>
         <th rowspan="2">Mois</th>
         <th colspan="${monthsUsed.length}">Poids (kg) par mois</th>
@@ -394,10 +395,13 @@ function renderMorpho() {
 
 function render() {
   const content = document.getElementById('cmpContent');
-  if (cmpTab === 'gps') { document.getElementById('cmpAlert').innerHTML = ''; return renderGps(content); }
-  content.innerHTML =
+  const same = content.dataset.tab === cmpTab;   // même onglet qu'au dernier dessin : tri, filtre… la page ne bouge pas
+  content.dataset.tab = cmpTab;
+  if (cmpTab === 'gps') { document.getElementById('cmpAlert').innerHTML = ''; return renderGps(content, same); }
+  const html =
     cmpTab === 'tests' ? renderTests() :
     cmpTab === 'evolution' ? renderEvolution() :
     cmpTab === 'objectifs' ? renderObjectivesTab() : renderMorpho();
+  if (same) swapKeepView(content, html); else content.innerHTML = html;
   bindSorting();
 }

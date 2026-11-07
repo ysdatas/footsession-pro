@@ -55,7 +55,7 @@ function renderLibItem() {
   document.getElementById('libItemBody').innerHTML = `
     <h2 class="as-h3">${escapeHtml(it.titre)}</h2>
     <p class="lib-item-meta">${LIB_STATUT[it.statut] ? `<span class="badge">${LIB_STATUT[it.statut]}</span> ` : ''}v${cur?.version_no || 1}
-      · ajouté par ${escapeHtml(libWho(it.created_by))} le ${escapeHtml(libDate(it.created_at))}</p>
+     ${SEP}ajouté par ${escapeHtml(libWho(it.created_by))} le ${escapeHtml(libDate(it.created_at))}</p>
     <div class="lib-player" id="li-player">${libThumbHtml(cur?.library_files?.id, cur?.library_files?.duree_sec)}
       <button class="lib-play-big" type="button" data-li="play" aria-label="Lire la vidéo">▶</button></div>
     <section class="lib-sec" aria-labelledby="li-h1"><h3 class="as-h4" id="li-h1">Description et consignes</h3>
@@ -73,7 +73,7 @@ function renderLibItem() {
     </section>
     <section class="lib-sec" aria-labelledby="li-h3"><h3 class="as-h4" id="li-h3">Versions de la vidéo</h3>
       <ul class="lib-versions">${libItem.versions.map(v => `<li>
-        <span>v${v.version_no} · ${escapeHtml(libDate(v.created_at))} · ${escapeHtml(libWho(v.created_by))}${v.note ? ` · ${escapeHtml(v.note)}` : ''}</span>
+        <span>v${v.version_no}${SEP}${escapeHtml(libDate(v.created_at))}${SEP}${escapeHtml(libWho(v.created_by))}${v.note ? `${SEP}${escapeHtml(v.note)}` : ''}</span>
         ${v.id === it.current_version_id ? '<span class="badge badge-gold">En cours</span>' : ''}
         <button class="btn btn-sm" type="button" data-li-vplay="${v.id}">Lire</button>
         ${gestion && v.id !== it.current_version_id ? `<button class="btn btn-sm btn-danger" type="button" data-li-vdel="${v.id}">Supprimer</button>` : ''}</li>`).join('')}</ul>
@@ -82,8 +82,8 @@ function renderLibItem() {
         <p class="field-hint">Les séances déjà préparées gardent la version qu’elles utilisent.</p>` : ''}
     </section>
     <section class="lib-sec" aria-labelledby="li-h4"><h3 class="as-h4" id="li-h4">Séances qui l’utilisent</h3>
-      ${libItem.uses.length ? `<ul class="lib-sessions">${libItem.uses.map(u => `<li><a class="lib-session-link" href="session-edit.html?id=${u.session_id}">
-        <strong>${escapeHtml(u.titre)}</strong><span>${escapeHtml(fmtDate(u.date_seance))} · ${escapeHtml(u.procedure_nom)} · v${u.version_no}</span></a></li>`).join('')}</ul>`
+      ${libItem.uses.length ? `<ul class="lib-sessions">${libItem.uses.map(u => `<li><a class="lib-session-link" href="session-edit?id=${u.session_id}">
+        <strong>${escapeHtml(u.titre)}</strong><span>${escapeHtml(fmtDate(u.date_seance))}${SEP}${escapeHtml(u.procedure_nom)}${SEP}v${u.version_no}</span></a></li>`).join('')}</ul>`
         : '<p class="text-muted">Aucune séance visible.</p>'}
       ${hidden ? `<p class="field-hint">${hidden > 1 ? `Et ${hidden} autres séances auxquelles` : 'Et 1 autre séance à laquelle'} vous n’avez pas accès.</p>` : ''}
       ${libItem.count.corbeille ? `<p class="field-hint">${libItem.count.corbeille} procédé${libItem.count.corbeille > 1 ? 's' : ''} de séance dans la corbeille.</p>` : ''}
@@ -135,9 +135,9 @@ document.getElementById('libItemBody').addEventListener('click', async (e) => {
   const vplay = e.target.closest('[data-li-vplay]'), vdel = e.target.closest('[data-li-vdel]'), untag = e.target.closest('[data-li-untag]');
   if (vplay) {
     const v = libItem.versions.find(x => x.id === Number(vplay.dataset.liVplay));
-    return libPlay(v?.library_files?.storage_path, `${it.titre} · v${v?.version_no}`);
+    return libPlay(v?.library_files?.storage_path, `${it.titre} – v${v?.version_no}`);
   }
-  if (vdel && confirm('Supprimer définitivement cette ancienne version ?\n\nRefusé si une séance (ou la corbeille) l’utilise encore.')) {
+  if (vdel && await confirmDialog('Supprimer définitivement cette ancienne version ?\n\nRefusé si une séance (ou la corbeille) l’utilise encore.')) {
     if (await libPurge('library_purge_version', { p_version: Number(vdel.dataset.liVdel) }, 'Version')) await openLibItem(it.id);
     return;
   }
@@ -159,7 +159,7 @@ document.getElementById('libItemBody').addEventListener('click', async (e) => {
     document.getElementById('li-replace').click();
   } else if (act === 'archive') {
     setStatut('archive', 'Archivé : il n’est plus proposé pour les séances, celles qui l’utilisent le gardent.');
-  } else if (act === 'retire' && confirm('Retirer ce procédé de la bibliothèque ?\n\nIl n’y apparaît plus ; les séances qui l’utilisent gardent leur vidéo. Vous pourrez le remettre.')) {
+  } else if (act === 'retire' && await confirmDialog('Retirer ce procédé de la bibliothèque ?\n\nIl n’y apparaît plus ; les séances qui l’utilisent gardent leur vidéo. Vous pourrez le remettre.')) {
     setStatut('retire', 'Retiré de la bibliothèque.');
   } else if (act === 'actif') {
     setStatut('actif', 'De nouveau dans la bibliothèque.');
@@ -169,7 +169,7 @@ document.getElementById('libItemBody').addEventListener('click', async (e) => {
   } else if (act === 'purge') {
     const used = (libItem.count.seances || 0) + (libItem.count.corbeille || 0);
     if (used) return toast(`Utilisé par ${used} procédé${used > 1 ? 's' : ''} de séance (corbeille comprise) : archivez-le ou retirez-le plutôt.`, 'error');
-    if (!confirm(`Supprimer définitivement « ${it.titre} » ?\n\nLa vidéo et toutes ses versions sont effacées. C’est irréversible.`)) return;
+    if (!await confirmDialog(`Supprimer définitivement « ${it.titre} » ?\n\nLa vidéo et toutes ses versions sont effacées. C’est irréversible.`)) return;
     if (await libPurge('library_purge_item', { p_item: it.id }, 'Procédé')) { closeModal('libItemModal'); libReload(); }
   }
 });

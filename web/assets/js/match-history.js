@@ -116,7 +116,7 @@ function mhSquadHtml(players, stats, sort = 'played') {
       ${MH_COLS.map(([k]) => `<td class="num">${mhVal(s[k])}</td>`).join('')}
       <td class="num mh-notes">${s.notes.some(Boolean) ? s.notes.join(' / ') : '—'}</td></tr>`).join('')}</tbody>
   </table></div>
-  <p class="mh-legend">MJ : matchs joués (titulaire ou entré en jeu) · Conv. : feuilles de match · — : jamais saisi. Cliquez sur un joueur pour son historique.</p>`;
+  <p class="mh-legend">MJ : matchs joués (titulaire ou entré en jeu) – Conv. : feuilles de match – — : jamais saisi. Cliquez sur un joueur pour son historique.</p>`;
 }
 
 /* Historique d'un joueur : rows = ses lignes avec leur match (rows[i].matches), du plus récent au plus ancien.
@@ -130,11 +130,11 @@ function mhHistoryHtml(rows, { link = false } = {}) {
     <div class="mt-list">${rows.map(r => {
       const m = r.matches, tag = link ? 'a' : 'button';
       const line = [STATUT_MATCH_LABEL[r.statut], r.minutes != null ? `${r.minutes}'` : '',
-        r.buts ? `${r.buts} but${r.buts > 1 ? 's' : ''}` : '', r.passes ? `${r.passes} passe${r.passes > 1 ? 's' : ''} déc.` : ''].filter(Boolean).join(' · ');
-      return `<${tag} ${link ? `href="matchs.html?id=${m.id}"` : `type="button" data-open-match="${m.id}"`} class="mt-row mt-hist">
+        r.buts ? `${r.buts} but${r.buts > 1 ? 's' : ''}` : '', r.passes ? `${r.passes} passe${r.passes > 1 ? 's' : ''} déc.` : ''].filter(Boolean).join(SEP);
+      return `<${tag} ${link ? `href="matchs?id=${m.id}"` : `type="button" data-open-match="${m.id}"`} class="mt-row mt-hist">
         <span class="mt-date">${fmtDateFr(m.date_match)}</span>
         <span class="mt-main"><strong>${escapeHtml(m.adversaire)}</strong>
-          <small>${[m.competition, LIEUX[m.lieu]].filter(Boolean).map(escapeHtml).join(' · ') || '&nbsp;'}</small>
+          <small>${[m.competition, LIEUX[m.lieu]].filter(Boolean).map(escapeHtml).join(SEP) || '&nbsp;'}</small>
           <small class="mh-line">${escapeHtml(line || 'Statut non saisi')} ${mhCards(r)}</small>
           ${r.commentaire ? `<em class="mt-comment">${escapeHtml(r.commentaire)}</em>` : ''}</span>
         ${noteHtml(r.note) || '<span></span>'}
@@ -155,7 +155,7 @@ async function mountPlayerMatches(box, player) {
   box.innerHTML = '<p class="text-muted">Chargement…</p>';
   try {
     box.innerHTML = `<div class="section-head"><div><h2>Matchs</h2><p class="text-muted">Saisis dans Retours de match, réservés au staff.</p></div>
-      <a class="btn btn-sm" href="matchs.html">Retours de match</a></div>${mhHistoryHtml(await loadPlayerMatchRows(player.id), { link: true })}`;
+      <a class="btn btn-sm" href="matchs">Retours de match</a></div>${mhHistoryHtml(await loadPlayerMatchRows(player.id), { link: true })}`;
   } catch (e) {
     console.error('Matchs du joueur illisibles', e);
     box.innerHTML = `<div class="empty text-danger">${escapeHtml(e.message || String(e))}</div>`;

@@ -24,7 +24,7 @@ const STAFF_ROLE_SUGGESTIONS = ['Animation', 'Consignes', 'Gestion vidéo', 'Sou
 let sessionFilmee = false;
 const activeTeam = new Map();   // procédé → équipe qui reçoit les joueurs cliqués
 
-const procLabel = (p) => `P${procedures.indexOf(p) + 1}${(p.nom || '').trim() ? ` · ${p.nom.trim()}` : ''}`;
+const procLabel = (p) => `P${procedures.indexOf(p) + 1}${(p.nom || '').trim() ? ` – ${p.nom.trim()}` : ''}`;
 const procFilmed = (p) => sessionFilmee && p.filme !== false;
 const procVideoStaff = (p) => (p.staff || []).filter(m => isVideoRole(m.role) && (m.nom || '').trim());
 const procByUid = (uid) => procedures.find(p => p._uid === uid) || null;
@@ -131,7 +131,7 @@ function renderVideoSummary() {
   const filmed = procedures.filter(procFilmed).length;
   el.className = `video-summary is-on${orphan.length ? ' has-warn' : ''}`;
   el.textContent = `${filmed} procédé${filmed > 1 ? 's' : ''} filmé${filmed > 1 ? 's' : ''} sur ${procedures.length}`
-    + (who.size ? ` — gestion vidéo : ${[...who].map(([n, ps]) => `${n} (${ps.join(', ')})`).join(' · ')}` : '')
+    + (who.size ? ` — gestion vidéo : ${[...who].map(([n, ps]) => `${n} (${ps.join(', ')})`).join(' – ')}` : '')
     + (orphan.length ? ` — sans responsable vidéo : ${orphan.join(', ')}` : '');
 }
 

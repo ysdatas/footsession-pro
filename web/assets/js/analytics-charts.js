@@ -115,7 +115,7 @@ function split(id, rows) {
   make(id, {
     type: 'bar',
     data: { labels: [''], datasets: rows.map(r => ({
-      label: `${r.label} · ${r.c} (${pct(r.c)})`, data: [Number(r.c)],
+      label: `${r.label} – ${r.c} (${pct(r.c)})`, data: [Number(r.c)],
       backgroundColor: TYPE_COLORS[r.label] || TYPE_OTHER, borderColor: SURFACE, borderWidth: { right: 2 },
       borderSkipped: false, maxBarThickness: 36 })) },
     options: { maintainAspectRatio: false, indexAxis: 'y',

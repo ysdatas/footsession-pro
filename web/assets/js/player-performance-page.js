@@ -312,21 +312,21 @@ function squadPanel(m, colspan) {
         ${avg.value !== null
           ? `moyenne <strong>${fmt(avg.value, m.digits)}${esc(unit)}</strong> sur ${avg.n} joueur${avg.n > 1 ? 's' : ''}`
           : `${avg.n} joueur${avg.n > 1 ? 's' : ''} testé${avg.n > 1 ? 's' : ''} : moyenne affichée à partir de 3`}
-        ${flagged.length ? ` · ${flagged.length} valeur${flagged.length > 1 ? 's' : ''} écartée${flagged.length > 1 ? 's' : ''}` : ''}
+        ${flagged.length ? `${SEP}${flagged.length} valeur${flagged.length > 1 ? 's' : ''} écartée${flagged.length > 1 ? 's' : ''}` : ''}
         ${m.key === 'core_ratio' ? '<div class="squad-hint">Classement : du plus proche au plus éloigné de la zone idéale 0,7 – 0,8.</div>' : ''}
         ${m.key === 'five05_asymmetry_pct' ? '<div class="squad-hint">Classement : de la plus faible à la plus forte asymétrie.</div>' : ''}
       </div>
       <ol class="squad-list">
         ${ranked.map((e, i) => `<li class="${e.id === player.id ? 'is-me' : ''}">
           <span class="sq-rank">${i + 1}</span>
-          <a class="sq-name" href="player-performance.html?id=${e.id}">${esc(e.name)}</a>
+          <a class="sq-name" href="player-performance?id=${e.id}">${esc(e.name)}</a>
           <span class="sq-bar"><i style="width:${width(e.value)}%"></i></span>
           <span class="sq-val">${fmt(e.value, m.digits)}${esc(unit)}</span>
         </li>`).join('')}
         ${flagged.map(e => `<li class="is-flagged${e.id === player.id ? ' is-me' : ''}"
             title="Hors des bornes attendues (${m.min}–${m.max}${esc(unit)}) : exclue de la moyenne et du classement.">
           <span class="sq-rank">⚠</span>
-          <a class="sq-name" href="player-performance.html?id=${e.id}">${esc(e.name)}</a>
+          <a class="sq-name" href="player-performance?id=${e.id}">${esc(e.name)}</a>
           <span class="sq-bar sq-bar-flag">Valeur à vérifier</span>
           <span class="sq-val">${fmt(e.value, m.digits)}${esc(unit)}</span>
         </li>`).join('')}
@@ -558,7 +558,7 @@ function renderIdentity() {
 
   const teams = typeof teamName === 'function'
     ? [player.team_id, ...(player.other_team_ids || [])].map(teamName).filter(Boolean).join(' / ') : null;
-  document.getElementById('playerMeta').textContent = [player.poste, teams].filter(Boolean).join(' · ');
+  document.getElementById('playerMeta').textContent = [player.poste, teams].filter(Boolean).join(' – ');
 
   const age = ageFrom(player.date_naissance);
   const facts = [
@@ -652,7 +652,7 @@ function renderCareer() {
       <div class="career-body">
         <strong>${esc(c.club_name)}</strong>
         ${c.categorie ? `<span class="career-cat">${esc(c.categorie)}</span>` : ''}
-        <span class="career-range">${esc(capFirst(range))}${duration ? ` · ${esc(duration)}` : ''}</span>
+        <span class="career-range">${esc(capFirst(range))}${duration ? `${SEP}${esc(duration)}` : ''}</span>
         ${c.notes ? `<p class="career-notes">${esc(c.notes)}</p>` : ''}
       </div>
     </li>`;
@@ -716,7 +716,7 @@ async function saveCareer() {
 
 async function deleteCareer() {
   const id = Number(document.getElementById('c-id').value) || null;
-  if (!id || !canEditPlayer || !confirm(`Retirer ce club du parcours ?${await trashNote()}`)) return;
+  if (!id || !canEditPlayer || !await confirmDialog(`Retirer ce club du parcours ?${await trashNote()}`)) return;
   const { error } = await sb.from('player_career').delete().eq('id', id);
   if (error) return notify(error.message, 'error');
   closePerfModal('careerModal');
@@ -831,7 +831,7 @@ function showLoadError(step, error) {
 function showDataWarning(entries) {
   entries.forEach(([label, error]) => console.error(`player-performance: ${label} —`, error));
   const meta = document.getElementById('playerMeta');
-  const detail = entries.map(([label, error]) => `${label} : ${error.message}`).join(' · ');
+  const detail = entries.map(([label, error]) => `${label} : ${error.message}`).join(' – ');
   if (meta) meta.textContent = `Données inaccessibles — ${detail}`;
   notify(`Accès refusé sur : ${entries.map(([l]) => l).join(', ')}`, 'error');
 }
@@ -875,8 +875,8 @@ async function loadPage() {
   canEditPlans = !readOnly && canManagePlans(ctxProfile.role);
   canEditPlayer = !readOnly && canEditPlayers(ctxProfile.role);
   document.getElementById('perfRoleLabel').textContent = ctxProfile.role === 'joueur' ? 'Espace joueur'
-    : readOnly ? 'Dossier individuel · consultation (accès en lecture)'
-    : canEditPerformance ? 'Dossier individuel' : 'Dossier individuel · consultation (données physiques : préparateur)';
+    : readOnly ? 'Dossier individuel – consultation (accès en lecture)'
+    : canEditPerformance ? 'Dossier individuel' : 'Dossier individuel – consultation (données physiques : préparateur)';
   document.getElementById('perfKicker').textContent = ctxProfile.role === 'joueur'
     ? 'Ma performance' : 'Fiche joueur';
   document.querySelectorAll('.perf-editor-only').forEach(el => el.classList.toggle('hidden', !canEditPerformance));
@@ -894,7 +894,7 @@ async function loadPage() {
     renderPlayerShell();
   } else {
     document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });
-    back.href = 'players.html';
+    back.href = 'players';
     back.dataset.back = '';   // retour à la liste telle qu'on l'a laissée (app.js)
     back.textContent = 'Tous les joueurs';
     setupTabs();
@@ -911,7 +911,7 @@ async function loadPage() {
   // Une erreur de lecture ne doit pas être confondue avec « compte non lié » :
   // renvoyer silencieusement sur index.html masquait la vraie cause.
   if (error) return showLoadError(asPlayer ? 'lecture de ta fiche joueur' : 'lecture de la fiche joueur', error);
-  if (asPlayer && !p) { window.location.href = 'index.html'; return; }
+  if (asPlayer && !p) { window.location.href = '/'; return; }
   if (!p) {
     return showLoadError('lecture de la fiche joueur',
       { message: `Aucune fiche lisible pour l'id ${playerId}. Si tu es joueur, vérifie que ton compte est bien associé à une fiche (policy players_read_self).` });
@@ -1384,7 +1384,7 @@ async function deletePlayer() {
     return notify('La corbeille n’est pas disponible : la suppression d’un joueur doit rester récupérable. Prévenez l’administrateur du club.', 'error');
   }
   const account = player.auth_user_id ? '\nSon compte joueur n’aura plus accès à son espace.' : '';
-  if (!confirm(`Supprimer ${name} ?\n\nSa fiche part avec tout ce qui la concerne : mesures, tests, vidéos et séquences, objectifs et préventions, programme, parcours, présences.${account}\n\nRécupérable depuis la Corbeille.`)) return;
+  if (!await confirmDialog(`Supprimer ${name} ?\n\nSa fiche part avec tout ce qui la concerne : mesures, tests, vidéos et séquences, objectifs et préventions, programme, parcours, présences.${account}\n\nRécupérable depuis la Corbeille.`)) return;
   const btn = document.getElementById('btnDeletePlayer');
   btn.disabled = true;
   try {
@@ -1392,7 +1392,7 @@ async function deletePlayer() {
     if (error) throw error;
     if (!data?.length) throw new Error('Suppression réservée à l’administrateur du club.');
     toast(`${name} est dans la corbeille.`, 'success');
-    setTimeout(() => { location.href = 'players.html'; }, 600);
+    setTimeout(() => { location.href = 'players'; }, 600);
   } catch (e) {
     console.error('Suppression du joueur impossible', e);
     notify(e.message, 'error');

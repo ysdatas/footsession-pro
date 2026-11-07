@@ -19,7 +19,7 @@
 .access-form .hidden { display: none; }
 @media (max-width: 760px) { .access-form { grid-template-columns: minmax(0, 1fr); } }
 .access-list { margin-top: 16px; }
-.access-list h4 { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .07em; color: var(--text-secondary); margin: 0 0 6px; }
+.access-list h4 { font-size: var(--fs-xs); color: var(--text-secondary); margin: 0 0 6px; }
 
 .member-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .member-row:last-child { border-bottom: none; }

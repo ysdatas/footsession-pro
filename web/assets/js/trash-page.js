@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — trash-page.js (trash.html)
+   LMFC Performance — trash-page.js (trash)
    Corbeille : chaque élément supprimé (séance, vidéo, objectif…)
    avec ce qui est parti avec lui. Restaurer le remet tel quel ;
    supprimer définitivement efface aussi ses fichiers (vidéo,
@@ -10,16 +10,16 @@
 const clip = (t, n) => { t = String(t || '').trim(); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t; };
 const TRASH_TYPES = {
   players:                  { label: 'Joueur',              name: (d) => `${d.prenom || ''} ${d.nom || ''}`.trim() || 'Joueur' },
-  sessions:                 { label: 'Séance',              name: (d) => `${d.titre || 'Séance'}${d.date_seance ? ` · ${fmtDate(d.date_seance)}` : ''}` },
+  sessions:                 { label: 'Séance',              name: (d) => `${d.titre || 'Séance'}${d.date_seance ? ` – ${fmtDate(d.date_seance)}` : ''}` },
   procedures:               { label: 'Exercice de séance',  name: (d) => d.nom || 'Procédé' },
   player_videos:            { label: 'Vidéo',               name: (d) => d.titre || 'Vidéo' },
   video_sequences:          { label: 'Séquence',            name: (d) => d.label || 'Séquence' },
   player_performance_notes: { label: 'Objectif',            name: (d) => d.title || clip(d.body, 70) || 'Sans titre' },
   program_exercises:        { label: 'Exercice du programme', name: (d) => d.title || 'Exercice' },
-  player_career:            { label: 'Parcours',            name: (d) => [d.club_name, d.categorie].filter(Boolean).join(' · ') || 'Club' },
+  player_career:            { label: 'Parcours',            name: (d) => [d.club_name, d.categorie].filter(Boolean).join(' – ') || 'Club' },
   exercise_templates:       { label: 'Modèle d’exercice',   name: (d) => d.nom || 'Modèle' },
   teams:                    { label: 'Équipe',              name: (d) => d.nom || 'Équipe' },
-  matches:                  { label: 'Match',               name: (d) => `${d.adversaire || 'Match'}${d.date_match ? ` · ${fmtDate(d.date_match)}` : ''}` },
+  matches:                  { label: 'Match',               name: (d) => `${d.adversaire || 'Match'}${d.date_match ? ` – ${fmtDate(d.date_match)}` : ''}` },
 };
 const NOTE_KIND_LABELS = { objective: 'Objectif', prevention: 'Prévention', strength: 'Point fort', improvement: 'Axe d’amélioration' };
 const typeLabel = (row) => (row.tbl === 'player_performance_notes' ? NOTE_KIND_LABELS[row.data.kind] || 'Objectif'
@@ -106,7 +106,7 @@ function render() {
       <span class="trash-main">
         <span class="trash-type">${escapeHtml(typeLabel(r))}</span>
         <strong>${escapeHtml(name)}</strong>
-        <small>${escapeHtml(capFirst([who, counts.length ? `avec ${counts.join(', ')}` : '', `supprimé le ${when}`, by ? `par ${by}` : ''].filter(Boolean).join(' · ')))}</small>
+        <small>${escapeHtml(capFirst([who, counts.length ? `avec ${counts.join(', ')}` : '', `supprimé le ${when}`, by ? `par ${by}` : ''].filter(Boolean).join(' – ')))}</small>
       </span>
       <span class="trash-actions">
         <button class="btn btn-sm" type="button" data-restore="${r.id}">Restaurer</button>
@@ -166,7 +166,7 @@ async function purge(ids) {
   if (!ids.length) return;
   const roots = trash.roots.filter(r => ids.includes(r.id));
   const label = roots.length === 1 ? `« ${TRASH_TYPES[roots[0].tbl]?.name(roots[0].data) || 'cet élément'} »` : `ces ${roots.length} éléments`;
-  if (!confirm(`Supprimer définitivement ${label} ? Fichiers compris, plus aucune restauration possible.`)) return;
+  if (!await confirmDialog(`Supprimer définitivement ${label} ? Fichiers compris, plus aucune restauration possible.`)) return;
   setBusy(true);
   try {
     const rows = roots.flatMap(r => [r, ...(trash.kids.get(r.id) || [])]);

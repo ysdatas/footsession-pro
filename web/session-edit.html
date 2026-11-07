@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#0A0A0A">
+  <meta name="theme-color" content="#131314">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
@@ -21,7 +21,7 @@
 <body class="app">
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="dashboard.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <a class="brand" href="dashboard" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
     <nav class="nav" aria-label="Menu principal"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
@@ -36,7 +36,7 @@
         <p class="subtitle" id="editorSubtitle">Renseignez les informations puis ajoutez vos procédés.</p>
       </div>
       <div class="page-actions">
-        <a class="btn" href="sessions.html" data-back>← Séances</a>
+        <a class="btn" href="sessions" data-back><span class="arr arr-l" aria-hidden="true"></span>Séances</a>
         <button class="btn hidden" id="btnPdfFull" type="button" title="Fiche détaillée : une page par procédé avec schéma">PDF complet</button>
         <button class="btn hidden" id="btnPdfCoach" type="button" title="Tout sur une feuille, à distribuer avant la séance">Fiche coach</button>
       </div>
@@ -66,7 +66,7 @@
             <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select>
           <small class="field-hint" id="f-rpe-att-help">L’intensité ressentie visée (1 à 10), comparée aux réponses des joueurs.</small></div>
       </div>
-      <div class="editor-meta" id="editorMeta">0 procédé · 0 min au total</div>
+      <div class="editor-meta" id="editorMeta">0 procédé – 0 min au total</div>
     </div>
 
     <div class="card attendance open" style="margin-top:18px;">

@@ -97,7 +97,7 @@ function openExerciseModal(id, noteId = null) {
   const points = programPoints();
   form.note_id.closest('label').classList.toggle('hidden', !points.length);
   form.note_id.innerHTML = '<option value="">Aucun</option>' + [['strength', 'Point fort'], ['improvement', 'Axe']].map(([k, label]) =>
-    points.filter(n => n.kind === k).map(n => `<option value="${n.id}">${label} · ${progEsc(noteTitle(n))}</option>`).join('')).join('');
+    points.filter(n => n.kind === k).map(n => `<option value="${n.id}">${label} – ${progEsc(noteTitle(n))}</option>`).join('')).join('');
   form.note_id.value = String(noteId || (e && pointOfExercise(e.id)?.id) || '');
   form.note_id.dataset.initial = e ? String((pointOfExercise(e.id)?.id) || '') : '';
   // Séances déjà utilisées pour ce joueur, proposées à la saisie.
@@ -208,14 +208,14 @@ window.addEventListener('storage', async (ev) => {
 async function drawSchema() {
   const id = await saveExercise({ keepOpen: true });
   if (!id) return;
-  const url = `tactical-board.html?exercise=${id}`;
+  const url = `tactical-board?exercise=${id}`;
   const win = window.open(url, '_blank');
   if (!win) window.location.href = url;
 }
 
 async function deleteExercise() {
   const e = prog.editing;
-  if (!e || !confirm(`Supprimer l’exercice « ${e.title} » ?${await trashNote()}`)) return;
+  if (!e || !await confirmDialog(`Supprimer l’exercice « ${e.title} » ?${await trashNote()}`)) return;
   const { error } = await sb.from('program_exercises').delete().eq('id', e.id);
   if (error) return toast(error.message, 'error');
   const files = [e.image_path, e.schema_path].filter(Boolean);

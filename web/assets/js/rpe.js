@@ -35,7 +35,7 @@ const rpeWhat = (s) => (s.match ? 'tout le match' : 'toute la séance');
    d'origine. Les questions ajoutées se posent dans « Mes formulaires », après la réponse. */
 const formLabel = (item, id) => item?.form_questions?.find(q => q.id === id)?.label;
 const formHasMore = (item) => (item?.form_questions || []).some(q => !q.fixe);
-const FORM_MORE = '<a class="btn btn-sm" href="mes-formulaires.html">Répondre aux questions suivantes</a>';
+const FORM_MORE = '<a class="btn btn-sm" href="mes-formulaires">Répondre aux questions suivantes</a>';
 /* Une séance est-elle dans le délai de saisie du joueur ? (la base tranche.) Avec son heure,
    pas avant qu'elle commence : la réponse est définitive, et le calendrier ouvre dès le matin. */
 function rpeOpen(iso, heure = null) {
@@ -94,7 +94,7 @@ function openRpeSheet({ session, value = null, player = null, onSaved, pending =
   sheet.rpe = { session, player, onSaved, pending };
   document.getElementById('rpeHelp').textContent = player
     ? 'Saisie du staff à la place du joueur : elle reste marquée « saisi par le staff ».'
-    : '1 = très, très facile · 10 = effort maximal. Ta réponse va au staff, jamais aux autres joueurs. Une fois enregistrée, elle ne se modifie plus.';
+    : '1 = très, très facile – 10 = effort maximal. Ta réponse va au staff, jamais aux autres joueurs. Une fois enregistrée, elle ne se modifie plus.';
   document.getElementById('rpeStaffActions').classList.toggle('hidden', !(player && value));
   rpeRender(value);
   openModal('rpeSheet');
@@ -106,10 +106,10 @@ function rpeRender(value = null) {
   document.getElementById('rpeTitle').textContent = player ? `RPE de ${player.nom}` : session.form_titre || 'Ton effort';
   document.getElementById('rpeQ').textContent = player ? `Effort ressenti par le joueur sur ${rpeWhat(session)} :`
     : formLabel(session, 'rpe') || `Comment as-tu ressenti l’effort de ${rpeWhat(session)} ?`;
-  document.getElementById('rpeSession').textContent = [session.titre, rpeWhen(session)].filter(Boolean).join(' · ');
+  document.getElementById('rpeSession').textContent = [session.titre, rpeWhen(session)].filter(Boolean).join(' – ');
   document.getElementById('rpePickBox').classList.toggle('hidden', pending.length < 2);
-  document.getElementById('rpePick').innerHTML = pending.map((s, i) => `<option value="${i}"${s === session ? ' selected' : ''}>${escapeHtml(`${rpeWhen(s)} · ${s.titre}`)}</option>`).join('');
-  document.getElementById('rpeStatus').textContent = value ? `RPE actuel : ${value} · ${rpeLabel(value)}. Touche une autre valeur pour la changer.` : '';
+  document.getElementById('rpePick').innerHTML = pending.map((s, i) => `<option value="${i}"${s === session ? ' selected' : ''}>${escapeHtml(`${rpeWhen(s)} – ${s.titre}`)}</option>`).join('');
+  document.getElementById('rpeStatus').textContent = value ? `RPE actuel : ${value} – ${rpeLabel(value)}. Touche une autre valeur pour la changer.` : '';
   document.getElementById('rpeScale').innerHTML = RPE_SCALE.map(([v, label]) => `<button type="button" class="rpe-opt" data-rpe-v="${v}"
       aria-pressed="${v === Number(value)}" style="--rpe:${rpeColor(v)}"><b>${v}</b><span>${label}</span></button>`).join('');
 }
@@ -119,7 +119,7 @@ async function rpeSave(v) {
   const { session, player, onSaved, pending } = sheet.rpe;
   if (sheet.hasAttribute('data-busy')) return;   // un seul envoi à la fois
   // Le joueur ne revient pas sur sa réponse : une touche de travers ne doit pas rester.
-  if (!player && !confirm(`${v}/10 (${rpeLabel(v)}) pour ${[session.titre, rpeWhen(session)].filter(Boolean).join(', ')} ?\n\nUne fois enregistrée, ta réponse ne se modifie plus.`)) return;
+  if (!player && !await confirmDialog(`${v}/10 (${rpeLabel(v)}) pour ${[session.titre, rpeWhen(session)].filter(Boolean).join(', ')} ?\n\nUne fois enregistrée, ta réponse ne se modifie plus.`)) return;
   sheet.setAttribute('data-busy', '');
   status.textContent = 'Enregistrement…';
   const { error } = await sb.rpc(session.match ? 'match_rpe_set' : 'rpe_set',
@@ -131,7 +131,7 @@ async function rpeSave(v) {
     return;
   }
   document.querySelectorAll('#rpeScale .rpe-opt').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.rpeV) === v)));
-  const done = v == null ? 'RPE effacé.' : `Enregistré : ${v} · ${rpeLabel(v)}${player ? ' (saisi par le staff)' : '. Merci !'}`;
+  const done = v == null ? 'RPE effacé.' : `Enregistré : ${v} – ${rpeLabel(v)}${player ? ' (saisi par le staff)' : '. Merci !'}`;
   status.textContent = done;
   onSaved?.(v, session);
   sheet.rpe.more ||= !player && formHasMore(session);
@@ -157,12 +157,12 @@ async function renderRpeTrend(playerId) {
   if (!data?.length) { box.innerHTML = '<p class="text-muted">Aucun RPE pour l’instant : il se renseigne après chaque séance et chaque match (Mon espace, Calendrier).</p>'; return; }
   const rows = [...data].reverse(), avg = rows.reduce((s, r) => s + r.rpe, 0) / rows.length;
   const sameDay = (r) => rows.filter(x => x.date_seance === r.date_seance).length > 1;   // l'heure les distingue
-  box.innerHTML = `<p class="rpe-trend-sum">${rows.length} réponse${rows.length > 1 ? 's' : ''} · moyenne <strong>${rpeFr(avg)}</strong> · dernière <strong>${rows.at(-1).rpe}</strong> (${escapeHtml(rpeLabel(rows.at(-1).rpe))})</p>
+  box.innerHTML = `<p class="rpe-trend-sum">${rows.length} réponse${rows.length > 1 ? 's' : ''}${SEP}moyenne <strong>${rpeFr(avg)}</strong>${SEP}dernière <strong>${rows.at(-1).rpe}</strong> (${escapeHtml(rpeLabel(rows.at(-1).rpe))})</p>
     <div class="rpe-cols" role="list">${rows.map(r => `<div class="rpe-col" role="listitem"
-        title="${escapeHtml(`${rpeWhen({ date: r.date_seance, heure: r.heure })} · ${r.titre} : ${r.rpe} (${rpeLabel(r.rpe)})${r.corrige ? ' · saisi ou corrigé par le staff' : ''}`)}">
+        title="${escapeHtml(`${rpeWhen({ date: r.date_seance, heure: r.heure })} – ${r.titre} : ${r.rpe} (${rpeLabel(r.rpe)})${r.corrige ? ' – saisi ou corrigé par le staff' : ''}`)}">
         <span class="rpe-col-v">${r.rpe}${r.corrige ? '*' : ''}</span>
         <span class="rpe-col-bar" style="--h:${r.rpe * 11}px;--rpe:${rpeColor(r.rpe)}"></span>
         <span class="rpe-col-d">${rpeDate(r.date_seance).slice(0, 5)}${sameDay(r) && r.heure ? `<br>${r.heure.slice(0, 5)}` : ''}${r.session_id == null ? '<br>M' : ''}</span>
       </div>`).join('')}</div>
-    ${rows.some(r => r.corrige || r.session_id == null) ? `<p class="rpe-note">${[rows.some(r => r.corrige) && '* saisi ou corrigé par le staff', rows.some(r => r.session_id == null) && 'M : match'].filter(Boolean).join(' · ')}</p>` : ''}`;
+    ${rows.some(r => r.corrige || r.session_id == null) ? `<p class="rpe-note">${[rows.some(r => r.corrige) && '* saisi ou corrigé par le staff', rows.some(r => r.session_id == null) && 'M : match'].filter(Boolean).join(SEP)}</p>` : ''}`;
 }

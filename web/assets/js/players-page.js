@@ -3,7 +3,7 @@
    Effectif en lignes compactes : le nom à gauche, taille — poids —
    poste à droite (dernière mesure connue, rien d'inventé). Recherche
    par nom, filtre par poste, ajout d'un joueur. Un clic ouvre la
-   fiche joueur (player-performance.html), point d'entrée vers Performance et
+   fiche joueur (player-performance), point d'entrée vers Performance et
    Vidéos. Les présences se consultent sur la fiche.
    Les données sont scopées au club via RLS, et à l'équipe choisie
    dans le menu (nav.js).
@@ -213,7 +213,7 @@ async function deletePickedPlayers() {
     return toast('La corbeille n’est pas disponible : la suppression d’un joueur doit rester récupérable. Prévenez l’administrateur du club.', 'error');
   }
   const linked = list.filter(p => p.auth_user_id).length;
-  if (!confirm(`Supprimer ${list.length > 1 ? `ces ${list.length} joueurs` : 'ce joueur'} ?\n\n${namesList(list.map(fullName))}\n\n`
+  if (!await confirmDialog(`Supprimer ${list.length > 1 ? `ces ${list.length} joueurs` : 'ce joueur'} ?\n\n${namesList(list.map(fullName))}\n\n`
     + 'Chaque fiche part avec tout ce qui la concerne : mesures, tests, vidéos et séquences, objectifs et préventions, programme, parcours, présences.'
     + (linked ? `\n${linked > 1 ? `${linked} comptes joueurs n’auront` : 'Un compte joueur n’aura'} plus accès à son espace.` : '')
     + '\n\nRécupérable depuis la Corbeille.')) return;
@@ -253,7 +253,7 @@ function playerRow(p) {
   // Modifier : double-clic sur la ligne, ou le crayon (toujours visible sur écran tactile).
   const edit = canWritePlayer(p.id) ? `<span class="pr-edit" data-edit="${p.id}" role="button" title="Modifier (ou double-clic sur la ligne)" aria-label="Modifier ${escapeHtml(fullName(p))}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></span>` : '';
-  return `<a class="player-row${canWritePlayer(p.id) ? ' can-edit' : ''}" href="player-performance.html?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
+  return `<a class="player-row${canWritePlayer(p.id) ? ' can-edit' : ''}" href="player-performance?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
     ${photo}
     <span class="pr-name"><strong>${escapeHtml(fullName(p))}</strong>${team ? `<small>${escapeHtml(team)}</small>` : ''}</span>
     <span class="pr-data">${data}</span>
@@ -388,7 +388,7 @@ function renderUnassigned() {
   box.innerHTML = `<span>${orphans.length} joueur${orphans.length > 1 ? 's' : ''} sans équipe : le staff des équipes ne ${orphans.length > 1 ? 'les' : 'le'} voit pas.</span>
     ${team ? `<button class="btn btn-sm btn-primary" type="button" id="btnAssignTeam">Rattacher à ${escapeHtml(team.nom)}</button>` : `<span>Choisissez une équipe dans le menu pour ${orphans.length > 1 ? 'les y' : 'l’y'} rattacher.</span>`}`;
   document.getElementById('btnAssignTeam')?.addEventListener('click', async (e) => {
-    if (!confirm(`Rattacher ${orphans.length} joueur${orphans.length > 1 ? 's' : ''} à l'équipe ${team.nom} ?`)) return;
+    if (!await confirmDialog(`Rattacher ${orphans.length} joueur${orphans.length > 1 ? 's' : ''} à l'équipe ${team.nom} ?`)) return;
     e.target.disabled = true;
     try {
       const { error } = await sb.from('players').update({ team_id: team.id }).in('id', orphans.map(p => p.id));
@@ -461,7 +461,7 @@ async function savePlayer() {
       .order('id', { ascending: false }).limit(1).maybeSingle();
     closeModal('playerModal');
     toast('Joueur ajouté', 'success');
-    window.location.href = data ? `player-performance.html?id=${data.id}` : 'players.html';
+    window.location.href = data ? `player-performance?id=${data.id}` : 'players';
   } catch (e) { toast(e.message, 'error'); }
 }
 

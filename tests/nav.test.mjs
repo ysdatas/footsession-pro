@@ -64,7 +64,7 @@ assert.equal(withNew.at(-1), 'trash', 'Corbeille reste en bas');
 
 // Page interdite au rôle : renvoi au tableau de bord.
 assert.equal(run(`navGuard({ role: 'coach' })`), false);
-assert.equal(redirected, 'dashboard.html');
+assert.equal(redirected, 'dashboard');
 redirected = null;
 assert.equal(run(`navGuard({ role: 'admin' })`), true);
 assert.equal(redirected, null);
@@ -81,7 +81,7 @@ for (const page of ['dashboard', 'sessions', 'session-edit', 'matchs', 'tactical
   window.location.pathname = `/${page}`;
   redirected = null;
   assert.equal(run(`navGuard({ role: 'lecteur' })`), false, `lecteur : pas de ${page}`);
-  assert.equal(redirected, 'players.html', `lecteur : ${page} renvoie sur Joueurs`);
+  assert.equal(redirected, 'players', `lecteur : ${page} renvoie sur Joueurs`);
 }
 for (const page of ['players', 'player-performance', 'comparaison', 'videos', 'faq', 'settings']) {
   window.location.pathname = `/${page}`;
@@ -91,14 +91,14 @@ for (const page of ['players', 'player-performance', 'comparaison', 'videos', 'f
 }
 window.location.pathname = '/club';
 run(`navGuard({ role: 'coach' })`);
-assert.equal(redirected, 'dashboard.html', 'staff : toujours renvoyé au tableau de bord');
+assert.equal(redirected, 'dashboard', 'staff : toujours renvoyé au tableau de bord');
 redirected = null;
 // Page d'accueil après connexion (auth.js).
-assert.equal(run(`homeFor({ role: 'lecteur', club_id: 1 })`), 'players.html');
-assert.equal(run(`homeFor({ role: 'analyste', club_id: 1 })`), 'dashboard.html');
-assert.equal(run(`homeFor({ role: 'coach', club_id: 1 })`), 'dashboard.html');
-assert.equal(run(`homeFor({ role: 'joueur', club_id: 1 })`), 'mon-espace.html');
-assert.equal(run(`homeFor({ role: 'lecteur', club_id: null })`), 'onboarding.html');
+assert.equal(run(`homeFor({ role: 'lecteur', club_id: 1 })`), 'players');
+assert.equal(run(`homeFor({ role: 'analyste', club_id: 1 })`), 'dashboard');
+assert.equal(run(`homeFor({ role: 'coach', club_id: 1 })`), 'dashboard');
+assert.equal(run(`homeFor({ role: 'joueur', club_id: 1 })`), 'mon-espace');
+assert.equal(run(`homeFor({ role: 'lecteur', club_id: null })`), 'onboarding');
 // Droits côté interface : le lecteur consulte (vue staff, statistiques de
 // visionnage) mais aucun helper d'écriture ne le laisse passer.
 assert.equal(run(`isStaffRole('lecteur') && isReader('lecteur') && canSeeVideoStats('lecteur')`), true);
@@ -158,15 +158,15 @@ Object.assign(ctx, {
   latestUrl: (pages) => pages.map(p => mem[p]).filter(Boolean).sort((a, b) => b.t - a.t)[0]?.u || null,
 });
 const href = (k) => window.resolveNavHref(k);
-assert.equal(href('players'), 'players.html', 'rien de vu : page de la rubrique');
-mem.players = { u: 'players.html?q=al', t: 1 };
-mem['player-performance'] = { u: 'player-performance.html?id=12&tab=performance', t: 2 };
-assert.equal(href('players'), 'player-performance.html?id=12&tab=performance', 'depuis la FAQ : la fiche laissée, onglet compris');
+assert.equal(href('players'), 'players', 'rien de vu : page de la rubrique');
+mem.players = { u: 'players?q=al', t: 1 };
+mem['player-performance'] = { u: 'player-performance?id=12&tab=performance', t: 2 };
+assert.equal(href('players'), 'player-performance?id=12&tab=performance', 'depuis la FAQ : la fiche laissée, onglet compris');
 ctx.PAGE = 'player-performance';
-assert.equal(href('players'), 'players.html?q=al', 'depuis la fiche : la liste telle qu’on l’a laissée');
+assert.equal(href('players'), 'players?q=al', 'depuis la fiche : la liste telle qu’on l’a laissée');
 ctx.PAGE = 'faq';
-mem.comparaison = { u: 'comparaison.html?tab=evolution', t: 3 };
-assert.equal(href('performance'), 'comparaison.html?tab=evolution', 'Performance : sa page, onglet compris');
+mem.comparaison = { u: 'comparaison?tab=evolution', t: 3 };
+assert.equal(href('performance'), 'comparaison?tab=evolution', 'Performance : sa page, onglet compris');
 assert.equal(href('inconnue'), null);
 
 console.log('nav.test.mjs : OK');

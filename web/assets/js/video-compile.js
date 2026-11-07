@@ -138,7 +138,7 @@ async function renderRealtime(items, opts) {
 
     for (const [i, it] of items.entries()) {
       const seq = it.seq, v = videos.get(it.src);
-      const caption = `${i + 1} / ${items.length} · ${seq.label || 'Séquence'}`;
+      const caption = `${i + 1} / ${items.length} – ${seq.label || 'Séquence'}`;
       await seekTo(v, seq.start_sec);
       if (opts.titles) {
         scene = { kind: 'title', index: i + 1, count: items.length, label: seq.label || 'Séquence', player: opts.playerName, dur: seq.end_sec - seq.start_sec };
@@ -197,7 +197,7 @@ function drawTitleCard(ctx, W, H, s) {
   ctx.fillStyle = '#F5F5F5'; ctx.font = '800 54px Inter, Arial, sans-serif';
   ctx.fillText(s.label.length > 38 ? `${s.label.slice(0, 37)}…` : s.label, W / 2, H * .67);
   ctx.fillStyle = '#9A9A9A'; ctx.font = '500 28px Inter, Arial, sans-serif';
-  ctx.fillText([s.player, fmtDur(s.dur)].filter(Boolean).join(' · '), W / 2, H * .77);
+  ctx.fillText([s.player, fmtDur(s.dur)].filter(Boolean).join(' – '), W / 2, H * .77);
 }
 function drawCaption(ctx, W, H, text) {
   if (!text) return;
@@ -266,7 +266,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
         <span class="vc-num">${i + 1}</span>
         ${thumbHtml(urlOf(s), s.start_sec, fmtDur(len), s.thumb)}
         <span class="vc-body"><strong>${escapeHtml(s.label || 'Séquence')}</strong>
-          <small>${escapeHtml(videoOf(s)?.titre || 'Vidéo')} · ${n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans habillage'}</small></span>
+          <small>${escapeHtml(videoOf(s)?.titre || 'Vidéo')}${SEP}${n ? `${n} annotation${n > 1 ? 's' : ''}` : 'sans habillage'}</small></span>
         <span class="vc-actions">
           <button class="btn btn-sm" type="button" data-one="${id}" title="Générer et télécharger cette séquence seule, habillage compris">Séquence</button>
           ${sources.length > 1 && origUrl(s) ? `<a class="btn btn-sm" href="${escapeHtml(origUrl(s))}" download title="Vidéo source complète, telle qu’elle a été envoyée (sans habillage)">Vidéo d’origine</a>` : ''}
@@ -278,7 +278,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
     $c('#vcOrig').classList.toggle('hidden', !sources.some(v => origUrl(seqs.find(s => s.video_id === v))));
     loadThumbs($c('#vcList'));
     const secs = Math.round(compileDuration(st.order.map(id => ({ seq: byId(id) })), opts()));
-    $c('#vcTime').textContent = `${st.order.length} séquence${st.order.length > 1 ? 's' : ''} · environ ${fmtDur(secs)} de vidéo`
+    $c('#vcTime').textContent = `${st.order.length} séquence${st.order.length > 1 ? 's' : ''} – environ ${fmtDur(secs)} de vidéo`
       + (fast ? ', générée en quelques secondes.' : ' (et autant de temps de génération).');
     $c('#vcGo').disabled = !canRender || !st.order.length || st.running;
   };
@@ -286,8 +286,8 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
   renderList();
   ['#vcInk', '#vcTitles'].forEach(id => $c(id).addEventListener('change', renderList));
 
-  const close = () => {
-    if (st.running && !confirm('Arrêter la génération en cours ?')) return;
+  const close = async () => {
+    if (st.running && !await confirmDialog('Arrêter la génération en cours ?')) return;
     st.cancel = true;
     if (st.url) URL.revokeObjectURL(st.url);
     document.getElementById('vcModal')?.remove();
@@ -317,7 +317,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
       st.url = URL.createObjectURL(st.blob);
       const mb = st.blob.size / 1048576;
       $c('#vcDone').innerHTML = `
-        <p><strong>${ids.length > 1 ? 'Compilation prête' : 'Séquence prête'}</strong> · ${mb.toFixed(1).replace('.', ',')} Mo · ${escapeHtml(compileExt(st.blob.type).toUpperCase())}</p>
+        <p><strong>${ids.length > 1 ? 'Compilation prête' : 'Séquence prête'}</strong> – ${mb.toFixed(1).replace('.', ',')} Mo – ${escapeHtml(compileExt(st.blob.type).toUpperCase())}</p>
         <div class="vc-done-actions">
           <a class="btn btn-primary" href="${st.url}" download="${escapeHtml(st.blob.name)}">Télécharger</a>
           ${ids.length > 1 && canManagePlayerVideos(profile.role) ? `<button class="btn" type="button" id="vcSave" ${st.blob.size > VIDEO_MAX_BYTES ? 'disabled title="Trop volumineuse pour être ajoutée"' : ''}>Ajouter aux vidéos de ${escapeHtml(name)}</button>` : ''}
@@ -346,7 +346,7 @@ function openCompileSheet({ player, seqs, videoOf, urlOf, onSaved, profile }) {
       const { error } = await sb.from('player_videos').insert({
         club_id: profile.club_id, player_id: player.id, storage_path: path,
         titre: `Compilation — ${new Date().toLocaleDateString('fr-FR')}`,
-        description: `Séquences : ${labels.join(' · ')}`.slice(0, 900),
+        description: `Séquences : ${labels.join(' – ')}`.slice(0, 900),
       });
       if (error) {
         await removeVideoFile(path).catch(err => console.warn('Fichier orphelin', path, err));

@@ -139,7 +139,7 @@ function sessionTotalMin(procs) { return (procs || []).reduce((sum, p) => sum + 
 const cleanText = (t) => String(t ?? '').trim();
 function sessionPrinciple(s, procs = []) {
   return cleanText(s?.principes_jeu)
-    || [...new Set((procs || []).map(p => cleanText(p.principes_jeu)).filter(Boolean))].join(' · ');
+    || [...new Set((procs || []).map(p => cleanText(p.principes_jeu)).filter(Boolean))].join(' – ');
 }
 function procPrinciple(p, s, procs = []) {
   return cleanText(p?.principes_jeu) || sessionPrinciple(s, procs);

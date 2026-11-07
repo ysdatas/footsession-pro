@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — suivi-rpe-dash.js (suivi-rpe.html)
+   LMFC Performance — suivi-rpe-dash.js (suivi-rpe)
    Tableau de bord du Suivi RPE pour l'équipe choisie : tuiles, RPE
    moyen par séance (et RPE attendue en repère), charge ressentie par
    séance, RPE moyen de chaque joueur, tableau des séances. Calculs : rpe-stats.js ; graphiques :
@@ -19,17 +19,17 @@ function renderSrDash(body, sessions, players, cells) {
   const st = rpeSummary(sessions, cells), t = st.total;
   const ranked = players.map((p, i) => ({ p, ...st.perPlayer[i] })).filter(x => x.n).sort((a, b) => b.avg - a.avg);
   const rows = sessions.map((s, j) => ({ s, ...st.perSession[j] })).reverse();   // la plus récente en haut
-  const mNote = sessions.some(s => s.match) ? ' · M : match' : '';
+  const mNote = sessions.some(s => s.match) ? ' – M : match' : '';
   body.innerHTML = `
     <div class="kpi-grid kpi-band sr-kpis">
       ${srKpi(t.avg === null ? '—' : rpeFr(t.avg), 'RPE moyen')}
-      ${srKpi(`${t.n}<span class="kpi-of">/${t.due}</span>`, `Réponses${t.rate === null ? '' : ` · ${Math.round(t.rate * 100)} %`}`)}
-      ${srKpi(t.missing, `Réponses manquantes${t.pending ? ` · ${t.pending} en attente` : ''}`)}
+      ${srKpi(`${t.n}<span class="kpi-of">/${t.due}</span>`, `Réponses${t.rate === null ? '' : `${SEP}${Math.round(t.rate * 100)} %`}`)}
+      ${srKpi(t.missing, `Réponses manquantes${t.pending ? ` – ${t.pending} en attente` : ''}`)}
       ${t.gapN ? srKpi(rpeGapFr(t.gap), 'Écart à la RPE attendue') : ''}
       ${srKpi(srInt(t.load), 'Charge ressentie moyenne (UA)')}
     </div>
     <div class="charts-grid sr-charts">
-      <section class="card chart-card"><h2 class="chart-title">RPE moyen par séance <span>1 à 10${t.gapN ? ' · trait : RPE attendue' : ''}${mNote}</span></h2>
+      <section class="card chart-card"><h2 class="chart-title">RPE moyen par séance <span>1 à 10${t.gapN ? ' – trait : RPE attendue' : ''}${mNote}</span></h2>
         <div class="chart-box"><canvas id="srRpeChart" role="img" aria-label="RPE moyen de l’équipe à chaque séance (détail dans le tableau Séances)"></canvas></div></section>
       <section class="card chart-card"><h2 class="chart-title">Charge ressentie par séance <span>UA, moyenne de l’équipe${mNote}</span></h2>
         <div class="chart-box"><canvas id="srLoadChart" role="img" aria-label="Charge ressentie moyenne à chaque séance (détail dans le tableau Séances)"></canvas></div></section>
@@ -64,9 +64,9 @@ function renderSrDash(body, sessions, players, cells) {
         pointRadius: 15, pointHoverRadius: 15, pointBorderWidth: 3, pointHoverBorderWidth: 3, pointBorderColor: '#F5F5F5', borderColor: '#F5F5F5', order: -1, noValueLabel: true }] : [])] },
     options: { ...noLegend, layout: { padding: { top: 18 } },
       plugins: { ...noLegend.plugins, valueLabels: { display: true, format: (v) => rpeFr(v) },
-        tooltip: { callbacks: { title: (it) => { const s = sessions[it[0].dataIndex]; return `${srWhen(s)} · ${s.titre}`; },
+        tooltip: { callbacks: { title: (it) => { const s = sessions[it[0].dataIndex]; return `${srWhen(s)} – ${s.titre}`; },
           label: (it) => { const x = st.perSession[it.dataIndex];
-            return [`RPE moyen ${x.avg === null ? '—' : rpeFr(x.avg)} · ${x.n}/${x.due} réponses`, ...(x.expected ? [`RPE attendue ${x.expected} · écart ${x.gap === null ? '—' : rpeGapFr(x.gap)}`] : [])]; } },
+            return [`RPE moyen ${x.avg === null ? '—' : rpeFr(x.avg)} – ${x.n}/${x.due} réponses`, ...(x.expected ? [`RPE attendue ${x.expected} – écart ${x.gap === null ? '—' : rpeGapFr(x.gap)}`] : [])]; } },
           filter: (it) => it.datasetIndex === 0 } },
       scales: { x: catAxis, y: { ...valAxis, max: 10 } } } });
   columns('srLoadChart', sessions.map((s, j) => ({ label: srDay(s), c: Math.round(st.perSession[j].load || 0) })));
@@ -76,6 +76,6 @@ function renderSrDash(body, sessions, players, cells) {
     options: { ...noLegend, indexAxis: 'y', layout: { padding: { right: 36 } },
       plugins: { ...noLegend.plugins, valueLabels: { display: true, format: (v) => rpeFr(v) },
         tooltip: { callbacks: { label: (it) => { const x = ranked[it.dataIndex];
-          return `RPE moyen ${rpeFr(x.avg)} · ${x.n} réponse${x.n > 1 ? 's' : ''}${x.missing ? ` · ${x.missing} manquante${x.missing > 1 ? 's' : ''}` : ''}${x.load === null ? '' : ` · charge ${srInt(x.load)} UA`}`; } } } },
+          return `RPE moyen ${rpeFr(x.avg)} – ${x.n} réponse${x.n > 1 ? 's' : ''}${x.missing ? ` – ${x.missing} manquante${x.missing > 1 ? 's' : ''}` : ''}${x.load === null ? '' : ` – charge ${srInt(x.load)} UA`}`; } } } },
       scales: { y: { ...catAxis, ticks: { ...catAxis.ticks, autoSkip: false, callback: shortLabel } }, x: { ...valAxis, max: 10 } } } });
 }

@@ -15,7 +15,7 @@
 .cf-modal { width:min(720px,calc(100vw - 24px)); max-width:none; max-height:min(88vh,900px); overflow-y:auto; overscroll-behavior:contain; }
 .cf-modal-lead { margin:0 0 18px; font-size:var(--fs-sm); }
 .cf-fieldset { min-width:0; margin:18px 0; padding:14px; border:1px solid var(--border); border-radius:12px; }
-.cf-fieldset legend { padding:0 6px; font-weight:700; }
+.cf-fieldset legend { padding:0 6px; font-weight: 600; }
 .cf-hint { margin:0 0 10px; font-size:var(--fs-xs); }
 .cf-team-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:8px; }
 .cf-team { display:flex; align-items:center; gap:9px; min-width:0; padding:9px 11px; border:1px solid var(--border); border-radius:9px; background:var(--bg-hover); cursor:pointer; }

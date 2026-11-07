@@ -45,7 +45,7 @@ async function openCalSummary(item) {
   csEl('calSummaryBody').innerHTML = '<p class="text-muted">Chargement du récapitulatif…</p>';
   csEl('calSummarySave').classList.add('hidden');
   csEl('calSummaryDelete').classList.add('hidden');
-  csEl('calSummaryFull').href = item.kind === 'seance' ? `session-edit.html?id=${item.id}` : `matchs.html?id=${item.id}`;
+  csEl('calSummaryFull').href = item.kind === 'seance' ? `session-edit?id=${item.id}` : `matchs?id=${item.id}`;
   openModal('calSummaryModal');
 
   try {
@@ -119,7 +119,7 @@ function csPlayerRowsHtml() {
     const stateLabel = CS.item.kind === 'seance' ? 'Présence' : 'Statut';
     return `<div class="cs-player-row" data-cs-player="${id}">
       <label class="cs-include"><input type="checkbox" data-cs-include="${id}"${entry.included ? ' checked' : ''} ${dis}><span>${escapeHtml(csName(p))}</span>
-        <small>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? ` · #${p.numero}` : ''}</small></label>
+        <small>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? `${SEP}#${p.numero}` : ''}</small></label>
       ${entry.included ? `<select data-cs-status="${id}" aria-label="${stateLabel} de ${escapeHtml(csName(p))}" ${dis}>${csStatusOptions(status, entry.statut)}</select>` : '<span class="cs-excluded">Non concerné</span>'}
       ${CS.item.kind === 'seance' && entry.included && entry.statut === 'autre' ? `<label class="cs-free"><span>Motif</span><input data-cs-free="${id}" maxlength="40" value="${escapeHtml(entry.statut_libre)}" ${dis}></label>
         <label class="cs-participates"><input type="checkbox" data-cs-present="${id}"${entry.present ? ' checked' : ''} ${dis}> Participe</label>` : ''}
@@ -132,7 +132,7 @@ function csRender() {
   csEl('calSummaryBody').innerHTML = `${!CS.editable ? '<p class="cs-readonly">Consultation seule pour cet élément.</p>' : ''}
     <div class="cs-section"><h3>Informations</h3>${csFieldsHtml(item)}</div>
     <div class="cs-section"><div class="cs-player-heading"><h3>Joueurs concernés</h3><span id="csCount"></span></div>
-      <p class="text-muted">${team ? `Effectif ${escapeHtml(team)} · ajoutez un joueur d’une autre équipe si besoin.` : 'Participants associés à cet élément.'}</p>
+      <p class="text-muted">${team ? `Effectif ${escapeHtml(team)}${SEP}ajoutez un joueur d’une autre équipe si besoin.` : 'Participants associés à cet élément.'}</p>
       ${CS.editable ? `<label class="cs-add"><span>Ajouter un joueur</span><input id="csAddPlayer" list="csPlayerOptions" autocomplete="off" placeholder="Rechercher un joueur du club…"><datalist id="csPlayerOptions"></datalist></label>` : ''}
       <div class="cs-player-list" id="csPlayerList">${csPlayerRowsHtml()}</div>
     </div>
@@ -150,12 +150,12 @@ function csDatalist(e) {
   const q = e.target.value.trim().toLocaleLowerCase('fr');
   const existing = new Set(CS.entries.keys());
   const list = CS.players.filter(p => !existing.has(Number(p.id)) && q && csName(p).toLocaleLowerCase('fr').includes(q)).slice(0, 12);
-  csEl('csPlayerOptions').innerHTML = list.map(p => `<option value="${escapeHtml(`${csName(p)} · ${teamName(p.team_id) || 'Sans équipe'}`)}"></option>`).join('');
+  csEl('csPlayerOptions').innerHTML = list.map(p => `<option value="${escapeHtml(`${csName(p)} – ${teamName(p.team_id) || 'Sans équipe'}`)}"></option>`).join('');
 }
 
 function csAddPlayer(e) {
   const value = e.target.value;
-  const p = CS.players.find(x => `${csName(x)} · ${teamName(x.team_id) || 'Sans équipe'}` === value);
+  const p = CS.players.find(x => `${csName(x)} – ${teamName(x.team_id) || 'Sans équipe'}` === value);
   if (!p) return;
   const id = Number(p.id), inTeam = csInTeam(p, CS.item.team_id);
   CS.entries.set(id, { player: p, included: true, statut: CS.item.kind === 'seance' ? 'present' : '',
@@ -237,7 +237,7 @@ async function csSave() {
 async function csDelete() {
   if (!CS.item || !CS.editable) return;
   const item = CS.item, label = item.kind === 'seance' ? 'cette séance' : 'ce match';
-  if (!confirm(`Supprimer ${label} ?\n\nLes joueurs concernés ne le verront plus dans leur calendrier.`)) return;
+  if (!await confirmDialog(`Supprimer ${label} ?\n\nLes joueurs concernés ne le verront plus dans leur calendrier.`)) return;
   const table = item.kind === 'seance' ? 'sessions' : 'matches';
   const { data, error } = await sb.from(table).delete().eq('id', item.id).select('id');
   if (error || !data?.length) return toast(error?.message || 'Suppression refusée : droits insuffisants.', 'error');

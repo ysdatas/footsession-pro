@@ -40,7 +40,7 @@ function openMatchFeedbackSheet({ match, value = null, onSaved }) {
   }
   document.getElementById('mfSheet').mf = { match, value, onSaved };
   document.getElementById('mfTitle').textContent = match.form_titre || 'Ton avis sur le match';
-  document.getElementById('mfMatch').textContent = [match.titre && `Contre ${match.titre}`, match.date && rpeDate(match.date)].filter(Boolean).join(' · ');
+  document.getElementById('mfMatch').textContent = [match.titre && `Contre ${match.titre}`, match.date && rpeDate(match.date)].filter(Boolean).join(' – ');
   const shown = mfShown(match);
   document.getElementById('mfFields').innerHTML = shown.map(([k, q, hint]) => `<div class="field"><label for="mf-${k}">${escapeHtml(q)}</label>
     <textarea id="mf-${k}" rows="4" maxlength="2000" placeholder="${escapeHtml(hint)}"></textarea></div>`).join('');

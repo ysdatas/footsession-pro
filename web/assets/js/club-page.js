@@ -137,7 +137,7 @@ async function loadMembers() {
     const teamsTxt = ids.map(teamName).filter(Boolean).join(', ');
     const acc = isAdmin && m.role !== 'joueur' ? accessSummary(m) : { bits: [], none: false };
     const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée')
-      : [ROLE_LABELS[m.role] || m.role, teamsTxt && escapeHtml(teamsTxt), ...acc.bits].filter(Boolean).join(' · ')
+      : [ROLE_LABELS[m.role] || m.role, teamsTxt && escapeHtml(teamsTxt), ...acc.bits].filter(Boolean).join(' – ')
         + (acc.none ? ' <span class="badge badge-red">Aucun accès</span>' : '');
     const self = m.id === myProfile.id;
     // Coach, préparateur, lecteur : rattachés à une ou plusieurs équipes, ils ne voient qu'elles. Lecteur sans équipe : tout le club (lmfc_v39.sql).
@@ -163,7 +163,7 @@ async function loadMembers() {
           ${!['joueur', 'admin'].includes(m.role) ? `<button type="button" class="btn btn-sm" data-rights title="${m.role === 'lecteur' ? 'Exceptions par joueur' : 'Lecture sur toutes les équipes, exceptions par joueur'}">Accès</button>` : ''}
           <button type="button" class="btn btn-sm btn-danger" data-remove>Retirer</button>
         </div>`
-      : `<span class="badge badge-gold">${self ? 'Vous · ' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
+      : `<span class="badge badge-gold">${self ? 'Vous' + SEP + '' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
     const search = fold(`${m.nom || ''} ${linked ? `${playerName(linked)} ${teamName(linked.team_id) || ''}` : ''} ${ROLE_LABELS[m.role] || ''} ${teamsTxt}`);
     return `<div class="member-row${acc.none ? ' is-noaccess' : ''}" data-search="${escapeHtml(search)}"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small></span>${controls}</div>`;
   };
@@ -186,7 +186,7 @@ function linkOptions(m, linked) {
   const taken = roster.filter(p => p.auth_user_id && p.auth_user_id !== m.id);
   return roster.filter(p => !taken.includes(p)).map(opt).join('')
     + (taken.length ? `<optgroup label="Liées à un autre compte">${taken.map(p => opt(p).replace('</option>',
-      ` · ${escapeHtml(membersById.get(p.auth_user_id)?.nom || 'autre compte')}</option>`)).join('')}</optgroup>` : '');
+      ` – ${escapeHtml(membersById.get(p.auth_user_id)?.nom || 'autre compte')}</option>`)).join('')}</optgroup>` : '');
 }
 
 /* Membres rangés : le staff (admin, coach, préparateur), les joueurs dont le
@@ -205,7 +205,7 @@ function memberGroups(members, fiche, teams) {
   return [
     ['Staff', staff],
     ['Joueurs sans fiche', noFiche, 'Choisissez leur fiche : sans elle, le joueur ne voit aucune donnée.'],
-    ...teams.map(t => [`Joueurs · ${t.nom}`, sortPlayers(linked.filter(m => fiche(m).team_id === t.id))]),
+    ...teams.map(t => [`Joueurs – ${t.nom}`, sortPlayers(linked.filter(m => fiche(m).team_id === t.id))]),
     [teams.length ? 'Joueurs sans équipe' : 'Joueurs', sortPlayers(linked.filter(m => !teams.some(t => t.id === fiche(m).team_id)))],
   ].filter(([, rows]) => rows.length);
 }
@@ -237,7 +237,7 @@ function renderAccess(pending) {
   document.getElementById('pendingList').innerHTML = pending.length
     ? `<div class="access-list"><h4>En attente de première connexion</h4>${pending.map(a => {
         const p = roster.find(x => x.id === a.player_id);
-        return `<div class="member-row"><span class="member-name">${escapeHtml(a.email)}<small>${ROLE_LABELS[a.role] || a.role}${p ? ` · ${escapeHtml(playerName(p))}` : ''}</small></span>
+        return `<div class="member-row"><span class="member-name">${escapeHtml(a.email)}<small>${ROLE_LABELS[a.role] || a.role}${p ? `${SEP}${escapeHtml(playerName(p))}` : ''}</small></span>
           <button class="btn btn-sm" type="button" data-access-delete="${a.id}">Annuler</button></div>`;
       }).join('')}</div>`
     : '';
@@ -310,7 +310,7 @@ document.getElementById('memberList').addEventListener('change', async (e) => {
     if (!linkSel.value) { toast('Choisissez la fiche du joueur pour appliquer la fonction.', 'info'); return; }
     // Fiche liée à un autre compte : elle le quitte, sur confirmation.
     const card = roster.find(p => p.id === Number(linkSel.value)), other = card?.auth_user_id && card.auth_user_id !== profileId && membersById.get(card.auth_user_id);
-    if (other && !confirm(`La fiche de ${playerName(card)} est liée au compte « ${other.nom || 'sans nom'} ». La rattacher à « ${membersById.get(profileId)?.nom || 'ce compte'} » ?\n\n« ${other.nom || 'L’autre compte'} » n’aura plus de fiche.`)) return loadMembers();
+    if (other && !await confirmDialog(`La fiche de ${playerName(card)} est liée au compte « ${other.nom || 'sans nom'} ». La rattacher à « ${membersById.get(profileId)?.nom || 'ce compte'} » ?\n\n« ${other.nom || 'L’autre compte'} » n’aura plus de fiche.`)) return loadMembers();
     rpc = sb.rpc('club_link_player', { p_profile_id: profileId, p_player_id: Number(linkSel.value) });
   } else {
     rpc = sb.rpc('club_set_member_role', { p_profile_id: profileId, p_role: role });
@@ -331,7 +331,7 @@ document.getElementById('memberList').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-remove]'); if (!b) return;
   const profileId = b.closest('.member-controls').dataset.id;
   const name = b.closest('.member-row').querySelector('.member-name').firstChild.textContent;
-  if (!confirm(`Retirer ${name} du club ? Son compte n’aura plus accès aux données du club.`)) return;
+  if (!await confirmDialog(`Retirer ${name} du club ? Son compte n’aura plus accès aux données du club.`)) return;
   const { error } = await sb.rpc('club_remove_member', { p_profile_id: profileId });
   if (error) return toast(error.message, 'error');
   toast('Membre retiré', 'success');
@@ -401,12 +401,12 @@ document.getElementById('teamList').addEventListener('click', async (e) => {
   const team = (window.CLUB_TEAMS || []).find(t => t.id === id);
   try {
     if (btn.dataset.action === 'rename') {
-      const nom = prompt('Nouveau nom de l\'équipe', team?.nom || '')?.trim();
+      const nom = (await promptDialog('Nouveau nom de l\'équipe', team?.nom || ''))?.trim();
       if (!nom) return;
       const { error } = await sb.from('teams').update({ nom }).eq('id', id);
       if (error) throw error;
     } else {
-      if (!confirm(`Supprimer l'équipe « ${team?.nom} » ? Les joueurs et séances ne sont pas supprimés : ils redeviennent « sans équipe ».${await trashNote()}`)) return;
+      if (!await confirmDialog(`Supprimer l'équipe « ${team?.nom} » ? Les joueurs et séances ne sont pas supprimés : ils redeviennent « sans équipe ».${await trashNote()}`)) return;
       const { error } = await sb.from('teams').delete().eq('id', id);
       if (error) throw error;
     }

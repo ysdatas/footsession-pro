@@ -141,8 +141,8 @@ function initPitch() {
     markDirty();
     renderPitch();
   });
-  document.getElementById('pitchClear')?.addEventListener('click', () => {
-    if (!confirm('Retirer tous les joueurs du terrain ?')) return;
+  document.getElementById('pitchClear')?.addEventListener('click', async () => {
+    if (!await confirmDialog('Retirer tous les joueurs du terrain ?')) return;
     terrain = {};
     markDirty();
     renderPitch();
@@ -158,7 +158,7 @@ function openPitchPalette(id, x, y) {
   pal.id = 'pitchPalette';
   pal.setAttribute('role', 'dialog');
   pal.setAttribute('aria-label', 'Couleur du maillot');
-  pal.innerHTML = `<span class="pp-title">Maillot · ${escapeHtml(tokenName(pitchPlayer(id)))}</span>
+  pal.innerHTML = `<span class="pp-title">Maillot${SEP}${escapeHtml(tokenName(pitchPlayer(id)))}</span>
     <div class="pp-colors">${COLOR_PALETTE.map((c, i) => `<button type="button" data-color="${c}" style="background:${c}" title="${COLOR_NAMES[i]}" aria-label="${COLOR_NAMES[i]}"></button>`).join('')}</div>
     <label class="pp-all"><input type="checkbox" id="ppAll"> Tous les pions</label>`;
   document.body.appendChild(pal);

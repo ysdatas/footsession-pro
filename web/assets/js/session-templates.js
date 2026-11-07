@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — session-templates.js (session-edit.html)
+   LMFC Performance — session-templates.js (session-edit)
    Schémas enregistrés (exercise_templates) : procédés gardés comme
    modèles (☆ sur un procédé, « Ajouter aux schémas » du tableau
    tactique), retrouvés puis insérés dans une séance (bouton « Schémas »).
@@ -44,7 +44,7 @@ function filterTemplates(rows, { q = '', cat = '', tags = [], mode = 'all', scop
 window.saveAsTemplate = async (uid) => {
   syncFromDom();
   const p = procedures.find(x => x._uid === uid); if (!p) return;
-  const nom = prompt('Nom du modèle :', p.nom || 'Exercice'); if (!nom) return;
+  const nom = await promptDialog('Nom du modèle :', p.nom || 'Exercice'); if (!nom) return;
   const data = {}; TPL_FIELDS.forEach(k => data[k] = p[k]);
   data.principes_jeu = procPrinciple(p, { principes_jeu: document.getElementById('f-principe').value });
   try {
@@ -133,7 +133,7 @@ function templateOwnerHtml(t) {
   const who = tplMine(t) ? '' : t.created_by ? `Par ${TPL.staff.find(s => s.id === t.created_by)?.nom || 'un ancien membre'}` : 'Créateur inconnu';
   const state = tplCanManage(t) ? (t.partage ? 'Partagé avec le club' : 'Privé') : '';
   const owners = TPL.staff.filter(s => ['admin', 'coach'].includes(s.role));
-  return `<div class="lib-owner">${escapeHtml([who, state].filter(Boolean).join(' · '))}${tplAdmin() ? `
+  return `<div class="lib-owner">${[who, state].filter(Boolean).map(escapeHtml).join(SEP)}${tplAdmin() ? `
     <select data-tpl-owner aria-label="Attribuer « ${escapeHtml(t.nom)} » à un membre du staff">
       <option value="">Attribuer à…</option>${owners.map(s => `<option value="${escapeHtml(s.id)}"${s.id === t.created_by ? ' selected' : ''}>${escapeHtml(s.nom || 'Sans nom')}</option>`).join('')}
     </select>` : ''}</div>`;
@@ -343,7 +343,7 @@ function applyTemplateImport(mode) {
   toast(mode === 'drawing' ? 'Dessin importé. Enregistrement automatique en cours.' : 'Schéma importé. Enregistrement automatique en cours.', 'success');
 }
 window.deleteTemplate = async (id) => {
-  if (!confirm(`Supprimer ce modèle ?${await trashNote()}`)) return;
+  if (!await confirmDialog(`Supprimer ce modèle ?${await trashNote()}`)) return;
   try {
     const { data, error } = await sb.from('exercise_templates').delete().eq('id', id).select('id');
     if (error) throw error;

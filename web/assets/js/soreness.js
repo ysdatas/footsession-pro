@@ -51,7 +51,7 @@ function openSorenessSheet({ today, onSaved }) {
   sheet.sore = { niveau: today.niveau ?? null, muscles: [...(today.muscles || [])], today, onSaved };
   document.getElementById('soreTitle').textContent = today.form_titre || 'Courbatures au réveil';
   document.getElementById('soreQ').textContent = formLabel(today, 'niveau') || 'Ton niveau de courbature au réveil (0 = aucune, 10 = très fortes) :';
-  document.getElementById('soreSession').textContent = [today.titre, 'aujourd’hui'].filter(Boolean).join(' · ');
+  document.getElementById('soreSession').textContent = [today.titre, 'aujourd’hui'].filter(Boolean).join(' – ');
   document.getElementById('soreStatus').textContent = today.niveau != null ? 'Ta réponse d’aujourd’hui : change-la si besoin.' : '';
   soreDraw();
   openModal('soreSheet');

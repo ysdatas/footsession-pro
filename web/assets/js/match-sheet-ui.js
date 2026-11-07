@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — match-sheet-ui.js (matchs.html)
+   LMFC Performance — match-sheet-ui.js (matchs)
    « Coller la feuille de match » dans la fiche d'un match : la page « Le
    match » d'epreuves.fff.fr → aperçu (score, joueurs reconnus, à
    confirmer, à choisir, non reconnus ; statut, buts, cartons, minutes) →
@@ -59,11 +59,11 @@ function sheetRender() {
   const counts = Object.fromEntries(Object.keys(SHEET_ST).map(k => [k, rows.filter(r => r.status === k).length]));
   document.getElementById('sheetStatus').textContent = [`${rows.length} joueurs lus pour ${parsed.team}`,
     counts.ok && `${counts.ok} reconnus`, counts.confirm && `${counts.confirm} à confirmer`, counts.choose && `${counts.choose} à choisir`,
-    counts.none && `${counts.none} non reconnus (« + Hors plateforme » : gardé sur ce match, sans fiche)`, !parsed.goalsKnown && 'buteurs non publiés sur la feuille (buts laissés vides)'].filter(Boolean).join(' · ');
+    counts.none && `${counts.none} non reconnus (« + Hors plateforme » : gardé sur ce match, sans fiche)`, !parsed.goalsKnown && 'buteurs non publiés sur la feuille (buts laissés vides)'].filter(Boolean).join(' – ');
   document.getElementById('sheetPreview').innerHTML = `
     ${h ? `<label class="sheet-head"><input type="checkbox" id="sheetScore"${val('m-pour') === '' ? ' checked' : ''}>
       Reporter dans la fiche : <strong>${escapeHtml(h.home)} ${h.score_home ?? '–'} – ${h.score_away ?? '–'} ${escapeHtml(h.away)}</strong>
-      · ${escapeHtml(h.competition)} · ${fmtDateFr(h.date)}${h.heure ? ` · ${h.heure}` : ''}</label>` : ''}
+     ${SEP}${escapeHtml(h.competition)}${SEP}${fmtDateFr(h.date)}${h.heure ? `${SEP}${h.heure}` : ''}</label>` : ''}
     ${counts.confirm ? '<button class="btn btn-sm" type="button" id="sheetConfirmAll">Tout confirmer</button>' : ''}
     <div class="sheet-wrap"><table class="table sheet-table">
       <thead><tr><th scope="col"><span class="sr-only">Retenu</span></th><th scope="col">Feuille</th><th scope="col">Fiche du club</th>

@@ -123,7 +123,7 @@ function render() {
   const total = sessionsCache.length;
   document.getElementById('sessSub').textContent = q
     ? `${visible.length} résultat${visible.length > 1 ? 's' : ''} sur ${total} séance${total > 1 ? 's' : ''}`
-    : `${total} séance${total > 1 ? 's' : ''} au total${plannedLater ? ` · ${plannedLater} prévue${plannedLater > 1 ? 's' : ''} plus loin, au calendrier` : ''}`;
+    : `${total} séance${total > 1 ? 's' : ''} au total${plannedLater ? `${SEP}${plannedLater} prévue${plannedLater > 1 ? 's' : ''} plus loin, au calendrier` : ''}`;
 
   if (!total) { wrap.innerHTML = `<div class="empty">Aucune séance enregistrée.</div>`; return; }
   if (!visible.length) { wrap.innerHTML = `<div class="empty">Aucune séance ne correspond à « ${escapeHtml(q)} ».</div>`; return; }
@@ -171,7 +171,7 @@ function renderGrouped(list, searching) {
         <span class="week-chevron"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
         <span class="week-title">${escapeHtml(titre)}${isCurrent ? ' <span class="badge badge-gold">EN COURS</span>' : ''}</span>
         <span class="week-range">${escapeHtml(plage)}</span>
-        <span class="week-meta">${items.length} séance${items.length > 1 ? 's' : ''} · ${fmtMin(travail)} min de travail</span>
+        <span class="week-meta">${items.length} séance${items.length > 1 ? 's' : ''}${SEP}${fmtMin(travail)} min de travail</span>
       </button>
       <div class="week-body">${table(items)}</div>
     </div>`;
@@ -193,14 +193,14 @@ function table(list) {
     <tbody>
       ${list.map(s => `
         <tr>
-          <td><a class="text-gold" href="session-edit.html?id=${s.id}">${escapeHtml(s.titre)}</a></td>
+          <td><a class="text-gold" href="session-edit?id=${s.id}">${escapeHtml(s.titre)}</a></td>
           <td>${escapeHtml(fmtDateFr(s.date_seance))}</td>
           <td>${escapeHtml(s.equipe || '—')}</td>
           <td>${fmtMin(s.duree_min)} min</td>
           <td>${fmtMin(sessionWorkMin(s.procedures))} min</td>
           <td>${(s.procedures || []).length}</td>
           <td style="text-align:right;white-space:nowrap;">
-            <a class="btn btn-sm" href="session-edit.html?id=${s.id}">Ouvrir</a>
+            <a class="btn btn-sm" href="session-edit?id=${s.id}">Ouvrir</a>
             <button class="btn btn-sm" type="button" title="Fiche détaillée" data-do="pdf" data-arg="${s.id}">PDF</button>
             <button class="btn btn-sm" type="button" title="Tout sur une feuille, pour le staff" data-do="coachPdf" data-arg="${s.id}">Fiche</button>
             ${canWrite ? `<button class="btn btn-sm btn-danger" type="button" data-do="deleteSession" data-arg="${s.id}">Supprimer</button>` : ''}
@@ -211,7 +211,7 @@ function table(list) {
 }
 
 window.deleteSession = async (id, btn) => {
-  if (!confirm(`Supprimer cette séance et tous ses procédés ?${await trashNote()}`)) return;
+  if (!await confirmDialog(`Supprimer cette séance et tous ses procédés ?${await trashNote()}`)) return;
   try {
     // Sans droit de modification sur cette séance, la base ne supprime rien (0 ligne) : on le dit.
     const { data: gone, error } = await sb.from('sessions').delete().eq('id', id).select('id');

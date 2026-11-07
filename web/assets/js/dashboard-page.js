@@ -27,15 +27,15 @@ const homeIc = navIc;   // icônes communes au menu (nav.js)
   const first = (profile.nom || '').split(' ')[0];
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${first ? `, ${first}` : ''}`;
-  document.getElementById('clubLine').textContent = [profile.clubs?.nom || 'Club', role, team?.nom].filter(Boolean).join(' · ');
+  document.getElementById('clubLine').innerHTML = [profile.clubs?.nom || 'Club', role, team?.nom].filter(Boolean).map(escapeHtml).join(SEP);
 
   const allowed = orderedNavItems(profile.role, profile.prefs).filter(i => i.key !== 'dashboard' && i.key !== 'settings');
   const can = (key) => allowed.some(i => i.key === key);
   document.getElementById('homeActions').innerHTML = [
-    can('sessions') && canEditTeamContent(profile.role) && `<a class="btn btn-primary" href="session-edit.html">${homeIc('plus')}Nouvelle séance</a>`,
-    can('performance') && canManagePlans(profile.role) && `<a class="btn" href="comparaison.html?tab=objectifs&new=1">${homeIc('target')}Objectif</a>`,
-    can('videos') && `<a class="btn" href="videos.html">${homeIc('videos')}Vidéos</a>`,
-    canEditPerformanceData(profile.role) && `<a class="btn${canEditTeamContent(profile.role) ? '' : ' btn-primary'}" href="comparaison.html?tab=morpho">${homeIc('scale')}Données physiques</a>`,
+    can('sessions') && canEditTeamContent(profile.role) && `<a class="btn btn-primary" href="session-edit">${homeIc('plus')}Nouvelle séance</a>`,
+    can('performance') && canManagePlans(profile.role) && `<a class="btn" href="comparaison?tab=objectifs&new=1">${homeIc('target')}Objectif</a>`,
+    can('videos') && `<a class="btn" href="videos">${homeIc('videos')}Vidéos</a>`,
+    canEditPerformanceData(profile.role) && `<a class="btn${canEditTeamContent(profile.role) ? '' : ' btn-primary'}" href="comparaison?tab=morpho">${homeIc('scale')}Données physiques</a>`,
   ].filter(Boolean).join('');
 
   document.getElementById('homeTiles').innerHTML = allowed.map(i => `
@@ -95,7 +95,7 @@ async function renderAttention(profile, can) {
     if (can('videos')) {
       const toSee = mine(seqRes).filter(seqToSee).length;
       cards.push(attnCard({
-        href: 'videos.html', icon: 'videos', tone: toSee ? 'urgent' : 'calm',
+        href: 'videos', icon: 'videos', tone: toSee ? 'urgent' : 'calm',
         value: toSee, label: 'Séquences à traiter',
       }));
     }
@@ -103,19 +103,19 @@ async function renderAttention(profile, can) {
       const next = (nextRes.data || [])[0];
       cards.push(next
         ? attnCard({
-          href: `session-edit.html?id=${next.id}`, icon: 'sessions', tone: next.date_seance === today ? 'urgent' : '',
+          href: `session-edit?id=${next.id}`, icon: 'sessions', tone: next.date_seance === today ? 'urgent' : '',
           value: next.date_seance === today ? 'Aujourd’hui' : escapeHtml(fmtDate(next.date_seance)),
           label: 'Prochaine séance', detail: escapeHtml(next.titre || 'Séance'),
         })
         : attnCard({
-          href: 'session-edit.html', icon: 'sessions', tone: 'calm',
+          href: 'session-edit', icon: 'sessions', tone: 'calm',
           label: 'Prochaine séance', detail: 'Aucune prévue',
         }));
     }
     if (can('performance')) {
       const n = mine(objRes).length;
       cards.push(attnCard({
-        href: 'comparaison.html?tab=objectifs', icon: 'target', tone: n ? '' : 'calm',
+        href: 'comparaison?tab=objectifs', icon: 'target', tone: n ? '' : 'calm',
         value: n, label: 'Objectifs en cours', detail: 'Préventions comprises',
       }));
     }
@@ -123,7 +123,7 @@ async function renderAttention(profile, can) {
       const done = new Set(mine(measRes).filter(m => m.weight_kg != null || m.height_cm != null || m.body_fat_pct != null).map(m => m.player_id));
       const missing = ids.filter(id => !done.has(id)).length;
       cards.push(attnCard({
-        href: 'comparaison.html?tab=morpho', icon: 'scale', tone: missing ? '' : 'calm',
+        href: 'comparaison?tab=morpho', icon: 'scale', tone: missing ? '' : 'calm',
         value: missing, label: `Sans mesure en ${month.toLowerCase()}`, detail: missing ? `sur ${ids.length} joueurs` : 'Tout est à jour',
       }));
     }
@@ -131,13 +131,13 @@ async function renderAttention(profile, can) {
     const sore = soreRes.error ? 0 : new Set(mine(soreRes).map(r => r.player_id)).size;
     if (sore) {
       cards.unshift(attnCard({
-        href: 'suivi-rpe.html?vue=courbatures', icon: 'rpe', tone: 'urgent',
+        href: 'suivi-rpe?vue=courbatures', icon: 'rpe', tone: 'urgent',
         value: sore, label: 'Courbatures', detail: `joueur${sore > 1 ? 's' : ''} courbaturé${sore > 1 ? 's' : ''} 3 jours de suite`,
       }));
     }
     if (profile.role === 'admin' && accessRes.count) {
       cards.push(attnCard({
-        href: 'club.html', icon: 'key', tone: 'urgent',
+        href: 'club', icon: 'key', tone: 'urgent',
         value: accessRes.count, label: 'Accès en attente', detail: 'Compte pas encore créé',
       }));
     }

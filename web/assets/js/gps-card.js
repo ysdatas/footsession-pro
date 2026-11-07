@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — gps-card.js (player-performance.html)
+   LMFC Performance — gps-card.js (player-performance)
    Carte « GPS » de l'onglet Performance (lmfc_v32.sql) :
      - staff : ses séances GPS (imports non annulés), la dernière en
        chiffres, l'évolution d'un indicateur au choix, et la charge
@@ -18,7 +18,7 @@ const gcNum = (v, k) => (v === null || v === undefined ? '—' : (Math.round(v *
 async function renderGpsCard(playerId, asPlayer) {
   const card = document.getElementById('gpsCard');
   if (!card) return;
-  GC.link = asPlayer ? '' : `comparaison.html?tab=gps&vue=joueur&joueur=${Number(playerId)}`;   // staff : la vue Joueur de l'onglet GPS
+  GC.link = asPlayer ? '' : `comparaison?tab=gps&vue=joueur&joueur=${Number(playerId)}`;   // staff : la vue Joueur de l'onglet GPS
   let rows;
   if (asPlayer) {
     const { data, error } = await sb.rpc('my_gps');
@@ -55,11 +55,11 @@ function gcDraw(keys) {
   const series = GC.rows.slice(-12).map(r => ({ d: r.date, v: r.metrics[GC.metric] })).filter(x => x.v != null), max = Math.max(...series.map(x => x.v), 1);
   const rpe = last.session && GC.rpe.get(last.session);
   document.getElementById('gpsCardBody').innerHTML = `
-    <div class="gps-card-head"><p class="text-muted">Dernière séance : <strong>${rpeDate(last.date)}</strong>${last.libelle ? ` · ${escapeHtml(last.libelle)}` : ''} · ${GC.rows.length} séance${GC.rows.length > 1 ? 's' : ''} mesurée${GC.rows.length > 1 ? 's' : ''}</p>
+    <div class="gps-card-head"><p class="text-muted">Dernière séance : <strong>${rpeDate(last.date)}</strong>${last.libelle ? `${SEP}${escapeHtml(last.libelle)}` : ''}${SEP}${GC.rows.length} séance${GC.rows.length > 1 ? 's' : ''} mesurée${GC.rows.length > 1 ? 's' : ''}</p>
       <label class="cmp-field">Évolution<select id="gpsMetric">${keys.map(k => `<option value="${k}"${k === GC.metric ? ' selected' : ''}>${escapeHtml(gcLabel(k))}</option>`).join('')}</select></label>
-      ${GC.link ? `<a class="btn btn-sm" href="${GC.link}">Tout son GPS →</a>` : ''}</div>
+      ${GC.link ? `<a class="btn btn-sm" href="${GC.link}">Tout son GPS<span class="arr arr-r" aria-hidden="true"></span></a>` : ''}</div>
     <div class="gps-last">${shown.map(k => `<div><b>${gcNum(last.metrics[k], k)}</b><span>${escapeHtml(gcLabel(k))}</span></div>`).join('')}</div>
     <div class="gps-bars" role="list" aria-label="${escapeHtml(gcLabel(GC.metric))} séance par séance">${series.map(x => `<div role="listitem" title="${rpeDate(x.d)} : ${gcNum(x.v, GC.metric)}">
       <b>${gcNum(x.v, GC.metric)}</b><i style="--h:${Math.round(x.v / max * 110)}px"></i><small>${rpeDate(x.d).slice(0, 5)}</small></div>`).join('')}</div>
-    ${rpe ? `<p class="gps-rpe">Même séance, ressenti du joueur : RPE ${rpe.rpe}/10${rpe.load ? ` · charge ressentie ${Math.round(rpe.load)} UA` : ''}. Charge interne, à lire à côté de la charge externe mesurée par GPS, jamais additionnée.</p>` : ''}`;
+    ${rpe ? `<p class="gps-rpe">Même séance, ressenti du joueur : RPE ${rpe.rpe}/10${rpe.load ? `${SEP}charge ressentie ${Math.round(rpe.load)} UA` : ''}. Charge interne, à lire à côté de la charge externe mesurée par GPS, jamais additionnée.</p>` : ''}`;
 }

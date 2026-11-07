@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — schemas-page.js (schemas.html)
+   LMFC Performance — schemas-page.js (schemas)
    Bibliothèque de schémas, en page (menu) : la fenêtre « Schémas » de
    la séance (session-templates.js) telle quelle — recherche, type,
    tags, suppression — où « Insérer » devient « Nouvelle séance » :
@@ -25,6 +25,6 @@ document.addEventListener('click', (e) => {
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
   TPL.insertLabel = 'Nouvelle séance';
-  EDIT_DO.insertTemplate = (b) => { location.href = `session-edit.html?template=${Number(b.dataset.arg)}`; };
+  EDIT_DO.insertTemplate = (b) => { location.href = `session-edit?template=${Number(b.dataset.arg)}`; };
   openLibrary();   // session-templates.js : charge, filtre et affiche
 })();

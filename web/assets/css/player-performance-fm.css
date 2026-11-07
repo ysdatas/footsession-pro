@@ -7,7 +7,7 @@ body.fp-fm-page { background: var(--bg-primary); }
 .fp-fm-page .page-head h1,
 .fp-fm-page #playerName {
   font-size: clamp(1.6rem, 2.6vw, 2.1rem);
-  letter-spacing: -.01em;
+  letter-spacing: 0;
 }
 
 .fp-fm-page #playerName {
@@ -132,7 +132,7 @@ body.fp-fm-page { background: var(--bg-primary); }
 .fp-fm-page .measurement-row {
   display: grid;
   grid-template-columns: 1.1fr repeat(3, 1fr);
-  min-height: 42px;
+  min-height: 32px;
   align-items: center;
   border-bottom: 1px solid var(--border);
 }
@@ -152,8 +152,6 @@ body.fp-fm-page { background: var(--bg-primary); }
 
 .fp-fm-page .measurement-row.header > span {
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: .06em;
   font-size: var(--fs-xs);
 }
 
@@ -346,7 +344,7 @@ body.fp-fm-page { background: var(--bg-primary); }
   background: var(--gold);
   color: var(--on-gold);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .fp-video-body {
@@ -388,7 +386,7 @@ body.fp-fm-page { background: var(--bg-primary); }
   margin-top: 8px;
   color: var(--gold-light);
   font-size: var(--fs-xs);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .fp-staff-selection-list {

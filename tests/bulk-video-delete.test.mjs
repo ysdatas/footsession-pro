@@ -24,7 +24,7 @@ function fixture({ deletedIds = [], error = null, confirmed = true } = {}) {
     return query;
   } };
   const context = vm.createContext({ PV, sb, console: { error() {} },
-    confirm: () => confirmed, namesList: (names) => names.join(', '), trashNote: async () => '',
+    confirmDialog: async () => confirmed, namesList: (names) => names.join(', '), trashNote: async () => '',
     bulkReport: (...args) => events.push(['report', ...args]), pvLoad: async () => events.push(['reload']),
     toast: (message, kind) => events.push(['toast', message, kind]), Error, Set });
   return { run: vm.runInContext(fnSource, context), PV, events };

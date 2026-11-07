@@ -58,7 +58,7 @@ async function gpsLoad() {
   GPS.loaded = true;
 }
 
-async function renderGps(content) {
+async function renderGps(content, keepView = false) {
   if (!GPS.loaded) {
     content.innerHTML = '<div class="empty cmp-loading">Chargement des données GPS…</div>';
     try { await gpsLoad(); } catch (e) {
@@ -68,17 +68,18 @@ async function renderGps(content) {
     }
   }
   const live = gpsLive();
-  document.getElementById('cmpSub').textContent = `GPS · ${live.length} séance${live.length > 1 ? 's' : ''} importée${live.length > 1 ? 's' : ''}`;
+  document.getElementById('cmpSub').textContent = `GPS – ${live.length} séance${live.length > 1 ? 's' : ''} importée${live.length > 1 ? 's' : ''}`;
   const views = [['seance', 'Séance'], ['joueur', 'Joueur'], ['comparer', 'Comparer']];
   GPS.chartRows = null;   // chaque vue pose le sien
-  content.innerHTML = `
+  const html = `
     <div class="gps-head">
       <div class="segmented" role="group" aria-label="Vue GPS">${views.map(([k, l]) => `<button type="button" data-gps-view="${k}" aria-pressed="${GPS.view === k}">${l}</button>`).join('')}</div>
-      <div class="gps-actions">${GPS.imports.length ? `<button class="btn" type="button" data-gps="imports">Imports · ${GPS.imports.length}</button>` : ''}
+      <div class="gps-actions">${GPS.imports.length ? `<button class="btn" type="button" data-gps="imports">Imports${SEP}${GPS.imports.length}</button>` : ''}
         ${gpsCanEdit() ? '<button class="btn btn-primary" type="button" data-gps="import">Importer des données GPS</button>' : ''}</div>
     </div>
     ${!live.length ? '<div class="empty">Aucune donnée GPS pour l’instant. Importez l’export de la séance (CSV ou Excel).</div>'
       : GPS.view === 'joueur' ? gpsPlayerHtml(live) : GPS.view === 'comparer' ? gpsCompareView(live) : gpsSeanceHtml(live)}`;
+  if (keepView) swapKeepView(content, html); else content.innerHTML = html;
   gpsChart();
 }
 
@@ -97,11 +98,11 @@ function gpsSeanceHtml(live) {
   const th = (k, l, unit, title = l) => `<th scope="col" aria-sort="${sort === k ? 'descending' : 'none'}"><button type="button" data-gps-sort="${k}" title="${escapeHtml(title)} : trier">${escapeHtml(l)}${unit ? ` <small>${escapeHtml(unit)}</small>` : ''}</button></th>`;
   const hasRpe = rows.some(r => r.rpe !== null);
   return `<div class="gps-bar">
-      <label class="cmp-field">Séance<select data-gps-set="seance">${live.map(i => `<option value="${i.id}"${i.id === imp.id ? ' selected' : ''}>${gpsDate(i.date_seance)} · ${escapeHtml(i.libelle || i.fichier)}</option>`).join('')}</select></label>
+      <label class="cmp-field">Séance<select data-gps-set="seance">${live.map(i => `<option value="${i.id}"${i.id === imp.id ? ' selected' : ''}>${gpsDate(i.date_seance)} – ${escapeHtml(i.libelle || i.fichier)}</option>`).join('')}</select></label>
       <label class="cmp-check"><input type="checkbox" data-gps-set="all"${GPS.all ? ' checked' : ''}> Tous les indicateurs</label>
     </div>
     <div class="gps-last gps-tiles">${keys.map(c => `<div><b>${gpsNum(mean(c), gpsDec(c))}<small> ${escapeHtml(c.unit || '')}</small></b><span>${escapeHtml(c.label)}</span></div>`).join('')}</div>
-    <p class="gps-sub">Moyenne des ${rows.length} joueur${rows.length > 1 ? 's' : ''} de la séance${imp.session_id ? '' : ' · import sans séance liée : pas de RPE'}.</p>
+    <p class="gps-sub">Moyenne des ${rows.length} joueur${rows.length > 1 ? 's' : ''} de la séance${imp.session_id ? '' : ' – import sans séance liée : pas de RPE'}.</p>
     <div class="cmp-table-wrap"><table class="cmp-table gps-table"><thead><tr><th scope="col" class="p-name">Joueur</th>
       ${shown.map(c => th(c.key, c.short || c.label, c.unit, c.label)).join('')}${th('rpe', 'RPE', '1-10', 'RPE du joueur')}${th('load', 'sRPE', 'UA', 'Charge ressentie')}</tr></thead>
       <tbody>${rows.map(r => `<tr><td class="p-name"><button type="button" class="gps-who" data-gps-player="${r.player_id}">${escapeHtml(r.name)}</button></td>
@@ -130,8 +131,8 @@ function gpsImportsOpen() {
 }
 function gpsHistoryHtml() {
   return `<section class="gps-history"><ul>${GPS.imports.map(i => `
-    <li class="${i.annule_at ? 'is-off' : ''}"><span><strong>${gpsDate(i.date_seance)} · ${escapeHtml(i.libelle || i.fichier)}</strong>
-      <small>${i.nb_joueurs} joueur${i.nb_joueurs > 1 ? 's' : ''} · ${escapeHtml(i.fichier)} · ${escapeHtml(i.fournisseur)} · importé le ${gpsDate(i.created_at)}${i.annule_at ? ` · annulé le ${gpsDate(i.annule_at)}` : ''}</small></span>
+    <li class="${i.annule_at ? 'is-off' : ''}"><span><strong>${gpsDate(i.date_seance)}${SEP}${escapeHtml(i.libelle || i.fichier)}</strong>
+      <small>${i.nb_joueurs} joueur${i.nb_joueurs > 1 ? 's' : ''}${SEP}${escapeHtml(i.fichier)}${SEP}${escapeHtml(i.fournisseur)}${SEP}importé le ${gpsDate(i.created_at)}${i.annule_at ? `${SEP}annulé le ${gpsDate(i.annule_at)}` : ''}</small></span>
       ${gpsCanEdit() && !i.annule_at ? `<button class="btn btn-sm btn-danger" type="button" data-gps="cancel" data-id="${i.id}">Annuler l’import</button>` : ''}</li>`).join('')}</ul></section>`;
 }
 function gpsSettingsHtml(keys) {
@@ -142,7 +143,7 @@ function gpsSettingsHtml(keys) {
 }
 
 async function gpsCancel(id) {
-  if (!confirm('Annuler cet import ?\n\nIl reste dans l’historique ; ses valeurs sortent des fiches. Les autres imports ne bougent pas.')) return;
+  if (!await confirmDialog('Annuler cet import ?\n\nIl reste dans l’historique ; ses valeurs sortent des fiches. Les autres imports ne bougent pas.')) return;
   const { data, error } = await sb.rpc('gps_import_cancel', { p_import: id });
   if (error || !data) return toast(error?.message || 'Annulation refusée : droits insuffisants.', 'error');
   toast('Import annulé', 'success');
@@ -177,7 +178,7 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-gps], [data-gps-view], [data-gps-sort], [data-gps-player]');
   if (!b) return;
   if (b.dataset.gpsView) { GPS.view = b.dataset.gpsView; gpsUrl(); render(); }
-  if (b.dataset.gpsSort) { GPS.sort = b.dataset.gpsSort; render(); }
+  if (b.dataset.gpsSort) { GPS.sort = b.dataset.gpsSort; render(); document.querySelector(`[data-gps-sort="${GPS.sort}"]`)?.focus({ preventScroll: true }); }
   if (b.dataset.gpsPlayer) { GPS.player = Number(b.dataset.gpsPlayer); GPS.view = 'joueur'; gpsUrl(); render(); }
   if (b.dataset.gps === 'import') openGpsImport();
   if (b.dataset.gps === 'imports') gpsImportsOpen();

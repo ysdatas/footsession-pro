@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — suivi-rpe-page.js (suivi-rpe.html)
+   LMFC Performance — suivi-rpe-page.js (suivi-rpe)
    Suivi RPE du staff (lmfc_v29.sql), équipe par équipe ; les 10, 20 ou
    50 dernières séances, une semaine (‹ ›) ou des dates (du … au …), avec
    les matchs de la même période (lmfc_v38.sql), mêlés aux séances :
@@ -36,9 +36,9 @@ const srShort = (iso) => new Intl.DateTimeFormat('fr-FR', { weekday: 'short', da
 // L'heure, seulement les jours à plusieurs séances : elle seule les distingue alors.
 const srHour = (s) => (SR.sessions.some(x => x.key !== s.key && x.date_seance === s.date_seance) && s.heure?.slice(0, 5)) || '';
 const srWhen = (s) => [srShort(s.date_seance), srHour(s)].filter(Boolean).join(' ');
-const srHref = (s) => (s.match ? `matchs.html?id=${s.id}` : `session-edit.html?id=${s.id}`);
+const srHref = (s) => (s.match ? `matchs?id=${s.id}` : `session-edit?id=${s.id}`);
 /* Un match en colonne : durée = la plus longue de la feuille, sinon 90 min (charge sans minutes jouées). */
-const srMatch = (m) => ({ id: m.id, key: `m${m.id}`, match: true, titre: `Match · ${m.adversaire}`, adversaire: m.adversaire, date_seance: m.date_match, heure: m.heure,
+const srMatch = (m) => ({ id: m.id, key: `m${m.id}`, match: true, titre: `Match – ${m.adversaire}`, adversaire: m.adversaire, date_seance: m.date_match, heure: m.heure,
   team_id: m.team_id, sheet: m.match_players, duree_min: Math.max(0, ...m.match_players.map(r => r.minutes || 0)) || 90 });
 /* Équipes proposées : celles du compte, toutes s'il n'est pas restreint. */
 const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams(window.CURRENT_PROFILE, all); return mine.length ? mine : all; };
@@ -103,15 +103,15 @@ function srPressed() {
   document.querySelectorAll('[data-sr-n]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.srN === mode)));
   box.classList.toggle('hidden', !p);
   box.innerHTML = !p ? '' : p.mode === 'week'
-    ? `<button class="btn btn-sm" type="button" data-sr-week="-1" aria-label="Semaine précédente">‹</button>
+    ? `<button class="btn btn-sm" type="button" data-sr-week="-1" aria-label="Semaine précédente"><span class="arr arr-prev" aria-hidden="true"></span></button>
        <strong>Semaine du ${srShort(p.from)} au ${srShort(p.to)}</strong>
-       <button class="btn btn-sm" type="button" data-sr-week="1" aria-label="Semaine suivante"${p.to >= today ? ' disabled' : ''}>›</button>`
+       <button class="btn btn-sm" type="button" data-sr-week="1" aria-label="Semaine suivante"${p.to >= today ? ' disabled' : ''}><span class="arr arr-next" aria-hidden="true"></span></button>`
     : `<label for="srFrom">Du</label><input type="date" id="srFrom" value="${p.from}" max="${today}">
        <label for="srTo">au</label><input type="date" id="srTo" value="${p.to}" max="${today}">`;
   document.querySelectorAll('[data-sr-view]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.srView === SR.view)));
 }
 function renderSrTeams() {
-  document.body.dataset.team = SR.team || '';   // la ligne « club · équipe » et la barre du haut suivent la capsule
+  document.body.dataset.team = SR.team || '';   // la ligne « club – équipe » et la barre du haut suivent la capsule
   renderPageKicker(window.CURRENT_PROFILE);
   document.getElementById('srTeams').innerHTML = srTeams().map(t => `<button type="button" class="sr-team" data-sr-team="${t.id}"
     aria-pressed="${t.id === SR.team}">${escapeHtml(t.nom)}</button>`).join('');
@@ -194,7 +194,7 @@ function renderSr() {
   const nM = SR.sessions.filter(s => s.match).length, nS = SR.sessions.length - nM, plural = nS > 1 ? 's' : '', matchs = nM ? `, ${nM} match${nM > 1 ? 's' : ''}` : '';
   document.getElementById('srStatus').textContent = [team?.nom, SR.period ? `${nS} séance${plural}${matchs} du ${srShort(SR.period.from)} au ${srShort(SR.period.to)}` : `${nS} dernière${plural} séance${plural}${matchs}`,
     missing ? `${missing} réponse${missing > 1 ? 's' : ''} manquante${missing > 1 ? 's' : ''}` : 'aucune réponse manquante',
-    pending ? `${pending} en attente` : ''].filter(Boolean).join(' · ');
+    pending ? `${pending} en attente` : ''].filter(Boolean).join(' – ');
   if (SR.view === 'dash') { renderSrDash(body, SR.sessions, SR.players, SR.cells); return; }
   if (SR.view === 'sore') {
     const inTeam = new Set(SR.players.map(p => p.id)), err = SR.sore.error;
@@ -208,7 +208,7 @@ function renderSr() {
     return `<th scope="col"><a class="sr-sess" href="${srHref(s)}" title="${escapeHtml(s.titre)}">
       <span class="sr-date">${srWhen(s)}</span>${s.match ? '<span class="sr-kind">Match</span>' : ''}<span class="sr-t">${escapeHtml(s.adversaire || s.titre)}</span>
       <span class="sr-avg"${vals.length ? ` style="--rpe:${rpeColor(vals.reduce((a, b) => a + b, 0) / vals.length)}"` : ''}>${vals.length ? rpeFr(vals.reduce((a, b) => a + b, 0) / vals.length) : '—'}</span>
-      <span class="sr-rate">${vals.length}/${due}${s.rpe_attendue ? ` · att. ${s.rpe_attendue}` : ''}</span></a></th>`;
+      <span class="sr-rate">${vals.length}/${due}${s.rpe_attendue ? `${SEP}att. ${s.rpe_attendue}` : ''}</span></a></th>`;
   }).join('');
   const rows = SR.players.map((p, i) => `<tr><th scope="row">${playerLink(p.id, playerFullName(p))}</th>${SR.cells[i].map((c, j) => {
     const s = SR.sessions[j], label = `${playerFullName(p)}, ${srWhen(s)}`;
@@ -222,9 +222,9 @@ function renderSr() {
   body.innerHTML = `<div class="sr-wrap"><table class="sr-grid">
       <thead><tr><th scope="col" class="sr-corner">Joueur</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
     <p class="sr-legend"><span class="sr-c is-miss" aria-hidden="true">?</span> réponse manquante (délai passé)
-      · <span class="sr-c is-wait" aria-hidden="true">…</span> en attente : le joueur peut encore répondre
-      · <span class="sr-c is-abs" aria-hidden="true">abs.</span> absence enregistrée
-      · <span class="rpe-staff">staff</span> saisi ou corrigé par le staff.
+     ${SEP}<span class="sr-c is-wait" aria-hidden="true">…</span> en attente : le joueur peut encore répondre
+     ${SEP}<span class="sr-c is-abs" aria-hidden="true">abs.</span> absence enregistrée
+     ${SEP}<span class="rpe-staff">staff</span> saisi ou corrigé par le staff.
       Touchez une case pour saisir ou corriger à la place du joueur. Les joueurs répondent depuis leur espace jusqu’à ${RPE_DAYS} jours après la séance ;
       la présence non cochée compte comme attendue. Un match attend ceux qui ont joué d’après la feuille, tout le groupe s’il n’y en a pas.</p>`;
 }

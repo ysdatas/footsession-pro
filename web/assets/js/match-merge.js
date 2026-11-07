@@ -1,5 +1,5 @@
 /* ============================================================
-   LMFC Performance — match-merge.js (matchs.html)
+   LMFC Performance — match-merge.js (matchs)
    Réunir deux matchs en double (même date, même adversaire :
    mhDuplicates, match-history.js) dans celui qu'on garde :
      - les joueurs de l'autre absents d'ici y passent, avec leur ligne ;

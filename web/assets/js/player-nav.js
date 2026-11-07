@@ -24,7 +24,7 @@ const PLAYER_NAV = [
 const SIDEBAR_HTML = `
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg></button>
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="mon-espace.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
+    <a class="brand" href="mon-espace" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="36" height="36"><span class="brand-name">LMFC <span class="brand-pro">Performance</span></span></a>
     <nav class="nav" aria-label="Espace joueur"></nav>
     <div class="sidebar-user">
       <div class="avatar" id="uAvatar">…</div>
@@ -39,14 +39,14 @@ const SIDEBAR_HTML = `
 function playerNavHref(key) {
   if (!PLAYER_NAV.some(([k]) => k === key)) return null;
   const pages = key === 'mes-videos' ? ['mes-videos', 'voir-video'] : [key];
-  return (pages.includes(PAGE) ? lastUrl(key) : latestUrl(pages)) || `${key}.html`;
+  return (pages.includes(PAGE) ? lastUrl(key) : latestUrl(pages)) || key;
 }
 
 const playerSignOut = async () => {
   clearNavMemory();
   try { sessionStorage.removeItem(PLAYER_CACHE); sessionStorage.removeItem('lmfc-auth'); } catch { /* idem */ }
   await sb.auth.signOut();
-  window.location.href = 'index.html';
+  window.location.href = '/';
 };
 
 function renderPlayerShell() {
@@ -57,21 +57,21 @@ function renderPlayerShell() {
   window.resolveNavHref = playerNavHref;   // la page Performance charge aussi nav.js
   if (!document.getElementById('sidebar')) document.body.insertAdjacentHTML('afterbegin', SIDEBAR_HTML);
   const sidebar = document.getElementById('sidebar');
-  sidebar.querySelector('.brand')?.setAttribute('href', 'mon-espace.html');
+  sidebar.querySelector('.brand')?.setAttribute('href', 'mon-espace');
   sidebar.querySelector('.nav').setAttribute('aria-label', 'Espace joueur');
   sidebar.querySelector('.nav').innerHTML = PLAYER_NAV.map(([key, long, , icon]) => {
     const on = key === page;
-    return `<a class="nav-item${on ? ' active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${navIc(icon)}<span>${long}</span></a>`;
+    return `<a class="nav-item${on ? ' active' : ''}" href="${key}" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${navIc(icon)}<span>${long}</span></a>`;
   }).join('');
   if (!document.querySelector('.m-appbar')) {
     document.body.insertAdjacentHTML('afterbegin',
-      '<header class="m-appbar"><a class="m-brand" href="mon-espace.html" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC&nbsp;<span class="brand-pro">Performance</span></a></header>');
+      '<header class="m-appbar"><a class="m-brand" href="mon-espace" aria-label="LMFC Performance — accueil"><img class="brand-crest" src="assets/img/lmfc-logo.png" alt="" width="30" height="30">LMFC&nbsp;<span class="brand-pro">Performance</span></a></header>');
   }
   if (typeof renderContextBar === 'function') renderContextBar();   // nav-mobile.js
   document.body.insertAdjacentHTML('beforeend',
     `<nav class="pa-tabbar" aria-label="Raccourcis">${PLAYER_NAV.map(([key, , short, icon]) => {
       const on = key === page;
-      return `<a class="pa-tab${on ? ' is-active' : ''}" href="${key}.html" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${navIc(icon)}<span>${short}</span></a>`;
+      return `<a class="pa-tab${on ? ' is-active' : ''}" href="${key}" data-mem="${key}"${on ? ' aria-current="page"' : ''}>${navIc(icon)}<span>${short}</span></a>`;
     }).join('')}</nav>`);
   const out = document.getElementById('logoutLink');
   if (out && !out.dataset.bound) {
@@ -95,7 +95,7 @@ function setPlayerShellUser(player) {
 const PLAYER_CACHE = 'lmfc-player';   // profil et fiche de la page précédente (par onglet)
 async function requirePlayer() {
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) { window.location.href = 'index.html'; return null; }
+  if (!session) { window.location.href = '/'; return null; }
   window.CURRENT_USER = session.user;
   const uid = session.user.id;
   // Profil et fiche ensemble (avant : l'un après l'autre).
@@ -128,10 +128,10 @@ async function requirePlayer() {
   // avant qu'elle reprenne la main (réseau lent : la fiche peut arriver avant eux).
   if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
   if (profile && profile.role !== 'joueur') {
-    window.location.replace(profile.club_id ? 'dashboard.html' : 'onboarding.html');
+    window.location.replace(profile.club_id ? 'dashboard' : 'onboarding');
     return null;
   }
-  if (!player) { window.location.href = 'index.html'; return null; }
+  if (!player) { window.location.href = '/'; return null; }
   window.PLAYER_CLUB = profile?.clubs?.nom || '';
   if (typeof applyClubColor === 'function' && profile?.clubs) applyClubColor(profile.clubs.color);
   setPlayerShellUser(player);

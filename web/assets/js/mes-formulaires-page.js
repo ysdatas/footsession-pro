@@ -175,7 +175,7 @@ function mfHistoryHtml(response) {
   const date = when && !Number.isNaN(when.getTime())
     ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(when) : 'Date inconnue';
   return `<article class="mf-history-card">
-    <div class="mf-history-head"><div><h3>${escapeHtml(response.titre || 'Formulaire')}</h3><span class="mf-count">${escapeHtml(response.team_nom || 'Mon équipe')} · Version ${Number(response.version_no) || 1}</span></div><time datetime="${escapeHtml(response.submitted_at || '')}">${escapeHtml(date)}</time></div>
+    <div class="mf-history-head"><div><h3>${escapeHtml(response.titre || 'Formulaire')}</h3><span class="mf-count">${escapeHtml(response.team_nom || 'Mon équipe')}${SEP}Version ${Number(response.version_no) || 1}</span></div><time datetime="${escapeHtml(response.submitted_at || '')}">${escapeHtml(date)}</time></div>
     <dl class="mf-answer-list">${questions.map(q => `<div class="mf-answer"><dt>${escapeHtml(q.label || 'Question')}</dt><dd>${escapeHtml(mfAnswerText(answers[q.id]))}</dd></div>`).join('')}</dl>
   </article>`;
 }

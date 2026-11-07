@@ -1,5 +1,5 @@
 /* LMFC Performance — voir-video-page.js
-   Voir une vidéo (voir-video.html), espace joueur.
+   Voir une vidéo (voir-video), espace joueur.
    Script sorti de la page pour la politique de contenu (CSP : aucun script en ligne). */
 /* Une vidéo source et ses séquences : le poste de travail affiche
    l'une ou l'autre (?seq=…), le retour du téléphone passe de l'une
@@ -19,7 +19,7 @@
     const { data: { session } } = await sb.auth.getSession();
     const mount = (v, url, seq) => mountVideoWorkspace(document.getElementById('vvContent'), {
       video: v, src: url, player, mode: 'player', userId: session.user.id,
-      focusSeq: seq, backHref: 'mes-videos.html', history: true,
+      focusSeq: seq, backHref: 'mes-videos', history: true,
     });
     let ws = await mount(video, src, Number(params.get('seq')) || null);
     initVideoTracking({ videoId: video.id, videoElId: 'playerVideo' });
@@ -35,13 +35,13 @@
     const renderNav = () => {
       nav.hidden = idx < 0 || list.length < 2;
       if (nav.hidden) return;
-      nav.innerHTML = `<button class="btn btn-sm" type="button" data-step="-1"${idx > 0 ? '' : ' disabled'} aria-label="Séquence précédente">‹ Précédent</button>
+      nav.innerHTML = `<button class="btn btn-sm" type="button" data-step="-1"${idx > 0 ? '' : ' disabled'} aria-label="Séquence précédente"><span class="arr arr-prev" aria-hidden="true"></span>Précédent</button>
         <span class="ws-pos" aria-live="polite"><strong>${idx + 1} / ${list.length}</strong><span>${escapeHtml(list[idx].label || 'Séquence')}</span></span>
-        <button class="btn btn-sm" type="button" data-step="1"${idx < list.length - 1 ? '' : ' disabled'} aria-label="Séquence suivante">Suivant ›</button>`;
+        <button class="btn btn-sm" type="button" data-step="1"${idx < list.length - 1 ? '' : ' disabled'} aria-label="Séquence suivante">Suivant<span class="arr arr-next" aria-hidden="true"></span></button>`;
     };
     nav.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-step]'), it = b && !b.disabled && list[idx + Number(b.dataset.step)];
-      if (!it || busy || ws?.canLeave() === false) return;
+      if (!it || busy || (await ws?.canLeave()) === false) return;
       busy = true;
       try {
         const { data: v } = await sb.from('player_videos').select('*').eq('id', it.id).eq('player_id', player.id).maybeSingle();

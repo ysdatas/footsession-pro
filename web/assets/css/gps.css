@@ -39,7 +39,7 @@
 .gps-bars div { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 0 0 40px; }
 .gps-bars i { display: block; width: 100%; height: var(--h); border-radius: 4px 4px 0 0; background: var(--gold); }
 .gps-bars b { font: 500 var(--fs-xs)/1 var(--font-num); }
-.gps-bars small { font: 400 10px/1 var(--font-num); color: var(--text-secondary); }
+.gps-bars small { font: 400 11px/1 var(--font-num); color: var(--text-secondary); }
 .gps-rpe { margin: 10px 0 0; color: var(--text-secondary); font-size: var(--fs-xs); }
 @media (max-width: 600px) { .gps-bar .cmp-field { flex: 1 1 140px; } .gps-bar .cmp-field select { min-width: 0; width: 100%; } .gps-bar .cmp-check { flex: 1 1 100%; } }
 /* Onglet GPS : vues, actions, tuiles de la séance, tri des colonnes */
@@ -52,7 +52,6 @@
 .gps-table th small { font-weight: 400; text-transform: none; color: var(--text-muted); }
 .gps-table thead button { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; }
 .gps-table [aria-sort="descending"] button { color: var(--text-primary); }
-.gps-table [aria-sort="descending"] button::after { content: ' ↓'; }
 .gps-who { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
 .gps-who:hover { color: var(--gold-light); }
 .gps-history { margin-top: 0; }
