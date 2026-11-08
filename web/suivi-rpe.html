@@ -40,9 +40,14 @@
       </div>
     </div>
     <div class="sr-bar" id="srBar">
+      <div class="segmented" role="group" aria-label="Séances ou matchs">
+        <button type="button" data-sr-scope="seance" aria-pressed="true">Séances</button>
+        <button type="button" data-sr-scope="match" aria-pressed="false">Matchs</button>
+      </div>
       <div class="segmented" role="group" aria-label="Vue">
         <button type="button" data-sr-view="dash" aria-pressed="true">Tableau de bord</button>
         <button type="button" data-sr-view="grid" aria-pressed="false">Détail joueurs</button>
+        <button type="button" data-sr-view="resp" aria-pressed="false">Réponses</button>
         <button type="button" data-sr-view="sore" aria-pressed="false">Courbatures</button>
       </div>
       <div class="segmented" role="group" aria-label="Séances affichées">
@@ -99,6 +104,7 @@
   <script src="assets/js/analytics-charts.js"></script>
   <script src="assets/js/rpe-stats.js"></script>
   <script src="assets/js/suivi-rpe-dash.js"></script>
+  <script src="assets/js/suivi-rpe-resp.js"></script>
   <script src="assets/js/pdf-kit.js"></script>
   <script src="assets/js/rpe-pdf.js"></script>
   <script src="assets/js/soreness.js"></script>

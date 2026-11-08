@@ -26,7 +26,7 @@
    rpe-stats.js, analytics-charts.js, suivi-rpe-dash.js.
    ============================================================ */
 
-const SR = { cache: new Map(), n: 10, period: null, sore: { rows: [], alerts: [], error: null }, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
+const SR = { cache: new Map(), scope: 'seance', resp: null, n: 10, period: null, sore: { rows: [], alerts: [], error: null }, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
 const srKey = (s, p) => `${s}:${p}`;
 const srIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const srToday = () => srIso(new Date());
@@ -53,10 +53,17 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
   if (window.Chart) setChartDefaults();
   const url = new URL(location.href), teams = srTeams(), asked = Number(url.searchParams.get('team'));
   SR.team = (teams.find(t => t.id === asked) || teams.find(t => t.id === currentTeamId()) || teams[0])?.id ?? null;
-  SR.view = { joueurs: 'grid', courbatures: 'sore' }[url.searchParams.get('vue')] || 'dash';
+  SR.scope = url.searchParams.get('type') === 'matchs' ? 'match' : 'seance';
+  SR.view = { joueurs: 'grid', reponses: 'resp', courbatures: 'sore' }[url.searchParams.get('vue')] || 'dash';
+  if (SR.scope === 'match' && SR.view === 'sore') SR.view = 'dash';   // les courbatures suivent les jours de séance
   document.getElementById('srBody').addEventListener('click', srClick);
   document.getElementById('srBar').addEventListener('click', (e) => {
-    const n = e.target.closest('[data-sr-n]'), v = e.target.closest('[data-sr-view]');
+    const n = e.target.closest('[data-sr-n]'), v = e.target.closest('[data-sr-view]'), sc = e.target.closest('[data-sr-scope]');
+    if (sc && sc.dataset.srScope !== SR.scope) {
+      SR.scope = sc.dataset.srScope;
+      if (SR.scope === 'match' && SR.view === 'sore') SR.view = 'dash';
+      srUrl(); srPressed(); loadSr(); return;
+    }
     if (n) srChoose(n.dataset.srN);
     if (v && v.dataset.srView !== SR.view) { SR.view = v.dataset.srView; srUrl(); renderSr(); }
     srPressed();
@@ -95,7 +102,8 @@ function srChoose(v) {
 function srUrl() {
   const u = new URL(location.href);
   if (SR.team) u.searchParams.set('team', SR.team); else u.searchParams.delete('team');
-  if (SR.view === 'dash') u.searchParams.delete('vue'); else u.searchParams.set('vue', SR.view === 'grid' ? 'joueurs' : 'courbatures');
+  if (SR.scope === 'match') u.searchParams.set('type', 'matchs'); else u.searchParams.delete('type');
+  if (SR.view === 'dash') u.searchParams.delete('vue'); else u.searchParams.set('vue', { grid: 'joueurs', resp: 'reponses', sore: 'courbatures' }[SR.view]);
   history.replaceState(null, '', u);
 }
 function srPressed() {
@@ -109,6 +117,8 @@ function srPressed() {
     : `<label for="srFrom">Du</label><input type="date" id="srFrom" value="${p.from}" max="${today}">
        <label for="srTo">au</label><input type="date" id="srTo" value="${p.to}" max="${today}">`;
   document.querySelectorAll('[data-sr-view]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.srView === SR.view)));
+  document.querySelectorAll('[data-sr-scope]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.srScope === SR.scope)));
+  document.querySelector('[data-sr-view="sore"]')?.classList.toggle('hidden', SR.scope === 'match');
 }
 function renderSrTeams() {
   document.body.dataset.team = SR.team || '';   // la ligne « club – équipe » et la barre du haut suivent la capsule
@@ -118,8 +128,8 @@ function renderSrTeams() {
 }
 
 /* Clé du jeu de données affiché : équipe + (n dernières séances | période). */
-const srCacheKey = () => `${SR.team}|${SR.period ? `${SR.period.from}>${SR.period.to}` : SR.n}`;
-const SR_FIELDS = ['sessions', 'att', 'rpe', 'sore', 'players', 'cells'];
+const srCacheKey = () => `${SR.scope}|${SR.team}|${SR.period ? `${SR.period.from}>${SR.period.to}` : SR.n}`;
+const SR_FIELDS = ['sessions', 'att', 'rpe', 'sore', 'players', 'cells', 'resp'];   // resp : vue Réponses, lue à la demande
 
 /* force = true : une saisie vient d'être enregistrée, on relit tout. Sinon un jeu déjà lu depuis moins d'une minute s'affiche
    sans attendre le réseau ; sinon l'écran reste tel quel (légèrement atténué) pendant la lecture, rien ne bouge. */
@@ -131,8 +141,9 @@ async function loadSr(force = false) {
   if (!SR.sessions.length) status.textContent = 'Chargement…';
   body.classList.add('is-loading');
   try {
+    const isMatch = SR.scope === 'match', to = SR.period && SR.period.to < srToday() ? SR.period.to : srToday(), none = { data: [] };
     const [s, p] = await Promise.all([
-      byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
+      isMatch ? none : byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
         .lte('date_seance', SR.period && SR.period.to < srToday() ? SR.period.to : srToday()).gte('date_seance', SR.period?.from || '1900-01-01')
         .order('date_seance', { ascending: false }).order('heure', { ascending: false, nullsFirst: false }).limit(SR.period ? 200 : SR.n),
       sb.from('players').select(`id, nom, prenom${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
@@ -140,9 +151,10 @@ async function loadSr(force = false) {
     if (s.error || p.error) throw s.error || p.error;
     const ids = s.data.map(x => x.id);
     const days = [...new Set(s.data.map(x => x.date_seance))];
-    // Les matchs de la période ; sans séance, ceux du dernier mois.
-    const [m, [a, r, so, al]] = await Promise.all([byTeam(sb.from('matches').select('id, adversaire, date_match, heure, team_id, match_players(player_id, statut, minutes), match_rpe(player_id, rpe, corrige_par)'), SR.team)
-      .lte('date_match', SR.period && SR.period.to < srToday() ? SR.period.to : srToday()).gte('date_match', SR.period?.from || s.data.at(-1)?.date_seance || srDays(srToday(), -30)),
+    // Matchs : les n derniers joués, ou ceux de la période.
+    const [m, [a, r, so, al]] = await Promise.all([!isMatch ? none : byTeam(sb.from('matches').select('id, adversaire, date_match, heure, team_id, match_players(player_id, statut, minutes), match_rpe(player_id, rpe, corrige_par)'), SR.team)
+      .lte('date_match', to).gte('date_match', SR.period?.from || '1900-01-01')
+      .order('date_match', { ascending: false }).limit(SR.period ? 200 : SR.n),
     ids.length ? Promise.all([
       sb.from('attendance').select('session_id, player_id, statut, present, invite').in('session_id', ids),
       sb.from('session_rpe').select('session_id, player_id, rpe, corrige_par').in('session_id', ids),
@@ -150,8 +162,7 @@ async function loadSr(force = false) {
       sb.from('soreness_alerts').select('id, player_id, jour, muscles').is('vu_at', null).order('jour', { ascending: false }),
     ]) : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]]);
     if (a.error || r.error) throw a.error || r.error;
-    // Sans les matchs, les séances restent lisibles : la page le dit.
-    if (m.error) { console.error('Suivi RPE : matchs illisibles', m.error); toast('Matchs indisponibles : seules les séances sont affichées.', 'error'); }
+    if (m.error) throw m.error;
     const matches = m.data || [];
     if (seq !== SR.seq) return;   // une autre équipe a été choisie entre-temps
     // Du plus ancien au plus récent, comme l'évolution du joueur ; travail prévu = temps de travail des procédés.
@@ -164,6 +175,7 @@ async function loadSr(force = false) {
     if (SR.sore.error) console.warn('Courbatures indisponibles', SR.sore.error);
     SR.players = p.data.filter(pl => SR.sessions.some(se => srConcerned(se, pl)));
     SR.cells = SR.players.map(pl => SR.sessions.map(se => srCell(se, pl)));
+    SR.resp = null;   // réponses aux formulaires : lues à l'ouverture de la vue Réponses
     SR.cache.set(key, { at: Date.now(), ...Object.fromEntries(SR_FIELDS.map(f => [f, SR[f]])) });
     body.classList.remove('is-loading');
     renderSr();
@@ -200,11 +212,14 @@ function renderSr() {
   const team = (window.CLUB_TEAMS || []).find(t => t.id === SR.team), body = document.getElementById('srBody');
   if (!SR.sessions.length) {
     document.getElementById('srStatus').textContent = team ? team.nom : '';
-    body.innerHTML = `<div class="empty">${SR.period ? 'Aucune séance de cette équipe sur cette période.' : 'Aucune séance passée pour cette équipe. Le RPE s’ouvre pour chaque séance posée au Calendrier, sans attendre le coach.'}</div>`;
+    body.innerHTML = `<div class="empty">${SR.scope === 'match' ? (SR.period ? 'Aucun match de cette équipe sur cette période.' : 'Aucun match joué pour cette équipe.')
+      : SR.period ? 'Aucune séance de cette équipe sur cette période.' : 'Aucune séance passée pour cette équipe. Le RPE s’ouvre pour chaque séance posée au Calendrier, sans attendre le coach.'}</div>`;
     return;
   }
-  document.getElementById('srStatus').textContent = [team?.nom, SR.period ? `du ${srShort(SR.period.from)} au ${srShort(SR.period.to)}` : (SR.sessions.length > 1 ? `${SR.sessions.length} dernières séances` : 'dernière séance')].filter(Boolean).join(' – ');
+  document.getElementById('srStatus').textContent = [team?.nom, SR.period ? `du ${srShort(SR.period.from)} au ${srShort(SR.period.to)}` : (SR.scope === 'match' ? (SR.sessions.length > 1 ? `${SR.sessions.length} derniers matchs` : 'dernier match')
+    : SR.sessions.length > 1 ? `${SR.sessions.length} dernières séances` : 'dernière séance')].filter(Boolean).join(' – ');
   if (SR.view === 'dash') { renderSrDash(body, SR.sessions, SR.players, SR.cells); return; }
+  if (SR.view === 'resp') { renderSrResp(body); return; }   // suivi-rpe-resp.js
   if (SR.view === 'sore') {
     const inTeam = new Set(SR.players.map(p => p.id)), err = SR.sore.error;
     body.innerHTML = err ? `<div class="empty">${escapeHtml(['42P01', 'PGRST205'].includes(err.code) ? 'Le questionnaire de courbatures n’est pas encore installé : passez lmfc_v35.sql dans Supabase.' : err.message)}</div>`

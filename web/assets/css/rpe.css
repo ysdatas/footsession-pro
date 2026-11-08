@@ -157,3 +157,29 @@
 .sore-table tbody th { font-weight: 600; text-align: left; white-space: nowrap; }
 .sore-foot { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 @media (max-width: 560px) { .sore-scale { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Suivi RPE : vue Réponses (suivi-rpe-resp.js) — une carte repliable par séance ou match */
+.sr-resp-note { margin: 0 0 12px; max-width: 80ch; font-size: var(--fs-sm); color: var(--text-secondary); }
+.sr-resp { margin: 0 0 8px; padding: 0; overflow: hidden; }
+.sr-resp > summary { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 16px; cursor: pointer; list-style: none; }
+.sr-resp > summary::-webkit-details-marker { display: none; }
+.sr-resp > summary::after { content: ''; flex: none; width: 7px; height: 7px; margin-left: 4px; border-right: 1.5px solid var(--text-muted); border-bottom: 1.5px solid var(--text-muted); transform: rotate(-45deg); transition: transform var(--dur-micro) ease; }
+.sr-resp[open] > summary::after { transform: rotate(45deg); }
+.sr-resp > summary:hover { background: var(--bg-hover); }
+.sr-resp > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.sr-resp-when { flex: none; min-width: 88px; font: 500 var(--fs-xs)/1.2 var(--font-num); color: var(--text-secondary); }
+.sr-resp-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.sr-resp-count { flex: none; font: 500 var(--fs-xs)/1 var(--font-num); color: var(--text-muted); }
+.sr-resp-body { padding: 0 16px 16px; }
+.sr-resp-meta { margin: 0 0 8px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.sr-resp-meta a { color: var(--text-primary); text-decoration: underline; text-underline-offset: 2px; }
+.sr-resp-wrap { overflow-x: auto; }
+.sr-resp-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.sr-resp-table th, .sr-resp-table td { padding: 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.sr-resp-table tbody tr:last-child > * { border-bottom: 0; }
+.sr-resp-table thead th { font-size: var(--fs-xs); font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+.sr-resp-table tbody th { font-weight: 500; white-space: nowrap; }
+.sr-resp-table td { min-width: 110px; max-width: 320px; }
+.sr-resp-rpe { display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 4px; border-radius: 4px; background: var(--rpe); color: #0A0A0A; font: 600 var(--fs-sm)/1 var(--font-num); }
+.sr-resp-none { color: var(--text-muted); }
+.sr-txt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
