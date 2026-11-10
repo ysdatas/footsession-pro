@@ -47,7 +47,7 @@ try { applyClubColor(localStorage.getItem(CLUB_COLOR_KEY), { remember: false });
 if (/\/player-performance(\.html)?$/.test(location.pathname)) {
   const q = new URLSearchParams(location.search);
   document.documentElement.dataset.pf = q.get('id') ? 'staff' : 'self';
-  document.documentElement.dataset.pfShown = ['performance', 'videos'].includes(q.get('tab')) ? q.get('tab') : 'fiche';
+  document.documentElement.dataset.pfShown = ['performance', 'videos', 'analyse'].includes(q.get('tab')) ? q.get('tab') : 'fiche';
 }
 
 /* Rôle du dernier compte connecté sur cet appareil (auth.js) : l'accueil réserve

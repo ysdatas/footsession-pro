@@ -222,6 +222,11 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            club, attribués à toutes les équipes : nom et intitulés modifiables, équipes au choix, questions
                                            ajoutées et copies par catégorie ; leurs réponses restent dans leurs tables ; après lmfc_v45.sql ;
                                            retour arrière : lmfc_v47_retour.sql (refusé si des joueurs ont répondu aux questions ajoutées)
+66. supabase/lmfc_v48.sql                  onglet Analyse de la fiche joueur : poste et lieu de chaque vidéo, codage des séquences (passe,
+                                           tir, centre, duels, récupération : résultat, contexte, zones, tiers, points x/y, pied, lignes
+                                           cassées, tags) ; rejouable, y compris sur sa première version (passe et duels) ; lu par le staff
+                                           et le lecteur, écrit par admin, coach et analyste ; le codage suit sa séquence dans la corbeille ;
+                                           retour arrière : lmfc_v48_retour.sql (refusé si des séquences sont codées)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo

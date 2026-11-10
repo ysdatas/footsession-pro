@@ -1,0 +1,168 @@
+/* ============================================================
+   LMFC Performance — analyse.css
+   Onglet Analyse de la fiche joueur (analyse-*.js).
+   ============================================================ */
+
+:root { --an-ok: #5cc761; --an-ko: #ff5a6e; --an-na: #9a9a9a; --an-but: #5cc761; --an-cadre: #e8c14a; --an-non_cadre: #ff5a6e; --an-contre: #9a9a9a; }
+
+/* Avant les scripts (theme.js, player-performance.css) : seul le panneau demandé, rien pour le joueur. */
+html[data-pf="staff"][data-pf-shown="analyse"] .pf-panel:not([data-pf-panel="analyse"]),
+html[data-pf="self"] #pfPanel-analyse { display: none; }
+
+/* ---------- Menus déroulants : bandeau (à droite de l'identité) et espaces ---------- */
+.an-filters { display: none; flex: 1 1 520px; min-width: 0; min-height: 84px; }
+html[data-pf-shown="analyse"] .an-filters { display: block; }
+html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
+/* L'identité prend sa largeur, les menus tout le reste (la fiche fait l'inverse pour ses mesures). */
+@media (min-width: 1201px) { html[data-pf-shown="analyse"] .perf-hero.hero-surface { grid-template-columns: auto minmax(0, 1fr); } }
+.an-sel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; align-items: end; }
+.an-sel { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.an-sel > span { font-size: var(--fs-xs); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.an-sel select {
+  width: 100%; min-height: 32px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: var(--fs-md);
+}
+.an-sel select:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.an-sel-sm { flex-direction: row; align-items: center; gap: 6px; }
+.an-sel-sm select { width: auto; min-height: 28px; }
+.an-reset { min-height: 32px; }
+.an-filters-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 28px; margin-top: 8px; }
+.an-grow { flex: 1; }
+
+/* ---------- Puces (filtres des espaces, codage) ---------- */
+.an-chip {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 3px 10px; border: 1px solid var(--border);
+  border-radius: 999px; background: transparent; color: var(--text-primary); font-size: var(--fs-sm); cursor: pointer; transition: var(--transition);
+}
+.an-chip:hover { background: var(--bg-hover); }
+.an-chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.an-chip.is-on { background: rgba(var(--gold-rgb), .16); border-color: var(--gold); color: var(--gold-light); }
+.an-chip .arr { width: 12px; height: 12px; }
+
+/* ---------- Onglets : sous-rubriques d'un espace, catégories de la synthèse ---------- */
+.an-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.an-tab {
+  flex: 1 1 auto; min-height: 34px; padding: 5px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: transparent; color: var(--text-primary); font: 500 var(--fs-md) var(--font-main); cursor: pointer; transition: var(--transition);
+}
+.an-tab:hover { background: var(--bg-hover); }
+.an-tab:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.an-tab.is-on { background: var(--gold); border-color: var(--gold); color: #17140a; font-weight: 600; }
+
+/* ---------- Espaces AVEC BALLON | SANS BALLON ---------- */
+.an-spaces { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.an-space { display: grid; gap: 12px; }
+.an-space-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.an-space-h h2 { margin: 0; letter-spacing: .08em; }
+.an-details > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-secondary); padding: 2px 0; }
+.an-details > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.an-details[open] > summary { margin-bottom: 6px; }
+.an-on { margin-left: 6px; color: var(--gold); font-size: var(--fs-xs); }
+.an-n { color: var(--text-muted); font-weight: 400; }
+
+/* Chiffres à gauche, terrain à droite : le terrain garde la place. */
+.an-body { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 16px; align-items: start; }
+.an-side { display: grid; gap: 12px; }
+.an-kpi-main { margin: 0; display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.an-kpi-main > span { font-size: var(--fs-md); color: var(--text-secondary); }
+.an-kpi-main > strong { font: 600 2rem/1.05 var(--font-num); }
+.an-kpis dl { margin: 0; display: grid; }
+.an-kpis dl > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-md); }
+.an-kpis dt { color: var(--text-secondary); }
+.an-kpis dd { margin: 0; font: 600 var(--fs-lg)/1.2 var(--font-num); }
+.an-play { width: 100%; justify-content: center; }
+.an-pct { display: inline-block; padding: 1px 6px; border-radius: var(--radius-sm); font: 500 var(--fs-sm)/1.3 var(--font-num); }
+.an-pct.is-good { background: rgba(76, 175, 80, .18); color: #7ad17e; }
+.an-pct.is-mid { background: rgba(255, 152, 0, .18); color: #ffb347; }
+.an-pct.is-bad { background: rgba(var(--red-rgb), .22); color: #ff7a8a; }
+.an-pct.is-na { color: var(--text-muted); }
+
+/* ---------- Synthèse : les seuls tableaux détaillés ---------- */
+.an-synth { display: grid; gap: 12px; margin-top: 16px; }
+.an-synth .an-tab { flex: 0 1 auto; }
+.an-synth-sum { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; color: var(--text-secondary); font-size: var(--fs-md); }
+.an-synth-sum strong { margin-right: 16px; color: var(--text-primary); font: 600 var(--fs-xl)/1 var(--font-num); }
+.an-note { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+.an-tables { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px 24px; align-items: start; }
+.an-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.an-table caption { text-align: left; font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); padding-bottom: 4px; }
+.an-table th, .an-table td { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: right; font-family: var(--font-num); white-space: nowrap; }
+.an-table th[scope="row"] { text-align: left; font-family: var(--font-main); font-weight: 400; }
+.an-table thead th { font-family: var(--font-main); font-size: var(--fs-xs); color: var(--text-secondary); font-weight: 500; }
+
+/* ---------- Terrain ---------- */
+.an-pitch-wrap { margin: 0; }
+.an-pitch-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; }
+.an-pitch { position: relative; aspect-ratio: 105 / 68; border-radius: var(--radius-md); background: #16201a; color: rgba(255, 255, 255, .32); overflow: hidden; }
+.an-pitch.is-shot { aspect-ratio: 68 / 35; }
+.an-pitch-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.an-mk line { stroke-width: .5; stroke-linecap: round; }
+.an-mk-ok line { stroke: var(--an-ok); } .an-mk-ko line { stroke: var(--an-ko); } .an-mk-na line { stroke: var(--an-na); }
+.an-mk-ok circle, .an-mk-ok rect, .an-fill-ok { fill: var(--an-ok); }
+.an-mk-ko circle, .an-mk-ko rect, .an-fill-ko { fill: var(--an-ko); }
+.an-mk-na circle, .an-mk-na rect, .an-fill-na { fill: var(--an-na); }
+.an-mk-but circle { fill: var(--an-but); } .an-mk-cadre circle { fill: var(--an-cadre); }
+.an-mk-non_cadre circle { fill: var(--an-non_cadre); } .an-mk-contre circle { fill: var(--an-contre); }
+.an-mk circle, .an-mk rect { stroke: rgba(0, 0, 0, .55); stroke-width: .25; }
+/* Zones du schéma : contour clair, teinte or selon le % de réussite (--a), texte en encre du thème. */
+.an-z polygon { fill: rgba(var(--gold-rgb), var(--a, 0)); stroke: rgba(255, 255, 255, .5); stroke-width: .3; stroke-linejoin: round; transition: fill var(--dur-micro) ease; }
+.an-z text { text-anchor: middle; fill: var(--text-primary); paint-order: stroke; stroke: rgba(0, 0, 0, .55); stroke-width: .5; pointer-events: none; }
+.an-z-name { font: 700 2.3px var(--font-main); letter-spacing: .06px; text-transform: uppercase; }
+.an-z-old { font: 400 1.9px var(--font-main); fill: var(--text-secondary) !important; }
+.an-z-n { font: 600 2.2px var(--font-num); }
+.an-z.is-click { cursor: pointer; outline: none; }
+.an-z.is-click:hover polygon { stroke: var(--gold-light); stroke-width: .5; }
+.an-z.is-click:focus-visible polygon { stroke: var(--gold); stroke-width: .8; }
+.an-z.is-on polygon { stroke: var(--gold); stroke-width: .8; }
+/* Terrain classique et tirs : tiers ou zones de tir cliquables, en pointillés. */
+.an-z > rect { fill: transparent; stroke: rgba(255, 255, 255, .45); stroke-width: .3; stroke-dasharray: 1.2 1.2; transition: fill var(--dur-micro) ease; }
+.an-z.is-click:hover > rect { fill: rgba(var(--gold-rgb), .08); }
+.an-z.is-click:focus-visible > rect { stroke: var(--gold); stroke-width: .8; stroke-dasharray: none; }
+.an-z.is-on > rect { fill: rgba(var(--gold-rgb), .2); stroke: var(--gold); stroke-width: .6; stroke-dasharray: none; }
+.an-marks { pointer-events: none; }
+.an-pitch-wrap figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 6px; font-size: var(--fs-xs); color: var(--text-muted); }
+.an-leg { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.an-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--an-na); }
+.an-dot.is-ok { background: var(--an-ok); } .an-dot.is-ko { background: var(--an-ko); } .an-dot.is-but { background: var(--an-but); }
+.an-dot.is-cadre { background: var(--an-cadre); } .an-dot.is-non_cadre { background: var(--an-non_cadre); } .an-dot.is-contre { background: var(--an-contre); }
+.an-error { color: #ff8a80; }
+
+/* ---------- Codage ---------- */
+.an-coding { margin-top: 16px; }
+.an-coding > details > summary { display: flex; align-items: center; gap: 8px; }
+.an-coding summary h2 { margin: 0; color: var(--text-primary); }
+.an-cv-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.an-cv { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.an-cv-h { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 6px; }
+.an-cv-t { flex: 1 1 200px; }
+.an-cv-clips { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.an-cv-clips li { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.an-cv-c { flex: 1; min-width: 0; }
+.an-st { font-size: var(--fs-xs); color: var(--gold); }
+.an-st.is-done { color: var(--text-secondary); }
+.an-tags-h { margin-top: 14px; }
+.an-tag-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.an-tagrow { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.an-tagrow > span:first-child { flex: 1; }
+
+.modal.an-code-modal { max-width: 780px; }
+.an-code-sub { margin: -10px 0 12px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.an-crow { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; align-items: start; padding: 4px 0; }
+.an-crow-l { padding-top: 5px; font-size: var(--fs-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+.an-crow-b { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.an-cpitch { display: grid; gap: 6px; }
+.an-cpitch .an-pitch-svg { cursor: crosshair; }
+.an-hint { margin: 0; font-size: var(--fs-xs); color: var(--gold-light); }
+.an-xys { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.an-xy { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.an-xy input { width: 84px; }
+.an-tag-input { width: 160px; min-height: 28px; }
+
+@media (max-width: 1100px) {
+  .an-spaces { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .an-body { grid-template-columns: minmax(0, 1fr); }
+  .an-sel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .an-crow { grid-template-columns: minmax(0, 1fr); }
+}

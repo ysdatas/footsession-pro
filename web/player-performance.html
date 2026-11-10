@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="assets/css/player.css">
   <link rel="stylesheet" href="assets/css/videos.css">
   <link rel="stylesheet" href="assets/css/rpe.css">
+  <link rel="stylesheet" href="assets/css/analyse.css">
   <link rel="stylesheet" href="assets/css/gps.css">
   <link rel="stylesheet" href="assets/css/matches.css">
   <script src="assets/js/theme.js"></script>
@@ -72,6 +73,9 @@
         <div class="perf-metric"><span>Poids</span><strong id="metricWeight">—</strong><small id="metricWeightWhen"></small></div>
         <div class="perf-metric"><span>Masse grasse</span><strong id="metricBodyFat">—</strong><small id="metricBodyFatWhen"></small></div>
       </div>
+
+      <!-- Onglet Analyse : filtres généraux, à la place des mesures (analyse-view.js, analyse.css) -->
+      <div class="an-filters" id="anFilters" role="group" aria-label="Filtres généraux de l'analyse"></div>
     </section>
 
     <!-- Onglets du staff : la fiche, la performance et les vidéos du joueur, sans changer de page -->
@@ -80,6 +84,7 @@
       <button type="button" role="tab" id="pfTab-performance" data-pf-tab="performance" aria-controls="pfPanel-performance">Performance</button>
       <button type="button" role="tab" id="pfTab-matchs" data-pf-tab="matchs" aria-controls="pfPanel-matchs" class="hidden">Matchs</button>
       <button type="button" role="tab" id="pfTab-videos" data-pf-tab="videos" aria-controls="pfPanel-videos" class="hidden">Vidéos</button>
+      <button type="button" role="tab" id="pfTab-analyse" data-pf-tab="analyse" aria-controls="pfPanel-analyse" class="hidden">Analyse</button>
     </nav>
 
     <div class="pf-panels">
@@ -191,6 +196,11 @@
       <!-- Vidéos : celles du joueur, rangées par vidéo (player-videos.js) -->
       <section class="pf-panel" id="pfPanel-videos" data-pf-panel="videos" role="tabpanel" aria-labelledby="pfTab-videos">
         <div id="pfVideos"><p class="text-muted">Chargement…</p></div>
+      </section>
+
+      <!-- Analyse : séquences codées, AVEC BALLON | SANS BALLON (analyse-*.js, lmfc_v48.sql) -->
+      <section class="pf-panel" id="pfPanel-analyse" data-pf-panel="analyse" role="tabpanel" aria-labelledby="pfTab-analyse" hidden>
+        <div id="pfAnalyse"><p class="text-muted">Chargement…</p></div>
       </section>
     </div>
 
@@ -425,6 +435,11 @@
   <script src="assets/js/video-compile.js"></script>
   <script src="assets/js/video-fastcompile.js"></script>
   <script src="assets/js/player-videos.js"></script>
+  <script src="assets/js/analyse-model.js"></script>
+  <script src="assets/js/analyse-data.js"></script>
+  <script src="assets/js/analyse-pitch.js"></script>
+  <script src="assets/js/analyse-view.js"></script>
+  <script src="assets/js/analyse-coding.js"></script>
   <script src="assets/js/rpe.js"></script>
   <script src="assets/js/gps-card.js"></script>
   <script src="assets/js/procedure-time.js"></script>

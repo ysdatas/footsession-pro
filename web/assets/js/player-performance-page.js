@@ -18,6 +18,7 @@ let measurements = [];
 let tests = [];
 let stage = 'pre';
 let canEditPerformance = false;
+let canCodeAnalyse = false;   // onglet Analyse : coder les clips (la base décide : lmfc_v48.sql)
 let clubAverages = null;   // moyennes du club pour la session affichée
 let squadTests = [];       // tests du club retenus pour la session affichée (staff)
 let clubTestsAll = [];     // tous les tests du club, toutes sessions (staff)
@@ -872,6 +873,7 @@ async function loadPage() {
   if (levelErr) console.warn('Niveau d’accès au joueur indisponible', levelErr.message);
   const readOnly = level === 'lecture' || isReader(ctxProfile.role);
   canEditPerformance = !readOnly && canEditPerformanceData(ctxProfile.role);
+  canCodeAnalyse = !readOnly && canManagePlayerVideos(ctxProfile.role);
   canEditPlans = !readOnly && canManagePlans(ctxProfile.role);
   canEditPlayer = !readOnly && canEditPlayers(ctxProfile.role);
   document.getElementById('perfRoleLabel').textContent = ctxProfile.role === 'joueur' ? 'Espace joueur'
@@ -924,6 +926,7 @@ async function loadPage() {
   // Onglet Vidéos ouvert d'emblée (?tab=videos) : il attendait la fiche et restait sur « Chargement… ».
   if (!pfVideosMounted && document.querySelector('[data-pf-tab="videos"][aria-selected="true"]')) showTab('videos', false);
   if (!pfMatchesMounted && document.querySelector('[data-pf-tab="matchs"][aria-selected="true"]')) showTab('matchs', false);
+  if (!pfAnalyseMounted && document.querySelector('[data-pf-tab="analyse"][aria-selected="true"]')) showTab('analyse', false);
 
   // Staff : programme terrain (points forts, axes, exercices) dans l'onglet Fiche.
   // Le joueur a sa page « Objectifs & préventions » pour ça.
@@ -1322,16 +1325,17 @@ function setupVisibilityToggles() {
    Le contenu change sur place ; ?tab= garde l'onglet au rechargement
    et au retour arrière. Les vidéos ne se chargent qu'à la première
    ouverture de leur onglet. */
-const PF_TABS = ['fiche', 'performance', 'matchs', 'videos'];
+const PF_TABS = ['fiche', 'performance', 'matchs', 'videos', 'analyse'];
 /* Vidéos : le staff qui les gère, et le lecteur en consultation (player-videos.js). */
 const canSeeVideosTab = () => canManagePlayerVideos(ctxProfile.role) || isReader(ctxProfile.role);
 /* Matchs : admin, coachs, préparateurs (le lecteur et le joueur ne lisent aucun match : lmfc_v19 / v22). */
 const canSeeMatchesTab = () => canAccessTeamReviewTools(ctxProfile.role);
-let pfVideosMounted = false, pfMatchesMounted = false;
+let pfVideosMounted = false, pfMatchesMounted = false, pfAnalyseMounted = false;
 function setupTabs() {
   const nav = document.getElementById('pfTabs');
   nav.classList.remove('hidden');
   document.getElementById('pfTab-videos').classList.toggle('hidden', !canSeeVideosTab());
+  document.getElementById('pfTab-analyse').classList.toggle('hidden', !canSeeVideosTab());
   document.getElementById('pfTab-matchs').classList.toggle('hidden', !canSeeMatchesTab());
   nav.addEventListener('click', (e) => {
     const t = e.target.closest('[data-pf-tab]');
@@ -1349,7 +1353,7 @@ function setupTabs() {
   showTab(asked, false);
 }
 function showTab(tab, remember) {
-  const allowed = PF_TABS.filter(k => (k !== 'videos' || canSeeVideosTab()) && (k !== 'matchs' || canSeeMatchesTab()));
+  const allowed = PF_TABS.filter(k => (!['videos', 'analyse'].includes(k) || canSeeVideosTab()) && (k !== 'matchs' || canSeeMatchesTab()));
   if (!allowed.includes(tab)) tab = 'fiche';
   document.querySelectorAll('[data-pf-tab]').forEach(b => {
     const on = b.dataset.pfTab === tab;
@@ -1366,6 +1370,10 @@ function showTab(tab, remember) {
   if (tab === 'videos' && !pfVideosMounted && player) {
     pfVideosMounted = true;
     mountPlayerVideos(document.getElementById('pfVideos'), { player, profile: ctxProfile });
+  }
+  if (tab === 'analyse' && !pfAnalyseMounted && player) {
+    pfAnalyseMounted = true;
+    mountAnalyse(document.getElementById('pfAnalyse'), { player, profile: ctxProfile, canCode: canCodeAnalyse });
   }
   if (tab === 'matchs' && !pfMatchesMounted && player) {
     pfMatchesMounted = true;
