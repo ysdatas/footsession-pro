@@ -129,8 +129,7 @@ html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
 
 /* ---------- Codage ---------- */
 .an-coding { margin-top: 16px; }
-.an-coding > details > summary { display: flex; align-items: center; gap: 8px; }
-.an-coding summary h2 { margin: 0; color: var(--text-primary); }
+.an-coding summary h2 { display: inline; margin: 0 2px 0 4px; color: var(--text-primary); }
 .an-cv-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
 .an-cv { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-md); }
 .an-cv-h { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 6px; }

@@ -41,7 +41,7 @@ function anCodingCardHtml() {
     <button type="button" class="btn btn-sm btn-ghost" data-an="tag-rename" data-value="${esc(t)}">Renommer</button>
     <button type="button" class="btn btn-sm btn-danger" data-an="tag-delete" data-value="${esc(t)}">Supprimer</button></li>`).join('');
   return `<section class="card an-coding"><details class="an-details" data-an-open="coding"${anOpenAttr('coding')}>
-    <summary><h2 class="as-h3">Codage des clips</h2><span class="an-on">${todo} à coder</span></summary>
+    <summary><h2 class="as-h3">Codage des clips</h2><span class="an-on">${AN.clips.length - todo} codé${AN.clips.length - todo > 1 ? 's' : ''}, ${todo} à coder</span></summary>
     ${videos ? `<ol class="an-cv-list">${videos}</ol>` : '<p class="text-muted">Aucune vidéo pour ce joueur.</p>'}
     <h3 class="as-h4 an-tags-h">Tags</h3>
     ${tags ? `<ul class="an-tag-list">${tags}</ul>` : '<p class="text-muted">Aucun tag : ajoutez-les en codant un clip.</p>'}</details></section>`;

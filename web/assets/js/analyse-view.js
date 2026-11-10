@@ -16,7 +16,7 @@
 
 const AN = {
   root: null, player: null, profile: null, canCode: false, token: 0,
-  videos: [], clips: [], error: null, f: anEmptyFilters(), open: new Set(),
+  videos: [], clips: [], error: null, f: anEmptyFilters(), open: new Set(['coding']),   // codage déplié d'emblée : seule entrée pour coder ou modifier un clip
   tab: { ballon: 'passe', sans: 'duel_sol' }, synth: 'passe', pitchEnd: 'zone_depart',
   draft: null, draftClip: null,
 };
