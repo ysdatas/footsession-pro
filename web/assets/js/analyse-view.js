@@ -8,7 +8,9 @@
        et « Lire les vidéos », tous tirés de la MÊME liste (anActionClips) ;
      - en bas, et seulement là : les tableaux détaillés, un onglet par
        action, plus les lignes cassées ; export CSV de l'onglet ouvert ;
-     - codage des clips (analyse-coding.js), pour qui peut modifier.
+     - pour qui peut coder : le panneau « Timeline / Codage vidéo » collé en
+       bas (analyse-timeline.js), la fenêtre de codage (analyse-coding.js) et
+       la bibliothèque de descripteurs (analyse-tags.js).
    Lecture : lecteur vidéo existant (openVideoWorkspace, player-videos.js),
    avec la liste filtrée pour « Précédent / Suivant ».
      mountAnalyse(root, { player, profile, canCode })
@@ -16,9 +18,11 @@
 
 const AN = {
   root: null, player: null, profile: null, canCode: false, token: 0,
-  videos: [], clips: [], error: null, f: anEmptyFilters(), open: new Set(['coding']),   // codage déplié d'emblée : seule entrée pour coder ou modifier un clip
+  videos: [], clips: [], descs: [], error: null, f: anEmptyFilters(),
   tab: { ballon: 'passe', sans: 'duel_sol' }, synth: 'passe', pitchEnd: 'zone_depart',
-  draft: null, draftClip: null,
+  draft: null, draftClip: null, bulk: null, lib: null,
+  // Timeline : vidéo affichée, zoom, marques du prochain clip, sélection, opérations groupées à défaire.
+  tl: { open: false, big: true, video: null, loaded: null, dur: 0, zoom: 1, in: null, out: null, sel: new Set(), undo: [] },
 };
 const AN_SYNTH = [...Object.entries(AN_ACTIONS).map(([a, A]) => [a, A.label]), ['lignes', 'Lignes cassées']];
 
@@ -34,10 +38,7 @@ async function mountAnalyse(root, { player, profile, canCode }) {
     root.addEventListener('keydown', (e) => {   // formes du terrain (SVG) : Entrée ou Espace comme un bouton
       if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('g[role="button"][data-an]')) { e.preventDefault(); anClick(e); }
     });
-    root.addEventListener('toggle', (e) => {   // panneaux repliables : état gardé d'un dessin à l'autre
-      const key = e.target.dataset?.anOpen;
-      if (key) { if (e.target.open) AN.open.add(key); else AN.open.delete(key); }
-    }, true);
+    if (canCode) anTlMount();
   }
   await anReload();
 }
@@ -64,16 +65,18 @@ function anRender() {
   const keep = anFocusKey(document.activeElement);
   anRenderFilters();
   AN.root.innerHTML = AN.error ? `<p class="an-error card" role="alert">${esc(AN.error)}</p>`
-    : `<div class="an-spaces">${anSpaceHtml('ballon')}${anSpaceHtml('sans')}</div>${anSynthHtml()}${AN.canCode ? anCodingCardHtml() : ''}`;
+    : `<div class="an-spaces">${anSpaceHtml('ballon')}${anSpaceHtml('sans')}</div>${anSynthHtml()}`;
   if (keep) document.querySelector(`#anFilters ${keep}, #pfAnalyse ${keep}`)?.focus();
+  anTlRender();   // analyse-timeline.js : rien pour qui ne code pas
+  anLibRender();  // analyse-tags.js : la bibliothèque, si elle est ouverte
 }
 
-function anOpenAttr(key) { return AN.open.has(key) ? ' open' : ''; }
 function anAllTags() { return [...new Set(AN.clips.flatMap(c => c.tags))].sort((a, b) => a.localeCompare(b, 'fr')); }
 /* Match · séquence · minutage, puis action, résultat et tags une fois codé. */
 function anClipName(c) {
   const A = AN_ACTIONS[c.action];
-  return [c.video_title, c.label || 'Séquence', fmtT(c.start_sec), A?.one, A && c.resultat && anLabel(A.res, c.resultat), ...c.tags.map(t => `#${t}`)]
+  return [c.video_title, c.label || 'Séquence', fmtT(c.start_sec), c.minute_match != null && `${c.minute_match}'`, A?.one,
+    A && c.resultat && anLabel(A.res, c.resultat), ...c.tags.map(t => `#${t}`)]
     .filter(Boolean).join(' · ');
 }
 
@@ -199,6 +202,7 @@ function anExport() {
 function anPlay(space) {
   const items = anActionClips(AN.clips, AN.f, AN.tab[space]).map(c => ({ seqId: c.id, label: anClipName(c), player: AN.player,
     video: AN.videos.find(v => v.id === c.video_id) })).filter(it => it.video);
+  document.getElementById('anVideo')?.pause();
   if (items[0]) openVideoWorkspace({ video: items[0].video, player: AN.player, profile: AN.profile, seqId: items[0].seqId, playlist: items, onChange: anReload });
 }
 
@@ -222,7 +226,7 @@ function anClick(e) {
   else if (an === 'reset-all') AN.f = anEmptyFilters();
   else if (an === 'play') return anPlay(space);
   else if (an === 'export') return anExport();
-  else return anCodingClick(b);   // analyse-coding.js
+  else return;
   anRender();
 }
 
@@ -232,6 +236,6 @@ function anChange(e) {
     if (t.value) AN.f[t.dataset.anF][t.dataset.key] = [t.value]; else delete AN.f[t.dataset.anF][t.dataset.key];
   } else if ('anTag' in t.dataset) {
     if (t.value) anToggle(AN.f, 'general', 'tags', t.value);
-  } else return anCodingChange(t);   // analyse-coding.js
+  } else return;
   anRender();
 }

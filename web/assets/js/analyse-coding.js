@@ -1,89 +1,22 @@
 /* ============================================================
    LMFC Performance — analyse-coding.js
-   Codage des clips de l'onglet Analyse (admin, coach, analyste ; la base
-   refuse les autres, lmfc_v48.sql) :
-     - par vidéo : poste et lieu, repris par tous ses clips ;
-     - par clip : fenêtre de codage (boutons, points x/y au clic sur le
-       terrain ou en chiffres, tags). Un champ non choisi reste inconnu ;
-       recliquer une valeur choisie l'efface ;
-     - tags : renommer ou supprimer sur tous les clips.
+   Fenêtre de codage de l'onglet Analyse (admin, coach, analyste ; la base
+   refuse les autres, lmfc_v48.sql et lmfc_v49.sql). Trois usages, une fenêtre :
+     - un clip existant (double-clic sur la timeline) : découpage, action et
+       ses champs, points au clic, minute du match, tags ;
+     - un nouveau clip (début et fin marqués sur la timeline) : la séquence
+       est créée ET codée à l'enregistrement, en une transaction, et reste
+       réservée au staff (aucun réglage de partage ici) ; « Annuler » ne crée rien ;
+     - plusieurs clips (AN.bulk) : seuls les champs renseignés sont écrits ;
+       l'action d'un clip déjà codé ne se change pas ici.
+   Un champ non choisi reste inconnu ; recliquer une valeur choisie l'efface.
    ============================================================ */
 
 const AN_NUM = ['periode', 'ligne', 'nb_attaquants', 'touches', 'tiers_depart', 'tiers_arrivee'];
 /* Lignes de la fenêtre : l'action, ses champs (menus de l'espace + champs sans menu), puis le contexte. */
 const AN_CODE_ACTION = anF('action', 'Action', Object.entries(AN_ACTIONS).map(([a, A]) => [a, A.one]));
 const AN_CODE_COMMON = AN_GENERAL.filter(d => ['periode', 'ligne', 'nb_attaquants', 'pression'].includes(d.key));
-const anGeneral = (key) => AN_GENERAL.find(d => d.key === key).values;
-
-function anActionLabel(c) {
-  const A = AN_ACTIONS[c.action];
-  return [A.one, c.resultat && anLabel(A.res, c.resultat)].filter(Boolean).join(' · ');
-}
-
-/* ---------- Carte « Codage des clips » ---------- */
-
-function anVideoSelect(v, key, label, values) {
-  return `<label class="an-sel an-sel-sm"><span>${label}</span><select data-an-video="${key}" data-id="${v.id}">
-    <option value="">Inconnu</option>${values.map(([val, l]) => `<option value="${val}"${v[key] === val ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
-}
-
-function anCodingCardHtml() {
-  const todo = AN.clips.filter(c => !c.coded).length;
-  const videos = AN.videos.map(v => {
-    const clips = AN.clips.filter(c => c.video_id === v.id).map(c => `<li><span class="an-cv-c">${esc(c.label || 'Séquence')} · ${fmtT(c.start_sec)}</span>
-      <span class="an-st${c.coded ? ' is-done' : ''}">${c.coded ? esc(anActionLabel(c)) : 'À coder'}</span>
-      <button type="button" class="btn btn-sm" data-an="code" data-seq="${c.id}">${c.coded ? 'Modifier' : 'Coder'}</button></li>`).join('');
-    return `<li class="an-cv"><div class="an-cv-h"><strong class="an-cv-t">${esc(v.titre)}</strong>
-      ${anVideoSelect(v, 'poste', 'Poste', anGeneral('poste'))}${anVideoSelect(v, 'lieu', 'Lieu', anGeneral('lieu'))}</div>
-      ${clips ? `<ol class="an-cv-clips">${clips}</ol>` : '<p class="text-muted">Pas de séquence : découpez-les dans l’onglet Vidéos.</p>'}</li>`;
-  }).join('');
-  const tags = anAllTags().map(t => `<li class="an-tagrow"><span>${esc(t)} <span class="an-n">(${AN.clips.filter(c => c.tags.includes(t)).length})</span></span>
-    <button type="button" class="btn btn-sm btn-ghost" data-an="tag-rename" data-value="${esc(t)}">Renommer</button>
-    <button type="button" class="btn btn-sm btn-danger" data-an="tag-delete" data-value="${esc(t)}">Supprimer</button></li>`).join('');
-  return `<section class="card an-coding"><details class="an-details" data-an-open="coding"${anOpenAttr('coding')}>
-    <summary><h2 class="as-h3">Codage des clips</h2><span class="an-on">${AN.clips.length - todo} codé${AN.clips.length - todo > 1 ? 's' : ''}, ${todo} à coder</span></summary>
-    ${videos ? `<ol class="an-cv-list">${videos}</ol>` : '<p class="text-muted">Aucune vidéo pour ce joueur.</p>'}
-    <h3 class="as-h4 an-tags-h">Tags</h3>
-    ${tags ? `<ul class="an-tag-list">${tags}</ul>` : '<p class="text-muted">Aucun tag : ajoutez-les en codant un clip.</p>'}</details></section>`;
-}
-
-async function anTagRun(oldTag, newTag) {
-  try {
-    const n = await anRenameTag(oldTag, newTag);
-    const chosen = AN.f.general.tags;
-    if (chosen?.includes(oldTag)) {   // le filtre suit le tag renommé
-      AN.f.general.tags = [...new Set(chosen.map(t => (t === oldTag ? newTag : t)).filter(Boolean))];
-      if (!AN.f.general.tags.length) delete AN.f.general.tags;
-    }
-    toast(newTag ? `Tag renommé sur ${n} clip(s).` : `Tag supprimé de ${n} clip(s).`);
-    await anReload();
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-async function anCodingClick(b) {
-  const { an, seq, value } = b.dataset;
-  if (an === 'code') return anOpenCoding(Number(seq));
-  if (an === 'tag-rename') {
-    const name = (await promptDialog(`Renommer le tag « ${value} » sur tous les clips ?`, value))?.trim().slice(0, 40);
-    if (name && name !== value) return anTagRun(value, name);
-  }
-  if (an === 'tag-delete' && await confirmDialog(`Supprimer le tag « ${value} » de tous les clips ?`)) return anTagRun(value, '');
-}
-
-async function anCodingChange(t) {
-  if (!t.dataset.anVideo) return;
-  try {
-    await anSaveVideo(Number(t.dataset.id), { [t.dataset.anVideo]: t.value || null });
-    await anReload();
-  } catch (err) {
-    toast(err.message, 'error');
-    await anReload();   // le menu reprend la valeur enregistrée
-  }
-}
-
-/* ---------- Fenêtre de codage d'un clip ---------- */
+const anActionRows = (action) => { const A = AN_ACTIONS[action]; return A ? [...A.filters, ...(A.more || [])] : []; };
 
 function anEnsureModal() {
   if (document.getElementById('anCodeModal')) return;
@@ -98,16 +31,27 @@ function anEnsureModal() {
   m.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'anTagInput') { e.preventDefault(); anDraftAddTag(); } });
 }
 
-function anOpenCoding(seqId) {
-  const clip = AN.clips.find(c => c.id === seqId);
-  if (!clip) return;
-  AN.draftClip = clip;
-  AN.draft = { ...Object.fromEntries(AN_CODE_FIELDS.map(k => [k, clip[k] ?? null])), tags: [...clip.tags] };
+function anShowModal(title, sub) {
   anEnsureModal();
-  document.getElementById('anCodeSub').textContent = anClipName(clip);
+  document.getElementById('anCodeTitle').textContent = title;
+  document.getElementById('anCodeSub').textContent = sub;
   anRenderDraft();
   openModal('anCodeModal');
   document.querySelector('#anCodeBody button')?.focus();
+}
+
+/* Un clip existant, ou un nouveau (clip sans id : { video_id, label, video_title, start_sec, end_sec }). */
+function anOpenCoding(clip) {
+  if (!clip) return;
+  Object.assign(AN, { bulk: null, draftClip: clip });
+  AN.draft = { ...Object.fromEntries(AN_CODE_FIELDS.map(k => [k, clip[k] ?? null])), tags: [...(clip.tags || [])],
+    start_sec: Math.round(clip.start_sec * 100) / 100, end_sec: Math.round(clip.end_sec * 100) / 100 };
+  anShowModal(clip.id ? 'Coder le clip' : 'Nouveau clip', clip.id ? anClipName(clip) : `${clip.video_title} · ${fmtT(clip.start_sec)} → ${fmtT(clip.end_sec)}`);
+}
+
+function anOpenBulk(ids) {
+  Object.assign(AN, { bulk: ids, draftClip: null, draft: Object.fromEntries(AN_CODE_FIELDS.map(k => [k, null])) });
+  anShowModal('Modifier les caractéristiques', `${ids.length} séquence${ids.length > 1 ? 's' : ''} : seuls les champs que vous renseignez sont écrits.`);
 }
 
 function anDraftRow(d) {
@@ -126,22 +70,42 @@ function anDraftPitch() {
     { layer: anZonesLayer(), idp: 'an-code', label: 'Terrain du codage : cliquez pour placer le point' })}`;
 }
 
+const anNumInput = (k, label, attrs) => `<label class="an-xy"><span>${label}</span><input type="number" inputmode="decimal" ${attrs}
+  data-and="num" data-key="${k}" value="${AN.draft[k] ?? ''}"></label>`;
+
+/* Découpage dans la vidéo et minute du match (si elle est connue) : propres à UN clip. */
+function anDraftClipRow() {
+  const d = AN.draft, at = anTlTime();
+  const here = (k, l) => (at == null ? '' : `<button type="button" class="btn btn-sm btn-ghost" data-and="here" data-key="${k}" title="Reprendre la position de la vidéo (${fmtT(at)})">${l}</button>`);
+  return `<div class="an-crow"><span class="an-crow-l">Clip (temps vidéo)</span><div class="an-crow-b an-xys">
+      ${anNumInput('start_sec', `Début (s) · ${fmtT(d.start_sec ?? 0)}`, 'min="0" step="0.1"')}${here('start_sec', '⇤ ici')}
+      ${anNumInput('end_sec', `Fin (s) · ${fmtT(d.end_sec ?? 0)}`, 'min="0" step="0.1"')}${here('end_sec', 'ici ⇥')}
+      ${anNumInput('minute_match', 'Minute du match', 'min="0" max="150" step="1" placeholder="inconnue"')}</div></div>`;
+}
+
 function anRenderDraft() {
-  const d = AN.draft, A = AN_ACTIONS[d.action];
-  const rows = [AN_CODE_ACTION, ...(A ? [...A.filters, ...(A.more || [])] : []), ...AN_CODE_COMMON].map(anDraftRow);
-  const xy = (k, label) => `<label class="an-xy"><span>${label}</span><input type="number" min="0" max="100" step="0.1"
-    inputmode="decimal" data-and="xy" data-key="${k}" value="${d[k] ?? ''}"></label>`;
-  const tags = d.tags.map(t => `<button type="button" class="an-chip is-on" data-and="tag-del" data-value="${esc(t)}"
+  const d = AN.draft, body = document.getElementById('anCodeBody');
+  if (AN.bulk) {   // plusieurs clips : ce que leur mélange d'actions permet, rien d'autre
+    const scope = anBulkScope(AN.clips.filter(c => AN.bulk.includes(c.id)));
+    const rows = [...(scope.setAction ? [AN_CODE_ACTION] : []), ...anActionRows(scope.setAction ? d.action : scope.action), ...AN_CODE_COMMON];
+    body.innerHTML = `${scope.setAction || scope.action ? '' : '<p class="an-hint">Actions différentes dans la sélection : seuls les champs communs sont proposés.</p>'}
+      ${rows.map(anDraftRow).join('')}`;
+    return;
+  }
+  const A = AN_ACTIONS[d.action], rows = [AN_CODE_ACTION, ...anActionRows(d.action), ...AN_CODE_COMMON].map(anDraftRow);
+  const xy = (k, label) => anNumInput(k, label, 'min="0" max="100" step="0.1"');
+  const tags = d.tags.map(t => `<button type="button" class="an-chip is-on" data-and="tag-del" data-value="${esc(t)}"${anDescStyle(t)}
     aria-label="Retirer le tag ${esc(t)}">${esc(t)}<span class="arr arr-x" aria-hidden="true"></span></button>`).join('');
-  document.getElementById('anCodeBody').innerHTML = `${rows.join('')}
+  body.innerHTML = `${anDraftClipRow()}${rows.join('')}
     <div class="an-crow"><span class="an-crow-l">Points (0 à 100)</span><div class="an-cpitch">
       <div class="an-cpitch-svg" id="anCodePitch">${anDraftPitch()}</div>
       <div class="an-xys">${xy('x1', 'x départ')}${xy('y1', 'y départ')}${A?.xy2 ? xy('x2', 'x arrivée') + xy('y2', 'y arrivée') : ''}
         <button type="button" class="btn btn-sm btn-ghost" data-and="clear-xy">Effacer les points</button></div></div></div>
-    <div class="an-crow"><span class="an-crow-l">Tags</span><div class="an-crow-b">${tags}
+    <div class="an-crow"><span class="an-crow-l">Descripteurs</span><div class="an-crow-b">${tags}
       <input id="anTagInput" class="an-tag-input" list="anTagList" maxlength="40" placeholder="Nouveau tag" aria-label="Ajouter un tag">
-      <datalist id="anTagList">${anAllTags().filter(t => !d.tags.includes(t)).map(t => `<option value="${esc(t)}"></option>`).join('')}</datalist>
-      <button type="button" class="btn btn-sm" data-and="tag-add">Ajouter</button></div></div>`;
+      <datalist id="anTagList">${anKnownTags().filter(t => !d.tags.includes(t)).map(t => `<option value="${esc(t)}"></option>`).join('')}</datalist>
+      <button type="button" class="btn btn-sm" data-and="tag-add">Ajouter</button>
+      <button type="button" class="btn btn-sm" data-and="lib">Bibliothèque…</button></div></div>`;
 }
 
 function anDraftSet(key, value) {
@@ -159,8 +123,9 @@ function anDraftPoint({ x, y }) {
   else Object.assign(d, { x1: x, y1: y, x2: null, y2: null });
 }
 
-function anDraftAddTag() {
-  const input = document.getElementById('anTagInput'), tag = input?.value.trim().slice(0, 40);
+function anDraftAddTag(tag = document.getElementById('anTagInput')?.value) {
+  const input = document.getElementById('anTagInput');
+  tag = (tag || '').trim().slice(0, 40);
   if (!tag || AN.draft.tags.includes(tag)) { if (input) input.value = ''; return; }
   if (AN.draft.tags.length >= 20) return toast('20 tags au plus par clip.', 'error');
   AN.draft.tags.push(tag);
@@ -170,16 +135,24 @@ function anDraftAddTag() {
 
 async function anDraftSave(btn) {
   const d = AN.draft;
+  if (AN.bulk) {   // seuls les champs renseignés ; points et tags ne se règlent pas ici
+    const set = Object.fromEntries(Object.entries(d).filter(([k, v]) => v != null && !['x1', 'y1', 'x2', 'y2', 'tags'].includes(k)));
+    if (!Object.keys(set).length) return toast('Aucun champ renseigné : rien à modifier.', 'error');
+    if (await anTlBulk(AN.bulk, { set }, 'caractéristiques modifiées')) closeModal('anCodeModal');
+    return;
+  }
   if (document.getElementById('anTagInput')?.value.trim()) anDraftAddTag();   // tag tapé sans « Ajouter »
   if ((d.x1 == null) !== (d.y1 == null) || (d.x2 == null) !== (d.y2 == null)) return toast('Renseignez x et y ensemble.', 'error');
+  if (!(d.start_sec >= 0) || !(d.end_sec - d.start_sec >= 0.5)) return toast('La fin doit suivre le début d’au moins une demi-seconde.', 'error');
   btn.disabled = true;
   try {
-    await anSaveCode(AN.draftClip, d, AN.player.id);
+    const id = await anSaveCode(AN.draftClip, d);
+    if (!AN.draftClip.id) anTlCreated(id);
     closeModal('anCodeModal');
-    toast('Clip codé.');
+    toast(AN.draftClip.id ? 'Clip enregistré.' : 'Clip créé et codé.');
     await anReload();
   } catch (err) {
-    toast(err.message, 'error');
+    toast(err.message, 'error');   // une transaction : rien n'a été créé ni modifié
   } finally {
     btn.disabled = false;
   }
@@ -189,23 +162,25 @@ function anDraftClick(e) {
   const svg = e.target.closest('#anCodePitch .an-pitch-svg');
   if (svg) { anDraftPoint(anPitchPoint(svg, e)); return anRenderDraft(); }
   const b = e.target.closest('[data-and]');
-  if (!b || b.disabled) return;
+  if (!b || b.disabled || b.matches('input')) return;
   const { and, key, value } = b.dataset;
   if (and === 'set') anDraftSet(key, value);
+  else if (and === 'here') AN.draft[key] = Math.round(anTlTime() * 10) / 10;
   else if (and === 'clear-xy') Object.assign(AN.draft, { x1: null, y1: null, x2: null, y2: null });
   else if (and === 'tag-del') AN.draft.tags = AN.draft.tags.filter(t => t !== value);
   else if (and === 'tag-add') return anDraftAddTag();
+  else if (and === 'lib') return anLibOpen('pick', { has: AN.draft.tags, onApply: (names) => { names.forEach(n => anDraftAddTag(n)); anRenderDraft(); } });
   else if (and === 'cancel') return closeModal('anCodeModal');
   else if (and === 'save') return anDraftSave(b);
   else return;
   anRenderDraft();
 }
 
-/* Coordonnées tapées : seul le terrain est redessiné (le focus reste dans les champs). */
+/* Nombres tapés : seul le terrain est redessiné (le focus reste dans les champs). */
 function anDraftChange(e) {
-  const t = e.target;
-  if (t.dataset.and !== 'xy') return;
-  const v = t.value === '' ? null : Math.min(100, Math.max(0, Math.round(Number(t.value) * 10) / 10));
-  AN.draft[t.dataset.key] = Number.isFinite(v) ? v : null;
-  document.getElementById('anCodePitch').innerHTML = anDraftPitch();
+  const t = e.target, k = t.dataset.key;
+  if (t.dataset.and !== 'num') return;
+  const max = Number(t.max) || Infinity, n = t.value === '' ? null : Math.min(max, Math.max(0, Math.round(Number(t.value) * 10) / 10));
+  AN.draft[k] = Number.isFinite(n) ? (k === 'minute_match' ? Math.round(n) : n) : null;
+  if (/^[xy][12]$/.test(k)) document.getElementById('anCodePitch').innerHTML = anDraftPitch();
 }

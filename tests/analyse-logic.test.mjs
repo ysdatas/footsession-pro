@@ -158,4 +158,26 @@ const has = (a, k) => run(`anFields(${JSON.stringify(a)})`).includes(k);
 assert.ok(has('passe', 'lignes') && has('passe', 'x2') && has('centre', 'x2') && has('tir', 'touches') && has('duel_air', 'intervention'));
 assert.ok(!has('tir', 'x2') && !has('duel_sol', 'pied') && !has('recuperation', 'resultat') && !has('centre', 'direction') && !has(null, 'resultat'));
 
-console.log('analyse-logic : OK (filtres généraux et par action, OU / ET, tiers, inconnus, tirs, lignes cassées, champs par action)');
+
+/* ---------- Timeline : lignes, rectangle de sélection, graduations, modification groupée ---------- */
+assert.deepEqual(run('AN_LANES.map(l => l[0])'), ['passe', 'tir', 'centre', 'duel_sol', 'duel_air', 'recuperation', 'todo']);
+assert.deepEqual(run("[anLane({ action: 'tir' }), anLane({ action: null })]"), ['tir', 'todo'], 'un clip pas encore codé a sa ligne');
+ctx.TL = [{ id: 1, action: 'passe', start_sec: 10, end_sec: 14 }, { id: 2, action: 'passe', start_sec: 20, end_sec: 24 }, { id: 3, action: 'tir', start_sec: 12, end_sec: 13 },
+  { id: 4, action: null, start_sec: 13, end_sec: 30 }];
+const rect = (t0, t1, lanes) => run(`anInRect(TL, ${t0}, ${t1}, ${JSON.stringify(lanes)})`);
+assert.deepEqual(rect(11, 21, ['passe']), [1, 2], 'un clip qui dépasse du rectangle est pris');
+assert.deepEqual(rect(21, 11, ['passe']), [1, 2], 'rectangle tracé de droite à gauche');
+assert.deepEqual(rect(14, 20, ['passe']), [], 'entre deux clips : rien (bornes exclues)');
+assert.deepEqual(rect(0, 100, ['tir', 'todo']), [3, 4], 'seulement les lignes couvertes');
+assert.deepEqual(rect(0, 100, ['passe', 'tir', 'centre', 'duel_sol', 'duel_air', 'recuperation', 'todo']), [1, 2, 3, 4], 'toutes les lignes : une plage de temps');
+assert.deepEqual(run('anTicks(120, 1)'), [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]);
+assert.deepEqual([run('anTicks(5700, 1).length'), run('anTicks(5700, 1)[1]'), run('anTicks(5700, 8)[1]')], [10, 600, 60], 'un match : 10 min, puis 1 min une fois zoomé');
+/* Modification groupée : l'action ne se propose que si aucun clip n'est codé ; les champs d'une action que si tous la partagent. */
+const scope = (acts) => run(`anBulkScope(${JSON.stringify(acts.map(action => ({ action })))})`);
+assert.deepEqual(scope([null, null]), { setAction: true, action: null }, 'aucun codé : on peut choisir l\'action');
+assert.deepEqual(scope(['passe', 'passe']), { setAction: false, action: 'passe' }, 'même action : ses champs');
+assert.deepEqual(scope(['passe', 'duel_sol']), { setAction: false, action: null }, 'actions différentes : champs communs seulement');
+assert.deepEqual(scope(['passe', null]), { setAction: false, action: null }, 'codés et non codés mêlés : champs communs seulement');
+assert.ok(run("anFields('recuperation')").includes('minute_match') && run('anFields(null)').includes('minute_match'), 'la minute du match vaut pour toute action');
+
+console.log('analyse-logic : OK (filtres généraux et par action, OU / ET, tiers, inconnus, tirs, lignes cassées, champs par action, timeline)');

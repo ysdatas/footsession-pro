@@ -75,7 +75,7 @@ const AN_ACTIONS = {
 
 /* Champs qu'une action peut porter : les autres sont vidés à l'enregistrement
    (la base refuserait le mélange). Sans action : le contexte seul. */
-const AN_COMMON_KEYS = ['action', 'periode', 'ligne', 'nb_attaquants', 'pression', 'x1', 'y1', 'tags'];
+const AN_COMMON_KEYS = ['action', 'periode', 'ligne', 'nb_attaquants', 'pression', 'minute_match', 'x1', 'y1', 'tags'];
 function anFields(action) {
   const A = AN_ACTIONS[action];
   return A ? [...AN_COMMON_KEYS, ...[...A.filters, ...(A.more || [])].map(d => d.key), ...(A.xy2 ? ['x2', 'y2'] : [])] : AN_COMMON_KEYS;
@@ -154,8 +154,34 @@ function anMerge(videos, seqs, codes) {
     const v = byVideo.get(s.video_id), c = bySeq.get(s.id) || {};
     const { id: _codeId, sequence_id: _s, player_id: _p, club_id: _c, ...code } = c;
     return { ...code, tags: c.tags || [], id: s.id, video_id: s.video_id, club_id: s.club_id, label: s.label,
-      start_sec: s.start_sec, end_sec: s.end_sec, video_title: v.titre, poste: v.poste ?? null, lieu: v.lieu ?? null, coded: !!c.action };
+      start_sec: Number(s.start_sec), end_sec: Number(s.end_sec), video_title: v.titre, poste: v.poste ?? null, lieu: v.lieu ?? null, coded: !!c.action };
   });
+}
+
+/* ---------- Timeline (analyse-timeline.js) ---------- */
+
+/* Une ligne par action, puis les clips pas encore codés. */
+const AN_LANES = [...Object.entries(AN_ACTIONS).map(([a, A]) => [a, A.label]), ['todo', 'À coder']];
+function anLane(clip) { return clip.action || 'todo'; }
+
+/* Clips pris dans un rectangle : la plage de temps [t0, t1] (dans un sens ou l'autre) sur ces lignes. */
+function anInRect(clips, t0, t1, lanes) {
+  const a = Math.min(t0, t1), b = Math.max(t0, t1);
+  return clips.filter(c => c.end_sec > a && c.start_sec < b && lanes.includes(anLane(c))).map(c => c.id);
+}
+
+/* Graduations : le plus petit pas « rond » qui en laisse une douzaine par écran. */
+function anTicks(duration, zoom) {
+  const step = [5, 10, 30, 60, 120, 300, 600, 900].find(s => duration / zoom / s <= 12) || 1800;
+  return Array.from({ length: Math.floor(duration / step) + 1 }, (_, i) => i * step);
+}
+
+/* Ce qu'une modification groupée peut proposer. Le contexte, toujours. Les champs d'une
+   action seulement si tous les clips la partagent. L'action elle-même seulement si aucun
+   n'est codé : celle d'un clip déjà codé ne se change jamais en groupe (la base le refuse aussi). */
+function anBulkScope(clips) {
+  const acts = [...new Set(clips.map(c => c.action || null))];
+  return { setAction: acts.length === 1 && acts[0] === null, action: acts.length === 1 ? acts[0] : null };
 }
 
 function anPct(pct) { return pct == null ? '–' : `${String(pct).replace('.', ',')} %`; }

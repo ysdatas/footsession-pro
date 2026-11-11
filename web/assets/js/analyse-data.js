@@ -1,40 +1,81 @@
 /* ============================================================
    LMFC Performance — analyse-data.js
-   Onglet Analyse : lecture et écriture Supabase (lmfc_v48.sql).
-   Sécurité : RLS (player_videos, video_sequences, sequence_codes) ;
-   l'interface ne fait que masquer ce que la base refuserait.
+   Onglet Analyse : lecture et écriture Supabase (lmfc_v48.sql, lmfc_v49.sql).
+   Sécurité : RLS (player_videos, video_sequences, sequence_codes,
+   sequence_descriptors) ; l'interface ne fait que masquer ce que la base
+   refuserait. Un clip et son codage s'écrivent en UNE transaction
+   (save_sequence_code), plusieurs clips aussi (bulk_update_sequence_codes).
    ============================================================ */
 
 const AN_CODE_FIELDS = ['action', 'resultat', 'periode', 'ligne', 'nb_attaquants', 'pression', 'direction', 'touches', 'distance', 'pied', 'couloir',
-  'intervention', 'lignes', 'zone_depart', 'zone_arrivee', 'tiers_depart', 'tiers_arrivee', 'x1', 'y1', 'x2', 'y2', 'categorie', 'tags'];
+  'intervention', 'lignes', 'zone_depart', 'zone_arrivee', 'tiers_depart', 'tiers_arrivee', 'x1', 'y1', 'x2', 'y2', 'categorie', 'minute_match', 'tags'];
 
+/* Table, colonne ou fonction absente : la migration manque, on dit laquelle. Tout autre refus
+   (droits, valeur hors liste, message d'une fonction) est rendu tel quel. */
 function anDbError(context, err) {
   console.error(`Analyse : ${context}`, err);
-  const missing = /sequence_codes|column .*(poste|lieu|pied|couloir|intervention|lignes)|rename_sequence_tag/i.test(err?.message || '') || ['42P01', '42703', 'PGRST205', 'PGRST202'].includes(err?.code);
-  return new Error(missing ? 'La migration lmfc_v48.sql n’est pas passée dans Supabase, ou pas dans sa dernière version : la (re)passer.' : (err?.message || 'Erreur inconnue.'));
+  const msg = err?.message || '';
+  if (['42P01', '42703', '42883', 'PGRST202', 'PGRST204', 'PGRST205'].includes(err?.code)) {
+    const v49 = /staff_only|minute_match|sequence_descriptors|save_sequence_code|bulk_update_sequence_codes|undo_sequence_changes/i.test(msg);
+    return new Error(`La migration ${v49 ? 'lmfc_v49.sql' : 'lmfc_v48.sql'} n’est pas passée dans Supabase, ou pas dans sa dernière version.`);
+  }
+  return new Error(msg || 'Erreur inconnue.');
 }
 
-/* Vidéos, séquences et codages du joueur, lus ensemble. */
+/* Vidéos, séquences, codages du joueur et catalogue des descripteurs du club, lus ensemble. */
 async function anFetch(playerId) {
-  const [v, s, c] = await Promise.all([
+  const [v, s, c, d] = await Promise.all([
     sb.from('player_videos').select('*').eq('player_id', playerId).order('created_at', { ascending: false }),
     sb.from('video_sequences').select('id, video_id, club_id, label, start_sec, end_sec').eq('player_id', playerId).order('start_sec'),
     sb.from('sequence_codes').select('*').eq('player_id', playerId),
+    sb.from('sequence_descriptors').select('*').order('nom'),
   ]);
-  const err = v.error || s.error || c.error;
+  const err = v.error || s.error || c.error || d.error;
   if (err) throw anDbError('lecture impossible', err);
-  return { videos: v.data, clips: anMerge(v.data, s.data, c.data) };
+  return { videos: v.data, clips: anMerge(v.data, s.data, c.data), descs: d.data };
 }
 
-/* Enregistre le codage d'un clip (création ou mise à jour). Les champs que
-   l'action ne porte pas sont vidés (anFields) : la base refuserait le mélange. */
-async function anSaveCode(clip, draft, playerId) {
-  const row = { sequence_id: clip.id, player_id: playerId, club_id: clip.club_id }, keep = anFields(draft.action);
-  for (const k of AN_CODE_FIELDS) row[k] = keep.includes(k) ? draft[k] ?? null : null;
-  row.tags = draft.tags ?? [];
-  const { data, error } = await sb.from('sequence_codes').upsert(row, { onConflict: 'sequence_id' }).select('sequence_id');
-  if (error) throw anDbError(`codage du clip ${clip.id} refusé`, error);
-  if (!data?.length) throw new Error('Codage refusé : vous n’avez pas le droit de modifier ce joueur.');
+async function anRpc(context, fn, args) {
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) throw anDbError(context, error);
+  return data;
+}
+
+/* Enregistre un clip et son codage ensemble ; clip.id absent : le clip est créé, toujours
+   réservé au staff (la base le pose elle-même). Les champs que l'action ne porte pas sont vidés (anFields).
+   Rend l'identifiant de la séquence. Un refus ne laisse rien derrière lui. */
+function anSaveCode(clip, draft) {
+  const keep = anFields(draft.action), code = { tags: draft.tags ?? [] };
+  for (const k of AN_CODE_FIELDS) if (k !== 'tags') code[k] = keep.includes(k) ? draft[k] ?? null : null;
+  return anRpc(`clip ${clip.id ?? 'nouveau'} refusé`, 'save_sequence_code', { p_sequence_id: clip.id ?? null, p_video_id: clip.video_id,
+    p_label: clip.label ?? null, p_start: draft.start_sec, p_end: draft.end_sec, p_code: code });
+}
+
+/* Plusieurs clips en une transaction : tout passe ou rien. Rend ce qui a réellement changé
+   ([{ sequence_id, before, after }]) : c'est ce que anUndo sait défaire. */
+function anBulk(ids, { set = {}, add = null, remove = null }) {
+  return anRpc('modification groupée refusée', 'bulk_update_sequence_codes', { p_ids: ids, p_set: set, p_add_tags: add, p_remove_tags: remove });
+}
+/* Défait une opération groupée sans écraser ce qui a changé depuis. Rend { restored, kept }. */
+function anUndo(changes) { return anRpc('annulation refusée', 'undo_sequence_changes', { p_changes: changes }); }
+
+/* Catalogue : crée (sans id) ou modifie un descripteur ; son renommage passe par anRenameTag (clips + catalogue). */
+async function anDescSave({ id, ...row }) {
+  const q = id ? sb.from('sequence_descriptors').update(row).eq('id', id) : sb.from('sequence_descriptors').insert(row);
+  const { data, error } = await q.select('id');
+  if (error) throw anDbError('descripteur non enregistré', error);
+  if (!data?.length) throw new Error('Descripteur refusé : vous n’avez pas le droit de modifier le catalogue.');
+}
+/* Bibliothèque de départ : les noms déjà au catalogue sont laissés tels quels. */
+async function anDescSeed(rows) {
+  const { error } = await sb.from('sequence_descriptors').upsert(rows, { onConflict: 'club_id,nom', ignoreDuplicates: true });
+  if (error) throw anDbError('bibliothèque de départ refusée', error);
+}
+/* Nombre de clips du club qui portent ce tag (ceux que la personne peut lire). */
+async function anTagUses(tag) {
+  const { count, error } = await sb.from('sequence_codes').select('sequence_id', { count: 'exact', head: true }).contains('tags', [tag]);
+  if (error) throw anDbError(`comptage du tag « ${tag} » impossible`, error);
+  return count ?? 0;
 }
 
 /* Poste ou lieu d'une vidéo, repris par tous ses clips. */
