@@ -51,6 +51,12 @@ function anSaveCode(clip, draft) {
     p_label: clip.label ?? null, p_start: draft.start_sec, p_end: draft.end_sec, p_code: code });
 }
 
+/* Découpage seul (bord d'un clip tiré sur la timeline) : même transaction, codage intact. */
+function anSaveTimes(clip, { start_sec, end_sec }) {
+  return anRpc(`découpage du clip ${clip.id} refusé`, 'save_sequence_code', { p_sequence_id: clip.id, p_video_id: clip.video_id, p_label: null,
+    p_start: start_sec, p_end: end_sec, p_code: {} });
+}
+
 /* Plusieurs clips en une transaction : tout passe ou rien. Rend ce qui a réellement changé
    ([{ sequence_id, before, after }]) : c'est ce que anUndo sait défaire. */
 function anBulk(ids, { set = {}, add = null, remove = null }) {

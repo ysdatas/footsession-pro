@@ -9,8 +9,8 @@
      - en bas, et seulement là : les tableaux détaillés, un onglet par
        action, plus les lignes cassées ; export CSV de l'onglet ouvert ;
      - pour qui peut coder : le panneau « Timeline / Codage vidéo » collé en
-       bas (analyse-timeline.js), la fenêtre de codage (analyse-coding.js) et
-       la bibliothèque de descripteurs (analyse-tags.js).
+       bas (analyse-timeline.js, analyse-timeline-edit.js), la fenêtre de codage (analyse-coding.js) et
+       la bibliothèque de tags (analyse-tags.js).
    Lecture : lecteur vidéo existant (openVideoWorkspace, player-videos.js),
    avec la liste filtrée pour « Précédent / Suivant ».
      mountAnalyse(root, { player, profile, canCode })
@@ -21,8 +21,10 @@ const AN = {
   videos: [], clips: [], descs: [], error: null, f: anEmptyFilters(),
   tab: { ballon: 'passe', sans: 'duel_sol' }, synth: 'passe', pitchEnd: 'zone_depart',
   draft: null, draftClip: null, bulk: null, lib: null,
-  // Timeline : vidéo affichée, zoom, marques du prochain clip, sélection, opérations groupées à défaire.
-  tl: { open: false, big: true, video: null, loaded: null, dur: 0, zoom: 1, in: null, out: null, sel: new Set(), undo: [] },
+  // Timeline : vue (tous les clips bout à bout | une vidéo), clip en cours, vidéo dans le lecteur et liens signés,
+  // taille, zoom, marques du prochain clip, sélection, opérations à défaire.
+  tl: { open: false, mode: 'all', cur: null, video: null, loaded: null, urls: new Map(), dur: 0, big: true, full: false, zoom: 1,
+    in: null, out: null, sel: new Set(), undo: [], trim: false, dragged: false, front: false },
 };
 const AN_SYNTH = [...Object.entries(AN_ACTIONS).map(([a, A]) => [a, A.label]), ['lignes', 'Lignes cassées']];
 

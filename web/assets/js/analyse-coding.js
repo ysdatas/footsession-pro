@@ -7,8 +7,10 @@
      - un nouveau clip (début et fin marqués sur la timeline) : la séquence
        est créée ET codée à l'enregistrement, en une transaction, et reste
        réservée au staff (aucun réglage de partage ici) ; « Annuler » ne crée rien ;
-     - plusieurs clips (AN.bulk) : seuls les champs renseignés sont écrits ;
-       l'action d'un clip déjà codé ne se change pas ici.
+     - plusieurs clips (AN.bulk, « Ajouter des descripteurs ») : seuls les
+       descripteurs renseignés sont écrits ; l'action d'un clip déjà codé ne
+       se change pas ici.
+   Vocabulaire du club : descripteur = action et ses champs ; tag = observation libre.
    Un champ non choisi reste inconnu ; recliquer une valeur choisie l'efface.
    ============================================================ */
 
@@ -51,7 +53,7 @@ function anOpenCoding(clip) {
 
 function anOpenBulk(ids) {
   Object.assign(AN, { bulk: ids, draftClip: null, draft: Object.fromEntries(AN_CODE_FIELDS.map(k => [k, null])) });
-  anShowModal('Modifier les caractéristiques', `${ids.length} séquence${ids.length > 1 ? 's' : ''} : seuls les champs que vous renseignez sont écrits.`);
+  anShowModal('Ajouter des descripteurs', `${ids.length} séquence${ids.length > 1 ? 's' : ''} : seuls les descripteurs que vous renseignez sont écrits, les autres ne bougent pas.`);
 }
 
 function anDraftRow(d) {
@@ -75,7 +77,7 @@ const anNumInput = (k, label, attrs) => `<label class="an-xy"><span>${label}</sp
 
 /* Découpage dans la vidéo et minute du match (si elle est connue) : propres à UN clip. */
 function anDraftClipRow() {
-  const d = AN.draft, at = anTlTime();
+  const d = AN.draft, at = anTlTime(AN.draftClip.video_id);   // la vidéo de CE clip est-elle dans le lecteur ?
   const here = (k, l) => (at == null ? '' : `<button type="button" class="btn btn-sm btn-ghost" data-and="here" data-key="${k}" title="Reprendre la position de la vidéo (${fmtT(at)})">${l}</button>`);
   return `<div class="an-crow"><span class="an-crow-l">Clip (temps vidéo)</span><div class="an-crow-b an-xys">
       ${anNumInput('start_sec', `Début (s) · ${fmtT(d.start_sec ?? 0)}`, 'min="0" step="0.1"')}${here('start_sec', '⇤ ici')}
@@ -88,7 +90,7 @@ function anRenderDraft() {
   if (AN.bulk) {   // plusieurs clips : ce que leur mélange d'actions permet, rien d'autre
     const scope = anBulkScope(AN.clips.filter(c => AN.bulk.includes(c.id)));
     const rows = [...(scope.setAction ? [AN_CODE_ACTION] : []), ...anActionRows(scope.setAction ? d.action : scope.action), ...AN_CODE_COMMON];
-    body.innerHTML = `${scope.setAction || scope.action ? '' : '<p class="an-hint">Actions différentes dans la sélection : seuls les champs communs sont proposés.</p>'}
+    body.innerHTML = `${scope.setAction || scope.action ? '' : '<p class="an-hint">Actions différentes dans la sélection : seuls les descripteurs communs sont proposés.</p>'}
       ${rows.map(anDraftRow).join('')}`;
     return;
   }
@@ -101,11 +103,11 @@ function anRenderDraft() {
       <div class="an-cpitch-svg" id="anCodePitch">${anDraftPitch()}</div>
       <div class="an-xys">${xy('x1', 'x départ')}${xy('y1', 'y départ')}${A?.xy2 ? xy('x2', 'x arrivée') + xy('y2', 'y arrivée') : ''}
         <button type="button" class="btn btn-sm btn-ghost" data-and="clear-xy">Effacer les points</button></div></div></div>
-    <div class="an-crow"><span class="an-crow-l">Descripteurs</span><div class="an-crow-b">${tags}
+    <div class="an-crow"><span class="an-crow-l">Tags</span><div class="an-crow-b">${tags}
       <input id="anTagInput" class="an-tag-input" list="anTagList" maxlength="40" placeholder="Nouveau tag" aria-label="Ajouter un tag">
       <datalist id="anTagList">${anKnownTags().filter(t => !d.tags.includes(t)).map(t => `<option value="${esc(t)}"></option>`).join('')}</datalist>
       <button type="button" class="btn btn-sm" data-and="tag-add">Ajouter</button>
-      <button type="button" class="btn btn-sm" data-and="lib">Bibliothèque…</button></div></div>`;
+      <button type="button" class="btn btn-sm" data-and="lib">Bibliothèque de tags…</button></div></div>`;
 }
 
 function anDraftSet(key, value) {
@@ -137,8 +139,8 @@ async function anDraftSave(btn) {
   const d = AN.draft;
   if (AN.bulk) {   // seuls les champs renseignés ; points et tags ne se règlent pas ici
     const set = Object.fromEntries(Object.entries(d).filter(([k, v]) => v != null && !['x1', 'y1', 'x2', 'y2', 'tags'].includes(k)));
-    if (!Object.keys(set).length) return toast('Aucun champ renseigné : rien à modifier.', 'error');
-    if (await anTlBulk(AN.bulk, { set }, 'caractéristiques modifiées')) closeModal('anCodeModal');
+    if (!Object.keys(set).length) return toast('Aucun descripteur renseigné : rien à modifier.', 'error');
+    if (await anTlBulk(AN.bulk, { set }, 'descripteurs ajoutés')) closeModal('anCodeModal');
     return;
   }
   if (document.getElementById('anTagInput')?.value.trim()) anDraftAddTag();   // tag tapé sans « Ajouter »
@@ -165,7 +167,7 @@ function anDraftClick(e) {
   if (!b || b.disabled || b.matches('input')) return;
   const { and, key, value } = b.dataset;
   if (and === 'set') anDraftSet(key, value);
-  else if (and === 'here') AN.draft[key] = Math.round(anTlTime() * 10) / 10;
+  else if (and === 'here') AN.draft[key] = Math.round(anTlTime(AN.draftClip.video_id) * 10) / 10;
   else if (and === 'clear-xy') Object.assign(AN.draft, { x1: null, y1: null, x2: null, y2: null });
   else if (and === 'tag-del') AN.draft.tags = AN.draft.tags.filter(t => t !== value);
   else if (and === 'tag-add') return anDraftAddTag();

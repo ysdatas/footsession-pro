@@ -1,13 +1,16 @@
 /* ============================================================
    LMFC Performance — analyse-tags.js
-   Bibliothèque de descripteurs de l'onglet Analyse (lmfc_v49.sql).
-   Un descripteur EST un tag de clip (sequence_codes.tags) ; le catalogue du
-   club (sequence_descriptors) le range dans une catégorie et lui donne une
-   couleur. Un tag absent du catalogue reste utilisable : « Sans catégorie ».
-   Une observation qualitative : aucun calcul de réussite ne la regarde.
+   Bibliothèque de tags de l'onglet Analyse (lmfc_v49.sql).
+   Vocabulaire du club : un DESCRIPTEUR est une donnée codée du clip (action,
+   résultat, sens, zone, pied… : analyse-coding.js). Un TAG est une
+   observation libre posée dessus (« Passe cassant une ligne ») : c'est lui
+   qu'on gère ici. Le catalogue du club (table sequence_descriptors, nommée
+   avant ce choix de mots) range chaque tag dans une catégorie et lui donne
+   une couleur ; un tag absent du catalogue reste utilisable : « Sans catégorie ».
+   Aucun calcul de réussite ne regarde les tags.
    Fenêtre par-dessus tout, qui ne touche ni à la sélection ni au codage ouvert :
      anLibOpen(mode, { n, has, only, onApply(noms) })
-       'add'     cocher des descripteurs à poser sur n séquences
+       'add'     cocher des tags à poser sur n séquences
        'remove'  cocher, parmi « only », ceux à retirer de n séquences
        'pick'    cocher ceux à ajouter au clip en cours de codage (sauf « has »)
        'manage'  créer, renommer, ranger, colorer, archiver, supprimer
@@ -30,7 +33,7 @@ const AN_DESC_START = {
 };
 
 const anDesc = (tag) => AN.descs.find(d => d.nom === tag);
-/* Couleur du descripteur, portée par la puce (la base n'accepte que #rrggbb). */
+/* Couleur du tag, portée par la puce (la base n'accepte que #rrggbb). */
 function anDescStyle(tag) { const c = anDesc(tag)?.couleur; return c ? ` style="--c:${esc(c)}"` : ''; }
 /* Tags proposés à la saisie : ceux des clips et le catalogue en service. */
 function anKnownTags() {
@@ -46,8 +49,8 @@ function anLibOpen(mode, opts = {}) {
   if (!document.getElementById('anLibModal')) {
     document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop an-lib" id="anLibModal">
       <div class="modal an-lib-modal" role="dialog" aria-modal="true" aria-labelledby="anLibTitle">
-        <h2 class="as-h3" id="anLibTitle">Bibliothèque de descripteurs</h2>
-        <div class="an-lib-top"><input type="search" id="anLibQ" placeholder="Rechercher un descripteur" aria-label="Rechercher un descripteur" maxlength="40">
+        <h2 class="as-h3" id="anLibTitle">Bibliothèque de tags</h2>
+        <div class="an-lib-top"><input type="search" id="anLibQ" placeholder="Rechercher un tag" aria-label="Rechercher un tag" maxlength="40">
           <button type="button" class="btn btn-sm" data-lib="mode"></button></div>
         <div id="anLibBody"></div>
         <div class="modal-actions"><button type="button" class="btn" data-lib="close">Fermer</button>
@@ -69,7 +72,7 @@ function anLibRender() {
   if (!lib || !m) return;
   const q = lib.q.trim().toLowerCase(), hit = (d) => !q || d.nom.toLowerCase().includes(q), manage = lib.mode === 'manage', n = lib.opts.n;
   const apply = m.querySelector('[data-lib="apply"]');
-  m.querySelector('[data-lib="mode"]').textContent = manage ? (lib.back ? '← Retour au choix' : '') : 'Gérer les descripteurs';
+  m.querySelector('[data-lib="mode"]').textContent = manage ? (lib.back ? '← Retour au choix' : '') : 'Gérer les tags';
   m.querySelector('[data-lib="mode"]').hidden = manage && !lib.back;
   apply.hidden = manage;
   apply.disabled = !lib.picked.size;
@@ -83,16 +86,16 @@ function anLibRender() {
           const on = lib.picked.has(d.nom);
           return `<button type="button" class="an-chip${on ? ' is-on' : ''}" data-lib="pick" data-value="${esc(d.nom)}" aria-pressed="${on}"${anDescStyle(d.nom)}>${esc(d.nom)}</button>`;
         }).join('')}</div>`}</section>`).join('')
-    : `<p class="text-muted">${q ? 'Aucun descripteur ne correspond.' : lib.mode === 'remove' ? 'Ces séquences ne portent aucun descripteur.'
-        : 'Aucun descripteur : ouvrez « Gérer les descripteurs » pour en créer.'}</p>`);
+    : `<p class="text-muted">${q ? 'Aucun tag ne correspond.' : lib.mode === 'remove' ? 'Ces séquences ne portent aucun tag.'
+        : 'Aucun tag : ouvrez « Gérer les tags » pour en créer.'}</p>`);
 }
 
 const anCatOptions = (cur) => AN_DESC_CATS.map(([k, l]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${l}</option>`).join('');
 
 function anLibManageHead() {
-  return `<div class="an-lib-new"><input type="text" id="anLibName" maxlength="40" placeholder="Nouveau descripteur" aria-label="Nom du nouveau descripteur">
-      <select id="anLibCat" aria-label="Catégorie du nouveau descripteur">${anCatOptions('technique')}</select>
-      <input type="color" id="anLibColor" value="#e8c14a" aria-label="Couleur du nouveau descripteur">
+  return `<div class="an-lib-new"><input type="text" id="anLibName" maxlength="40" placeholder="Nouveau tag" aria-label="Nom du nouveau tag">
+      <select id="anLibCat" aria-label="Catégorie du nouveau tag">${anCatOptions('technique')}</select>
+      <input type="color" id="anLibColor" value="#e8c14a" aria-label="Couleur du nouveau tag">
       <button type="button" class="btn btn-sm btn-primary" data-lib="create">Créer</button></div>
     ${AN.descs.length ? '' : '<p><button type="button" class="btn btn-sm" data-lib="seed">Ajouter la bibliothèque de départ</button></p>'}`;
 }
@@ -127,7 +130,7 @@ async function anLibClick(e) {
     'Bibliothèque de départ ajoutée.');
   if (act === 'create') {
     const nom = document.getElementById('anLibName').value.trim();
-    if (!nom) return toast('Donnez un nom au descripteur.', 'error');
+    if (!nom) return toast('Donnez un nom au tag.', 'error');
     if (anDesc(nom)) return toast(`« ${nom} » existe déjà${anDesc(nom).archived_at ? ' (archivé : restaurez-le)' : ''}.`, 'error');
     return anLibRun(() => anDescSave({ nom, categorie: document.getElementById('anLibCat').value, couleur: document.getElementById('anLibColor').value }), `« ${nom} » créé.`);
   }

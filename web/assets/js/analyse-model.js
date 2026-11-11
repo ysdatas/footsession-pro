@@ -170,6 +170,25 @@ function anInRect(clips, t0, t1, lanes) {
   return clips.filter(c => c.end_sec > a && c.start_sec < b && lanes.includes(anLane(c))).map(c => c.id);
 }
 
+/* Montage : tous les clips bout à bout, sans les trous, vidéo après vidéo (ordre des titres :
+   « 02 » avant « 10 »), puis dans l'ordre du temps. Rend [{ clip, at, dur }] : at = position
+   du clip dans le montage, en secondes. Raccourcir un clip avance donc tous les suivants. */
+function anMontage(clips, videos) {
+  const rank = new Map([...videos].sort((a, b) => String(a.titre).localeCompare(String(b.titre), 'fr', { numeric: true }) || a.id - b.id).map((v, i) => [v.id, i]));
+  let at = 0;
+  return clips.filter(c => c.end_sec > c.start_sec && rank.has(c.video_id))
+    .sort((a, b) => rank.get(a.video_id) - rank.get(b.video_id) || a.start_sec - b.start_sec || a.id - b.id)
+    .map(clip => { const item = { clip, at, dur: clip.end_sec - clip.start_sec }; at += item.dur; return item; });
+}
+
+/* Un bord de clip tiré à la souris jusqu'au temps t de sa vidéo : nouveau découpage, d'au moins
+   min secondes, entre 0 et max (durée de la vidéo quand on la connaît). L'autre bord ne bouge pas. */
+function anTrim(clip, edge, t, max = Infinity, min = 0.5) {
+  const r = (x) => Math.round(x * 100) / 100;
+  return edge === 'start' ? { start_sec: r(Math.min(Math.max(0, t), clip.end_sec - min)), end_sec: clip.end_sec }
+    : { start_sec: clip.start_sec, end_sec: r(Math.max(Math.min(t, max), clip.start_sec + min)) };
+}
+
 /* Graduations : le plus petit pas « rond » qui en laisse une douzaine par écran. */
 function anTicks(duration, zoom) {
   const step = [5, 10, 30, 60, 120, 300, 600, 900].find(s => duration / zoom / s <= 12) || 1800;

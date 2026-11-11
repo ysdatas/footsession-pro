@@ -1,32 +1,38 @@
 /* ============================================================
    LMFC Performance — analyse-timeline.js
    Panneau « Timeline / Codage vidéo », collé en bas de l'onglet Analyse
-   (admin, coach, analyste). On y fait tout sans changer de page :
-     - lire une vidéo du joueur ; marquer le début (I) et la fin (O), puis
-       « Créer le clip » (Entrée) : la fenêtre de codage s'ouvre, la séquence
-       est créée et codée ensemble (analyse-coding.js) ;
-     - une ligne par action, un segment par clip, placés dans le TEMPS DE LA
-       VIDÉO (la minute du match, quand elle est connue, est un champ du clip) ;
-     - sélectionner : clic = un seul ; ⌘ ou Ctrl + clic = ajouter / retirer ;
-       glisser dans le vide = rectangle (toutes les lignes = une plage de
-       temps) ; ⌘A = tout ; Échap = rien. Double-clic = coder ou modifier ;
-     - barre d'actions de la sélection : descripteurs ajoutés ou retirés,
-       caractéristiques communes ; chaque opération est une transaction et se
-       défait (⌘Z) sans écraser ce qui a changé depuis (lmfc_v49.sql).
-   Raccourcis : seulement quand le focus est DANS le panneau (écouteur posé
-   sur lui, pas sur la page) : une fenêtre de codage ouverte ne les reçoit pas.
-     anTlMount()   anTlRender()   anTlBulk(ids, op, label)   anTlTime()
+   (admin, coach, analyste) : lecteur, pistes et dessin. Les gestes et les
+   opérations sont dans analyse-timeline-edit.js.
+   Deux vues (AN.tl.mode) :
+     all    « Tous les clips » : tous les clips du joueur, toutes vidéos
+            confondues, bout à bout comme une séquence de montage (anMontage).
+            La lecture enchaîne d'un clip au suivant, d'une vidéo à l'autre ;
+     video  « Une vidéo » : les clips à leur minutage dans la vidéo source.
+            C'est ici qu'on en crée un : début (I), fin (O), Entrée.
+   Une piste par action, un segment par clip. Chaque segment porte une poignée
+   à chaque bout : la tirer rogne le clip. Tailles : réduit (pistes seules),
+   normal, plein écran (lecteur en haut, pistes sur toute la largeur).
+   Les temps sont ceux de la VIDÉO ; la minute du match est un champ du clip.
+     anTlMount()   anTlRender()   anTlTime(videoId)   anTlGo(clip, dans, lire)
    ============================================================ */
 
 const AN_TL_ZOOMS = [1, 2, 4, 8, 16, 32];
 const anDockEl = (k) => document.querySelector(`#anDock [data-el="${k}"]`);
 const anVid = () => document.getElementById('anVideo');
-const anTlClips = () => AN.clips.filter(c => c.video_id === AN.tl.video);
-/* Durée affichée : celle de la vidéo ; tant qu'elle n'est pas lue, la fin du dernier clip. */
-const anTlDur = () => AN.tl.dur || Math.max(60, ...anTlClips().map(c => c.end_sec));
-/* Position de lecture, ou null si aucune vidéo n'est chargée. */
-function anTlTime() { const v = anVid(); return AN.tl.open && v?.readyState ? v.currentTime : null; }
 const anPlural = (n, one, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
+
+/* Clips placés sur la timeline de la vue ouverte : [{ c, at, dur }], en secondes de la timeline. */
+function anTlPlaced() {
+  return AN.tl.mode === 'all' ? anMontage(AN.clips, AN.videos).map(m => ({ c: m.clip, at: m.at, dur: m.dur }))
+    : AN.clips.filter(c => c.video_id === AN.tl.video).map(c => ({ c, at: c.start_sec, dur: c.end_sec - c.start_sec }));
+}
+/* Longueur de la timeline : le montage entier, ou la vidéo (tant qu'elle n'est pas lue : la fin du dernier clip). */
+function anTlDur() {
+  const end = Math.max(0, ...anTlPlaced().map(m => m.at + m.dur));
+  return AN.tl.mode === 'all' ? Math.max(end, 1) : AN.tl.dur || Math.max(60, end);
+}
+/* Position de lecture dans la vidéo chargée, ou null si ce n'est pas videoId qui est chargée. */
+function anTlTime(videoId = AN.tl.loaded) { const v = anVid(); return AN.tl.open && v?.readyState && AN.tl.loaded === videoId ? v.currentTime : null; }
 
 function anTlMount() {
   if (document.getElementById('anDock')) return;
@@ -37,31 +43,85 @@ function anTlMount() {
       <div class="an-dock-video"><video id="anVideo" controls playsinline preload="metadata"></video><div class="an-dock-marks" data-el="marks"></div></div>
       <div class="an-tl"><div class="an-tl-names" data-el="names"></div>
         <div class="an-tl-scroll"><div class="an-tl-track" data-el="track"></div></div></div>
+      <p class="an-dock-keys" data-el="keys"></p>
     </div></section>`);
   const dock = document.getElementById('anDock'), vid = anVid();
   dock.addEventListener('click', anTlClick);
-  dock.addEventListener('dblclick', (e) => { const s = e.target.closest('.an-seg'); if (s) anOpenCoding(AN.clips.find(c => c.id === Number(s.dataset.seq))); });
+  dock.addEventListener('dblclick', (e) => { const s = e.target.closest('.an-tl-lane .an-seg'); if (s) anOpenCoding(AN.clips.find(c => c.id === Number(s.dataset.seq))); });
   dock.addEventListener('change', anTlChange);
-  dock.addEventListener('keydown', anTlKey);
+  // Raccourcis : la timeline est « au premier plan » quand le dernier clic (ou le dernier focus) de la page était
+  // chez elle. Ce qui se passe dans une fenêtre (codage, tags, lecteur) ne change rien : en la fermant, on y revient.
+  const front = (e) => {
+    if (e.target === document.body || e.target.closest?.('.modal-backdrop')) return;
+    AN.tl.front = dock.contains(e.target);
+    dock.classList.toggle('is-front', AN.tl.front);
+  };
+  document.addEventListener('pointerdown', front, true);
+  document.addEventListener('focusin', front);
+  document.addEventListener('keydown', anTlKey);
   dock.addEventListener('pointerdown', anTlDown);
-  vid.addEventListener('loadedmetadata', () => { AN.tl.dur = vid.duration || 0; anTlRender(); });
-  vid.addEventListener('error', () => { AN.tl.loaded = null; });   // lien signé expiré : rechargé à la prochaine ouverture
-  vid.addEventListener('timeupdate', anTlHead);
+  vid.addEventListener('loadedmetadata', () => { AN.tl.dur = vid.duration || 0; if (!AN.tl.trim) anTlRender(); });
+  vid.addEventListener('timeupdate', anTlTick);
 }
 
-/* Lien de lecture signé de la vidéo choisie (comme l'onglet Vidéos). Sans lui, la timeline reste utilisable. */
-async function anTlLoad() {
-  const tl = AN.tl, v = AN.videos.find(x => x.id === tl.video);
-  if (!tl.open || !v || tl.loaded === v.id) return;
-  Object.assign(tl, { loaded: v.id, dur: 0, in: null, out: null });
-  try {
-    const url = await videoUrl(v.storage_path);
-    if (!url) throw new Error('vidéo introuvable dans le stockage');
-    if (tl.loaded === v.id) anVid().src = url;
-  } catch (err) {
-    console.error('Analyse : lecture impossible', err);
-    toast(`Lecture impossible : ${err.message}. La timeline reste utilisable, sans création de clip.`, 'error');
+/* ---------- Lecteur ---------- */
+
+/* Liens de lecture signés de toutes les vidéos du joueur, en un appel (comme l'onglet Vidéos). */
+async function anTlUrls() {
+  const miss = AN.videos.filter(v => !AN.tl.urls.has(v.id));
+  if (!miss.length) return;
+  const got = await videoUrls(miss.map(v => v.storage_path));
+  for (const v of miss) if (got.get(v.storage_path)) AN.tl.urls.set(v.id, got.get(v.storage_path));
+}
+const anVidReady = (vid) => new Promise((ok, ko) => {
+  const done = (fn, arg) => { vid.removeEventListener('loadedmetadata', onOk); vid.removeEventListener('error', onKo); fn(arg); };
+  const onOk = () => done(ok), onKo = () => done(ko, new Error('fichier illisible ou lien expiré'));
+  vid.addEventListener('loadedmetadata', onOk); vid.addEventListener('error', onKo);
+});
+
+/* Met une vidéo dans le lecteur et l'amène au temps t (secondes de CETTE vidéo ; null : sans la déplacer).
+   Sans lien de lecture, la timeline reste utilisable : sélection, descripteurs, tags. */
+async function anTlShow(videoId, t = null, play = false) {
+  const tl = AN.tl, vid = anVid();
+  if (tl.loaded !== videoId) {
+    Object.assign(tl, { loaded: videoId, dur: 0 });
+    try {
+      await anTlUrls();
+      if (tl.loaded !== videoId) return;   // une autre vidéo a été demandée entre-temps
+      if (!tl.urls.get(videoId)) throw new Error('vidéo introuvable dans le stockage');
+      vid.src = tl.urls.get(videoId);
+      await anVidReady(vid);
+    } catch (err) {
+      console.error('Analyse : lecture impossible', err);
+      if (tl.loaded === videoId) { tl.loaded = null; tl.urls.delete(videoId); }   // lien expiré : redemandé au prochain essai
+      return toast(`Lecture impossible : ${err.message}. La timeline reste utilisable.`, 'error');
+    }
+    if (tl.loaded !== videoId) return;
   }
+  if (t != null) vid.currentTime = t;
+  if (play) vid.play().catch(() => {});
+  anTlHead();
+}
+
+/* Amène la lecture sur un clip, « into » secondes après son début. */
+function anTlGo(clip, into = 0, play = false) {
+  AN.tl.cur = clip.id;
+  anTlMarks();
+  return anTlShow(clip.video_id, clip.start_sec + into, play);
+}
+
+/* Pendant la lecture, vue « Tous les clips » : la fin d'un clip enchaîne sur le suivant.
+   ponytail: timeupdate bat environ 4 fois par seconde, la coupe peut déborder d'un quart de seconde ;
+   requestVideoFrameCallback si une coupe à l'image près devient nécessaire. */
+function anTlTick() {
+  const tl = AN.tl, vid = anVid();
+  if (tl.mode === 'all' && !vid.paused && !tl.trim) {
+    const items = anTlPlaced(), i = items.findIndex(m => m.c.id === tl.cur), m = items[i];
+    if (m && tl.loaded === m.c.video_id && vid.currentTime >= m.c.end_sec - 0.05) {
+      if (items[i + 1]) anTlGo(items[i + 1].c, 0, true); else vid.pause();
+    }
+  }
+  anTlHead();
 }
 
 /* ---------- Dessin ---------- */
@@ -75,200 +135,94 @@ function anTlRender() {
   const dock = document.getElementById('anDock'), tl = AN.tl;
   if (!dock) return;
   if (!AN.videos.some(v => v.id === tl.video)) tl.video = AN.videos[0]?.id ?? null;
+  if (tl.mode === 'all' && !AN.clips.length) tl.mode = 'video';   // rien à mettre bout à bout : on part d'une vidéo
   tl.sel = new Set([...tl.sel].filter(id => AN.clips.some(c => c.id === id)));   // un clip supprimé quitte la sélection
-  const v = AN.videos.find(x => x.id === tl.video), todo = AN.clips.filter(c => !c.coded).length, last = tl.undo.at(-1);
+  const v = AN.videos.find(x => x.id === tl.video), todo = AN.clips.filter(c => !c.coded).length, last = tl.undo.at(-1), on = tl.open && !!v;
   dock.classList.toggle('is-big', tl.big);
-  anDockEl('body').hidden = !tl.open || !v;
+  dock.classList.toggle('is-full', on && tl.full);
+  anDockEl('body').hidden = !on;
   const general = (key) => AN_GENERAL.find(d => d.key === key).values;
+  const mode = (k, l) => `<button type="button" class="an-chip${tl.mode === k ? ' is-on' : ''}" data-tl="mode" data-value="${k}" aria-pressed="${tl.mode === k}">${l}</button>`;
   anDockEl('bar').innerHTML = `<button type="button" class="btn btn-sm btn-primary" data-tl="toggle" aria-expanded="${tl.open}">Timeline / Codage vidéo</button>
     <span class="an-on">${anPlural(AN.clips.length - todo, 'codé')}, ${todo} à coder</span>
     ${!tl.open ? '' : !v ? '<span class="text-muted">Aucune vidéo pour ce joueur : envoyez-en une dans l’onglet Vidéos.</span>'
-      : `<label class="an-sel an-sel-sm"><span>Vidéo</span><select data-tl-video>${AN.videos.map(x =>
-          `<option value="${x.id}"${x.id === v.id ? ' selected' : ''}>${esc(x.titre)}</option>`).join('')}</select></label>
-        ${anVideoSelect(v, 'poste', 'Poste', general('poste'))}${anVideoSelect(v, 'lieu', 'Lieu', general('lieu'))}`}
+      : `<span class="an-tl-modes" role="group" aria-label="Vue de la timeline">${mode('all', 'Tous les clips')}${mode('video', 'Une vidéo')}</span>
+        ${tl.mode === 'all' ? '' : `<label class="an-sel an-sel-sm"><span>Vidéo</span><select data-tl-video>${AN.videos.map(x =>
+            `<option value="${x.id}"${x.id === v.id ? ' selected' : ''}>${esc(x.titre)}</option>`).join('')}</select></label>
+          ${anVideoSelect(v, 'poste', 'Poste', general('poste'))}${anVideoSelect(v, 'lieu', 'Lieu', general('lieu'))}`}`}
     <span class="an-grow"></span>
     ${last ? `<button type="button" class="btn btn-sm" data-tl="undo" title="⌘Z ou Ctrl+Z">↶ Annuler : ${esc(last.label)}</button>` : ''}
-    ${tl.open && v ? `<span class="an-dock-keys">Espace : lecture · I / O : début, fin · Entrée : créer · ⌘ clic ou glisser : sélection</span>
-      <button type="button" class="btn btn-sm" data-tl="zoom" data-value="-1" aria-label="Dézoomer la timeline"${tl.zoom === 1 ? ' disabled' : ''}>−</button>
+    ${!on ? '' : `<button type="button" class="btn btn-sm" data-tl="zoom" data-value="-1" aria-label="Dézoomer la timeline"${tl.zoom === 1 ? ' disabled' : ''}>−</button>
       <button type="button" class="btn btn-sm" data-tl="zoom" data-value="1" aria-label="Zoomer la timeline"${tl.zoom === AN_TL_ZOOMS.at(-1) ? ' disabled' : ''}>+</button>
-      <button type="button" class="btn btn-sm" data-tl="size">${tl.big ? 'Réduire' : 'Agrandir'}</button>` : ''}`;
-  if (tl.open && v) { anTlLoad(); anTlTrack(); anTlMarks(); }
+      ${tl.full ? '' : `<button type="button" class="btn btn-sm" data-tl="size">${tl.big ? 'Réduire' : 'Agrandir'}</button>`}
+      <button type="button" class="btn btn-sm" data-tl="full" aria-pressed="${tl.full}">${tl.full ? 'Quitter le plein écran' : 'Plein écran'}</button>`}`;
+  if (on) {
+    const items = anTlPlaced();
+    if (tl.mode === 'all' && !items.some(m => m.c.id === tl.cur)) tl.cur = items[0]?.c.id ?? null;
+    const cur = AN.clips.find(c => c.id === tl.cur);
+    // Le lecteur suit la vue : la vidéo choisie, ou celle du clip en cours du montage.
+    if (tl.mode === 'video') { if (tl.loaded !== tl.video) anTlShow(tl.video); } else if (cur && tl.loaded !== cur.video_id) anTlGo(cur);
+    anTlTrack(items);
+    anTlMarks();
+    anDockEl('keys').textContent = `Espace : lecture · ← → : 2 s · clic : lire le clip · ⌘ clic ou glisser dans le vide : sélection · tirer un bord : rogner · double-clic : coder · ⌘Z : annuler${
+      tl.mode === 'video' ? ' · I / O : début, fin · Entrée : créer le clip' : ''}`;
+  } else anVid()?.pause();
   anTlSel();
 }
 
-/* Échelle, lignes et segments ; la largeur suit le zoom (défilement horizontal natif). */
-function anTlTrack() {
-  const D = anTlDur(), clips = anTlClips(), pct = (t) => ((t / D) * 100).toFixed(3);
-  anDockEl('names').innerHTML = `<span></span>${AN_LANES.map(([k, l]) => `<span class="an-tl-name"><i class="an-seg is-${k}"></i>${esc(l)}
-    <small>${clips.filter(c => anLane(c) === k).length}</small></span>`).join('')}`;
-  const lanes = AN_LANES.map(([k]) => `<div class="an-tl-lane" data-lane="${k}">${clips.filter(c => anLane(c) === k).map(c =>
-    `<button type="button" class="an-seg is-${k}" data-seq="${c.id}" style="left:${pct(c.start_sec)}%;width:${pct(c.end_sec - c.start_sec)}%"
-      title="${esc(anClipName(c))}" aria-label="${esc(anClipName(c))}. Double-clic : coder" aria-pressed="false"></button>`).join('')}</div>`).join('');
+/* Échelle, pistes et segments ; la largeur suit le zoom (défilement horizontal natif). */
+function anTlTrack(items) {
+  const D = anTlDur(), all = AN.tl.mode === 'all', pct = (t) => ((t / D) * 100).toFixed(3);
+  anDockEl('names').innerHTML = `<span></span>${AN_LANES.map(([k, l]) => `<span class="an-tl-name"><i class="an-tl-sw is-${k}"></i>${esc(l)}
+    <small>${items.filter(m => anLane(m.c) === k).length}</small></span>`).join('')}`;
+  const seg = ({ c, at, dur }) => `<button type="button" class="an-seg is-${anLane(c)}" data-seq="${c.id}" style="left:${pct(at)}%;width:${pct(dur)}%"
+      title="${esc(anClipName(c))}" aria-label="${esc(anClipName(c))}. Double-clic : coder" aria-pressed="false">
+      <i class="an-seg-h is-start" data-trim="start"></i><span class="an-seg-t">${esc(all ? c.video_title : c.label || 'Séquence')}</span><i class="an-seg-h is-end" data-trim="end"></i></button>`;
   const track = anDockEl('track');
   track.style.width = `${AN.tl.zoom * 100}%`;
-  track.innerHTML = `<div class="an-tl-ruler">${anTicks(D, AN.tl.zoom).map(t => `<span style="left:${pct(t)}%">${fmtT(t)}</span>`).join('')}</div>${lanes}
+  track.innerHTML = `<div class="an-tl-ruler">${anTicks(D, AN.tl.zoom).map(t => `<span style="left:${pct(t)}%">${fmtT(t)}</span>`).join('')}</div>
+    ${AN_LANES.map(([k]) => `<div class="an-tl-lane" data-lane="${k}">${items.filter(m => anLane(m.c) === k).map(seg).join('')}</div>`).join('')}
     <div class="an-tl-mark" data-el="mark" hidden></div><div class="an-tl-head" data-el="head"></div><div class="an-tl-band" data-el="band" hidden></div>`;
   anTlHead();
 }
 
+/* Tête de lecture : le temps de la vidéo, ou la position du clip en cours dans le montage. */
 function anTlHead() {
-  const head = anDockEl('head'), t = anTlTime();
-  if (head) head.style.left = `${((t ?? 0) / anTlDur()) * 100}%`;
+  const head = anDockEl('head'), tl = AN.tl;
+  if (!head) return;
+  let at = anTlTime() ?? 0;
+  if (tl.mode === 'all') {
+    const m = anTlPlaced().find(x => x.c.id === tl.cur);
+    at = m ? m.at + Math.min(m.dur, Math.max(0, (anTlTime(m.c.video_id) ?? m.c.start_sec) - m.c.start_sec)) : 0;
+  }
+  head.style.left = `${(at / anTlDur()) * 100}%`;
 }
 
-/* Début et fin marqués du prochain clip : boutons sous la vidéo et plage sur la timeline. */
+/* Sous le lecteur. « Une vidéo » : début et fin marqués du prochain clip (aussi en plage sur la timeline).
+   « Tous les clips » : le clip en cours, et de quoi passer au précédent ou au suivant. */
 function anTlMarks() {
-  const { in: a, out: b } = AN.tl, D = anTlDur(), ok = a != null && b != null && b - a >= 0.5, mark = anDockEl('mark');
-  anDockEl('marks').innerHTML = `<button type="button" class="btn btn-sm" data-tl="in" title="Touche I">⇤ Début</button><output>${a == null ? '–' : fmtT(a)}</output>
+  const tl = AN.tl, box = anDockEl('marks'), mark = anDockEl('mark'), scroll = document.querySelector('#anDock .an-tl-scroll');
+  if (!box) return;
+  // Le clip dans le lecteur est repéré sur sa piste, et ramené à l'écran si le zoom l'en avait sorti.
+  document.querySelectorAll('#anDock .an-tl-lane .an-seg').forEach(s => {
+    const on = Number(s.dataset.seq) === tl.cur;
+    s.classList.toggle('is-cur', on);
+    if (on && !tl.trim && (s.offsetLeft < scroll.scrollLeft || s.offsetLeft + s.offsetWidth > scroll.scrollLeft + scroll.clientWidth)) scroll.scrollLeft = Math.max(0, s.offsetLeft - 40);
+  });
+  if (tl.mode === 'all') {
+    const items = anTlPlaced(), i = items.findIndex(m => m.c.id === tl.cur);
+    box.innerHTML = `<button type="button" class="btn btn-sm" data-tl="step" data-value="-1" aria-label="Clip précédent"${i > 0 ? '' : ' disabled'}>‹</button>
+      <output>${i < 0 ? '–' : `${i + 1} / ${items.length}`}</output>
+      <button type="button" class="btn btn-sm" data-tl="step" data-value="1" aria-label="Clip suivant"${i >= 0 && i < items.length - 1 ? '' : ' disabled'}>›</button>
+      <span class="an-dock-cur">${i < 0 ? '' : esc(anClipName(items[i].c))}</span>`;
+    if (mark) mark.hidden = true;
+    return;
+  }
+  const { in: a, out: b } = tl, D = anTlDur(), ok = a != null && b != null && b - a >= 0.5;
+  box.innerHTML = `<button type="button" class="btn btn-sm" data-tl="in" title="Touche I">⇤ Début</button><output>${a == null ? '–' : fmtT(a)}</output>
     <button type="button" class="btn btn-sm" data-tl="out" title="Touche O">Fin ⇥</button><output>${b == null ? '–' : fmtT(b)}</output>
     <button type="button" class="btn btn-sm btn-primary" data-tl="create" title="Touche Entrée"${ok ? '' : ' disabled'}>Créer le clip</button>`;
   if (!mark) return;
   mark.hidden = a == null;
   if (a != null) Object.assign(mark.style, { left: `${(a / D) * 100}%`, width: `${((Math.max(b ?? a, a) - a) / D) * 100}%` });
-}
-
-/* Sélection : segments surlignés et barre d'actions (seulement s'il y a une sélection). */
-function anTlSel() {
-  const sel = AN.tl.sel, bar = anDockEl('selbar');
-  document.querySelectorAll('#anDock .an-tl-lane .an-seg').forEach(s => {
-    const on = sel.has(Number(s.dataset.seq));
-    s.classList.toggle('is-on', on); s.setAttribute('aria-pressed', on);
-  });
-  bar.hidden = !sel.size;
-  bar.innerHTML = !sel.size ? '' : `<strong aria-live="polite">${anPlural(sel.size, 'séquence sélectionnée', 'séquences sélectionnées')}</strong>
-    <button type="button" class="btn btn-sm btn-primary" data-tl="add">Ajouter des descripteurs</button>
-    <button type="button" class="btn btn-sm" data-tl="remove">Retirer des descripteurs</button>
-    <button type="button" class="btn btn-sm" data-tl="edit">Modifier les caractéristiques</button>
-    <button type="button" class="btn btn-sm btn-ghost" data-tl="clear">Annuler la sélection</button>`;
-}
-
-/* ---------- Opérations groupées : une transaction chacune, défaisable ---------- */
-
-async function anTlBulk(ids, op, label) {
-  try {
-    const changes = await anBulk(ids, op);
-    if (changes.length) AN.tl.undo.push({ label, changes });
-    toast(changes.length ? `${label} : ${anPlural(changes.length, 'séquence modifiée', 'séquences modifiées')} sur ${ids.length}.`
-      : `Rien à changer : ${ids.length > 1 ? 'ces séquences avaient' : 'cette séquence avait'} déjà ces valeurs.`);
-    await anReload();
-    return true;
-  } catch (err) {   // tout ou rien : aucune séquence n'a été modifiée
-    toast(err.message.replace(/\([^)]*tags_check[^)]*\)/, '(20 descripteurs au plus par clip)'), 'error');
-    return false;
-  }
-}
-
-async function anTlUndo() {
-  const op = AN.tl.undo.pop();
-  if (!op) return;
-  try {
-    const { restored, kept } = await anUndo(op.changes);
-    toast(`Annulé (${op.label}) : ${anPlural(restored, 'séquence rétablie', 'séquences rétablies')}${kept
-      ? `, ${kept} laissée${kept > 1 ? 's' : ''} telle${kept > 1 ? 's' : ''} quelle${kept > 1 ? 's' : ''} car modifiée${kept > 1 ? 's' : ''} depuis` : ''}.`);
-    await anReload();
-  } catch (err) {
-    AN.tl.undo.push(op);
-    toast(err.message, 'error');
-  }
-}
-
-function anTlCreate() {
-  const tl = AN.tl, v = AN.videos.find(x => x.id === tl.video);
-  if (!v || tl.in == null || tl.out == null || tl.out - tl.in < 0.5) return toast('Marquez le début (I) puis la fin (O) du clip, à une demi-seconde au moins.', 'error');
-  anVid().pause();
-  anOpenCoding({ id: null, video_id: v.id, label: nextSeqLabel(anTlClips()), video_title: v.titre, start_sec: tl.in, end_sec: tl.out, tags: [] });
-}
-/* Le clip vient d'être créé : les marques repartent de zéro, il est sélectionné. */
-function anTlCreated(id) { Object.assign(AN.tl, { in: null, out: null, sel: new Set([id]) }); }
-
-function anTlMark(which) {
-  const tl = AN.tl, t = anTlTime();
-  if (t == null) return toast('La vidéo n’est pas chargée.', 'error');
-  tl[which] = Math.round(t * 10) / 10;
-  if (tl.in != null && tl.out != null && tl.out <= tl.in) tl[which === 'in' ? 'out' : 'in'] = null;   // marques croisées : on garde la dernière posée
-  anTlMarks();
-}
-
-/* ---------- Gestes ---------- */
-
-function anTlClick(e) {
-  const tl = AN.tl, b = e.target.closest('[data-tl]'), seg = e.target.closest('.an-tl-lane .an-seg');
-  if (seg) {   // clic : ce clip seul ; ⌘ ou Ctrl : l'ajouter ou le retirer
-    const id = Number(seg.dataset.seq), clip = AN.clips.find(c => c.id === id);
-    if (e.metaKey || e.ctrlKey) { if (tl.sel.has(id)) tl.sel.delete(id); else tl.sel.add(id); }
-    else { tl.sel = new Set([id]); if (anTlTime() != null) anVid().currentTime = clip.start_sec; }
-    return anTlSel();
-  }
-  if (!b || b.disabled) return;
-  const act = b.dataset.tl, ids = [...tl.sel], picked = AN.clips.filter(c => tl.sel.has(c.id));
-  if (act === 'toggle') tl.open = !tl.open;
-  else if (act === 'size') tl.big = !tl.big;
-  else if (act === 'zoom') tl.zoom = AN_TL_ZOOMS[AN_TL_ZOOMS.indexOf(tl.zoom) + Number(b.dataset.value)] ?? tl.zoom;
-  else if (act === 'in' || act === 'out') return anTlMark(act);
-  else if (act === 'create') return anTlCreate();
-  else if (act === 'undo') return anTlUndo();
-  else if (act === 'clear') { tl.sel.clear(); return anTlSel(); }
-  else if (act === 'edit') return anOpenBulk(ids);
-  else if (act === 'add') return anLibOpen('add', { n: ids.length,
-    onApply: (names) => anTlBulk(ids, { add: names }, anPlural(names.length, 'descripteur ajouté', 'descripteurs ajoutés')) });
-  else if (act === 'remove') return anLibOpen('remove', { n: ids.length, only: [...new Set(picked.flatMap(c => c.tags))],
-    onApply: (names) => anTlBulk(ids, { remove: names }, anPlural(names.length, 'descripteur retiré', 'descripteurs retirés')) });
-  anTlRender();
-}
-
-async function anTlChange(e) {
-  const t = e.target;
-  if ('tlVideo' in t.dataset) { AN.tl.video = Number(t.value); return anTlRender(); }
-  if (!t.dataset.anVideo) return;
-  try { await anSaveVideo(Number(t.dataset.id), { [t.dataset.anVideo]: t.value || null }); } catch (err) { toast(err.message, 'error'); }
-  await anReload();   // en cas de refus, le menu reprend la valeur enregistrée
-}
-
-/* Dans le vide de la timeline : un clic déplace la lecture, un glissé trace un rectangle de sélection. */
-function anTlDown(e) {
-  if (!e.target.closest('button, select, input, video, a')) e.currentTarget.focus({ preventScroll: true });   // raccourcis actifs
-  const track = e.target.closest('[data-el="track"]');
-  if (!track || e.button || e.target.closest('.an-seg')) return;
-  const tl = AN.tl, r = track.getBoundingClientRect(), band = anDockEl('band'), add = e.metaKey || e.ctrlKey, x0 = e.clientX, y0 = e.clientY;
-  const tAt = (x) => Math.min(1, Math.max(0, (x - r.left) / r.width)) * anTlDur();
-  const moved = (ev) => Math.abs(ev.clientX - x0) > 4 || Math.abs(ev.clientY - y0) > 4;
-  const move = (ev) => {
-    band.hidden = !moved(ev);
-    Object.assign(band.style, { left: `${Math.min(x0, ev.clientX) - r.left}px`, top: `${Math.min(y0, ev.clientY) - r.top}px`,
-      width: `${Math.abs(ev.clientX - x0)}px`, height: `${Math.abs(ev.clientY - y0)}px` });
-  };
-  const up = (ev) => {
-    track.removeEventListener('pointermove', move);
-    band.hidden = true;
-    if (moved(ev)) {
-      const top = Math.min(y0, ev.clientY), bottom = Math.max(y0, ev.clientY);
-      const lanes = [...track.querySelectorAll('.an-tl-lane')].filter(l => { const b = l.getBoundingClientRect(); return b.bottom > top && b.top < bottom; }).map(l => l.dataset.lane);
-      const ids = anInRect(anTlClips(), tAt(x0), tAt(ev.clientX), lanes);
-      tl.sel = new Set(add ? [...tl.sel, ...ids] : ids);
-    } else {
-      if (anTlTime() != null) anVid().currentTime = tAt(x0);
-      if (!add) tl.sel.clear();
-    }
-    anTlSel();
-  };
-  track.setPointerCapture(e.pointerId);
-  track.addEventListener('pointermove', move);
-  track.addEventListener('pointerup', up, { once: true });
-}
-
-function anTlKey(e) {
-  const tl = AN.tl, vid = anVid(), mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase(), onButton = !!e.target.closest('button');
-  if (!tl.open || e.altKey || e.target.closest('input, select, textarea')) return;
-  if (mod && k === 'a') { tl.sel = new Set(anTlClips().map(c => c.id)); anTlSel(); }
-  else if (mod && k === 'z') anTlUndo();
-  else if (mod) return;
-  else if (k === 'escape') { tl.sel.clear(); anTlSel(); }
-  else if (k === 'i') anTlMark('in');
-  else if (k === 'o') anTlMark('out');
-  else if (k === 'enter' && !onButton) anTlCreate();
-  else if (e.target === vid || anTlTime() == null) return;   // le lecteur gère lui-même Espace et les flèches
-  else if (k === ' ' && !onButton) { if (vid.paused) vid.play(); else vid.pause(); }
-  else if (k === 'arrowleft' || k === 'arrowright') vid.currentTime += (k === 'arrowleft' ? -1 : 1) * (e.shiftKey ? 10 : 2);
-  else return;
-  e.preventDefault();
 }

@@ -180,4 +180,21 @@ assert.deepEqual(scope(['passe', 'duel_sol']), { setAction: false, action: null 
 assert.deepEqual(scope(['passe', null]), { setAction: false, action: null }, 'codés et non codés mêlés : champs communs seulement');
 assert.ok(run("anFields('recuperation')").includes('minute_match') && run('anFields(null)').includes('minute_match'), 'la minute du match vaut pour toute action');
 
-console.log('analyse-logic : OK (filtres généraux et par action, OU / ET, tiers, inconnus, tirs, lignes cassées, champs par action, timeline)');
+/* ---------- Montage : tous les clips bout à bout ; rognage d'un bord ---------- */
+ctx.VID = [{ id: 7, titre: '10 - Duel' }, { id: 8, titre: '02 - Playmaking' }, { id: 9, titre: '01 - Relance' }];
+ctx.MC = [{ id: 1, video_id: 7, start_sec: 0, end_sec: 4 }, { id: 2, video_id: 8, start_sec: 3, end_sec: 11 }, { id: 3, video_id: 9, start_sec: 5, end_sec: 6.5 },
+  { id: 4, video_id: 9, start_sec: 0, end_sec: 2 }, { id: 5, video_id: 99, start_sec: 0, end_sec: 9 }, { id: 6, video_id: 8, start_sec: 12, end_sec: 12 }];
+const montage = () => run('anMontage(MC, VID)').map(m => [m.clip.id, m.at, m.dur]);
+assert.deepEqual(montage(), [[4, 0, 2], [3, 2, 1.5], [2, 3.5, 8], [1, 11.5, 4]],
+  'ordre des titres (01, 02, 10), puis du temps ; bout à bout sans trou ; vidéo inconnue et clip vide écartés');
+ctx.MC[3].end_sec = 1;   // le premier clip du montage est raccourci d'une seconde
+assert.deepEqual(montage().map(m => m[1]), [0, 1, 2.5, 10.5], 'raccourcir un clip avance tous les suivants');
+const trim = (edge, t, max) => run(`anTrim({ start_sec: 3, end_sec: 11 }, '${edge}', ${t}${max == null ? '' : `, ${max}`})`);
+assert.deepEqual(trim('end', 8.126), { start_sec: 3, end_sec: 8.13 }, 'fin tirée vers la gauche, au centième');
+assert.deepEqual(trim('end', 1), { start_sec: 3, end_sec: 3.5 }, 'jamais moins d\'une demi-seconde');
+assert.deepEqual(trim('end', 40, 12.4), { start_sec: 3, end_sec: 12.4 }, 'pas au-delà de la fin de la vidéo');
+assert.deepEqual(trim('start', 5), { start_sec: 5, end_sec: 11 }, 'début tiré vers la droite, la fin ne bouge pas');
+assert.deepEqual(trim('start', -4), { start_sec: 0, end_sec: 11 }, 'pas avant le début de la vidéo');
+assert.deepEqual(trim('start', 30), { start_sec: 10.5, end_sec: 11 });
+
+console.log('analyse-logic : OK (filtres généraux et par action, OU / ET, tiers, inconnus, tirs, lignes cassées, champs par action, timeline, montage, rognage)');
