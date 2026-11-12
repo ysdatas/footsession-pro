@@ -8,7 +8,8 @@
      - rogner : tirer un bout de segment déplace le début ou la fin du clip,
        l'image suit le bord tiré, l'enregistrement se fait au lâcher ;
      - barre de la sélection : descripteurs (action et ses champs) posés sur
-       plusieurs clips, tags ajoutés ou retirés ;
+       plusieurs clips, tags (bibliothèque à droite), dupliquer ;
+     - glisser un clip vers une autre piste, dupliquer : analyse-timeline-move.js ;
      - créer un clip (vue « Une vidéo ») : I, O, Entrée.
    Chaque écriture est une transaction (lmfc_v49.sql) et se défait (⌘Z) sans
    écraser ce qui a changé depuis.
@@ -28,9 +29,11 @@ function anTlSel() {
   bar.hidden = !sel.size;
   bar.innerHTML = !sel.size ? '' : `<strong aria-live="polite">${anPlural(sel.size, 'séquence sélectionnée', 'séquences sélectionnées')}</strong>
     <button type="button" class="btn btn-sm btn-primary" data-tl="describe">Ajouter des descripteurs</button>
-    <button type="button" class="btn btn-sm" data-tl="tag-add">Ajouter des tags</button>
-    <button type="button" class="btn btn-sm" data-tl="tag-remove">Retirer des tags</button>
+    <button type="button" class="btn btn-sm" data-tl="tags">Tags</button>
+    <button type="button" class="btn btn-sm" data-tl="dup" data-value="code" title="Nouvelle séquence sur la même vidéo, même découpage, même codage">Dupliquer</button>
+    <button type="button" class="btn btn-sm" data-tl="dup" data-value="vide" title="Nouvelle séquence sur la même vidéo, même découpage, à coder">Dupliquer sans le codage</button>
     <button type="button" class="btn btn-sm btn-ghost" data-tl="clear">Annuler la sélection</button>`;
+  anLibRender();   // la bibliothèque compte la sélection
 }
 
 /* ---------- Opérations : une transaction chacune, défaisable ---------- */
@@ -67,7 +70,8 @@ async function anTlUndo() {
   const op = AN.tl.undo.pop();
   if (!op) return;
   try {
-    if (op.trim) {
+    if (op.move) await anTlUndoMove(op.move);
+    else if (op.trim) {
       await anReload();
       const { id, before, after } = op.trim, c = AN.clips.find(x => x.id === id);
       if (!c || c.start_sec !== after.start_sec || c.end_sec !== after.end_sec) return toast('Découpage laissé tel quel : le clip a été modifié depuis.', 'error');
@@ -123,10 +127,10 @@ function anTlClick(e) {
     return anTlSel();
   }
   if (!b || b.disabled) return;
-  const act = b.dataset.tl, ids = [...tl.sel], picked = AN.clips.filter(c => tl.sel.has(c.id));
+  const act = b.dataset.tl, ids = [...tl.sel];
   if (act === 'toggle') tl.open = !tl.open;
   else if (act === 'mode') Object.assign(tl, { mode: b.dataset.value, in: null, out: null });
-  else if (act === 'size') tl.big = !tl.big;
+  else if (act === 'size') { tl.size = b.dataset.value; document.querySelector('#anDock .an-dock-video').style.width = ''; }   // largeur tirée à la main : oubliée
   else if (act === 'full') tl.full = !tl.full;
   else if (act === 'zoom') tl.zoom = AN_TL_ZOOMS[AN_TL_ZOOMS.indexOf(tl.zoom) + Number(b.dataset.value)] ?? tl.zoom;
   else if (act === 'step') return anTlStep(Number(b.dataset.value));
@@ -135,10 +139,8 @@ function anTlClick(e) {
   else if (act === 'undo') return anTlUndo();
   else if (act === 'clear') { tl.sel.clear(); return anTlSel(); }
   else if (act === 'describe') return anOpenBulk(ids);
-  else if (act === 'tag-add') return anLibOpen('add', { n: ids.length,
-    onApply: (names) => anTlBulk(ids, { add: names }, anPlural(names.length, 'tag ajouté', 'tags ajoutés')) });
-  else if (act === 'tag-remove') return anLibOpen('remove', { n: ids.length, only: [...new Set(picked.flatMap(c => c.tags))],
-    onApply: (names) => anTlBulk(ids, { remove: names }, anPlural(names.length, 'tag retiré', 'tags retirés')) });
+  else if (act === 'tags') return anLibFocus();
+  else if (act === 'dup') return anTlDuplicate(b.dataset.value === 'code');
   anTlRender();
   if (act === 'full') document.getElementById('anDock').focus({ preventScroll: true });
 }
@@ -184,6 +186,8 @@ function anTlDown(e) {
   if (!e.target.closest('button, select, input, video, a')) e.currentTarget.focus({ preventScroll: true });   // raccourcis actifs
   const handle = e.target.closest('[data-trim]'), track = e.target.closest('[data-el="track"]');
   if (handle && !e.button) return anTlTrim(e, handle);
+  const seg = e.target.closest('.an-tl-lane .an-seg');
+  if (seg && !e.button && !e.metaKey && !e.ctrlKey && !e.shiftKey) return anTlDrag(e, seg);
   if (!track || e.button || e.target.closest('.an-seg')) return;
   const tl = AN.tl, items = anTlPlaced(), r = track.getBoundingClientRect(), band = anDockEl('band'), add = e.metaKey || e.ctrlKey, x0 = e.clientX, y0 = e.clientY;
   const tAt = (x) => Math.min(1, Math.max(0, (x - r.left) / r.width)) * anTlDur();
@@ -221,7 +225,7 @@ function anTlKey(e) {
   if (mod && k === 'a') { tl.sel = new Set(anTlPlaced().map(m => m.c.id)); anTlSel(); }
   else if (mod && k === 'z') anTlUndo();
   else if (mod) return;
-  else if (k === 'escape') { if (tl.sel.size) { tl.sel.clear(); anTlSel(); } else if (tl.full) { tl.full = false; anTlRender(); } else return; }
+  else if (k === 'escape') { if (document.getElementById('anCodeModal')?.classList.contains('open')) anCodeClose(); else if (tl.sel.size) { tl.sel.clear(); anTlSel(); } else if (tl.full) { tl.full = false; anTlRender(); } else return; }
   else if (k === 'i' && tl.mode === 'video') anTlMark('in');
   else if (k === 'o' && tl.mode === 'video') anTlMark('out');
   else if (k === 'enter' && !onButton && tl.mode === 'video') anTlCreate();

@@ -75,6 +75,8 @@ const AN_ACTIONS = {
 
 /* Champs qu'une action peut porter : les autres sont vidés à l'enregistrement
    (la base refuserait le mélange). Sans action : le contexte seul. */
+const AN_CODE_FIELDS = ['action', 'resultat', 'periode', 'ligne', 'nb_attaquants', 'pression', 'direction', 'touches', 'distance', 'pied', 'couloir',
+  'intervention', 'lignes', 'zone_depart', 'zone_arrivee', 'tiers_depart', 'tiers_arrivee', 'x1', 'y1', 'x2', 'y2', 'categorie', 'minute_match', 'tags'];
 const AN_COMMON_KEYS = ['action', 'periode', 'ligne', 'nb_attaquants', 'pression', 'minute_match', 'x1', 'y1', 'tags'];
 function anFields(action) {
   const A = AN_ACTIONS[action];
@@ -205,3 +207,21 @@ function anBulkScope(clips) {
 
 function anPct(pct) { return pct == null ? '–' : `${String(pct).replace('.', ',')} %`; }
 function anTone(pct) { return pct == null ? 'na' : pct >= 75 ? 'good' : pct >= 50 ? 'mid' : 'bad'; }
+
+/* Clip posé sur la piste d'une autre action (null : « À coder »). Rien n'est converti : le résultat
+   et la sous-famille changent de sens d'une action à l'autre (« Gagné » d'un duel n'est pas
+   « Réussi » d'un centre), ils partent, comme les champs que la nouvelle action ne porte pas.
+   Restent : vidéo et minutage (hors codage), contexte, point de départ, champs partagés, tags.
+   Rend { code, lost } : le codage à écrire, et les clés retirées, à annoncer AVANT d'écrire. */
+function anMoveCode(clip, to) {
+  const keep = anFields(to), code = { action: to, tags: [...(clip.tags || [])] }, lost = [];
+  for (const k of AN_CODE_FIELDS) {
+    if (k === 'action' || k === 'tags') continue;
+    const drop = !keep.includes(k) || k === 'resultat' || k === 'categorie';
+    code[k] = drop ? null : clip[k] ?? null;
+    if (drop && clip[k] != null) lost.push(k);
+  }
+  return { code, lost };
+}
+/* Le codage du clip est-il encore exactement celui-ci (tags à part) ? Défaire n'écrase rien de plus récent. */
+function anSameCode(clip, code) { return AN_CODE_FIELDS.every(k => k === 'tags' || String(clip[k] ?? '') === String(code[k] ?? '')); }

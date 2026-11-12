@@ -197,4 +197,22 @@ assert.deepEqual(trim('start', 5), { start_sec: 5, end_sec: 11 }, 'début tiré 
 assert.deepEqual(trim('start', -4), { start_sec: 0, end_sec: 11 }, 'pas avant le début de la vidéo');
 assert.deepEqual(trim('start', 30), { start_sec: 10.5, end_sec: 11 });
 
-console.log('analyse-logic : OK (filtres généraux et par action, OU / ET, tiers, inconnus, tirs, lignes cassées, champs par action, timeline, montage, rognage)');
+/* ---------- Changer de piste : rien n'est converti, rien ne part sans être annoncé ---------- */
+const mv = (id, to) => run(`anMoveCode(CLIPS.find(c => c.id === ${id}), ${JSON.stringify(to)})`);
+let m = mv(13, 'centre');   // duel terrestre gagné (interception) → centre
+assert.deepEqual(m.lost, ['resultat', 'zone_depart', 'categorie'], 'le « Gagné » du duel, son lieu et son type sont annoncés comme retirés');
+assert.deepEqual([m.code.action, m.code.resultat, m.code.categorie], ['centre', null, null], 'Gagné ne devient pas Réussi');
+assert.deepEqual([m.code.periode, m.code.ligne, m.code.pression, m.code.x1, m.code.y1, m.code.tags], [1, 2, true, 30, 50, ['Anticipation']],
+  'contexte, point de départ et tags restent');
+m = mv(10, 'tir');          // passe → tir : le pied et les touches valent pour les deux
+assert.deepEqual(m.lost, ['resultat', 'direction', 'distance', 'zone_depart', 'zone_arrivee', 'x2', 'y2']);
+assert.equal(m.code.touches, 1, 'champ partagé : gardé');
+m = mv(22, null);           // récupération → À coder
+assert.deepEqual([m.code.action, m.lost], [null, ['tiers_depart']]);
+assert.deepEqual(mv(18, 'passe').lost, [], 'clip pas encore codé : rien à perdre, déplacement direct');
+const c13 = 'CLIPS.find(c => c.id === 13)';
+assert.equal(run(`anSameCode(${c13}, ${c13})`), true);
+assert.equal(run(`anSameCode(${c13}, { ...${c13}, tags: ['autre'] })`), true, 'les tags ne comptent pas : ceux posés depuis restent');
+assert.equal(run(`anSameCode(${c13}, { ...${c13}, resultat: 'ko' })`), false, 'recodé depuis : on ne défait pas');
+
+console.log('analyse-logic : OK (filtres généraux et par action, OU / ET, tiers, inconnus, tirs, lignes cassées, champs par action, timeline, montage, rognage, changement de piste)');

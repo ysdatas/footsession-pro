@@ -7,9 +7,6 @@
    (save_sequence_code), plusieurs clips aussi (bulk_update_sequence_codes).
    ============================================================ */
 
-const AN_CODE_FIELDS = ['action', 'resultat', 'periode', 'ligne', 'nb_attaquants', 'pression', 'direction', 'touches', 'distance', 'pied', 'couloir',
-  'intervention', 'lignes', 'zone_depart', 'zone_arrivee', 'tiers_depart', 'tiers_arrivee', 'x1', 'y1', 'x2', 'y2', 'categorie', 'minute_match', 'tags'];
-
 /* Table, colonne ou fonction absente : la migration manque, on dit laquelle. Tout autre refus
    (droits, valeur hors liste, message d'une fonction) est rendu tel quel. */
 function anDbError(context, err) {
@@ -44,11 +41,21 @@ async function anRpc(context, fn, args) {
 /* Enregistre un clip et son codage ensemble ; clip.id absent : le clip est créé, toujours
    réservé au staff (la base le pose elle-même). Les champs que l'action ne porte pas sont vidés (anFields).
    Rend l'identifiant de la séquence. Un refus ne laisse rien derrière lui. */
-function anSaveCode(clip, draft) {
+function anCodePayload(draft) {
   const keep = anFields(draft.action), code = { tags: draft.tags ?? [] };
   for (const k of AN_CODE_FIELDS) if (k !== 'tags') code[k] = keep.includes(k) ? draft[k] ?? null : null;
+  return code;
+}
+function anSaveCode(clip, draft) {
   return anRpc(`clip ${clip.id ?? 'nouveau'} refusé`, 'save_sequence_code', { p_sequence_id: clip.id ?? null, p_video_id: clip.video_id,
-    p_label: clip.label ?? null, p_start: draft.start_sec, p_end: draft.end_sec, p_code: code });
+    p_label: clip.label ?? null, p_start: draft.start_sec, p_end: draft.end_sec, p_code: anCodePayload(draft) });
+}
+
+/* Copie d'un clip : une NOUVELLE séquence sur la même vidéo (le fichier n'est pas copié), même découpage,
+   réservée au staff comme tout clip créé ici ; avec son codage et ses tags, ou à coder. Rend l'id de la copie. */
+function anDuplicate(clip, withCode) {
+  return anRpc(`copie du clip ${clip.id} refusée`, 'save_sequence_code', { p_sequence_id: null, p_video_id: clip.video_id,
+    p_label: `${clip.label || 'Séquence'} (copie)`, p_start: clip.start_sec, p_end: clip.end_sec, p_code: withCode ? anCodePayload(clip) : {} });
 }
 
 /* Découpage seul (bord d'un clip tiré sur la timeline) : même transaction, codage intact. */

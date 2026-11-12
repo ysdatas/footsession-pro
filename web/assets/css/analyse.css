@@ -125,8 +125,7 @@ html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
 
 /* ---------- Codage ---------- */
 
-.modal.an-code-modal { max-width: 780px; }
-.an-code-sub { margin: -10px 0 12px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.an-code-sub { margin: 2px 0 8px; font-size: var(--fs-sm); color: var(--text-secondary); }
 .an-crow { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; align-items: start; padding: 4px 0; }
 .an-crow-l { padding-top: 5px; font-size: var(--fs-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
 .an-crow-b { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
@@ -141,7 +140,7 @@ html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
 /* ---------- Timeline de codage : panneau collé en bas de l'onglet ---------- */
 :root { --an-passe: #4ea1ff; --an-tir: #ff8a3d; --an-centre: #b98cff; --an-duel_sol: #2fc6a0; --an-duel_air: #e8c14a; --an-recuperation: #ff6fa8; }
 .an-dock {
-  --lane: 32px; position: sticky; bottom: 0; z-index: 20; margin-top: 16px; border: 1px solid var(--border); border-bottom: 0;
+  --lane: 32px; position: sticky; bottom: 0; z-index: 20; max-height: 100vh; overflow-y: auto; margin-top: 16px; border: 1px solid var(--border); border-bottom: 0;
   border-radius: var(--radius-md) var(--radius-md) 0 0; background: var(--bg-surface); box-shadow: 0 -8px 24px rgba(0, 0, 0, .35); outline: none;
 }
 .an-dock.is-front { border-color: var(--gold); }   /* au premier plan : raccourcis clavier actifs */
@@ -149,19 +148,34 @@ html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
 .an-dock-bar, .an-dock-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; }
 .an-dock-sel { border-top: 1px solid var(--border); background: rgba(var(--gold-rgb), .1); font-size: var(--fs-md); }
 .an-tl-modes { display: inline-flex; gap: 4px; }
-.an-dock-body { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 8px 12px; padding: 0 12px 10px; align-items: start; }
-.an-dock:not(.is-big):not(.is-full) .an-dock-body { grid-template-columns: minmax(0, 1fr); }
-.an-dock:not(.is-big):not(.is-full) .an-dock-video { display: none; }
+/* Espace de travail : lecteur à gauche, codage et tags à droite (jamais sur la vidéo), pistes dessous.
+   Le lecteur se tire par son coin bas-droit (resize natif) ; sa largeur suit aussi la hauteur d'écran. */
+.an-dock-body {
+  display: grid; grid-template-columns: auto minmax(280px, 1fr); grid-template-areas: "video side" "tl tl" "keys keys";
+  gap: 8px 12px; padding: 0 12px 10px; align-items: start;
+}
+.an-dock-video {
+  grid-area: video; width: min(680px, 58vw, calc((100vh - 430px) * 16 / 9)); min-width: 280px; max-width: calc(100vw - 400px);
+  resize: horizontal; overflow: hidden;
+}
+/* contain: size : le panneau prend la hauteur du lecteur et défile, il ne l'agrandit pas. */
+.an-dock-side { grid-area: side; align-self: stretch; min-height: 260px; contain: size; overflow-y: auto; overscroll-behavior: contain; }
+.an-tl { grid-area: tl; }
+.an-dock.is-reduit .an-dock-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "tl" "keys"; }
+.an-dock.is-reduit .an-dock-video, .an-dock.is-reduit .an-dock-side { display: none; }
+/* Agrandi : le lecteur prend la place, les pistes se resserrent, le panneau reste à droite. */
+.an-dock.is-agrandi { --lane: 22px; }
+.an-dock.is-agrandi .an-dock-video { width: min(1280px, calc(100vw - 380px), calc((100vh - 300px) * 16 / 9)); }
 .an-dock-video video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: #000; }
 .an-dock-marks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font: 500 var(--fs-sm) var(--font-num); }
 .an-dock-marks output { min-width: 34px; color: var(--text-secondary); }
 .an-dock-cur { flex: 1 1 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 var(--fs-xs) var(--font-main); color: var(--text-secondary); }
-.an-dock-keys { grid-column: 1 / -1; margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.an-dock-keys { grid-area: keys; margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
 .an-dock:not(.is-front) .an-dock-keys { opacity: .45; }
 /* Plein écran : le lecteur en haut, les pistes sur toute la largeur, comme un banc de montage. Sous les fenêtres de codage. */
-.an-dock.is-full { --lane: 46px; position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; margin: 0; border: 0; border-radius: 0; }
-.an-dock.is-full .an-dock-body { flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; }
-.an-dock.is-full .an-dock-video { display: flex; flex-direction: column; align-items: center; min-height: 0; height: 100%; }
+.an-dock.is-full { --lane: 24px; position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; margin: 0; border: 0; border-radius: 0; }
+.an-dock.is-full .an-dock-body { flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); grid-template-rows: minmax(0, 1fr) auto auto; }
+.an-dock.is-full .an-dock-video { display: flex; flex-direction: column; align-items: center; width: auto; min-height: 0; height: 100%; max-width: none; resize: none; }
 .an-dock.is-full .an-dock-video video { flex: 1; min-height: 0; width: auto; max-width: 100%; aspect-ratio: auto; }
 .an-tl { display: grid; grid-template-columns: 148px minmax(0, 1fr); min-width: 0; }
 .an-tl-names, .an-tl-track { display: grid; grid-template-rows: 24px repeat(7, var(--lane)); gap: 2px; }
@@ -186,6 +200,10 @@ html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
 .an-seg.is-centre, .an-tl-sw.is-centre { background: var(--an-centre); } .an-seg.is-duel_sol, .an-tl-sw.is-duel_sol { background: var(--an-duel_sol); }
 .an-seg.is-duel_air, .an-tl-sw.is-duel_air { background: var(--an-duel_air); } .an-seg.is-recuperation, .an-tl-sw.is-recuperation { background: var(--an-recuperation); }
 .an-seg.is-cur { box-shadow: inset 0 -3px 0 #fff; }   /* le clip dans le lecteur */
+.an-seg.is-hi { bottom: 50%; } .an-seg.is-lo { top: 50%; }   /* deux clips au même moment sur une piste */
+.an-seg.is-drag { z-index: 3; opacity: .85; cursor: grabbing; box-shadow: 0 6px 16px rgba(0, 0, 0, .5); }
+.an-seg.is-pending { outline: 2px dashed #fff; outline-offset: 1px; }   /* déplacé, en attente d'« Enregistrer » */
+.an-tl-lane.is-drop { background: rgba(var(--gold-rgb), .2); box-shadow: inset 0 0 0 1px var(--gold); }
 .an-seg.is-on { z-index: 1; outline: 2px solid #fff; outline-offset: 1px; }
 .an-seg:focus-visible { z-index: 2; outline: 2px solid var(--gold); outline-offset: 1px; }
 .an-tl-head { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; pointer-events: none; }
@@ -193,12 +211,23 @@ html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
   background: rgba(var(--gold-rgb), .18); pointer-events: none; }
 .an-tl-band { position: absolute; border: 1px dashed var(--gold-light); background: rgba(var(--gold-rgb), .14); pointer-events: none; }
 
-/* ---------- Bibliothèque de tags (au-dessus de la fenêtre de codage, sous les confirmations) ---------- */
-.modal-backdrop.an-lib { z-index: 1200; }
-.modal.an-lib-modal { max-width: 720px; }
-#anLibBody { max-height: 55vh; overflow-y: auto; }
-.an-lib-top { display: flex; gap: 8px; margin-bottom: 10px; }
-.an-lib-top input, .an-lib-new input[type="text"] { flex: 1 1 180px; min-height: 32px; }
+/* ---------- Panneaux de droite : codage du clip, bibliothèque de tags ---------- */
+.an-pane { padding: 8px 10px 0; border: 1px solid var(--border); border-radius: var(--radius-md); background: rgba(255, 255, 255, .02); }
+.an-pane + .an-pane { margin-top: 8px; }
+.an-pane:not(.open) { display: none; }
+.an-pane h2 { margin: 0; }
+.an-pane-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.an-pane-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; margin: 8px -10px 0; padding: 8px 10px;
+  border-top: 1px solid var(--border); background: var(--bg-surface); }
+.an-pane-actions [hidden] { display: none; }
+.an-pane .an-crow { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.an-pane .an-crow-l { padding-top: 0; }
+.an-note { margin: 0 0 6px; padding: 6px 8px; border-left: 3px solid var(--gold); border-radius: var(--radius-sm); background: rgba(var(--gold-rgb), .1); font-size: var(--fs-sm); }
+.an-lib-for { margin: 4px 0 6px; font-size: var(--fs-sm); color: var(--text-secondary); }
+#anLibQ { width: 100%; min-height: 32px; }
+.an-chip.is-has { opacity: .55; cursor: default; }
+.an-chip small { font: 500 10px var(--font-num); opacity: .8; }
+.an-lib-new input[type="text"] { flex: 1 1 140px; min-height: 32px; }
 .an-lib-new { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
 .an-lib-group { margin-top: 10px; }
 .an-lib-group h3 { margin: 0 0 4px; }
@@ -206,15 +235,18 @@ html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
 .an-lib-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-sm); }
 .an-lib-name { flex: 1 1 160px; }
 .an-lib-row.is-off .an-lib-name { color: var(--text-muted); }
-.an-lib-modal input[type="color"] { width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; }
+.an-lib input[type="color"] { width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; }
 .an-chip[style*="--c"] { border-left: 4px solid var(--c); }
 
 @media (max-width: 1100px) {
   .an-spaces { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 900px) {
-  .an-dock:not(.is-full) { position: static; }   /* petit écran : le panneau suit la page au lieu de la recouvrir */
-  .an-dock-body { grid-template-columns: minmax(0, 1fr); }
+  .an-dock:not(.is-full) { position: static; max-height: none; }   /* petit écran : le panneau suit la page au lieu de la recouvrir */
+  .an-dock .an-dock-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "video" "side" "tl" "keys"; }
+  .an-dock.is-full .an-dock-body { grid-template-rows: minmax(0, 1fr) auto auto auto; }
+  .an-dock:not(.is-full) .an-dock-video, .an-dock.is-agrandi .an-dock-video { width: 100%; min-width: 0; max-width: none; resize: none; }
+  .an-dock .an-dock-side { contain: none; min-height: 0; max-height: 45vh; }
   .an-dock-keys { display: none; }
 }
 @media (max-width: 640px) {

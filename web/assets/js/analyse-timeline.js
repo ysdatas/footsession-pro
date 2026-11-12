@@ -10,8 +10,12 @@
      video  « Une vidéo » : les clips à leur minutage dans la vidéo source.
             C'est ici qu'on en crée un : début (I), fin (O), Entrée.
    Une piste par action, un segment par clip. Chaque segment porte une poignée
-   à chaque bout : la tirer rogne le clip. Tailles : réduit (pistes seules),
-   normal, plein écran (lecteur en haut, pistes sur toute la largeur).
+   à chaque bout : la tirer rogne le clip ; le glisser vers une autre piste
+   change son action (analyse-timeline-move.js).
+   Espace de travail : le lecteur à gauche, à droite le panneau de codage et la
+   bibliothèque de tags (jamais par-dessus la vidéo), les pistes en dessous.
+   Lecteur (AN.tl.size) : pistes seules, normal (le coin bas-droit se tire pour
+   l'élargir), agrandi (pistes resserrées) ; plein écran : tout l'écran.
    Les temps sont ceux de la VIDÉO ; la minute du match est un champ du clip.
      anTlMount()   anTlRender()   anTlTime(videoId)   anTlGo(clip, dans, lire)
    ============================================================ */
@@ -41,6 +45,7 @@ function anTlMount() {
     <div class="an-dock-sel" data-el="selbar" hidden></div>
     <div class="an-dock-body" data-el="body" hidden>
       <div class="an-dock-video"><video id="anVideo" controls playsinline preload="metadata"></video><div class="an-dock-marks" data-el="marks"></div></div>
+      <aside class="an-dock-side" data-el="side" aria-label="Codage et tags"></aside>
       <div class="an-tl"><div class="an-tl-names" data-el="names"></div>
         <div class="an-tl-scroll"><div class="an-tl-track" data-el="track"></div></div></div>
       <p class="an-dock-keys" data-el="keys"></p>
@@ -62,6 +67,15 @@ function anTlMount() {
   dock.addEventListener('pointerdown', anTlDown);
   vid.addEventListener('loadedmetadata', () => { AN.tl.dur = vid.duration || 0; if (!AN.tl.trim) anTlRender(); });
   vid.addEventListener('timeupdate', anTlTick);
+  anLibMount(anDockEl('side'));
+}
+
+/* Un panneau de droite s'ouvre (codage, tags) : la timeline aussi, lecteur visible. */
+function anTlReveal() {
+  const tl = AN.tl;
+  if (tl.open && tl.size !== 'reduit') return;
+  Object.assign(tl, { open: true, size: tl.size === 'reduit' ? 'normal' : tl.size });
+  anTlRender();
 }
 
 /* ---------- Lecteur ---------- */
@@ -138,10 +152,12 @@ function anTlRender() {
   if (tl.mode === 'all' && !AN.clips.length) tl.mode = 'video';   // rien à mettre bout à bout : on part d'une vidéo
   tl.sel = new Set([...tl.sel].filter(id => AN.clips.some(c => c.id === id)));   // un clip supprimé quitte la sélection
   const v = AN.videos.find(x => x.id === tl.video), todo = AN.clips.filter(c => !c.coded).length, last = tl.undo.at(-1), on = tl.open && !!v;
-  dock.classList.toggle('is-big', tl.big);
+  dock.classList.toggle('is-reduit', tl.size === 'reduit');
+  dock.classList.toggle('is-agrandi', tl.size === 'agrandi');
   dock.classList.toggle('is-full', on && tl.full);
   anDockEl('body').hidden = !on;
   const general = (key) => AN_GENERAL.find(d => d.key === key).values;
+  const size = (k, l) => `<button type="button" class="an-chip${tl.size === k ? ' is-on' : ''}" data-tl="size" data-value="${k}" aria-pressed="${tl.size === k}">${l}</button>`;
   const mode = (k, l) => `<button type="button" class="an-chip${tl.mode === k ? ' is-on' : ''}" data-tl="mode" data-value="${k}" aria-pressed="${tl.mode === k}">${l}</button>`;
   anDockEl('bar').innerHTML = `<button type="button" class="btn btn-sm btn-primary" data-tl="toggle" aria-expanded="${tl.open}">Timeline / Codage vidéo</button>
     <span class="an-on">${anPlural(AN.clips.length - todo, 'codé')}, ${todo} à coder</span>
@@ -154,7 +170,7 @@ function anTlRender() {
     ${last ? `<button type="button" class="btn btn-sm" data-tl="undo" title="⌘Z ou Ctrl+Z">↶ Annuler : ${esc(last.label)}</button>` : ''}
     ${!on ? '' : `<button type="button" class="btn btn-sm" data-tl="zoom" data-value="-1" aria-label="Dézoomer la timeline"${tl.zoom === 1 ? ' disabled' : ''}>−</button>
       <button type="button" class="btn btn-sm" data-tl="zoom" data-value="1" aria-label="Zoomer la timeline"${tl.zoom === AN_TL_ZOOMS.at(-1) ? ' disabled' : ''}>+</button>
-      ${tl.full ? '' : `<button type="button" class="btn btn-sm" data-tl="size">${tl.big ? 'Réduire' : 'Agrandir'}</button>`}
+      ${tl.full ? '' : `<span class="an-tl-modes" role="group" aria-label="Taille du lecteur">${size('reduit', 'Pistes seules')}${size('normal', 'Lecteur')}${size('agrandi', 'Lecteur agrandi')}</span>`}
       <button type="button" class="btn btn-sm" data-tl="full" aria-pressed="${tl.full}">${tl.full ? 'Quitter le plein écran' : 'Plein écran'}</button>`}`;
   if (on) {
     const items = anTlPlaced();
@@ -164,7 +180,7 @@ function anTlRender() {
     if (tl.mode === 'video') { if (tl.loaded !== tl.video) anTlShow(tl.video); } else if (cur && tl.loaded !== cur.video_id) anTlGo(cur);
     anTlTrack(items);
     anTlMarks();
-    anDockEl('keys').textContent = `Espace : lecture · ← → : 2 s · clic : lire le clip · ⌘ clic ou glisser dans le vide : sélection · tirer un bord : rogner · double-clic : coder · ⌘Z : annuler${
+    anDockEl('keys').textContent = `Espace : lecture · ← → : 2 s · clic : lire le clip · ⌘ clic ou glisser dans le vide : sélection · tirer un bord : rogner · glisser vers une autre piste : changer d’action · double-clic : coder · ⌘Z : annuler${
       tl.mode === 'video' ? ' · I / O : début, fin · Entrée : créer le clip' : ''}`;
   } else anVid()?.pause();
   anTlSel();
@@ -172,16 +188,21 @@ function anTlRender() {
 
 /* Échelle, pistes et segments ; la largeur suit le zoom (défilement horizontal natif). */
 function anTlTrack(items) {
-  const D = anTlDur(), all = AN.tl.mode === 'all', pct = (t) => ((t / D) * 100).toFixed(3);
+  const D = anTlDur(), all = AN.tl.mode === 'all', pct = (t) => ((t / D) * 100).toFixed(3), wait = AN.tl.pending;
+  const laneOf = (c) => (wait?.id === c.id ? wait.lane : anLane(c));   // déplacement en attente d'« Enregistrer »
+  const byLane = Object.fromEntries(AN_LANES.map(([k]) => [k, items.filter(m => laneOf(m.c) === k).sort((a, b) => a.at - b.at)]));
+  // Deux clips au même moment sur une piste (une copie, par exemple) : chacun sa moitié de hauteur, aucun ne cache l'autre.
+  for (const list of Object.values(byLane)) list.forEach((m, i) => { const p = list.slice(0, i).find(x => x.at + x.dur > m.at); if (p) { p.hi = true; m.lo = true; } });
   anDockEl('names').innerHTML = `<span></span>${AN_LANES.map(([k, l]) => `<span class="an-tl-name"><i class="an-tl-sw is-${k}"></i>${esc(l)}
-    <small>${items.filter(m => anLane(m.c) === k).length}</small></span>`).join('')}`;
-  const seg = ({ c, at, dur }) => `<button type="button" class="an-seg is-${anLane(c)}" data-seq="${c.id}" style="left:${pct(at)}%;width:${pct(dur)}%"
+    <small>${byLane[k].length}</small></span>`).join('')}`;
+  const seg = ({ c, at, dur, hi, lo }) => `<button type="button" class="an-seg is-${laneOf(c)}${wait?.id === c.id ? ' is-pending' : ''}${hi ? ' is-hi' : ''}${lo ? ' is-lo' : ''}"
+      data-seq="${c.id}" style="left:${pct(at)}%;width:${pct(dur)}%"
       title="${esc(anClipName(c))}" aria-label="${esc(anClipName(c))}. Double-clic : coder" aria-pressed="false">
       <i class="an-seg-h is-start" data-trim="start"></i><span class="an-seg-t">${esc(all ? c.video_title : c.label || 'Séquence')}</span><i class="an-seg-h is-end" data-trim="end"></i></button>`;
   const track = anDockEl('track');
   track.style.width = `${AN.tl.zoom * 100}%`;
   track.innerHTML = `<div class="an-tl-ruler">${anTicks(D, AN.tl.zoom).map(t => `<span style="left:${pct(t)}%">${fmtT(t)}</span>`).join('')}</div>
-    ${AN_LANES.map(([k]) => `<div class="an-tl-lane" data-lane="${k}">${items.filter(m => anLane(m.c) === k).map(seg).join('')}</div>`).join('')}
+    ${AN_LANES.map(([k]) => `<div class="an-tl-lane" data-lane="${k}">${byLane[k].map(seg).join('')}</div>`).join('')}
     <div class="an-tl-mark" data-el="mark" hidden></div><div class="an-tl-head" data-el="head"></div><div class="an-tl-band" data-el="band" hidden></div>`;
   anTlHead();
 }

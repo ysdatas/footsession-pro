@@ -1,7 +1,8 @@
 /* ============================================================
    LMFC Performance — analyse-coding.js
-   Fenêtre de codage de l'onglet Analyse (admin, coach, analyste ; la base
-   refuse les autres, lmfc_v48.sql et lmfc_v49.sql). Trois usages, une fenêtre :
+   Panneau de codage de l'onglet Analyse (admin, coach, analyste ; la base
+   refuse les autres, lmfc_v48.sql et lmfc_v49.sql), à droite du lecteur de la
+   timeline : la vidéo reste visible pendant qu'on code. Trois usages, un panneau :
      - un clip existant (double-clic sur la timeline) : découpage, action et
        ses champs, points au clic, minute du match, tags ;
      - un nouveau clip (début et fin marqués sur la timeline) : la séquence
@@ -10,6 +11,8 @@
      - plusieurs clips (AN.bulk, « Ajouter des descripteurs ») : seuls les
        descripteurs renseignés sont écrits ; l'action d'un clip déjà codé ne
        se change pas ici.
+   Un clip glissé vers une autre piste y arrive aussi (analyse-timeline-move.js) :
+   AN.draftNote dit ce qui change, AN.draftMove rend l'enregistrement défaisable.
    Vocabulaire du club : descripteur = action et ses champs ; tag = observation libre.
    Un champ non choisi reste inconnu ; recliquer une valeur choisie l'efface.
    ============================================================ */
@@ -22,11 +25,10 @@ const anActionRows = (action) => { const A = AN_ACTIONS[action]; return A ? [...
 
 function anEnsureModal() {
   if (document.getElementById('anCodeModal')) return;
-  document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="anCodeModal">
-    <div class="modal an-code-modal" role="dialog" aria-modal="true" aria-labelledby="anCodeTitle">
-      <h2 class="as-h3" id="anCodeTitle">Coder le clip</h2><p class="an-code-sub" id="anCodeSub"></p><div id="anCodeBody"></div>
-      <div class="modal-actions"><button type="button" class="btn" data-and="cancel">Annuler</button>
-        <button type="button" class="btn btn-primary" data-and="save">Enregistrer</button></div></div></div>`);
+  anDockEl('side').insertAdjacentHTML('afterbegin', `<section class="an-pane an-code" id="anCodeModal" aria-labelledby="anCodeTitle">
+      <h2 class="as-h4" id="anCodeTitle">Coder le clip</h2><p class="an-code-sub" id="anCodeSub"></p><div id="anCodeBody"></div>
+      <div class="an-pane-actions"><button type="button" class="btn btn-sm" data-and="cancel">Annuler</button>
+        <button type="button" class="btn btn-sm btn-primary" data-and="save">Enregistrer</button></div></section>`);
   const m = document.getElementById('anCodeModal');
   m.addEventListener('click', anDraftClick);
   m.addEventListener('change', anDraftChange);
@@ -34,25 +36,42 @@ function anEnsureModal() {
 }
 
 function anShowModal(title, sub) {
+  anTlReveal();
   anEnsureModal();
   document.getElementById('anCodeTitle').textContent = title;
   document.getElementById('anCodeSub').textContent = sub;
+  openModal('anCodeModal');   // ouvert avant le dessin : la bibliothèque vise alors ce clip
   anRenderDraft();
-  openModal('anCodeModal');
-  document.querySelector('#anCodeBody button')?.focus();
+  anDockEl('side').scrollTop = 0;
+  document.querySelector('#anCodeBody button')?.focus({ preventScroll: true });
 }
 
-/* Un clip existant, ou un nouveau (clip sans id : { video_id, label, video_title, start_sec, end_sec }). */
-function anOpenCoding(clip) {
+/* Ferme le panneau ; un déplacement non enregistré est oublié, le clip reprend sa piste. */
+function anCodeClose() {
+  closeModal('anCodeModal');
+  const pending = AN.tl.pending;
+  Object.assign(AN, { draftClip: null, bulk: null, draftNote: null, draftMove: null });
+  AN.tl.pending = null;
+  if (pending) anTlRender();
+  anLibRender();
+}
+/* Un autre clip ouvert dans le panneau : le déplacement en attente est abandonné. */
+function anDropPending(keep) { if (!keep && AN.tl.pending) { AN.tl.pending = null; anTlRender(); } }
+
+/* Un clip existant, ou un nouveau (clip sans id : { video_id, label, video_title, start_sec, end_sec }).
+   opts.note : message en tête ; opts.move : { before } d'un déplacement, rendu défaisable à l'enregistrement. */
+function anOpenCoding(clip, opts = {}) {
   if (!clip) return;
-  Object.assign(AN, { bulk: null, draftClip: clip });
+  anDropPending(opts.move);
+  Object.assign(AN, { bulk: null, draftClip: clip, draftNote: opts.note || null, draftMove: opts.move || null });
   AN.draft = { ...Object.fromEntries(AN_CODE_FIELDS.map(k => [k, clip[k] ?? null])), tags: [...(clip.tags || [])],
     start_sec: Math.round(clip.start_sec * 100) / 100, end_sec: Math.round(clip.end_sec * 100) / 100 };
   anShowModal(clip.id ? 'Coder le clip' : 'Nouveau clip', clip.id ? anClipName(clip) : `${clip.video_title} · ${fmtT(clip.start_sec)} → ${fmtT(clip.end_sec)}`);
 }
 
 function anOpenBulk(ids) {
-  Object.assign(AN, { bulk: ids, draftClip: null, draft: Object.fromEntries(AN_CODE_FIELDS.map(k => [k, null])) });
+  anDropPending(false);
+  Object.assign(AN, { bulk: ids, draftClip: null, draftNote: null, draftMove: null, draft: Object.fromEntries(AN_CODE_FIELDS.map(k => [k, null])) });
   anShowModal('Ajouter des descripteurs', `${ids.length} séquence${ids.length > 1 ? 's' : ''} : seuls les descripteurs que vous renseignez sont écrits, les autres ne bougent pas.`);
 }
 
@@ -86,19 +105,23 @@ function anDraftClipRow() {
 }
 
 function anRenderDraft() {
-  const d = AN.draft, body = document.getElementById('anCodeBody');
+  document.getElementById('anCodeBody').innerHTML = (AN.draftNote ? `<p class="an-note" role="status">${esc(AN.draftNote)}</p>` : '') + anDraftHtml();
+  anLibRender();   // « déjà sur le clip » suit les tags du brouillon
+}
+
+function anDraftHtml() {
+  const d = AN.draft;
   if (AN.bulk) {   // plusieurs clips : ce que leur mélange d'actions permet, rien d'autre
     const scope = anBulkScope(AN.clips.filter(c => AN.bulk.includes(c.id)));
     const rows = [...(scope.setAction ? [AN_CODE_ACTION] : []), ...anActionRows(scope.setAction ? d.action : scope.action), ...AN_CODE_COMMON];
-    body.innerHTML = `${scope.setAction || scope.action ? '' : '<p class="an-hint">Actions différentes dans la sélection : seuls les descripteurs communs sont proposés.</p>'}
+    return `${scope.setAction || scope.action ? '' : '<p class="an-hint">Actions différentes dans la sélection : seuls les descripteurs communs sont proposés.</p>'}
       ${rows.map(anDraftRow).join('')}`;
-    return;
   }
   const A = AN_ACTIONS[d.action], rows = [AN_CODE_ACTION, ...anActionRows(d.action), ...AN_CODE_COMMON].map(anDraftRow);
   const xy = (k, label) => anNumInput(k, label, 'min="0" max="100" step="0.1"');
   const tags = d.tags.map(t => `<button type="button" class="an-chip is-on" data-and="tag-del" data-value="${esc(t)}"${anDescStyle(t)}
     aria-label="Retirer le tag ${esc(t)}">${esc(t)}<span class="arr arr-x" aria-hidden="true"></span></button>`).join('');
-  body.innerHTML = `${anDraftClipRow()}${rows.join('')}
+  return `${anDraftClipRow()}${rows.join('')}
     <div class="an-crow"><span class="an-crow-l">Points (0 à 100)</span><div class="an-cpitch">
       <div class="an-cpitch-svg" id="anCodePitch">${anDraftPitch()}</div>
       <div class="an-xys">${xy('x1', 'x départ')}${xy('y1', 'y départ')}${A?.xy2 ? xy('x2', 'x arrivée') + xy('y2', 'y arrivée') : ''}
@@ -107,7 +130,7 @@ function anRenderDraft() {
       <input id="anTagInput" class="an-tag-input" list="anTagList" maxlength="40" placeholder="Nouveau tag" aria-label="Ajouter un tag">
       <datalist id="anTagList">${anKnownTags().filter(t => !d.tags.includes(t)).map(t => `<option value="${esc(t)}"></option>`).join('')}</datalist>
       <button type="button" class="btn btn-sm" data-and="tag-add">Ajouter</button>
-      <button type="button" class="btn btn-sm" data-and="lib">Bibliothèque de tags…</button></div></div>`;
+      <button type="button" class="btn btn-sm" data-and="lib">Bibliothèque de tags</button></div></div>`;
 }
 
 function anDraftSet(key, value) {
@@ -140,7 +163,7 @@ async function anDraftSave(btn) {
   if (AN.bulk) {   // seuls les champs renseignés ; points et tags ne se règlent pas ici
     const set = Object.fromEntries(Object.entries(d).filter(([k, v]) => v != null && !['x1', 'y1', 'x2', 'y2', 'tags'].includes(k)));
     if (!Object.keys(set).length) return toast('Aucun descripteur renseigné : rien à modifier.', 'error');
-    if (await anTlBulk(AN.bulk, { set }, 'descripteurs ajoutés')) closeModal('anCodeModal');
+    if (await anTlBulk(AN.bulk, { set }, 'descripteurs ajoutés')) anCodeClose();
     return;
   }
   if (document.getElementById('anTagInput')?.value.trim()) anDraftAddTag();   // tag tapé sans « Ajouter »
@@ -148,10 +171,11 @@ async function anDraftSave(btn) {
   if (!(d.start_sec >= 0) || !(d.end_sec - d.start_sec >= 0.5)) return toast('La fin doit suivre le début d’au moins une demi-seconde.', 'error');
   btn.disabled = true;
   try {
-    const id = await anSaveCode(AN.draftClip, d);
-    if (!AN.draftClip.id) anTlCreated(id);
-    closeModal('anCodeModal');
-    toast(AN.draftClip.id ? 'Clip enregistré.' : 'Clip créé et codé.');
+    const id = await anSaveCode(AN.draftClip, d), clip = AN.draftClip, move = AN.draftMove;
+    if (!clip.id) anTlCreated(id);
+    if (move) AN.tl.undo.push({ label: `déplacement vers ${anLaneName(anLane(d))}`, move: { id, before: move.before, after: anCodePayload(d) } });
+    anCodeClose();
+    toast(move ? `Clip déplacé vers ${anLaneName(anLane(d))}.` : clip.id ? 'Clip enregistré.' : 'Clip créé et codé.');
     await anReload();
   } catch (err) {
     toast(err.message, 'error');   // une transaction : rien n'a été créé ni modifié
@@ -171,8 +195,8 @@ function anDraftClick(e) {
   else if (and === 'clear-xy') Object.assign(AN.draft, { x1: null, y1: null, x2: null, y2: null });
   else if (and === 'tag-del') AN.draft.tags = AN.draft.tags.filter(t => t !== value);
   else if (and === 'tag-add') return anDraftAddTag();
-  else if (and === 'lib') return anLibOpen('pick', { has: AN.draft.tags, onApply: (names) => { names.forEach(n => anDraftAddTag(n)); anRenderDraft(); } });
-  else if (and === 'cancel') return closeModal('anCodeModal');
+  else if (and === 'lib') return anLibFocus();
+  else if (and === 'cancel') return anCodeClose();
   else if (and === 'save') return anDraftSave(b);
   else return;
   anRenderDraft();
