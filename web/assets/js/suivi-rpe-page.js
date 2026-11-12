@@ -17,7 +17,8 @@
        « abs. » si une absence est enregistrée, vide si la séance ne le
        concerne pas ; « staff » marque une saisie du staff ; une case :
        saisir ou corriger (même feuille que le joueur) ; une séance :
-       l'éditeur ; un joueur : sa fiche.
+       l'éditeur ; un joueur : sa fiche ; la cloche d'une case « … » :
+       relancer le joueur (suivi-rpe-remind.js, lmfc_v50.sql).
    Lecture seule par la RLS (séances et procédés, matchs et feuilles,
    présences, joueurs, session_rpe, match_rpe) ; écriture par rpe_set() et
    match_rpe_set(), qui décident. Un match porte key « m12 », car une
@@ -26,7 +27,7 @@
    rpe-stats.js, analytics-charts.js, suivi-rpe-dash.js.
    ============================================================ */
 
-const SR = { cache: new Map(), scope: 'seance', resp: null, n: 10, period: null, sore: { rows: [], alerts: [], error: null }, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
+const SR = { cache: new Map(), remind: null, scope: 'seance', resp: null, n: 10, period: null, sore: { rows: [], alerts: [], error: null }, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), seq: 0 };
 const srKey = (s, p) => `${s}:${p}`;
 const srIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const srToday = () => srIso(new Date());
@@ -57,6 +58,7 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
   SR.view = { joueurs: 'grid', reponses: 'resp', courbatures: 'sore' }[url.searchParams.get('vue')] || 'dash';
   if (SR.scope === 'match' && SR.view === 'sore') SR.view = 'dash';   // les courbatures suivent les jours de séance
   document.getElementById('srBody').addEventListener('click', srClick);
+  document.getElementById('btnSrRemind').addEventListener('click', srTeamRemind);
   document.getElementById('srBar').addEventListener('click', (e) => {
     const n = e.target.closest('[data-sr-n]'), v = e.target.closest('[data-sr-view]'), sc = e.target.closest('[data-sr-scope]');
     if (sc && sc.dataset.srScope !== SR.scope) {
@@ -129,7 +131,7 @@ function renderSrTeams() {
 
 /* Clé du jeu de données affiché : équipe + (n dernières séances | période). */
 const srCacheKey = () => `${SR.scope}|${SR.team}|${SR.period ? `${SR.period.from}>${SR.period.to}` : SR.n}`;
-const SR_FIELDS = ['sessions', 'att', 'rpe', 'sore', 'players', 'cells', 'resp'];   // resp : vue Réponses, lue à la demande
+const SR_FIELDS = ['sessions', 'att', 'rpe', 'sore', 'players', 'cells', 'resp', 'remind'];   // resp : vue Réponses, lue à la demande
 
 /* force = true : une saisie vient d'être enregistrée, on relit tout. Sinon un jeu déjà lu depuis moins d'une minute s'affiche
    sans attendre le réseau ; sinon l'écran reste tel quel (légèrement atténué) pendant la lecture, rien ne bouge. */
@@ -142,11 +144,12 @@ async function loadSr(force = false) {
   body.classList.add('is-loading');
   try {
     const isMatch = SR.scope === 'match', to = SR.period && SR.period.to < srToday() ? SR.period.to : srToday(), none = { data: [] };
-    const [s, p] = await Promise.all([
+    const [s, p, remind] = await Promise.all([
       isMatch ? none : byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
         .lte('date_seance', SR.period && SR.period.to < srToday() ? SR.period.to : srToday()).gte('date_seance', SR.period?.from || '1900-01-01')
         .order('date_seance', { ascending: false }).order('heure', { ascending: false, nullsFirst: false }).limit(SR.period ? 200 : SR.n),
-      sb.from('players').select(`id, nom, prenom${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
+      sb.from('players').select(`id, nom, prenom, auth_user_id${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
+      srRemindLoad(),   // relances (lmfc_v50.sql) ; null sans la migration
     ]);
     if (s.error || p.error) throw s.error || p.error;
     const ids = s.data.map(x => x.id);
@@ -175,6 +178,7 @@ async function loadSr(force = false) {
     if (SR.sore.error) console.warn('Courbatures indisponibles', SR.sore.error);
     SR.players = p.data.filter(pl => SR.sessions.some(se => srConcerned(se, pl)));
     SR.cells = SR.players.map(pl => SR.sessions.map(se => srCell(se, pl)));
+    SR.remind = remind;
     SR.resp = null;   // réponses aux formulaires : lues à l'ouverture de la vue Réponses
     SR.cache.set(key, { at: Date.now(), ...Object.fromEntries(SR_FIELDS.map(f => [f, SR[f]])) });
     body.classList.remove('is-loading');
@@ -209,6 +213,7 @@ function srCell(s, p) {
 }
 
 function renderSr() {
+  srTeamBtn();
   const team = (window.CLUB_TEAMS || []).find(t => t.id === SR.team), body = document.getElementById('srBody');
   if (!SR.sessions.length) {
     document.getElementById('srStatus').textContent = team ? team.nom : '';
@@ -237,7 +242,7 @@ function renderSr() {
     const s = SR.sessions[j], label = `${playerFullName(p)}, ${srWhen(s)}`;
     if (c === null) return '<td class="sr-na"></td>';
     if (c === 'abs') return `<td><button type="button" class="sr-c is-abs" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : absent, saisir quand même">abs.</button></td>`;
-    if (c === 'wait') return `<td><button type="button" class="sr-c is-wait" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : en attente (il peut encore répondre), saisir à sa place">…</button></td>`;
+    if (c === 'wait') return `<td class="sr-has-bell"><button type="button" class="sr-c is-wait" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : en attente (il peut encore répondre), saisir à sa place">…</button>${srBellHtml(c, j, i)}</td>`;
     if (c === 'miss') return `<td><button type="button" class="sr-c is-miss" data-sr="${j}:${i}" aria-label="${escapeHtml(label)} : pas de réponse, saisir à sa place">?</button></td>`;
     return `<td><button type="button" class="sr-c" style="--rpe:${rpeColor(c.v)}" data-sr="${j}:${i}"
       aria-label="${escapeHtml(`${label} : ${c.v} (${rpeLabel(c.v)})${c.staff ? ', saisi par le staff' : ''}, corriger`)}">${c.v}${c.staff ? '<i>staff</i>' : ''}</button></td>`;
@@ -247,7 +252,8 @@ function renderSr() {
     <p class="sr-legend"><span class="sr-c is-miss" aria-hidden="true">?</span> réponse manquante (délai passé)
       | <span class="sr-c is-wait" aria-hidden="true">…</span> en attente : le joueur peut encore répondre
       | <span class="sr-c is-abs" aria-hidden="true">abs.</span> absence enregistrée
-      | <span class="rpe-staff">staff</span> saisi ou corrigé par le staff.
+      | <span class="rpe-staff">staff</span> saisi ou corrigé par le staff${srCanRemind() ? `
+      | <span class="sr-bell" aria-hidden="true">${SR_BELL}</span> relancer le joueur sur son téléphone (une fois par ${SR_REMIND_H} h)` : ''}.
       Touchez une case pour saisir ou corriger à la place du joueur. Les joueurs répondent depuis leur espace jusqu’à ${RPE_DAYS} jours après la séance ;
       la présence non cochée compte comme attendue. Un match attend ceux qui ont joué d’après la feuille, tout le groupe s’il n’y en a pas.</p>`);
 }
@@ -261,6 +267,8 @@ async function srClick(e) {
     SR.sore.alerts = SR.sore.alerts.filter(a => a.id !== Number(seen.dataset.soreSeen));
     return renderSr();
   }
+  const bell = e.target.closest('[data-sr-bell]');
+  if (bell) return srBellClick(bell);
   const b = e.target.closest('[data-sr]');
   if (!b) return;
   const [j, i] = b.dataset.sr.split(':').map(Number), s = SR.sessions[j], p = SR.players[i];

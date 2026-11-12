@@ -82,6 +82,21 @@
 .sr-c.is-wait { background: transparent; border: 1px dashed var(--border-strong, #3a3a3a); color: var(--text-secondary); }
 .sr-c.is-abs { background: transparent; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; }
 .sr-c:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* Relance (suivi-rpe-remind.js) : cloche en pastille sur le coin de la case « … », sans élargir la colonne. */
+.sr-has-bell { position: relative; }
+.sr-bell { position: absolute; top: -2px; left: calc(50% + 12px); display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0;
+  border: 1px solid var(--gold); border-radius: 50%; background: var(--bg-card); color: var(--gold); cursor: pointer; }
+.sr-bell .ic { width: 12px; height: 12px; }
+.sr-bell:hover { background: var(--gold); color: #0A0A0A; }
+.sr-bell.is-sent { border-color: var(--success); color: var(--success); cursor: default; }
+.sr-bell.is-sent .ic { fill: currentColor; }
+.sr-bell.is-sent:hover { background: var(--bg-card); color: var(--success); }
+.sr-bell:disabled { opacity: .5; }
+.sr-bell:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.sr-legend .sr-bell { position: static; vertical-align: middle; cursor: default; }
+.sr-remind-out { margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: var(--radius-md);
+  background: var(--bg-card); font-size: var(--fs-sm); line-height: 1.6; }
+#btnSrRemind .ic { width: 16px; height: 16px; }
 .sr-na { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--bg-hover) 6px 7px); }
 .sr-legend { margin: 12px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); line-height: 2; }
 .sr-legend .sr-c { width: 28px; height: 20px; font-size: var(--fs-xs); cursor: default; vertical-align: middle; }

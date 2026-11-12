@@ -67,6 +67,7 @@ let SUBS = [
 const received = [];
 const TAKE = {};   // réponses de calendar_notifs_take par jeton
 const SORE = {};   // réponses de soreness_notifs_take par jeton
+const REMIND = {};   // rpe_remind_take : réponse ou refus de la base, puis ce que le Worker lui renvoie
 
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(url);
@@ -98,6 +99,11 @@ globalThis.fetch = async (url, init = {}) => {
   if (u.pathname === '/rest/v1/rpc/soreness_notifs_take') {   // lmfc_v35.sql : alerte du joueur appelant
     return Response.json(SORE[init.headers.authorization.replace('Bearer ', '')] || { messages: [] });
   }
+  if (u.pathname === '/rest/v1/rpc/rpe_remind_take') {   // lmfc_v50.sql : la base choisit et trace
+    REMIND.args = JSON.parse(init.body);
+    return REMIND.error ? Response.json({ message: REMIND.error }, { status: 400 }) : Response.json(REMIND.out);
+  }
+  if (u.pathname === '/rest/v1/rpc/rpe_remind_done') { REMIND.done = JSON.parse(init.body); return new Response(null, { status: 204 }); }
   if (u.pathname === '/rest/v1/players') {   // RLS : joueurs du club
     return Response.json(PLAYERS.filter(p => p.club === who.club && p.auth_user_id && inList('id').includes(String(p.id))).map(p => ({ auth_user_id: p.auth_user_id })));
   }
@@ -178,4 +184,28 @@ assert.deepEqual(await r.json(), { devices: 2, sent: 2, more: false }, 'les appa
 received.forEach(x => assert.deepEqual(x.msg, ALERT, 'texte de la base, jamais celui de la page'));
 assert.deepEqual(await (await call('POST', '/api/push/soreness', { token: jwt(COACH) })).json(), { devices: 0, sent: 0, more: false }, 'rien pour un autre compte');
 
-console.log('push-worker : OK (RFC 8291, VAPID, droits, nettoyage, calendrier, courbatures)');
+/* ---------- Relance RPE (lmfc_v50.sql) : la base décide, le Worker livre et rend compte ---------- */
+const RPE = { title: 'Note ton effort (RPE)', body: 'Entraînement du 10/11 : ton RPE n’est pas encore renseigné.', url: 'mon-espace.html?rpe=s42' };
+const REM = { kind: 'seance', id: 42, players: [10, 11, 12] };
+assert.equal((await call('POST', '/api/push/rpe', { body: REM })).status, 401, 'sans connexion');
+assert.equal((await call('GET', '/api/push/rpe', { token: jwt(COACH) })).status, 405);
+for (const bad of [{ ...REM, kind: 'autre' }, { ...REM, id: '42' }, { ...REM, players: [] }, { ...REM, players: ['1 or 1=1'] }, { ...REM, players: Array.from({ length: 13 }, (_, i) => i) }]) {
+  assert.equal((await call('POST', '/api/push/rpe', { token: jwt(COACH), body: bad })).status, 400, `relance invalide refusée : ${JSON.stringify(bad)}`);
+}
+SUBS.push({ id: 3, user_id: JOUEUR, club: 1, ...ancien });
+REMIND.out = { messages: [{ ...RPE, reminder: 7, player_id: 10, subs: [iphone, ancien].map((p, i) => ({ id: [1, 3][i], ...p })) },
+  { ...RPE, reminder: 8, player_id: 12, subs: [{ id: 9, ...ancien }] }], skipped: [{ player_id: 11, reason: 'sans_compte' }] };
+received.length = 0;
+r = await call('POST', '/api/push/rpe', { token: jwt(COACH), body: REM });
+assert.equal(r.status, 200);
+assert.deepEqual(REMIND.args, { p_kind: 'seance', p_id: 42, p_players: [10, 11, 12] }, 'la demande de la page passe telle quelle à la base');
+assert.deepEqual(await r.json(), { sent: [{ player_id: 10, delivered: 1 }, { player_id: 12, delivered: 0 }], skipped: [{ player_id: 11, reason: 'sans_compte' }] });
+assert.deepEqual(received.map(x => x.to), [iphone.endpoint], 'seulement les appareils rendus par la base');
+assert.deepEqual(received[0].msg, RPE, 'texte et lien de la base');
+assert.deepEqual(REMIND.done, { p_rows: [{ player_id: 10, id: 7, delivered: 1 }, { player_id: 12, id: 8, delivered: 0 }] }, 'livraison notée par relance');
+REMIND.error = 'La saisie est fermée (jusqu’à 14 jours après) : le joueur ne peut plus répondre.';
+r = await call('POST', '/api/push/rpe', { token: jwt(COACH), body: REM });
+assert.equal(r.status, 400);
+assert.match((await r.json()).error, /saisie est fermée/, 'le refus de la base est dit tel quel');
+
+console.log('push-worker : OK (RFC 8291, VAPID, droits, nettoyage, calendrier, courbatures, relance RPE)');

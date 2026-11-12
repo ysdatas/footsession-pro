@@ -232,6 +232,11 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            (catégorie, couleur, archivage), écritures en une transaction (créer un clip et son codage,
                                            modifier plusieurs clips, défaire sans écraser) ; après lmfc_v48.sql ;
                                            retour arrière : lmfc_v49_retour.sql (refusé s'il reste un clip réservé au staff)
+68. supabase/lmfc_v50.sql                  relances RPE depuis le Suivi RPE : rpe_reminders (qui a relancé qui, quand, appareils
+                                           atteints ; lu par le staff qui suit le joueur), rpe_remind_take (droits de la
+                                           correction, joueur concerné, saisie encore ouverte, sans réponse, compte lié, pas
+                                           déjà relancé depuis 12 h ; messages préparés par la base, Worker /api/push/rpe),
+                                           rpe_remind_done ; après lmfc_v42.sql ; retour arrière : lmfc_v50_retour.sql
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo

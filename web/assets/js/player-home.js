@@ -75,7 +75,22 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   document.getElementById('homeAttn').addEventListener('click', openSoreFromCard);
   renderAttention(vRes.data || [], sRes.data || [], nRes.data || [], eRes.error ? null : (eRes.data || []));
   renderStats(mRes.data || [], tRes.data || [], player.hidden_sections || []);
+  openRpeFromLink();
 })();
+
+/* Relance du staff (lmfc_v50.sql) : la notification ouvre mon-espace?rpe=s12 (séance) ou m12 (match). */
+function openRpeFromLink() {
+  const want = new URLSearchParams(location.search).get('rpe');
+  if (!want) return;
+  history.replaceState(null, '', location.pathname);   // pas de nouvelle ouverture en revenant sur la page
+  const todo = phRpeTodo(), item = todo.find(s => `${s.match ? 'm' : 's'}${s.id}` === want);
+  if (!item) return toast(phRpe.some(s => `${s.match ? 'm' : 's'}${s.id}` === want && s.rpe != null) ? 'Ton RPE est déjà enregistré. Merci !' : 'Cette saisie n’est plus ouverte.');
+  openRpeSheet({ session: item, pending: [item, ...todo.filter(s => s !== item)], onSaved: (v, it) => {
+    it.rpe = v;
+    const card = document.getElementById('phRpe');
+    if (card) card.outerHTML = rpeCardHtml();
+  } });
+}
 
 /* Courbatures au réveil : le jour d'une séance seulement (soreness.js). */
 let phSore = null;

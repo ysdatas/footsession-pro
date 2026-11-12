@@ -5,6 +5,8 @@
      POST /api/push/calendar  → changements du calendrier faits par l'appelant
      POST /api/push/soreness  → alerte courbatures du joueur appelant (lmfc_v35.sql),
                                 vers le staff qui le suit
+     POST /api/push/rpe  { kind, id, players } → relance RPE (lmfc_v50.sql) : la
+                                base choisit les destinataires, le Worker livre
    L'envoi libre est réservé à l'administrateur du club. Celui du
    calendrier ne prend rien de la page : la base (lmfc_v30.sql) a préparé
    les messages et les destinataires de SES changements. Joueurs et appareils
@@ -37,6 +39,7 @@ export async function push(request, env, route) {
   if (route === 'key') return request.method === 'GET' ? Response.json({ key: publicKey(env) }) : fail(405, 'Méthode non autorisée.');
   if (route === 'send') return request.method === 'POST' ? send(request, env) : fail(405, 'Méthode non autorisée.');
   if (route === 'calendar' || route === 'soreness') return request.method === 'POST' ? queued(request, env, route) : fail(405, 'Méthode non autorisée.');
+  if (route === 'rpe') return request.method === 'POST' ? rpeRemind(request, env) : fail(405, 'Méthode non autorisée.');
   return new Response('Not found', { status: 404 });
 }
 
@@ -99,6 +102,31 @@ async function queued(request, env, route) {
     .slice(0, MAX_DEVICES);
   const { results } = await deliver(env, token, list);
   return Response.json({ devices: list.length, sent: results.filter(r => r === 'ok').length, more: !!out.more });
+}
+
+/* Relance RPE : la base vérifie droits, joueurs, délai et doublons, trace la relance
+   (rpe_remind_take) ; on livre, puis on lui dit combien d'appareils ont reçu (rpe_remind_done).
+   12 joueurs × 3 appareils + 3 appels Supabase : sous les 50 sous-requêtes. */
+async function rpeRemind(request, env) {
+  const token = tokenOf(request);
+  if (!token) return fail(401, 'Connexion requise.');
+  const b = await request.json().catch(() => null) || {};
+  if (!['seance', 'match'].includes(b.kind) || !Number.isSafeInteger(b.id) || !Array.isArray(b.players) || !b.players.length
+      || b.players.length > 12 || !b.players.every(Number.isSafeInteger)) return fail(400, 'Relance invalide.');
+  publicKey(env);
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/rpe_remind_take`, {
+    method: 'POST', body: JSON.stringify({ p_kind: b.kind, p_id: b.id, p_players: b.players }),
+    headers: { apikey: env.SUPABASE_KEY, authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+  });
+  const out = await r.json().catch(() => null);
+  if (!r.ok) return fail(r.status >= 500 ? 502 : r.status, out?.message || 'Relance refusée.');
+  const msgs = out.messages || [];
+  const list = msgs.flatMap(m => m.subs.map(sub => ({ sub, rid: m.reminder,
+    msg: { title: String(m.title).slice(0, 80), body: String(m.body).slice(0, 300), url: URL_RE.test(m.url || '') ? m.url : 'index.html' } })));
+  const { results } = await deliver(env, token, list);
+  const sent = msgs.map(m => ({ player_id: m.player_id, id: m.reminder, delivered: list.filter((x, i) => x.rid === m.reminder && results[i] === 'ok').length }));
+  if (sent.length) await supabase(env, token, '/rest/v1/rpc/rpe_remind_done', { method: 'POST', body: JSON.stringify({ p_rows: sent }) });
+  return Response.json({ sent: sent.map(({ player_id, delivered }) => ({ player_id, delivered })), skipped: out.skipped || [] });
 }
 
 /* Chaque appareil reçoit son message, chiffré pour lui et signé (VAPID).
