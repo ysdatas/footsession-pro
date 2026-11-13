@@ -9,10 +9,11 @@
    une couleur ; un tag absent du catalogue reste utilisable : « Sans catégorie ».
    Aucun calcul de réussite ne regarde les tags.
    Panneau fixe à droite du lecteur de la timeline (jamais par-dessus la vidéo) :
-     - poser : il vise le clip ouvert dans le panneau de codage, sinon la
-       sélection de la timeline (« Appliquer aux 12 séquences ») ; il montre
-       ce que la sélection porte déjà, et le retire d'un clic ; la sélection
-       reste après chaque application ;
+     - une séquence ouverte dans le panneau de codage : un clic pose ou
+       retire le tag, enregistré tout seul (analyse-autosave.js) ;
+     - plusieurs séquences sélectionnées : cocher, puis « Appliquer aux 12
+       séquences » ; ce que la sélection porte déjà se retire d'un clic ; la
+       sélection reste. Les cases cochées repartent à zéro quand la cible change ;
      - gérer : créer, renommer, ranger, colorer, archiver, supprimer.
    Archiver = ne plus le proposer, sans le retirer des clips déjà codés.
    Supprimer = le retirer de tous les clips : nombre annoncé, confirmation.
@@ -79,22 +80,22 @@ function anLibTarget() {
   for (const c of picked) for (const t of c.tags) has.set(t, (has.get(t) || 0) + 1);
   return { draft: false, n: picked.length, ids: picked.map(c => c.id), has };
 }
+const anLibKey = (T) => (T.draft ? `d${AN.draftClip.id}` : `s${T.ids.join(',')}`);
 
 function anLibRender() {
   const lib = AN.lib, m = document.getElementById('anLibModal');
   if (!lib || !m) return;
   const T = anLibTarget(), q = lib.q.trim().toLowerCase(), hit = (nom) => !q || nom.toLowerCase().includes(q), manage = lib.manage;
+  if (lib.key !== anLibKey(T)) { lib.key = anLibKey(T); lib.picked.clear(); }   // autre cible : rien de coché pour une autre
   for (const t of lib.picked) if (T.n && T.has.get(t) === T.n) lib.picked.delete(t);   // déjà partout : rien à poser
   const mode = m.querySelector('[data-lib="mode"]'), apply = m.querySelector('[data-lib="apply"]');
   mode.textContent = manage ? 'Poser des tags' : 'Gérer les tags';
   mode.setAttribute('aria-pressed', manage);
-  apply.hidden = manage;
+  apply.parentNode.hidden = manage || T.draft;   // la barre entière : collée en bas, elle cacherait des tags
   apply.disabled = !lib.picked.size || !T.n;
   apply.textContent = T.draft ? 'Ajouter au clip' : !T.n ? 'Appliquer' : `Appliquer ${T.n > 1 ? `aux ${T.n} séquences` : 'à la séquence'}${lib.picked.size ? ` (${anPlural(lib.picked.size, 'tag')})` : ''}`;
-  document.getElementById('anLibFor').innerHTML = manage ? 'Créer, renommer, ranger, colorer, archiver ou supprimer les tags du club.'
-    : T.draft ? 'Pour le clip ouvert dans le panneau de codage (enregistré avec lui).'
-    : T.n ? `<strong>${anPlural(T.n, 'séquence sélectionnée', 'séquences sélectionnées')}</strong>`
-    : 'Sélectionnez des clips sur la timeline (clic, ⌘ clic, glisser dans le vide) pour leur poser des tags.';
+  document.getElementById('anLibFor').innerHTML = manage || T.draft ? '' : T.n ? `<strong>${anPlural(T.n, 'séquence sélectionnée', 'séquences sélectionnées')}</strong>`
+    : 'Aucune séquence sélectionnée.';
   const there = !manage && !T.draft ? [...T.has].filter(([t]) => hit(t)).sort(([a], [b]) => a.localeCompare(b, 'fr')) : [];
   const groups = anDescGroups(manage).map(([label, list]) => [label, list.filter(d => hit(d.nom))]).filter(([, list]) => list.length);
   document.getElementById('anLibBody').innerHTML = (manage ? anLibManageHead() : '')
@@ -106,25 +107,30 @@ function anLibRender() {
       : `<p class="text-muted">${q ? 'Aucun tag ne correspond.' : 'Aucun tag : ouvrez « Gérer les tags » pour en créer.'}</p>`);
 }
 
-/* Un tag à cocher. Déjà sur tout ce qui est visé : coché d'office, inactif ; sur une partie : « 5/12 ». */
+/* Un tag. Séquence ouverte : allumé s'il la porte, un clic le pose ou le retire.
+   Sélection : à cocher ; déjà sur toutes, allumé et inactif ; sur une partie, « 5/12 ». */
 function anLibChip(d, T) {
   const n = T.has.get(d.nom) || 0, all = T.n > 0 && n === T.n, on = AN.lib.picked.has(d.nom);
+  if (T.draft) return `<button type="button" class="an-chip${n ? ' is-on' : ''}" data-lib="toggle" data-value="${esc(d.nom)}" aria-pressed="${!!n}"${anDescStyle(d.nom)}>${esc(d.nom)}</button>`;
   const tip = all ? (T.draft ? 'Déjà sur le clip' : 'Déjà sur toutes les séquences sélectionnées') : n ? `Déjà sur ${n} séquence${n > 1 ? 's' : ''} sur ${T.n}` : '';
   return `<button type="button" class="an-chip${on ? ' is-on' : ''}${all ? ' is-has' : ''}" data-lib="pick" data-value="${esc(d.nom)}" aria-pressed="${on || all}"${
     all ? ' aria-disabled="true"' : ''}${tip ? ` title="${tip}"` : ''}${anDescStyle(d.nom)}>${all ? '✓ ' : ''}${esc(d.nom)}${n && !all ? ` <small>${n}/${T.n}</small>` : ''}</button>`;
 }
 
-/* Tags cochés posés sur la sélection (une transaction, ⌘Z) ou mis dans le brouillon du clip ouvert. La sélection reste. */
+/* Séquence ouverte : le tag est posé ou retiré, et part avec la sauvegarde automatique. */
+function anLibToggle(tag) {
+  const d = AN.draft;
+  if (d.tags.includes(tag)) d.tags = d.tags.filter(t => t !== tag);
+  else if (d.tags.length >= 20) return toast('20 tags au plus par séquence.', 'error');
+  else d.tags.push(tag);
+  anRenderDraft();
+  anDraftDirty();
+}
+
+/* Tags cochés posés sur la sélection : une transaction, ⌘Z. La sélection reste. */
 async function anLibApply() {
-  const T = anLibTarget(), names = [...AN.lib.picked], d = AN.draft;
-  if (!names.length || !T.n) return;
-  if (T.draft) {
-    const add = names.filter(n => !d.tags.includes(n)), room = Math.max(0, 20 - d.tags.length);
-    d.tags.push(...add.slice(0, room));
-    if (add.length > room) toast('20 tags au plus par clip : les derniers cochés ne sont pas ajoutés.', 'error');
-    AN.lib.picked.clear();
-    return anRenderDraft();
-  }
+  const T = anLibTarget(), names = [...AN.lib.picked];
+  if (!names.length || !T.n || T.draft) return;
   if (await anTlBulk(T.ids, { add: names }, anPlural(names.length, 'tag ajouté', 'tags ajoutés'))) { AN.lib.picked.clear(); anLibRender(); }
 }
 
@@ -164,6 +170,7 @@ async function anLibClick(e) {
   if (act === 'pick') { if (lib.picked.has(value)) lib.picked.delete(value); else lib.picked.add(value); return anLibRender(); }
   if (act === 'mode') { lib.manage = !lib.manage; return anLibRender(); }
   if (act === 'apply') return anLibApply();
+  if (act === 'toggle') return anLibToggle(value);
   if (act === 'drop') return anTlBulk(anLibTarget().ids, { remove: [value] }, `tag « ${value} » retiré`);
   if (act === 'seed') return anLibRun(() => anDescSeed(Object.entries(AN_DESC_START).flatMap(([categorie, noms]) => noms.map(nom => ({ nom, categorie })))),
     'Bibliothèque de départ ajoutée.');

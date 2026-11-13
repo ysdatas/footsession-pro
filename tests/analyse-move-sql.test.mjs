@@ -90,4 +90,10 @@ assert.equal(await nSeq(), 3, 'trois séquences : l’original et deux copies vo
 assert.equal((await q(`select count(*)::int n from public.sequence_codes c left join public.video_sequences s on s.id = c.sequence_id
   where s.id is null or s.player_id <> c.player_id or s.club_id <> c.club_id`)).rows[0].n, 0, 'chaque codage est relié à sa séquence, même joueur, même club');
 
-console.log('analyse-move-sql : OK (déplacement sans conversion et défait, duplication indépendante, droits, intégrité)');
+/* ---------- ⌘Z sur une copie : elle est retirée (comme dans l'onglet Vidéos), l'original reste ---------- */
+const del = async (uid, ids) => (await as(uid, () => q('delete from public.video_sequences where id = any($1) returning id', [ids]))).rows.length;
+assert.equal(await del(P.joueurPro, [id, copy]), 0, 'un joueur ne retire rien');
+assert.equal(await del(P.coachPro, [empty]), 1, 'le staff retire la copie');
+assert.deepEqual([await nSeq(), (await clip(id)).action, (await clip(id)).tags], [2, 'duel_sol', ['Anticipation']], 'original intact');
+
+console.log('analyse-move-sql : OK (déplacement sans conversion et défait, duplication indépendante, copie retirée, droits, intégrité)');

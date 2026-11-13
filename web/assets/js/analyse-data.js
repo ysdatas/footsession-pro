@@ -52,10 +52,19 @@ function anSaveCode(clip, draft) {
 }
 
 /* Copie d'un clip : une NOUVELLE séquence sur la même vidéo (le fichier n'est pas copié), même découpage,
-   réservée au staff comme tout clip créé ici ; avec son codage et ses tags, ou à coder. Rend l'id de la copie. */
-function anDuplicate(clip, withCode) {
+   réservée au staff comme tout clip créé ici ; avec son codage et ses tags, ou à coder. Rend l'id de la copie.
+   at : { start_sec, end_sec, code } pour la poser ailleurs dans la vidéo ou avec un autre codage (⌥ + glisser). */
+function anDuplicate(clip, withCode, at = {}) {
   return anRpc(`copie du clip ${clip.id} refusée`, 'save_sequence_code', { p_sequence_id: null, p_video_id: clip.video_id,
-    p_label: `${clip.label || 'Séquence'} (copie)`, p_start: clip.start_sec, p_end: clip.end_sec, p_code: withCode ? anCodePayload(clip) : {} });
+    p_label: `${clip.label || 'Séquence'} (copie)`, p_start: at.start_sec ?? clip.start_sec, p_end: at.end_sec ?? clip.end_sec,
+    p_code: at.code ?? (withCode ? anCodePayload(clip) : {}) });
+}
+
+/* Retire des séquences (corbeille du club, comme l'onglet Vidéos). Rend le nombre réellement retiré (la RLS peut en refuser). */
+async function anDeleteClips(ids) {
+  const { data, error } = await sb.from('video_sequences').delete().in('id', ids).select('id');
+  if (error) throw anDbError('suppression refusée', error);
+  return data?.length ?? 0;
 }
 
 /* Découpage seul (bord d'un clip tiré sur la timeline) : même transaction, codage intact. */

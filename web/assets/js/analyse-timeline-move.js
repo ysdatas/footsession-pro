@@ -1,102 +1,127 @@
 /* ============================================================
    LMFC Performance — analyse-timeline-move.js
-   Timeline / Codage vidéo : changer un clip de piste, le dupliquer.
-     - glisser un segment vers le haut ou le bas le pose sur la piste d'une
-       autre action (ou « À coder ») ; le minutage ne bouge pas. Rien n'est
-       converti (anMoveCode) : le « Gagné » d'un duel ne devient pas le
-       « Réussi » d'un centre.
-         · le déplacement retire une information : rien n'est écrit, le
-           panneau de codage s'ouvre à droite et dit ce qui partira ;
-           « Enregistrer » déplace, « Annuler » laisse le clip où il était ;
-         · sinon le clip change de piste tout de suite, et le panneau s'ouvre
-           pour compléter le résultat de sa nouvelle action.
-       ⌘Z défait le déplacement, sauf si le clip a été recodé depuis. Au
-       clavier : le champ « Action » du panneau de codage ;
-     - « Dupliquer » : une nouvelle séquence sur la même vidéo, même
-       découpage, avec ou sans le codage, indépendante de l'original.
+   Timeline / Codage vidéo : changer un clip de piste, le copier.
+     - glisser un segment vers une autre piste change son action, tout de
+       suite ; le minutage ne bouge pas. Rien n'est converti (anMoveCode) :
+       ce que la nouvelle action ne porte pas part (le « Gagné » d'un duel ne
+       devient pas le « Réussi » d'un centre), un avis court le dit, ⌘Z rend tout ;
+     - ⌥ (Alt sous Windows) + glisser : une copie, posée où on la lâche.
+       Autre piste : son action suit la piste (mêmes règles). Vue « Une
+       vidéo » : elle peut aussi glisser dans le temps, même durée. Bouton
+       « Dupliquer » : même chose, sur place. L'original n'est jamais touché ;
+       ⌘Z retire la copie (corbeille), sauf si elle a été recodée depuis.
+   Une copie est une nouvelle séquence sur la même vidéo (le fichier n'est
+   pas copié), réservée au staff, avec son propre identifiant.
    ============================================================ */
 
 const anLaneName = (k) => AN_LANES.find(([x]) => x === k)?.[1] ?? k;
-
-/* « Résultat « Gagné » », « Type de duel « Interception » »… : ce qu'un déplacement retire. */
-function anFieldText(clip, k) {
-  const A = AN_ACTIONS[clip.action], d = [...(A ? [...A.filters, ...(A.more || [])] : []), ...AN_GENERAL].find(x => x.key === k);
-  if (k === 'x2' || k === 'y2') return 'point d’arrivée';
-  if (k === 'resultat' && A) return `résultat « ${anLabel(A.res, clip[k])} »`;
-  return d ? `${d.label.toLowerCase()} « ${anLabel(d.values, clip[k])} »` : k;
-}
+const anRound = (t) => Math.round(t * 100) / 100;
+const AN_UNSAVED = 'Séquence ouverte non enregistrée : réessayez ou annulez ses modifications.';
 
 async function anTlMove(clip, lane) {
-  const to = lane === 'todo' ? null : lane, from = anLane(clip), where = anLaneName(lane);
-  if (lane === from) return;
-  const { code, lost } = anMoveCode(clip, to), before = anCodePayload(clip);
-  if (lost.length) {   // rien n'est écrit : le panneau annonce ce qui partira, « Enregistrer » déplace
-    AN.tl.pending = { id: clip.id, lane };
-    anTlRender();
-    return anOpenCoding({ ...clip, ...code }, { move: { before }, note: `Vers ${where} : ${[...new Set(lost.map(k => anFieldText(clip, k)))].join(', ')} ${
-      lost.length > 1 ? 'seront retirés' : 'sera retiré'} (propre${lost.length > 1 ? 's' : ''} à ${anLaneName(from)}). Enregistrez pour confirmer ; « Annuler » laisse le clip dans ${anLaneName(from)}.` });
-  }
+  const to = lane === 'todo' ? null : lane, where = anLaneName(lane);
+  if (lane === anLane(clip)) return;
+  if (!await anCodeFlush()) return toast(AN_UNSAVED, 'error');
+  clip = AN.clips.find(c => c.id === clip.id);   // avec ce qui vient d'être enregistré
+  const { code, lost } = anMoveCode(clip, to), before = anCodePayload(clip), n = lost.filter(k => k !== 'y2').length;
   try {
     await anSaveCode(clip, { ...code, start_sec: clip.start_sec, end_sec: clip.end_sec });
     AN.tl.undo.push({ label: `déplacement vers ${where}`, move: { id: clip.id, before, after: anCodePayload(code) } });
-    toast(`Clip déplacé vers ${where}.`);
+    toast(`Déplacé vers ${where}${n ? ` · ${anPlural(n, 'champ retiré', 'champs retirés')}` : ''} · ⌘Z pour annuler`);
   } catch (err) {
     toast(err.message, 'error');
   }
   await anReload();   // refus : le segment reprend sa piste
-  const moved = AN.clips.find(c => c.id === clip.id);
-  if (moved?.action === to && AN_ACTIONS[to]?.res.length) {
-    anOpenCoding(moved, { note: `Déplacé vers ${where} et enregistré (⌘Z pour défaire). Complétez son résultat et ses champs si besoin.` });
-  }
+  anTlPick(clip.id, true);
 }
 
-/* Défait un déplacement : seulement si le codage est toujours celui qu'il avait donné. Les tags posés depuis restent. */
+/* Défait un déplacement (ou un changement d'action) : seulement si le codage est toujours celui qu'il avait donné. */
 async function anTlUndoMove({ id, before, after }) {
   await anReload();
   const c = AN.clips.find(x => x.id === id);
-  if (!c || !anSameCode(c, after)) return toast('Déplacement laissé tel quel : le clip a été recodé depuis.', 'error');
+  if (!c || !anSameCode(c, after)) return toast('Laissé tel quel : la séquence a été recodée depuis.', 'error');
   await anSaveCode(c, { ...before, tags: c.tags, start_sec: c.start_sec, end_sec: c.end_sec });
-  toast(`Déplacement annulé : le clip revient dans ${anLaneName(before.action || 'todo')}.`);
+  toast(`Annulé : la séquence revient dans ${anLaneName(before.action || 'todo')}.`);
 }
 
-/* Segment saisi (bouton gauche, sans touche) : un glissé vertical le dépose sur une autre piste.
-   Un simple clic reste un clic (sélection, lecture). */
+/* Séquences créées ici (copie, clip marqué I / O) : ⌘Z les retire, sauf celles recodées depuis. */
+function anTlCreatedUndo(label, items) { AN.tl.undo.push({ label, created: items }); }
+async function anTlUndoCreated(items) {
+  await anReload();
+  const ids = items.filter(x => { const c = AN.clips.find(y => y.id === x.id); return c && anSameCode(c, x.code); }).map(x => x.id);
+  const n = ids.length ? await anDeleteClips(ids) : 0;
+  toast(n === items.length ? `Annulé : ${anPlural(n, 'séquence retirée', 'séquences retirées')}.`
+    : `${anPlural(n, 'séquence retirée', 'séquences retirées')} ; ${items.length - n} laissée${items.length - n > 1 ? 's' : ''} car recodée${items.length - n > 1 ? 's' : ''} depuis.`, n ? '' : 'error');
+}
+
+/* Segment saisi (bouton gauche, sans ⌘ ni Maj). Vertical : autre piste. ⌥ : une copie, qui suit la souris. */
 function anTlDrag(e, seg) {
-  const tl = AN.tl, clip = AN.clips.find(c => c.id === Number(seg.dataset.seq)), y0 = e.clientY;
+  const tl = AN.tl, clip = AN.clips.find(c => c.id === Number(seg.dataset.seq)), x0 = e.clientX, y0 = e.clientY, copy = e.altKey;
   const lanes = [...anDockEl('track').querySelectorAll('.an-tl-lane')];
   const laneAt = (y) => lanes.find(l => { const r = l.getBoundingClientRect(); return y >= r.top && y < r.bottom; }) || null;
-  let started = false, target = null;
+  const pps = anDockEl('track').getBoundingClientRect().width / anTlDur(), free = copy && tl.mode === 'video';
+  const max = tl.loaded === clip?.video_id && tl.dur ? tl.dur : Infinity, len = clip ? clip.end_sec - clip.start_sec : 0;
+  let started = false, target = null, ghost = null, dt = 0;
+  if (copy) e.preventDefault();   // ⌥ : pas de sélection de texte
   const move = (ev) => {
-    if (!started && Math.abs(ev.clientY - y0) < 8) return;
-    started = true;
-    seg.classList.add('is-drag');
-    seg.style.transform = `translateY(${ev.clientY - y0}px)`;
+    const dx = ev.clientX - x0, dy = ev.clientY - y0;
+    if (!started && Math.abs(dy) < 8 && !(free && Math.abs(dx) >= 8)) return;
+    if (!started) {
+      started = true;
+      ghost = copy ? seg.parentNode.appendChild(seg.cloneNode(true)) : seg;
+      ghost.classList.add('is-drag');
+      if (copy) ghost.classList.add('is-copy');
+    }
+    if (free) dt = anRound(Math.min(Math.max(0, clip.start_sec + dx / pps), Math.max(0, max - len))) - clip.start_sec;
+    ghost.style.transform = `translate(${dt * pps}px, ${dy}px)`;
+    if (free) ghost.querySelector('.an-seg-t').textContent = `${fmtT(clip.start_sec + dt)} → ${fmtT(clip.end_sec + dt)}`;
     const l = laneAt(ev.clientY);
     if (l !== target) { target?.classList.remove('is-drop'); target = l; target?.classList.add('is-drop'); }
   };
   const up = () => {
     document.removeEventListener('pointermove', move);
-    if (!started) return;
+    if (!started || !clip) return;
     tl.dragged = true;
     setTimeout(() => { tl.dragged = false; }, 0);   // le clic qui suit le lâcher n'est pas un clic
     target?.classList.remove('is-drop');
-    seg.classList.remove('is-drag');
-    seg.style.transform = '';
-    if (clip && target) anTlMove(clip, target.dataset.lane);
+    if (copy) ghost.remove(); else { seg.classList.remove('is-drag'); seg.style.transform = ''; }
+    const lane = target?.dataset.lane ?? anLane(clip);
+    if (copy) anTlCopy(clip, lane, dt); else if (target) anTlMove(clip, lane);
   };
   document.addEventListener('pointermove', move);
   document.addEventListener('pointerup', up, { once: true });
 }
 
-/* Une copie par clip sélectionné ; les copies deviennent la sélection. */
+/* Copie posée sur une piste (celle de l'original ou une autre), décalée de dt secondes dans sa vidéo. */
+async function anTlCopy(clip, lane, dt = 0) {
+  if (!await anCodeFlush()) return toast(AN_UNSAVED, 'error');
+  clip = AN.clips.find(c => c.id === clip.id);
+  const code = anCodePayload(lane === anLane(clip) ? clip : anMoveCode(clip, lane === 'todo' ? null : lane).code);
+  try {
+    const id = Number(await anDuplicate(clip, true, { start_sec: anRound(clip.start_sec + dt), end_sec: anRound(clip.end_sec + dt), code }));
+    anTlCreatedUndo('copie', [{ id, code }]);
+    toast(`Copie créée${lane === anLane(clip) ? '' : ` dans ${anLaneName(lane)}`} · ⌘Z pour annuler`);
+    await anReload();
+    anTlPick(id, true);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+/* Bouton « Dupliquer » : une copie de chaque clip sélectionné, sur place ; les copies deviennent la sélection. */
 async function anTlDuplicate(withCode) {
+  if (!await anCodeFlush()) return toast(AN_UNSAVED, 'error');
   const picked = AN.clips.filter(c => AN.tl.sel.has(c.id));
   if (!picked.length) return;
   const res = await Promise.allSettled(picked.map(c => anDuplicate(c, withCode)));
-  const ids = res.filter(r => r.status === 'fulfilled').map(r => Number(r.value)), ko = res.find(r => r.status === 'rejected');
-  if (ids.length) Object.assign(AN.tl, { sel: new Set(ids), cur: ids[0] });
-  toast(ko ? `${ids.length} copie${ids.length > 1 ? 's' : ''} sur ${picked.length} : ${ko.reason.message}`
-    : `${anPlural(ids.length, 'copie créée', 'copies créées')} (même vidéo, même découpage, ${withCode ? 'même codage' : 'à coder'}) : ${ids.length > 1 ? 'elles sont sélectionnées' : 'elle est sélectionnée'}.`,
-  ko ? 'error' : 'success');
+  const made = res.map((r, i) => r.status === 'fulfilled' && { id: Number(r.value), code: anCodePayload(withCode ? picked[i] : { tags: [] }) }).filter(Boolean);
+  const ko = res.find(r => r.status === 'rejected');
+  if (made.length) anTlCreatedUndo(anPlural(made.length, 'copie'), made);
+  toast(ko ? `${made.length} copie${made.length > 1 ? 's' : ''} sur ${picked.length} : ${ko.reason.message}` : `${anPlural(made.length, 'copie créée', 'copies créées')} · ⌘Z pour annuler`,
+    ko ? 'error' : 'success');
   await anReload();
+  if (made.length === 1) return anTlPick(made[0].id, true);
+  AN.tl.sel = new Set(made.map(x => x.id));
+  anTlSel();
+  anTlFollowSel();
 }
