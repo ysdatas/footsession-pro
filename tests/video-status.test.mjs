@@ -53,4 +53,13 @@ assert.equal(who('jean-eudes 4.mp4'), 4, 'prénom composé');
 assert.equal(who('IMG_4512.mp4'), null, 'aucun nom');
 assert.equal(who('Eliott et Noé.mp4'), null, 'deux joueurs dans le nom : à choisir');
 
+// Envoi depuis « Vidéos joueurs » : toutes les équipes, l'équipe choisie départage.
+const club = [...team, { id: 5, prenom: 'Eliott', nom: 'Diallo', team_id: 9 }, { id: 6, prenom: 'Sacha', nom: 'Martin', team_id: 9 }];
+const pick = (f, pref) => vm.runInContext(`playerFromFile(${JSON.stringify(f)}, ${JSON.stringify(club)}, ${pref})?.id ?? null`, ctx);
+assert.equal(pick('Eliott-1.mp4', 'null'), null, 'deux Eliott dans le club : à choisir');
+assert.equal(pick('Eliott-1.mp4', '(p) => p.team_id === 9'), 5, 'deux Eliott : celui de l’équipe choisie');
+assert.equal(pick('Eliott Barbey.mp4', '(p) => p.team_id === 9'), 1, 'prénom et nom priment sur l’équipe choisie');
+assert.equal(pick('Martin.mp4', '(p) => p.team_id !== 9'), null, 'deux Martin dans l’équipe choisie : à choisir');
+assert.equal(pick('Sacha.mp4', '(p) => p.team_id !== 9'), 6, 'seul de son nom : reconnu hors de l’équipe choisie');
+
 console.log('video-status.test.mjs : OK');

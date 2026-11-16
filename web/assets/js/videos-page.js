@@ -41,9 +41,14 @@ let navDepth = 0;           // niveaux ouverts dans cette page (pour le bouton r
   if (canManagePlayerVideos(myProfile.role)) {
     const btn = document.getElementById('btnNewVideo');
     btn.classList.remove('hidden');
-    btn.addEventListener('click', () => openVideoUpload({
-      players: playersCache, playerId: view.player, profile: myProfile, onDone: loadVideos,
-    }));
+    btn.addEventListener('click', async () => {
+      if (upl.ctrl) return openVideoUpload({ players: playersCache, profile: myProfile });   // envoi en cours : rouvert tel quel
+      btn.disabled = true;
+      try {
+        const { players, prefer } = await uploadPlayers();
+        openVideoUpload({ players, prefer, playerId: view.player, profile: myProfile, onDone: loadVideos });
+      } finally { btn.disabled = false; }
+    });
   }
 
   history.replaceState({ vp: 1, ...view }, '', location.href);
@@ -97,6 +102,31 @@ async function loadVideos(playersQuery = null) {
     });
   }
 }
+/* Envoi : tous les joueurs que le compte peut modifier, toutes équipes (la page,
+   elle, ne montre que l'équipe choisie). La base dit lesquels (my_player_levels,
+   lmfc_v19.sql) et le Worker revérifie chaque envoi. Rangés par équipe, la choisie
+   d'abord ; un nom de fichier commun à deux équipes va au joueur de la choisie. */
+async function uploadPlayers() {
+  const [pRes, lRes] = await Promise.all([
+    sb.from('players').select('id, nom, prenom, club_id, auth_user_id, team_id, other_team_ids').order('nom'),
+    sb.rpc('my_player_levels'),
+  ]);
+  if (pRes.error || lRes.error) {
+    console.error('Joueurs de l’envoi illisibles', pRes.error || lRes.error);
+    toast('Liste complète des joueurs indisponible : seuls ceux de l’équipe choisie sont proposés.', 'info');
+    return { players: playersCache, prefer: null };
+  }
+  const can = new Set((lRes.data || []).filter(r => r.niveau === 'modification').map(r => Number(r.player_id)));
+  const cur = currentTeamId(), teams = window.CLUB_TEAMS || [];
+  const teamOf = (p) => (cur && (p.team_id === cur || (p.other_team_ids || []).includes(cur)) ? cur : p.team_id);
+  const rank = (id) => { const i = teams.findIndex(t => t.id === id); return cur && id === cur ? -1 : i < 0 ? teams.length : i; };
+  const players = (pRes.data || []).filter(p => can.has(p.id))
+    .map(p => ({ ...p, group: teamName(teamOf(p)) || 'Sans équipe', rank: rank(teamOf(p)) }))
+    .sort((a, b) => a.rank - b.rank);   // stable : l'ordre alphabétique reste dans chaque équipe
+  if (new Set(players.map(p => p.group)).size < 2) players.forEach(p => { delete p.group; });
+  return { players, prefer: cur ? (p) => playerInTeam(p, cur) : null };
+}
+
 /* Vignettes arrivées après l'affichage (vue d'ensemble) : seules elles changent,
    la recherche en cours et le défilement restent en place. */
 function patchThumbs(box) {

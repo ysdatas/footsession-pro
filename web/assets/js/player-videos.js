@@ -432,8 +432,10 @@ function seqPlaylist(buttons, find) {
    lignes cochées (« Attribuer à… »). Envoyés l'un après l'autre (la connexion
    est le goulot : en parallèle, chacun irait moins vite). Chaque ligne
    montre son pourcentage, la ligne du bas l'avancement global. Un échec
-   n'arrête pas les suivants ; « Réessayer » ne renvoie que les échecs. */
-const upl = { items: [], ctrl: null, stamp: 0, profile: null, onDone: null, players: [], fallback: null };   // item : { file, title, player, on, state, pct, err }
+   n'arrête pas les suivants ; « Réessayer » ne renvoie que les échecs.
+   Joueurs portant un `group` (nom d'équipe) : listes rangées par équipe ;
+   prefer(p) départage deux joueurs du même nom (playerFromFile). */
+const upl = { items: [], ctrl: null, stamp: 0, profile: null, onDone: null, players: [], fallback: null, prefer: null };   // item : { file, title, player, on, state, pct, err }
 const $up = (id) => document.getElementById(id);
 /* « match_vs_laval.mp4 » → « Match vs laval » */
 const titleFromFile = (name) => {
@@ -448,11 +450,11 @@ const uploadFingerprint = (file, clubId) => `lmfc-video-upload:${clubId}:${encod
 const readUploadState = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
 const writeUploadState = (key, value) => { try { value ? localStorage.setItem(key, JSON.stringify(value)) : localStorage.removeItem(key); } catch (e) { console.warn('Reprise locale indisponible', e); } };
 
-function openVideoUpload({ players, playerId = null, profile, onDone = null }) {
+function openVideoUpload({ players, playerId = null, profile, onDone = null, prefer = null }) {
   ensureVideoModals();
   if (upl.ctrl) return openModal('videoModal');   // envoi en cours : on le retrouve tel quel
   // Fichier sans nom de joueur reconnu : le joueur ouvert (page d'un joueur), sinon à choisir.
-  Object.assign(upl, { profile, onDone, players, fallback: players.some(p => p.id === playerId) ? playerId : null });
+  Object.assign(upl, { profile, onDone, players, prefer, fallback: players.some(p => p.id === playerId) ? playerId : null });
   $up('v-desc').value = '';
   $up('v-file').value = '';
   upl.items = [];
@@ -476,7 +478,7 @@ function renderUploads() {
         <input type="checkbox" class="upl-on" data-upl-on="${i}" aria-label="Cocher « ${escapeHtml(it.title)} »"${it.on ? ' checked' : ''}${off}>
         <input class="upl-title" value="${escapeHtml(it.title)}" maxlength="140" aria-label="Titre de la vidéo ${i + 1}"${off}>
         <select class="upl-player${it.player ? '' : ' is-none'}" data-upl-player="${i}" aria-label="Joueur de la vidéo ${i + 1}"${off || it.resume?.uploadId ? ' disabled' : ''}>
-          <option value="">— Joueur —</option>${upl.players.map(p => `<option value="${p.id}"${p.id === it.player ? ' selected' : ''}>${escapeHtml(pvName(p))}</option>`).join('')}</select>
+          <option value="">— Joueur —</option>${uplOptions(it.player)}</select>
         ${status}
         <button type="button" class="upl-x" data-upl-remove="${i}" aria-label="Retirer ${escapeHtml(it.title)}" ${locked ? 'disabled' : ''}>×</button>
         <div class="upl-bar"><span style="width:${it.state === 'done' ? 100 : Math.round(it.pct * 100)}%"></span></div>
@@ -505,9 +507,18 @@ function renderUploads() {
 function uplAssignState() {
   const n = upl.items.filter(it => it.on).length;
   $up('v-assign').innerHTML = `<option value="">${n ? `Attribuer ${n > 1 ? `les ${n} vidéos cochées` : 'la vidéo cochée'} à…` : 'Attribuer toutes les vidéos à…'}</option>`
-    + upl.players.map(p => `<option value="${p.id}">${escapeHtml(pvName(p))}</option>`).join('');
+    + uplOptions(null);
   const none = upl.items.filter(it => !it.player && it.state !== 'done').length;
   $up('v-missing').textContent = none ? `${none} vidéo${none > 1 ? 's' : ''} sans joueur` : '';
+}
+
+/* Joueurs d'une liste : par équipe (optgroup) quand ils en portent une, dans l'ordre reçu. */
+function uplOptions(selected) {
+  const opt = (p) => `<option value="${p.id}"${p.id === selected ? ' selected' : ''}>${escapeHtml(pvName(p))}</option>`;
+  if (!upl.players.some(p => p.group)) return upl.players.map(opt).join('');
+  const groups = new Map();
+  upl.players.forEach(p => { const g = p.group || 'Sans équipe'; groups.set(g, [...(groups.get(g) || []), p]); });
+  return [...groups].map(([g, list]) => `<optgroup label="${escapeHtml(g)}">${list.map(opt).join('')}</optgroup>`).join('');
 }
 
 /* Avancement : mis à jour sur place, sans redessiner les champs. */
@@ -530,7 +541,7 @@ document.addEventListener('change', (e) => {
   const known = new Set(upl.items.map(it => `${it.file.name}|${it.file.size}|${it.file.lastModified}`));
   [...e.target.files].forEach(file => {
     if (known.has(`${file.name}|${file.size}|${file.lastModified}`)) return;
-    const player = playerFromFile(file.name, upl.players)?.id ?? upl.fallback;   // video-status.js
+    const player = playerFromFile(file.name, upl.players, upl.prefer)?.id ?? upl.fallback;   // video-status.js
     const resumeKey = uploadFingerprint(file, upl.profile.club_id), resume = readUploadState(resumeKey);
     const chosenPlayer = resume?.player && upl.players.some(p => String(p.id) === String(resume.player)) ? resume.player : player;
     upl.items.push({ file, title: resume?.title || titleFromFile(file.name), player: chosenPlayer, on: false,
