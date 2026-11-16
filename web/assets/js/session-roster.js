@@ -105,9 +105,12 @@ function guestCandidates(query) {
 function renderGuestResults() {
   const input = document.getElementById('guestSearch'), box = document.getElementById('guestResults');
   const list = guestCandidates(input.value);
-  box.innerHTML = list.map(p => `<button type="button" class="guest-hit" data-add-guest="${p.id}">
-      <strong>${escapeHtml(rosterName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? ` | #${p.numero}` : ''}</span></button>`).join('')
-    || (input.value.trim().length >= 2 ? '<p class="text-muted guest-none">Aucun joueur du club ne correspond.</p>' : '');
+  const q = input.value.trim();
+  box.innerHTML = (list.map(p => `<button type="button" class="guest-hit" data-add-guest="${p.id}">
+      <strong>${escapeHtml(rosterName(p))}</strong><span>${escapeHtml(extTeamLabel(p))}${p.numero != null ? ` | #${p.numero}` : ''}</span></button>`).join('')
+    || (q.length >= 2 ? '<p class="text-muted guest-none">Aucun joueur du club ne correspond.</p>' : ''))
+    // Joueur sans fiche au club : sa fiche de joueur extérieur (player-exterieur.js, lmfc_v54.sql).
+    + (q.length >= 2 ? `<button type="button" class="guest-hit guest-new" data-new-ext><strong>+ Joueur extérieur</strong><span>« ${escapeHtml(q)} » n’a pas de fiche au club</span></button>` : '');
 }
 function addGuest(id) {
   const p = clubPlayers.find(x => x.id === id);
@@ -205,9 +208,15 @@ function initRoster() {
   document.getElementById('btnAllPresent')?.addEventListener('click', () => CAN_WRITE && allPresent());
   const search = document.getElementById('guestSearch');
   search?.addEventListener('input', renderGuestResults);
-  document.getElementById('guestResults')?.addEventListener('click', e => {
+  document.getElementById('guestResults')?.addEventListener('click', async e => {
     const b = e.target.closest('[data-add-guest]');
     if (b && CAN_WRITE) addGuest(Number(b.dataset.addGuest));
+    if (e.target.closest('[data-new-ext]') && CAN_WRITE) {
+      const p = await newExterieur(document.getElementById('guestSearch').value, clubPlayers);   // player-exterieur.js
+      if (!p) return;
+      if (!clubPlayers.some(x => x.id === p.id)) clubPlayers.push(p);
+      addGuest(p.id);
+    }
   });
   if (!CAN_WRITE) document.getElementById('rosterTools')?.classList.add('hidden');
 

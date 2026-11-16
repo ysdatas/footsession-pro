@@ -57,8 +57,8 @@ function syncVideoChip() {
 }
 
 function renderVideoList() {
-  const q = (document.getElementById('videoSearch').value || '').trim().toLowerCase();
-  const list = tbVideos.filter(v => !q || `${v.titre} ${videoOwner(v)}`.toLowerCase().includes(q));
+  const q = searchKey((document.getElementById('videoSearch').value || '').trim());
+  const list = tbVideos.filter(v => !q || searchKey(`${v.titre} ${videoOwner(v)}`).includes(q));
   document.getElementById('videoPaneHint').textContent = EXO_ROW
     ? 'Vidéos de ce joueur déjà sur la plateforme : il pourra la regarder depuis son exercice.'
     : 'Associez une vidéo déjà présente sur la plateforme : pas besoin de la réimporter.';

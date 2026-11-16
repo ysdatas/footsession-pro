@@ -60,3 +60,10 @@
   #customRange input { flex: 1 1 130px; }
 }
 @media (max-width: 640px) { .kpi-band .kpi-num { font-size: var(--fs-xl); } }
+
+/* Catégories (analytics-cats.js) : place réservée avant l'arrivée des boutons ; comparaison sous les chiffres. */
+.cat-switch { min-height: 40px; margin-bottom: 18px; }
+.cat-compare { margin-top: 12px; overflow-x: auto; }
+.cat-compare .table td { font-variant-numeric: tabular-nums; }
+.cat-compare .table th[scope="row"] { font-size: var(--fs-md); font-weight: 600; color: var(--text-primary); }
+@media (max-width: 640px) { .cat-compare .table th, .cat-compare .table td { padding: 8px 6px; } }

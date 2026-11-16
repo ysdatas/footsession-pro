@@ -111,7 +111,9 @@
 html, body { margin: 0; padding: 0; }
 /* Même largeur utile sur toutes les pages, qu'elles défilent ou non : la place
    de la barre de défilement est toujours réservée (pas de saut d'une page à l'autre). */
-html { overflow-y: auto; scrollbar-gutter: stable; }   /* Chrome : la réserve demande un défilement déclaré */
+/* « scroll » et non « auto » : Chrome ne réserve la place (scrollbar-gutter) que si la page défile ;
+   une page ou un onglet court (Matchs de la fiche joueur) décalait tout de la largeur de la barre. */
+html { overflow-y: scroll; scrollbar-gutter: stable; }
 /* Contrôles natifs (calendrier, heure, cases, barres de défilement) en version sombre. */
 :root { color-scheme: dark; accent-color: var(--gold); }
 body {
@@ -895,3 +897,24 @@ th.sorted.asc .sort-ind { transform: rotate(180deg); }
 .field-grid > .span-4 { grid-column: span 4; }
 .field-grid > .span-6 { grid-column: span 6; }
 @media (max-width: 760px) { .field-grid > .field { grid-column: 1 / -1; } .field-grid > .span-2 { grid-column: span 6; } }
+
+/* Joueurs extérieurs (player-exterieur.js, lmfc_v54.sql) : fenêtres de création et de rattachement */
+.ext-box { width: min(520px, calc(100vw - 32px)); max-width: none; }
+.ext-form { display: grid; gap: 10px; }
+.ext-form .field { margin: 0; }
+.ext-form textarea { resize: vertical; }
+.ext-similar p { margin: 0 0 6px; font-size: var(--fs-sm); }
+.ext-hit { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 6px 0; border-top: 1px solid var(--border); }
+.ext-box select { width: 100%; margin: 4px 0 12px; }
+.ext-list { margin: 0 0 8px; padding-left: 18px; display: grid; gap: 4px; font-size: var(--fs-sm); }
+.ext-warn { margin: 0 0 8px; color: var(--danger); font-size: var(--fs-sm); }
+.guest-hit.guest-new { border-style: dashed; }
+
+/* Relances (remind-ui.js, lmfc_v59.sql) */
+.remind-box { width: min(520px, calc(100vw - 32px)); max-width: none; }
+.remind-count { margin: 0 0 8px; font-weight: 600; }
+.remind-list { display: grid; gap: 6px; max-height: 38vh; overflow: auto; margin-bottom: 10px; }
+.remind-list label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.remind-others p, .remind-past p { margin: 0 0 4px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.remind-past { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.mt-remind { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: var(--fs-sm); color: var(--text-secondary); }

@@ -559,7 +559,7 @@ function renderIdentity() {
 
   const teams = typeof teamName === 'function'
     ? [player.team_id, ...(player.other_team_ids || [])].map(teamName).filter(Boolean).join(' / ') : null;
-  document.getElementById('playerMeta').textContent = [player.poste, teams].filter(Boolean).join(' – ');
+  document.getElementById('playerMeta').textContent = [player.poste, player.exterieur ? extTeamLabel(player) : teams, player.exterieur_infos].filter(Boolean).join(' – ');   // extérieur : lmfc_v54.sql
 
   const age = ageFrom(player.date_naissance);
   const facts = [
@@ -896,9 +896,16 @@ async function loadPage() {
     renderPlayerShell();
   } else {
     document.getElementById('logoutLink')?.addEventListener('click', (e) => { e.preventDefault(); logout(); });
-    back.href = 'players';
-    back.dataset.back = '';   // retour à la liste telle qu'on l'a laissée (app.js)
-    back.textContent = 'Tous les joueurs';
+    // Venu d'un match (playerLink, lot 2.4) : le retour rouvre ce match. Seules les pages des matchs sont acceptées.
+    const retour = takeUrlParam('retour');   // sert une fois : le bouton garde le lien, l'adresse et la mémoire non (app.js)
+    if (retour && /^matchs(\?id=\d+)?$/.test(retour)) {
+      back.href = retour;
+      back.textContent = retour.includes('id=') ? 'Retour au match' : 'Retour aux matchs';
+    } else {
+      back.href = 'players';
+      back.dataset.back = '';   // retour à la liste telle qu'on l'a laissée (app.js)
+      back.textContent = 'Tous les joueurs';
+    }
     setupTabs();
   }
   const canPhoto = !readOnly && canChangePlayerPhoto(ctxProfile.role);
@@ -919,6 +926,10 @@ async function loadPage() {
       { message: `Aucune fiche lisible pour l'id ${playerId}. Si tu es joueur, vérifie que ton compte est bien associé à une fiche (policy players_read_self).` });
   }
   player = p;
+  // Joueur extérieur (lmfc_v54.sql) : il avait déjà une fiche au club → son historique y passe (player-exterieur.js).
+  const attach = document.getElementById('btnAttachExt');
+  attach.classList.toggle('hidden', !player?.exterieur || readOnly || !['admin', 'coach', 'analyste'].includes(ctxProfile.role));
+  attach.onclick = async () => { const to = await attachExterieur(player); if (to) location.href = `player-performance?id=${to}`; };
   if (ctxProfile.role === 'joueur') { setPlayerShellUser(player); applyPlayerVisibility(); }
   else setupVisibilityToggles();
   renderRpeTrend(player.id);   // RPE après les séances (rpe.js) : le joueur et le staff qui le suit

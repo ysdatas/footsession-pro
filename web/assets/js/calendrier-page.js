@@ -71,7 +71,8 @@ async function fetchItems(from, to) {
       team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, rpeTodo: toRate.has(`${r.kind}:${r.id}`) }));
   }
   const [s, m, e] = await Promise.all([
-    byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, serie_id, lieu, duree_min, created_by')).gte('date_seance', from).lte('date_seance', to),
+    bySessionTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, other_team_ids, serie_id, lieu, duree_min, created_by'))
+      .gte('date_seance', from).lte('date_seance', to).is('fusionnee_dans', null),   // fusionnée : lmfc_v52.sql
     byTeam(sb.from('matches').select('id, adversaire, date_match, heure, team_id, lieu, stade, competition, score_pour, score_contre, created_by'))
       .gte('date_match', from).lte('date_match', to),
     byTeam(sb.from('club_events').select('*')).gte('date_event', from).lte('date_event', to),
@@ -114,7 +115,7 @@ const calShown = () => CAL.items.filter(i => CAL.kinds.has(i.kind));
 const calByDay = (items) => items.reduce((m, i) => m.set(i.date, [...(m.get(i.date) || []), i]), new Map());
 const calTitleOf = (i) => (i.kind === 'match' ? `Match – ${i.titre}` : i.titre);
 function calSub(i) {
-  const team = !CAL.asPlayer && !currentTeamId() ? teamName(i.team_id) : '';
+  const team = !CAL.asPlayer && !currentTeamId() ? (i.kind === 'seance' && i.row ? sessionTeamsLabel(i.row) : teamName(i.team_id)) : '';
   return [i.kind === 'match' ? CAL_LIEUX[i.lieu] : i.lieu, i.stade, i.sub, team].filter(Boolean).join(' – ');
 }
 function calItemHtml(i) {

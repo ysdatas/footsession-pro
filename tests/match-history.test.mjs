@@ -38,9 +38,12 @@ assert.deepEqual(squad([]), [], 'aucun match');
 const comps = run(`mhCompetitions(${JSON.stringify([
   { competition: 'COUPE GAMBARDELLA CRÉDIT AGRICOLE - U19 - U18' }, { competition: 'COUPE GAMBARDELLA CRÉDIT AGRICOLE - U19 - U18 4ème tour éliminatoire' },
   { competition: 'coupe gambardella' }, { competition: 'Régional 1 U18 - U19 - U18' }, { competition: 'Régional 1 U18 - U19 - U18' },
-  { competition: 'LE MANS FC' }, { competition: null }, { competition: 'Coupe de France' }])})`);
-assert.deepEqual(comps.map(c => [c.key, c.label, c.n]), [['coupe gambardella', 'Coupe Gambardella Crédit Agricole', 3], ['regional 1', 'Régional 1 U18', 2],
-  ['coupe france', 'Coupe de France', 1], ['', 'Compétition non renseignée', 2]], 'regroupement des compétitions');
+  { competition: 'LE MANS FC' }, { competition: null }, { competition: 'Coupe de France' }, { competition: 'Régional 1 U15 - U15 - U14' }])})`);
+assert.deepEqual(comps.map(c => [c.key, c.label, c.n]), [['coupe gambardella', 'Coupe Gambardella Crédit Agricole', 3], ['regional 1 u18', 'Régional 1 U18', 2],
+  ['coupe france', 'Coupe de France', 1], ['regional 1 u15', 'Régional 1 U15', 1], ['', 'Compétition non renseignée', 2]],
+  'regroupement des compétitions ; U18 Régional 1 et U15 Régional 1 restent distinctes');
+assert.deepEqual(run(`['Régional 1 U15 - U15 - U14', 'U 17 National', 'N2', 'National 2 - Poule B', 'Régional 1', 'Espoirs', 'Coupe de France'].map(mhCatOf)`),
+  ['u15', 'u17', 'n2', 'n2', 'r1', '', ''], 'catégorie : l’âge d’abord, sinon le niveau');
 
 // Doublons : même date, même adversaire écrit autrement, équipes différentes ; pas deux matchs à des dates différentes.
 const dup = run(`[...mhDuplicates(${JSON.stringify([
@@ -48,6 +51,17 @@ const dup = run(`[...mhDuplicates(${JSON.stringify([
   { id: 3, date_match: '2026-11-07', adversaire: 'ST NAZAIRE AF' }, { id: 4, date_match: '2026-10-10', adversaire: 'ST NAZAIRE AF' },
   { id: 5, date_match: '2026-10-17', adversaire: 'COULAINES JS' }, { id: 6, date_match: '2026-10-17', adversaire: 'CARQUEFOU USJA' }])})].map(([id, o]) => [id, o.map(x => x.id)])`);
 assert.deepEqual(dup, [[1, [2]], [2, [1]]], 'seul le match saisi deux fois est signalé');
+// Catégories différentes (U15 / N2, comme sur la capture du 15/11) : deux matchs du club, pas un doublon ;
+// catégorie inconnue d'un côté : signalé ; paire déclarée distincte (lmfc_v53.sql) : plus signalée.
+const teams = { 5: 'U15', 2: 'N2', 9: 'Pro' };
+const sables = [{ id: 7, date_match: '2026-10-17', adversaire: 'LES SABLES VF', team_id: 5, competition: 'Régional 1 U15 - U15 - U14' },
+  { id: 8, date_match: '2026-10-17', adversaire: 'Les Sables', team_id: 2 }, { id: 9, date_match: '2026-10-17', adversaire: 'LES SABLES VF', team_id: 9 }];
+const dups = (opts) => run(`[...mhDuplicates(${JSON.stringify(sables)}, { teamNameOf: (id) => (${JSON.stringify(teams)})[id] || '', distinct: new Set(${JSON.stringify(opts)}) })]
+  .map(([id, o]) => [id, o.map(x => x.id)])`);
+assert.deepEqual(dups([]), [[7, [9]], [8, [9]], [9, [7, 8]]], 'U15 et N2 distincts ; « Pro » (catégorie inconnue) reste à vérifier');
+assert.deepEqual(dups(['7-9', '8-9']), [], 'décisions « pas un doublon » respectées');
+assert.deepEqual(run(`mhTwins({ date_match: '2026-10-17', adversaire: 'SABLES (LES)', team_id: 2 }, ${JSON.stringify(sables)}, { teamNameOf: (id) => (${JSON.stringify(teams)})[id] || '' }).map(x => x.id)`),
+  [8, 9], 'nouveau match N2 : comparé avant enregistrement');
 // Réunion : le match gardé garde ses valeurs, complète ses cases vides ; les joueurs absents passent ; ni équipe ni import FFF copiés.
 const keep = { id: 10, team_id: 1, competition: null, score_pour: 4, score_contre: 2, heure: null, stade: null, lieu: 'exterieur', infos: null, commentaire: null, a_retenir: null, ext_source: null };
 const drop = { id: 11, team_id: 2, competition: 'Coupe Gambardella', score_pour: 3, score_contre: 2, heure: '15:00:00', stade: '', lieu: 'domicile', infos: null, commentaire: 'Bon match', a_retenir: null, ext_source: 'fff', ext_id: 'x' };

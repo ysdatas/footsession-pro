@@ -60,6 +60,14 @@ const pickPlayers = { on: false, ids: new Set(), anchor: null };
 
   document.getElementById('searchPlayer').addEventListener('input', renderGrid);
   document.getElementById('posteFilter').addEventListener('change', renderGrid);
+  document.getElementById('videoFilter').addEventListener('change', renderGrid);
+  // Relance « vidéos à regarder » (remind-ui.js, lmfc_v59.sql) : les joueurs affichés qui ne les ont pas toutes regardées.
+  document.getElementById('btnRemindVideos').addEventListener('click', () => {
+    const late = shownPlayers().filter(p => p.watch && p.watch.vues < p.watch.videos);
+    if (!late.length) return toast('Les joueurs affichés ont regardé toutes leurs vidéos.', 'success');
+    openRemindDialog({ kind: 'video', label: 'Joueurs affichés qui n’ont pas regardé toutes les vidéos envoyées.',
+      players: late.map(p => ({ id: p.id, name: fullName(p) })) });
+  });
 
   await loadGrid();
   onRestore(loadGrid);   // retour arrière : liste relue (app.js)
@@ -81,10 +89,12 @@ async function loadGrid() {
     // Joueurs, mesures et niveaux d'accès en une vague (avant : les joueurs d'abord).
     // La base ne renvoie que les mesures des joueurs permis ; seules celles des
     // joueurs affichés servent (latestMeasures, par joueur).
-    const [pRes, mRes, lRes] = await Promise.all([
+    const [pRes, mRes, lRes, wRes] = await Promise.all([
       byPlayerTeam(sb.from('players').select('*').order('nom')),
       sb.from('player_physical_measurements').select('player_id, season_key, month_label, measured_at, height_cm, weight_kg'),
       CAN_EDIT_PLAYERS ? sb.rpc('my_player_levels') : Promise.resolve({ data: [] }),
+      // Vidéos regardées (lmfc_v58.sql) : mêmes droits que le suivi des lectures.
+      ['admin', 'coach', 'analyste', 'lecteur'].includes(myProfile.role) ? sb.rpc('video_watch_summary') : Promise.resolve({ data: null }),
     ]);
     if (pRes.error) throw pRes.error;
     const players = pRes.data || [];
@@ -94,7 +104,11 @@ async function loadGrid() {
     if (lRes.error) console.warn('Niveaux d’accès indisponibles', lRes.error.message);
     readOnlyIds = new Set((lRes.data || []).filter(r => r.niveau !== 'modification').map(r => Number(r.player_id)));
     const last = latestMeasures(mRes.data || []);
-    playersCache = players.map(p => ({ ...p, photo_url: photos.get(p.photo_path) || null, ...last.get(p.id) }));
+    if (wRes.error) console.warn('Suivi des vidéos indisponible (lmfc_v58.sql ?)', wRes.error.message);
+    const watch = new Map((wRes.data || []).map(w => [Number(w.player_id), w]));
+    document.getElementById('videoFilter').classList.toggle('hidden', !wRes.data);
+    document.getElementById('btnRemindVideos').classList.toggle('hidden', !wRes.data || !['admin', 'coach', 'analyste'].includes(myProfile.role));
+    playersCache = players.map(p => ({ ...p, photo_url: photos.get(p.photo_path) || null, ...last.get(p.id), watch: watch.get(p.id) || null }));
 
     fillPosteFilter();
     renderUnassigned();
@@ -149,8 +163,26 @@ function setPickPlayers(on) {
 /* Joueurs affichés (recherche et filtre appliqués) : « Tout sélectionner » porte sur eux. */
 function shownPlayers() {
   const q = normalizeName(document.getElementById('searchPlayer').value);
-  const poste = document.getElementById('posteFilter').value;
-  return playersCache.filter(p => (!q || normalizeName(fullName(p)).includes(q)) && (!poste || (p.poste || '').trim() === poste));
+  const poste = document.getElementById('posteFilter').value, vid = document.getElementById('videoFilter').value;
+  return playersCache.filter(p => (!q || normalizeName(fullName(p)).includes(q)) && (!poste || (p.poste || '').trim() === poste) && watchMatch(p.watch, vid));
+}
+/* Filtre « vidéos » : w = résumé du joueur (video_watch_summary) ; sans vidéo envoyée, seul « Toutes » le montre. */
+function watchMatch(w, f) {
+  if (!f) return true;
+  if (!w?.videos) return false;
+  if (f === 'toutes') return w.vues === w.videos;
+  if (f === 'partiel') return w.vues + w.ouvertes > 0 && w.vues < w.videos;
+  if (f === 'aucune') return w.vues + w.ouvertes === 0;
+  return w.vues < w.videos;   // reste
+}
+/* Anneau : vidéos regardées sur vidéos envoyées (« 7/10 », 70 %). Regardée = 80 % de sa durée lue (lmfc_v58.sql). */
+function watchRing(w) {
+  if (!w?.videos) return '';
+  const pct = Math.round(100 * w.vues / w.videos), rest = w.videos - w.vues;
+  const title = `${w.vues} vidéo${w.vues > 1 ? 's' : ''} regardée${w.vues > 1 ? 's' : ''} sur ${w.videos} (${pct} %)`
+    + (rest ? ` – ${rest} à regarder${w.ouvertes ? `, dont ${w.ouvertes} ouverte${w.ouvertes > 1 ? 's' : ''} sans être regardée${w.ouvertes > 1 ? 's' : ''}` : ''}` : '')
+    + (w.derniere ? ` – dernière lecture le ${new Date(w.derniere).toLocaleDateString('fr-FR')}` : ' – jamais ouvertes');
+  return `<span class="pr-watch${rest ? '' : ' is-done'}" style="--p:${pct}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><b>${w.vues}/${w.videos}</b></span>`;
 }
 function renderPlayersBulk() {
   const box = document.getElementById('playersBulk');
@@ -236,11 +268,13 @@ function playerRow(p) {
     ? `<img class="pr-photo" src="${escapeHtml(p.photo_url)}" alt="" loading="lazy" draggable="false">`
     : `<span class="pr-avatar ${avatarClass(i)}">${escapeHtml(playerInitials(p))}</span>`;
   // L'équipe n'est rappelée que lorsque toutes les équipes sont affichées.
-  const team = !currentTeamId() && 'team_id' in p ? [p.team_id, ...(p.other_team_ids || [])].map(teamName).filter(Boolean).join(' / ') : '';
+  const team = p.exterieur ? extTeamLabel(p)   // joueur extérieur : lmfc_v54.sql, player-exterieur.js
+    : !currentTeamId() && 'team_id' in p ? [p.team_id, ...(p.other_team_ids || [])].map(teamName).filter(Boolean).join(' / ') : '';
   const data = [
     num(p.height_cm) !== null ? `<span title="Taille">${frNum(p.height_cm / 100, 2)} m</span>` : '',
     num(p.weight_kg) !== null ? `<span title="Poids">${frNum(p.weight_kg, 1)} kg</span>` : '',
     p.poste ? `<span class="pr-poste" title="Poste">${escapeHtml(p.poste)}</span>` : '',
+    watchRing(p.watch),
   ].filter(Boolean).join('');
   if (pickPlayers.on) {
     const on = pickPlayers.ids.has(p.id);
@@ -253,7 +287,7 @@ function playerRow(p) {
   // Modifier : double-clic sur la ligne, ou le crayon (toujours visible sur écran tactile).
   const edit = canWritePlayer(p.id) ? `<span class="pr-edit" data-edit="${p.id}" role="button" title="Modifier (ou double-clic sur la ligne)" aria-label="Modifier ${escapeHtml(fullName(p))}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></span>` : '';
-  return `<a class="player-row${canWritePlayer(p.id) ? ' can-edit' : ''}" href="player-performance?id=${p.id}" data-id="${p.id}" draggable="${canDragLines()}">
+  return `<a class="player-row${canWritePlayer(p.id) ? ' can-edit' : ''}" href="player-performance?id=${p.id}" data-id="${p.id}" draggable="${canDragLines() && !p.exterieur}">
     ${photo}
     <span class="pr-name"><strong>${escapeHtml(fullName(p))}</strong>${team ? `<small>${escapeHtml(team)}</small>` : ''}</span>
     <span class="pr-data">${data}</span>
@@ -271,7 +305,7 @@ function renderGrid() {
   }
   const q = normalizeName(document.getElementById('searchPlayer').value);
   const poste = document.getElementById('posteFilter').value;
-  const filtering = !!(q || poste);
+  const filtering = !!(q || poste || document.getElementById('videoFilter').value);
   const shown = shownPlayers();
   if (!shown.length) {
     wrap.innerHTML = '<div class="empty">Aucun joueur ne correspond à cette recherche.</div>';
@@ -281,7 +315,7 @@ function renderGrid() {
   const groups = [...PLAYER_LINES, { key: null, label: 'À classer' }];
   wrap.innerHTML = (drag ? '<p class="lines-hint">Glisser un joueur pour changer sa ligne.</p>' : '')
     + groups.map(g => {
-      const members = shown.filter(p => lineOf(p) === g.key);
+      const members = shown.filter(p => !p.exterieur && lineOf(p) === g.key);
       // Rubriques vides : gardées comme zones de dépôt, sauf pendant une recherche.
       if (!members.length && (g.key === null || filtering || !drag)) return '';
       return `<section class="line-group line-${g.key || 'none'}" ${g.key && drag ? `data-line="${g.key}"` : ''}>
@@ -289,7 +323,11 @@ function renderGrid() {
         <div class="players-list">${members.map(playerRow).join('')
           || '<div class="line-empty">Glissez un joueur ici</div>'}</div>
       </section>`;
-    }).join('');
+    }).join('')
+    // Joueurs extérieurs (lmfc_v54.sql) : d'aucun effectif, à part, pour les retrouver.
+    + (shown.some(p => p.exterieur) ? `<section class="line-group line-ext">
+        <h2 class="line-title">Joueurs extérieurs<span>${shown.filter(p => p.exterieur).length}</span></h2>
+        <div class="players-list">${shown.filter(p => p.exterieur).map(playerRow).join('')}</div></section>` : '');
 }
 
 /* Mode sélection : un clic (ou Espace / Entrée) coche la ligne ; Maj + clic,
@@ -382,7 +420,7 @@ document.getElementById('gridView').addEventListener('drop', async (e) => {
 function renderUnassigned() {
   const box = document.getElementById('unassignedBar');
   const team = currentTeam();
-  const orphans = playersCache.filter(p => 'team_id' in p && p.team_id == null);
+  const orphans = playersCache.filter(p => 'team_id' in p && p.team_id == null && !p.exterieur);   // extérieur : sans équipe par nature
   if (!orphans.length || !CAN_EDIT_PLAYERS) { box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
   box.innerHTML = `<span>${orphans.length} joueur${orphans.length > 1 ? 's' : ''} sans équipe : le staff des équipes ne ${orphans.length > 1 ? 'les' : 'le'} voit pas.</span>

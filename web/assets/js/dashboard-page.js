@@ -67,12 +67,12 @@ async function renderAttention(profile, can) {
     // reste filtré sur eux). La base ne renvoie que les joueurs permis ; le
     // filtre de l'équipe choisie se fait ici, sur leurs identifiants.
     const [pRes, seqRes, nextRes, objRes, accessRes, measRes, soreRes] = await Promise.all([
-      byPlayerTeam(sb.from('players').select('id')),
+      byPlayerTeam(sb.from('players').select('id').eq('exterieur', false)),   // extérieurs hors effectif : lmfc_v54.sql
       can('videos')
         ? sb.from('video_sequences').select('id, player_id, submitted_at, feedback_at').not('submitted_at', 'is', null)
         : none,
       can('sessions')
-        ? byTeam(sb.from('sessions').select('id, titre, date_seance').gte('date_seance', today).order('date_seance').limit(1))
+        ? bySessionTeam(sb.from('sessions').select('id, titre, date_seance').gte('date_seance', today).is('fusionnee_dans', null).order('date_seance').limit(1))
         : none,
       can('performance')
         ? sb.from('player_performance_notes').select('player_id').in('kind', ['objective', 'prevention']).eq('status', 'active')

@@ -99,6 +99,10 @@ globalThis.fetch = async (url, init = {}) => {
   if (u.pathname === '/rest/v1/rpc/soreness_notifs_take') {   // lmfc_v35.sql : alerte du joueur appelant
     return Response.json(SORE[init.headers.authorization.replace('Bearer ', '')] || { messages: [] });
   }
+  if (u.pathname === '/rest/v1/rpc/remind_take') {   // lmfc_v59.sql : avis et vidéos, même circuit
+    REMIND.fn = 'remind_take'; REMIND.args = JSON.parse(init.body);
+    return REMIND.error ? Response.json({ message: REMIND.error }, { status: 400 }) : Response.json(REMIND.out);
+  }
   if (u.pathname === '/rest/v1/rpc/rpe_remind_take') {   // lmfc_v50.sql : la base choisit et trace
     REMIND.args = JSON.parse(init.body);
     return REMIND.error ? Response.json({ message: REMIND.error }, { status: 400 }) : Response.json(REMIND.out);
@@ -208,4 +212,24 @@ r = await call('POST', '/api/push/rpe', { token: jwt(COACH), body: REM });
 assert.equal(r.status, 400);
 assert.match((await r.json()).error, /saisie est fermée/, 'le refus de la base est dit tel quel');
 
-console.log('push-worker : OK (RFC 8291, VAPID, droits, nettoyage, calendrier, courbatures, relance RPE)');
+/* ---------- Relances d'avis et de vidéos (lmfc_v59.sql) : même circuit, autre fonction de la base ---------- */
+delete REMIND.error;
+for (const bad of [{ kind: 'seance', id: 1, players: [10] }, { kind: 'avis', id: null, players: [10] }, { kind: 'video', id: 3, players: [10] },
+  { kind: 'video', players: Array.from({ length: 13 }, (_, i) => i) }]) {
+  assert.equal((await call('POST', '/api/push/remind', { token: jwt(COACH), body: bad })).status, 400, `relance invalide refusée : ${JSON.stringify(bad)}`);
+}
+assert.equal((await call('POST', '/api/push/remind', { body: { kind: 'video', players: [10] } })).status, 401, 'sans connexion');
+const VID = { title: 'Vidéos à regarder', body: '2 vidéos envoyées par le staff ne sont pas encore regardées.', url: 'mes-videos.html?rappel=21' };
+REMIND.out = { messages: [{ ...VID, reminder: 21, player_id: 10, subs: [{ id: 1, ...iphone }] }], skipped: [{ player_id: 12, reason: 'a_jour' }] };
+received.length = 0;
+r = await call('POST', '/api/push/remind', { token: jwt(COACH), body: { kind: 'video', players: [10, 12] } });
+assert.equal(r.status, 200);
+assert.equal(REMIND.fn, 'remind_take', 'fonction des relances d’avis et de vidéos');
+assert.deepEqual(REMIND.args, { p_kind: 'video', p_id: null, p_players: [10, 12] });
+assert.deepEqual(await r.json(), { sent: [{ player_id: 10, delivered: 1 }], skipped: [{ player_id: 12, reason: 'a_jour' }] });
+assert.deepEqual(received[0].msg, VID, 'lien avec la relance (lecture)');
+REMIND.fn = null;
+r = await call('POST', '/api/push/remind', { token: jwt(COACH), body: { kind: 'avis', id: 5, players: [10] } });
+assert.deepEqual([REMIND.fn, REMIND.args.p_id], ['remind_take', 5], 'avis : le match');
+
+console.log('push-worker : OK (RFC 8291, VAPID, droits, nettoyage, calendrier, courbatures, relances RPE, avis, vidéos)');

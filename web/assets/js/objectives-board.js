@@ -56,12 +56,12 @@ function renderObjectivesTab() {
   }
   const inRoster = objBoard.rows.filter(r => objPlayer(r.player_id));
   const ofKind = inRoster.filter(r => objBoard.kind === 'all' || r.kind === objBoard.kind);
-  const q = cmpSearch.trim().toLowerCase();
+  const q = searchKey(cmpSearch.trim());
   const shown = ofKind.filter(r =>
     (objBoard.status === 'all' || objStatusKey(r) === objBoard.status)
     && (!objBoard.player || r.player_id === objBoard.player)
-    && (!q || playerName(objPlayer(r.player_id)).toLowerCase().includes(q)
-      || noteTitle(r).toLowerCase().includes(q) || (r.body || '').toLowerCase().includes(q)));
+    && (!q || searchKey(playerName(objPlayer(r.player_id))).includes(q)
+      || searchKey(noteTitle(r)).includes(q) || searchKey(r.body).includes(q)));
   const count = (k) => ofKind.filter(r => k === 'all' || objStatusKey(r) === k).length;
   const kindCount = (k) => inRoster.filter(r => k === 'all' || r.kind === k).length;
   const chips = [['all', 'Tous'], ['active', 'En cours'], ['achieved', 'Atteints'], ['missed', 'Non atteints']];

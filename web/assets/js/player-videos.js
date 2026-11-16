@@ -51,12 +51,15 @@ function unmountPlayerVideos() { PV.token++; PV.pick.on = false; }
 async function pvLoad() {
   const box = PV.root, token = PV.token;
   try {
-    const [vRes, sRes] = await Promise.all([
+    const [vRes, sRes, wRes] = await Promise.all([
       sb.from('player_videos')
         .select('*, video_views(watched_seconds, max_position_seconds, last_heartbeat_at)')
         .eq('player_id', PV.player.id).order('created_at', { ascending: false }),
       sb.from('video_sequences').select('*').eq('player_id', PV.player.id).order('start_sec'),
+      sb.rpc('video_watch_detail', { p_player: PV.player.id }),   // vidéos regardées (lmfc_v58.sql)
     ]);
+    if (wRes.error) console.warn('Suivi des vidéos indisponible (lmfc_v58.sql ?)', wRes.error.message);
+    PV.watch = new Map((wRes.data || []).map(w => [Number(w.video_id), w]));
     if (vRes.error) throw vRes.error;
     if (sRes.error) console.warn('Séquences indisponibles (platform_v2.sql non passée ?) :', sRes.error.message);
     if (token !== PV.token) return;
@@ -88,7 +91,16 @@ async function pvSign(videos) {
 /* ---------- Rendu ---------- */
 const pvVideoOf = (s) => PV.videos.find(v => v.id === s.video_id);
 const pvToSee = () => PV.seqs.filter(seqToSee).sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+/* Suivi d'une vidéo (lmfc_v58.sql) : ouverte n'est pas regardée ; regardée = 80 % de sa durée lue. */
 function pvViews(v) {
+  const w = PV.watch?.get(v.id);
+  if (w) {
+    const day = w.derniere ? ` – dernière le ${pvDay(w.derniere)}` : '';
+    const pct = w.progression !== null ? ` – ${w.progression} % lus` : '';
+    const seqs = w.sequences ? ` – séquences regardées : ${w.sequences_vues}/${w.sequences}` : '';
+    if (w.statut === 'a_voir') return `Pas encore ouverte par le joueur${seqs}`;
+    return `${w.statut === 'vue' ? 'Regardée' : 'Ouverte, pas regardée'}${pct} – ${pvPlural(w.lectures, 'lecture', 'lectures')}${day}${seqs}`;
+  }
   const views = v.video_views || [];
   if (!views.length) return 'Pas encore vue par le joueur';
   const posMax = views.reduce((m, x) => Math.max(m, x.max_position_seconds || 0), 0);
@@ -341,16 +353,11 @@ function ensureVideoModals() {
   <div class="modal-backdrop" id="wsModal">
     <div class="modal modal-xl">
       <div class="ws-head"><span class="ws-who" id="wsTitle">Joueur</span>
-        <div class="ws-nav" id="wsNav" hidden></div>
         <button class="btn btn-sm" type="button" data-close="wsModal">Fermer</button></div>
       <div id="wsRoot"></div>
     </div>
   </div>`);
   document.getElementById('v-submit').addEventListener('click', uploadVideos);
-  document.getElementById('wsNav').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-ws-step]');
-    if (b && !b.disabled) wsStep(Number(b.dataset.wsStep));
-  });
   // Fermeture du poste de travail (bouton, Échap, clic à côté) : on coupe
   // la vidéo et on rafraîchit la liste si quelque chose a changé.
   new MutationObserver(() => {
@@ -380,12 +387,14 @@ async function openVideoWorkspace({ video, url, player, profile, seqId = null, o
 }
 async function wsMount(it) {
   document.getElementById('wsTitle').textContent = pvName(it.player);
-  renderWsNav();
   document.getElementById('playerVideo')?.pause();
+  const { list, i } = pvWs;
   pvWs.ws = await mountVideoWorkspace(document.getElementById('wsRoot'), {
     video: it.video, src: it.url, player: it.player, mode: 'staff', userId: pvWs.profile.id, focusSeq: it.seqId,
     readOnly: isReader(pvWs.profile.role),   // lecteur : consultation seule
     onChange: () => { pvWs.dirty = true; },
+    // Précédent / Suivant sous l'image, avec Lecture/Pause et Stop (video-workspace.js), dans l'ordre de la liste.
+    nav: list.length > 1 && i >= 0 ? { index: i, total: list.length, label: list[i].label, onStep: wsStep } : null,
   });
   // La suivante, si elle vient d'une autre vidéo : lien signé et index chargés d'avance.
   const next = pvWs.list[pvWs.i + 1];
@@ -396,14 +405,6 @@ async function preloadSeq(it) {
     it.url ||= await videoUrl(it.video.storage_path);
     if (it.url) Object.assign(document.createElement('video'), { preload: 'metadata', muted: true, src: it.url });
   } catch (e) { console.warn('Séquence suivante non préparée', e); }
-}
-function renderWsNav() {
-  const nav = document.getElementById('wsNav'), { list, i } = pvWs;
-  nav.hidden = list.length < 2 || i < 0;
-  if (nav.hidden) return;
-  nav.innerHTML = `<button class="btn btn-sm" type="button" data-ws-step="-1"${i > 0 ? '' : ' disabled'} aria-label="Séquence précédente"><span class="arr arr-prev" aria-hidden="true"></span>Précédent</button>
-    <span class="ws-pos" aria-live="polite"><strong>${i + 1} / ${list.length}</strong><span>${escapeHtml(list[i].label || 'Séquence')}</span></span>
-    <button class="btn btn-sm" type="button" data-ws-step="1"${i < list.length - 1 ? '' : ' disabled'} aria-label="Séquence suivante">Suivant<span class="arr arr-next" aria-hidden="true"></span></button>`;
 }
 async function wsStep(d) {
   const it = pvWs.list[pvWs.i + d];

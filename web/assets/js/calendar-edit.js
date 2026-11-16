@@ -25,7 +25,7 @@ const ceVal = (id) => ceEl(id).value.trim();
 const ceDay = (iso) => calFmt(iso, { weekday: 'short', day: 'numeric', month: 'short' });
 const ceSeasonEnd = (iso) => `${Number(iso.slice(0, 4)) + (Number(iso.slice(5, 7)) >= 7 ? 1 : 0)}-06-30`;
 const ceRadio = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
-const ceTeamPlayers = () => (CE.players || []).filter(p => CE.team && (p.team_id === CE.team || (p.other_team_ids || []).includes(CE.team)));
+const ceTeamPlayers = () => (CE.players || []).filter(p => CE.team && !p.exterieur && (p.team_id === CE.team || (p.other_team_ids || []).includes(CE.team)));
 const ceName = (p) => `${p.prenom || ''} ${p.nom}`.trim();
 const cePlural = (n, kind) => `${n} ${kind === 'seance' ? `séance${n > 1 ? 's' : ''}` : `événement${n > 1 ? 's' : ''}`}`;
 
@@ -64,7 +64,7 @@ async function ceTeamChanged() {
   const box = ceEl('cePlayers');
   box.classList.toggle('hidden', !CE.team || (CE.mode === 'edit' && CE.kind === 'seance'));
   if (!CE.players) {
-    const { data, error } = await sb.from('players').select('id, nom, prenom, team_id, other_team_ids').order('nom');
+    const { data, error } = await sb.from('players').select('id, nom, prenom, team_id, other_team_ids, exterieur').order('nom');
     if (error) console.warn('Calendrier : joueurs illisibles', error.message);
     CE.players = data || [];
   }

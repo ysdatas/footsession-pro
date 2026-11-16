@@ -17,30 +17,20 @@
     if (!src) throw new Error('Vidéo indisponible');
     document.title = `${video.titre} — LMFC Performance`;
     const { data: { session } } = await sb.auth.getSession();
-    const mount = (v, url, seq) => mountVideoWorkspace(document.getElementById('vvContent'), {
-      video: v, src: url, player, mode: 'player', userId: session.user.id,
-      focusSeq: seq, backHref: 'mes-videos', history: true,
-    });
-    let ws = await mount(video, src, Number(params.get('seq')) || null);
-    initVideoTracking({ videoId: video.id, videoElId: 'playerVideo' });
-
-    /* Précédent / Suivant : la liste de « Mes vidéos », dans son ordre. Chaque
-       séquence est relue avec SES droits (ses vidéos seulement) et signée par
-       le Worker : une autre ne s'ouvre jamais, même avec son adresse. */
+    /* Précédent / Suivant : la liste de « Mes vidéos », dans son ordre, sous l'image avec
+       Lecture/Pause et Stop (video-workspace.js). Chaque séquence est relue avec SES droits
+       (ses vidéos seulement) et signée par le Worker : une autre ne s'ouvre jamais, même avec son adresse. */
     let list = [];
     try { list = JSON.parse(sessionStorage.getItem('lmfc-vv-list') || '[]'); } catch { list = []; }
     let idx = list.findIndex(x => x.id === video.id && x.seq === Number(params.get('seq')));
-    const nav = document.getElementById('vvNav');
-    let busy = false;
-    const renderNav = () => {
-      nav.hidden = idx < 0 || list.length < 2;
-      if (nav.hidden) return;
-      nav.innerHTML = `<button class="btn btn-sm" type="button" data-step="-1"${idx > 0 ? '' : ' disabled'} aria-label="Séquence précédente"><span class="arr arr-prev" aria-hidden="true"></span>Précédent</button>
-        <span class="ws-pos" aria-live="polite"><strong>${idx + 1} / ${list.length}</strong><span>${escapeHtml(list[idx].label || 'Séquence')}</span></span>
-        <button class="btn btn-sm" type="button" data-step="1"${idx < list.length - 1 ? '' : ' disabled'} aria-label="Séquence suivante">Suivant<span class="arr arr-next" aria-hidden="true"></span></button>`;
-    };
-    nav.addEventListener('click', async (e) => {
-      const b = e.target.closest('[data-step]'), it = b && !b.disabled && list[idx + Number(b.dataset.step)];
+    let busy = false, ws = null;
+    const mount = (v, url, seq) => mountVideoWorkspace(document.getElementById('vvContent'), {
+      video: v, src: url, player, mode: 'player', userId: session.user.id,
+      focusSeq: seq, backHref: 'mes-videos', history: true,
+      nav: idx >= 0 && list.length > 1 ? { index: idx, total: list.length, label: list[idx].label, onStep: step } : null,
+    });
+    async function step(d) {
+      const it = list[idx + d];
       if (!it || busy || (await ws?.canLeave()) === false) return;
       busy = true;
       try {
@@ -48,17 +38,17 @@
         const url = v && await videoUrl(v.storage_path);
         if (!url) return toast('Séquence indisponible.', 'error');
         document.getElementById('playerVideo')?.pause();
-        idx += Number(b.dataset.step);
+        idx += d;
         ws = await mount(v, url, it.seq);
-        initVideoTracking({ videoId: v.id, videoElId: 'playerVideo' });
+        initVideoTracking({ videoId: v.id, videoElId: 'playerVideo', seqId: it.seq || null });
         document.title = `${v.titre} — LMFC Performance`;
-        renderNav();
       } catch (err) {
         console.error('Séquence suivante illisible', err);
         toast('Séquence indisponible.', 'error');
       } finally { busy = false; }
-    });
-    renderNav();
+    }
+    ws = await mount(video, src, Number(params.get('seq')) || null);
+    initVideoTracking({ videoId: video.id, videoElId: 'playerVideo', seqId: Number(params.get('seq')) || null });
   } catch (e) {
     console.error('voir-video', e);
     box.innerHTML = `<p class="text-danger">Impossible de charger la vidéo (${escapeHtml(e.message || 'erreur inconnue')}).</p>`;

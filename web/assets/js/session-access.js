@@ -25,14 +25,13 @@ const access = {
 /* Niveau sans réglage nominatif : même règle que session_level() et
    team_level() côté base (lmfc_v19.sql). */
 function accessDefault(m) {
-  if (m.role === 'analyste') {
-    const teams = m.team_ids || [];
-    return sessionTeamId && teams.includes(sessionTeamId) ? 'modification' : 'aucun';
-  }
+  // Toutes les équipes de la séance comptent (sessions.other_team_ids, lmfc_v51.sql).
+  const inSession = (m.team_ids || []).some(t => t === sessionTeamId || sessionOtherTeams.includes(t));
+  if (m.role === 'analyste') return sessionTeamId && inSession ? 'modification' : 'aucun';
   if (m.role === 'admin' || m.id === access.creator) return 'modification';
   if (access.base === 'club') return m.role === 'coach' ? 'modification' : 'lecture';
   const teams = m.team_ids || [], coach = m.role === 'coach';
-  if (sessionTeamId && teams.includes(sessionTeamId)) return coach ? 'modification' : 'lecture';   // staff de l'équipe
+  if (sessionTeamId && inSession) return coach ? 'modification' : 'lecture';   // staff d'une équipe de la séance
   if (!sessionTeamId && teams.length) return 'lecture';
   if (!hasTeams()) return coach ? 'modification' : 'lecture';                                       // club sans équipe
   return m.lecture_club ? 'lecture' : 'aucun';
@@ -75,12 +74,13 @@ async function initAccess(session, staffReady) {
 
 function renderAccess() {
   if (!access.ready) return;
-  const team = teamName(sessionTeamId);
+  const team = sessionTeamsLabel({ team_id: sessionTeamId, other_team_ids: sessionOtherTeams });
+  const several = sessionOtherTeams.length > 0;
   document.getElementById('accessHint').textContent = myProfile.role === 'analyste'
     ? 'L’accès reste limité aux équipes qui vous sont attribuées.'
     : access.base === 'club'
     ? 'Tout le staff du club consulte la séance ; administrateur et coachs la modifient.'
-    : `Le staff ${team ? `de l’équipe ${team}` : 'du club'} consulte la séance (ainsi que le staff sans équipe fixe). Vous et l’administrateur la modifiez.`;
+    : `Le staff ${team ? `${several ? 'des équipes' : 'de l’équipe'} ${team}` : 'du club'} consulte la séance (ainsi que le staff sans équipe fixe). Vous et l’administrateur la modifiez.`;
   document.getElementById('accessList').innerHTML = access.staff.map(m => {
     const teamManagedAnalyst = m.role === 'analyste';
     const fixed = m.role === 'admin' || m.id === access.creator || teamManagedAnalyst;

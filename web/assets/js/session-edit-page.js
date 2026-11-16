@@ -30,7 +30,10 @@ let bilans = new Map(); // player_id → {note: 'plus'|'egal'|'moins'|null, comm
 let uidSeq = 1;
 const nextUid = () => 'p' + (uidSeq++);
 let sessionTeamId = null; // équipe du club concernée (table teams), null = sans équipe
+let sessionOtherTeams = []; // équipes associées (sessions.other_team_ids, lmfc_v51.sql)
+let otherTeamsKnown = false; // colonne lue ou équipes touchées : on l'enregistre (sinon, base d'avant lmfc_v51.sql)
 let loadedSession = null; // la séance telle que lue (créateur, accès de base)
+let mergedSources = [];    // séances fusionnées dans celle-ci (session-merge.js, lmfc_v52.sql)
 const hasTeams = () => (window.CLUB_TEAMS || []).length > 0;
 /* Équipes où ce compte range une séance (lmfc_v39.sql : la base refuse les autres) ; une séance ouverte garde la sienne. */
 const teamsForSession = () => (window.CLUB_TEAMS || []).filter(t => myProfile.role === 'admin'
@@ -47,10 +50,12 @@ const teamsForSession = () => (window.CLUB_TEAMS || []).filter(t => myProfile.ro
   const staffReady = loadStaffSuggestions();
   // Séance existante : le droit de la modifier vient de la base (créateur, réglages, équipe).
   if (EDITOR_MODE === 'edit') {
-    const [{ data: lvl, error }, loaded] = await Promise.all([sb.rpc('session_access_level', { p_session: SESSION_ID }), loadSession()]);
+    const [{ data: lvl, error }, loaded, merged] = await Promise.all([sb.rpc('session_access_level', { p_session: SESSION_ID }), loadSession(), loadMergedSources()]);
+    mergedSources = merged;
     if (loaded === null) return;                 // introuvable : retour à la liste en cours
     if (loaded === false) return showLoadFailure();
     if (!error && lvl) CAN_WRITE = lvl === 'modification';   // sans lmfc_v10.sql : le rôle décide, comme avant
+    if (loadedSession?.fusionnee_dans) CAN_WRITE = false;      // séance fusionnée (lmfc_v52.sql) : en lecture, la fusion se défait par son bandeau
   }
 
   document.getElementById('uName').textContent = myProfile.nom || 'Utilisateur';
@@ -107,7 +112,7 @@ const teamsForSession = () => (window.CLUB_TEAMS || []).filter(t => myProfile.ro
   renderAttendance();
   renderBilans();
   updateMeta();
-  if (EDITOR_MODE === 'edit') renderShare();
+  if (EDITOR_MODE === 'edit') { renderShare(); initSessionMerge(mergedSources); }   // fusion : session-merge.js
   await initAccess(loadedSession, staffReady);
   if (CAN_WRITE) {
     const main = document.querySelector('main');
@@ -138,7 +143,7 @@ const teamsForSession = () => (window.CLUB_TEAMS || []).filter(t => myProfile.ro
 async function offerPlanned() {
   if (EDITOR_MODE !== 'create' || savedSessionId || !CAN_WRITE || !sessionTeamId) return;
   const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
-  const { data, error } = await sb.from('sessions').select('id, titre, date_seance, heure, procedures(id)').eq('team_id', sessionTeamId)
+  const { data, error } = await sb.from('sessions').select('id, titre, date_seance, heure, procedures(id)').eq('team_id', sessionTeamId).is('fusionnee_dans', null)
     .gte('date_seance', day(-7)).lte('date_seance', day(14)).order('date_seance').order('heure');
   if (error) return console.warn('Séances prévues illisibles', error);
   const list = (data || []).filter(s => !s.procedures.length);
@@ -205,26 +210,63 @@ function mountTeamSelect() {
   input.classList.add('hidden');
   input.after(select);
   document.querySelector('label[for="f-equipe"]')?.setAttribute('for', 'f-team');   // le libellé suit la liste
-  select.addEventListener('change', async () => {
+  select.addEventListener('change', () => {
     sessionTeamId = Number(select.value) || null;
-    // Les statuts déjà saisis et les invités restent ; la liste suit la nouvelle équipe.
-    const before = new Map(attendance.map(a => [a.player_id, a]));
-    await loadPlayersForNew();
-    attendance.forEach(a => { const b = before.get(a.player_id); if (b) Object.assign(a, { statut: b.statut, statut_libre: b.statut_libre, present: b.present }); });
-    renderAccess();   // le staff de l'équipe change
-    before.forEach(b => { if (!attendance.some(a => a.player_id === b.player_id) && (b.invite || participe(b))) attendance.push(b); });
-    renderAttendance();
-    renderRosterDependents();
+    sessionOtherTeams = sessionTeamId ? sessionOtherTeams.filter(id => id !== sessionTeamId) : [];
+    teamsChanged();
     offerPlanned();
+  });
+  // Équipes associées : un bouton par équipe, enfoncé quand elle est associée.
+  document.getElementById('teamAssoc').classList.remove('hidden');
+  renderOtherTeams();
+  document.getElementById('otherTeams').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-other-team]');
+    if (!b || b.disabled) return;
+    const id = Number(b.dataset.otherTeam);
+    sessionOtherTeams = sessionOtherTeams.includes(id) ? sessionOtherTeams.filter(x => x !== id) : [...sessionOtherTeams, id].sort((x, y) => x - y);
+    otherTeamsKnown = true;
+    teamsChanged();
+    markDirty();
   });
 }
 
-/* Joueurs proposés dans la liste de présence : ceux de l'équipe de la
-   séance, plus ceux déjà inscrits (knownIds : invités, présents d'avant).
+/* La base n'accepte que ses propres équipes (l'admin, toutes) ; on ne retire une équipe
+   qu'avec ses droits, sauf la séance qu'on a créée (guard_session_access, lmfc_v51.sql). */
+const ownTeam = (id) => myProfile.role === 'admin' || (myProfile.team_ids || []).includes(id);
+const canDropTeam = (id) => ownTeam(id) || !loadedSession || loadedSession.created_by === myProfile.id;
+function renderOtherTeams() {
+  const box = document.getElementById('otherTeams');
+  const list = (window.CLUB_TEAMS || []).filter(t => t.id !== sessionTeamId && (ownTeam(t.id) || sessionOtherTeams.includes(t.id)));
+  box.innerHTML = loadedSession && !('other_team_ids' in loadedSession) ? '<span class="field-hint">Demande la mise à jour de la base (lmfc_v51.sql).</span>'
+    : !sessionTeamId ? '<span class="field-hint">Choisissez d’abord l’équipe de la séance.</span>'
+    : !list.length ? '<span class="field-hint">Aucune autre de vos équipes à associer.</span>'
+    : list.map(t => {
+      const on = sessionOtherTeams.includes(t.id), locked = !CAN_WRITE || (on ? !canDropTeam(t.id) : !ownTeam(t.id));
+      return `<button type="button" class="chip" data-other-team="${t.id}" aria-pressed="${on}"${locked ? ' disabled' : ''}>${escapeHtml(t.nom)}</button>`;
+    }).join('');
+}
+
+/* Équipes de la séance changées : l'effectif suit (sans doublon), les statuts déjà saisis
+   et les invités restent ; un invité dont l'équipe est maintenant associée n'est plus invité. */
+async function teamsChanged() {
+  const before = new Map(attendance.map(a => [a.player_id, a]));
+  await loadPlayersForNew();
+  attendance.forEach(a => { const b = before.get(a.player_id); if (b) Object.assign(a, { statut: b.statut, statut_libre: b.statut_libre, present: b.present }); });
+  before.forEach(b => { if (!attendance.some(a => a.player_id === b.player_id) && (b.invite || participe(b))) attendance.push(b); });
+  renderOtherTeams();
+  renderAccess();   // le staff des équipes change
+  renderAttendance();
+  renderRosterDependents();
+}
+
+/* Joueurs proposés dans la liste de présence : ceux des équipes de la
+   séance (principale et associées), une fois chacun, plus ceux déjà
+   inscrits (knownIds : invités, présents d'avant).
    Tout l'effectif reste à portée pour ajouter un invité. */
 async function playersForSession(knownIds = new Set()) {
   await loadClubPlayers();
-  return clubPlayers.filter(p => playerInTeam(p, sessionTeamId) || knownIds.has(p.id));
+  const teams = sessionTeamIds({ team_id: sessionTeamId, other_team_ids: sessionOtherTeams });
+  return clubPlayers.filter(p => (!teams.length && !p.exterieur) || teams.some(t => playerInTeam(p, t)) || knownIds.has(p.id));   // extérieur : seulement inscrit
 }
 
 /* ---------- Lien de partage (lecture seule, sans compte) ----------
@@ -292,6 +334,8 @@ async function loadSession() {
     document.getElementById('f-heure').value = s.heure ? s.heure.slice(0, 5) : '';   // lmfc_v28.sql
     document.getElementById('f-equipe').value = s.equipe || '';
     sessionTeamId = s.team_id ?? null;
+    sessionOtherTeams = s.other_team_ids || [];
+    otherTeamsKnown = 'other_team_ids' in s;
     document.getElementById('f-duree').value = decStr(s.duree_min ?? 90);
     document.getElementById('f-rpe-att').value = s.rpe_attendue ?? '';   // lmfc_v34.sql
     document.getElementById('editorSubtitle').textContent = `Créée le ${(s.created_at || '').slice(0, 10)}`;
@@ -340,7 +384,7 @@ function showLoadFailure() {
 async function loadClubPlayers() {
   if (clubPlayers.length) return;
   const { data, error } = await sb.from('players')
-    .select(`id, nom, prenom, numero, poste${hasTeams() ? ', team_id, other_team_ids' : ''}`).order('nom');
+    .select(`id, nom, prenom, numero, poste, date_naissance, exterieur, origine${hasTeams() ? ', team_id, other_team_ids' : ''}`).order('nom');   // extérieurs : lmfc_v54.sql
   if (error) throw error;
   clubPlayers = data || [];
 }

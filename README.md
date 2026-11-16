@@ -237,6 +237,52 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            correction, joueur concerné, saisie encore ouverte, sans réponse, compte lié, pas
                                            déjà relancé depuis 12 h ; messages préparés par la base, Worker /api/push/rpe),
                                            rpe_remind_done ; après lmfc_v42.sql ; retour arrière : lmfc_v50_retour.sql
+69. supabase/lmfc_v51.sql                  séances communes à plusieurs équipes : sessions.other_team_ids (équipes associées,
+                                           rangées par la base) ; le staff de chaque équipe a ses droits d'équipe sur la séance,
+                                           les joueurs de chaque équipe sont concernés (RPE, calendrier, annonces) ; on n'ajoute
+                                           que ses équipes, on ne retire une équipe qu'avec ses droits (créateur et admin
+                                           exceptés) ; formulaires de l'équipe principale ; après lmfc_v50.sql ;
+                                           retour arrière : lmfc_v51_retour.sql (refusé tant qu'une séance a des équipes associées)
+70. supabase/lmfc_v52.sql                  fusion de deux séances, à la demande : session_merge (récapitulatif, puis fusion en une
+                                           transaction ; il faut pouvoir modifier les deux), session_merge_undo (défait, dans
+                                           l'ordre inverse) ; la source reste, vide, marquée sessions.fusionnee_dans, hors des
+                                           listes des joueurs et du calendrier ; doublons mis de côté dans le journal
+                                           session_merges ; après lmfc_v51.sql ; retour arrière : lmfc_v52_retour.sql
+                                           (refusé tant qu'une fusion est en place)
+71. supabase/lmfc_v53.sql                  « Ce n'est pas un doublon » : match_not_duplicates (paire de matchs, qui, quand),
+                                           lue par le staff, écrite par qui modifie le contenu des équipes et voit les deux
+                                           matchs, retirée par son auteur ou l'admin ; l'alerte de doublon ne revient plus ;
+                                           après lmfc_v52.sql ; retour arrière : lmfc_v53_retour.sql (efface les décisions)
+72. supabase/lmfc_v54.sql                  joueurs extérieurs (mini-profils) : players.exterieur, origine, exterieur_infos (ni
+                                           équipe ni compte), player_exterieur_create (admin, coach, analyste), retrouvés par tout
+                                           le staff du club (lecteur exclu) ; une équipe ou un compte en font un joueur du club ;
+                                           player_exterieur_attach : tout son historique passe sur une fiche du club (récapitulatif
+                                           d'abord, refus en cas de doublon) ; après lmfc_v53.sql ; retour arrière :
+                                           lmfc_v54_retour.sql (refusé tant qu'un joueur extérieur existe)
+73. supabase/lmfc_v55.sql                  accès préparés avant la première connexion : club_access.nom, responsabilite, team_ids,
+                                           lecture_club ; profiles.responsabilite (intitulé, sans droit) ; une invitation du staff
+                                           sans équipe ni lecture club n'est pas activée (claim_club_access → 'en_attente') ; à la
+                                           première connexion, rôle, équipes, lecture club, responsabilité et nom ; après
+                                           lmfc_v54.sql ; retour arrière : lmfc_v55_retour.sql (efface ce qui a été préparé)
+74. supabase/lmfc_v56.sql                  dernière connexion des membres (Mon club, admin seulement) : club_member_logins,
+                                           dernière vraie connexion d'Auth (auth.users.last_sign_in_at) et nombre de connexions
+                                           sur la période (journal d'Auth, null s'il n'est pas fiable) ; rien n'est écrit ni suivi ;
+                                           après lmfc_v55.sql ; retour arrière : lmfc_v56_retour.sql
+75. supabase/lmfc_v57.sql                  prénoms (« Adnane », « Jean-Pierre ») et noms (« KHARROUBI », accents gardés) des fiches
+                                           joueurs, à chaque écriture (déclencheur trg_players_names) ; fiches existantes mises en
+                                           forme une fois, noms d'avant gardés (lmfc_v57_noms_avant) ; aperçu avant :
+                                           lmfc_v57_apercu.sql (lecture seule) ; après lmfc_v56.sql ; retour arrière :
+                                           lmfc_v57_retour.sql (noms d'avant, sauf fiches modifiées depuis)
+76. supabase/lmfc_v58.sql                  suivi des vidéos regardées : video_views.sequence_id (séquence regardée, notée par
+                                           track_video_view), règle video_watch_status (vue à 80 % du temps lu, ouverte, à voir),
+                                           video_watch_summary (par joueur) et video_watch_detail (par vidéo, séquences) ; droits
+                                           de lecture de video_views ; après lmfc_v57.sql ; retour arrière : lmfc_v58_retour.sql
+77. supabase/lmfc_v59.sql                  relances du staff : rpe_reminders.kind (rpe, avis, video) et opened_at (notification
+                                           ouverte : remind_opened) ; remind_take (avis après le match, vidéos pas regardées ;
+                                           aperçu sans rien écrire pour compter les destinataires ; la base choisit, trace et
+                                           bloque les doublons 12 h ; Worker /api/push/remind) ; rpe_remind_take : lien avec la
+                                           relance ; après lmfc_v58.sql ; retour arrière : lmfc_v59_retour.sql (efface les relances
+                                           d'avis et de vidéos)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -489,6 +535,13 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   `tests/label-norm.test.mjs`) ; la base n'est pas réécrite. À la saisie d'un procédé, « Effectif »
   et « Taille terrain » proposent ces mêmes écritures, de la plus utilisée par le club à la moins
   utilisée (`loadProcSuggestions`, `session-edit-page.js`).
+  Catégories (`analytics-cats.js`, `tests/analytics-cats.test.mjs`) : « Toutes les catégories » ou
+  une ou plusieurs équipes du compte (choix gardé pour la page ; par défaut l'équipe de travail).
+  Une séance commune compte dans chacune de ses équipes, une présence dans les équipes du joueur
+  que la séance réunit (sans équipe : l'équipe principale ; invité d'une autre équipe ou joueur
+  non visible : « Toutes » seulement). Plusieurs catégories, ou toutes : tableau de comparaison,
+  repris dans le PDF. « Saison » = saison du club (`clubs.saison_start`), au choix depuis la
+  première séance.
 - **Paramètres** — ce n'est pas une rubrique du menu : un clic sur son nom, en bas du menu,
   propose un seul lien, « Paramètres » (`renderUserMenu`, `nav.js`). La déconnexion est l'icône
   à côté du nom.
@@ -1064,7 +1117,7 @@ l'impression, sélectionnable), avec la même composition (`pdf-kit.js`) :
 | Fiche Performance (rubriques et période au choix, préventions comprises) | Performance d'un joueur | `perf-export.js` |
 | Séance complète (récapitulatif, un procédé par page) | Séances, séance | `pdf-generator.js` |
 | Fiche coach (4 procédés par page) | Séances, séance | `pdf-coach.js` |
-| Bilan (chiffres clés, graphiques redessinés pour le papier) | Bilan & Analytics | `analytics-page.js`, `analytics-charts.js` |
+| Bilan (chiffres clés, graphiques redessinés pour le papier, comparaison des catégories) | Bilan & Analytics | `analytics-page.js`, `analytics-charts.js`, `analytics-cats.js` |
 | Fiche tactique (une image par étape) | Tableau tactique | `tactical-board-ui.js` |
 
 ---

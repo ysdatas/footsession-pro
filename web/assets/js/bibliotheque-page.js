@@ -31,7 +31,7 @@ const libPage = { profile: null, browser: null, addTags: [], ctrl: null };
   libPage.browser = createLibBrowser(document.getElementById('libBrowser'), {
     onOpen: (r) => openLibItem(r.id), manage: canAdd, onDrop: canAdd ? (folder, id) => lfMoveTo(folder, [id]) : null,   // library-folders.js
   });
-  const deep = Number(new URLSearchParams(location.search).get('item'));
+  const deep = Number(takeUrlParam('item'));   // lien d'un procédé : sert une fois (app.js)
   if (deep) openLibItem(deep);
 })();
 

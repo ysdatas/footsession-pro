@@ -75,9 +75,9 @@ async function loadList() {
     // demande que si le club a des équipes (donc la migration est passée).
     const withTeams = (window.CLUB_TEAMS || []).length > 0;
     let query = sb.from('sessions')
-      .select(`id, titre, date_seance, equipe, duree_min, principes_jeu,${withTeams ? ' team_id,' : ''} procedures(id, duree_min, nb_sequences, duree_sequence_min, temps_recup_min, principes_jeu)`)
+      .select(`id, titre, date_seance, equipe, duree_min, principes_jeu, fusionnee_dans,${withTeams ? ' team_id, other_team_ids,' : ''} procedures(id, duree_min, nb_sequences, duree_sequence_min, temps_recup_min, principes_jeu)`)
       .order('date_seance', { ascending: false }).order('id', { ascending: false });
-    query = byTeam(query);
+    query = bySessionTeam(query);   // séances communes : lmfc_v51.sql
     const [{ data: sessions, error }, { data: club }] = await Promise.all([
       query,
       sb.from('clubs').select('saison_start').eq('id', myProfile.club_id).maybeSingle(),
@@ -89,7 +89,7 @@ async function loadList() {
     const far = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
     const near = (sessions || []).filter(s => s.procedures?.length || s.date_seance <= far);
     plannedLater = (sessions || []).length - near.length;
-    sessionsCache = near.map(s => ({ ...s, equipe: teamName(s.team_id) || s.equipe }));
+    sessionsCache = near.map(s => ({ ...s, equipe: sessionTeamsLabel(s) || s.equipe }));
     // Sans date de reprise renseignée, la semaine de la séance la plus
     // ancienne fait office de Semaine 1.
     saisonStart = club?.saison_start
@@ -193,7 +193,7 @@ function table(list) {
     <tbody>
       ${list.map(s => `
         <tr>
-          <td><a class="text-gold" href="session-edit?id=${s.id}">${escapeHtml(s.titre)}</a></td>
+          <td><a class="text-gold" href="session-edit?id=${s.id}">${escapeHtml(s.titre)}</a>${s.fusionnee_dans ? ' <span class="badge" title="Vide : son contenu est dans la séance gardée. Ouvrez-la pour annuler la fusion.">Fusionnée</span>' : ''}</td>
           <td>${escapeHtml(fmtDateFr(s.date_seance))}</td>
           <td>${escapeHtml(s.equipe || '—')}</td>
           <td>${fmtMin(s.duree_min)} min</td>

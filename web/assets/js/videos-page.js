@@ -226,7 +226,7 @@ function render() {
     return { pl, vids: vids.length, seqs: seqs.length, todo: seqs.filter(seqToSee).length, last };
   });
   const shown = stats
-    .filter(x => !vpQuery || fullName(x.pl).toLowerCase().includes(vpQuery))
+    .filter(x => !vpQuery || searchKey(fullName(x.pl)).includes(searchKey(vpQuery)))
     .sort((a, b) => (b.todo - a.todo) || String(b.last || '').localeCompare(String(a.last || '')) || fullName(a.pl).localeCompare(fullName(b.pl), 'fr'));
   const box = document.getElementById('vpView');
   const canPick = canManagePlayerVideos(myProfile.role) && videosCache.length > 0;

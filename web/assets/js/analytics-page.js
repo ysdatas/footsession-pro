@@ -8,6 +8,7 @@ let CHARTS_HTML = '';
 
 let currentPeriod = 'month';
 let myProfile = null;
+let catTeams = [], catSel = [], seasonStart = 8, loadRun = 0;   // catégories et saisons : analytics-cats.js
 
 (async () => {
   const ctx = await requireAuth();
@@ -27,9 +28,31 @@ let myProfile = null;
     b.classList.add('active');
     currentPeriod = b.dataset.period;
     document.getElementById('customRange').classList.toggle('hidden', currentPeriod !== 'custom');
+    document.getElementById('seasonPick').classList.toggle('hidden', currentPeriod !== 'season');
     if (currentPeriod !== 'custom') load();
   }));
   document.getElementById('applyCustom').addEventListener('click', load);
+
+  // Catégories : les équipes du compte (toutes pour un compte sans équipe).
+  // Choix gardé pour la page ; sinon l'équipe de travail, sinon toutes.
+  const teams = window.CLUB_TEAMS || [];
+  catTeams = accountTeams(myProfile, teams).length ? accountTeams(myProfile, teams) : teams;
+  const ids = catTeams.map(t => t.id), kept = pageState().cats;
+  catSel = Array.isArray(kept) ? kept.filter(id => ids.includes(id)) : ids.includes(currentTeamId()) ? [currentTeamId()] : [];
+  renderCatSwitch(document.getElementById('catSwitch'), catTeams, catSel, (sel) => { catSel = sel; savePageState({ cats: sel }); load(); });
+
+  // Saisons : l'actuelle tout de suite, les plus anciennes après lecture de la première séance.
+  seasonStart = clubSeasonStartMonth(myProfile.clubs);
+  const pick = document.getElementById('seasonPick');
+  const fillSeasons = (first) => {
+    const v = pick.value;
+    pick.innerHTML = seasonsFrom(first, seasonStart).map(k => `<option value="${k}">Saison ${k}</option>`).join('');
+    if (v) pick.value = v;
+  };
+  fillSeasons(null);
+  pick.addEventListener('change', load);
+  sb.from('sessions').select('date_seance').is('fusionnee_dans', null).order('date_seance').limit(1)
+    .then(({ data, error }) => { if (error) console.error('Saisons : première séance illisible', error); else fillSeasons(data?.[0]?.date_seance); });
   document.getElementById('btnExportAnalytics').addEventListener('click', exportAnalyticsPdf);
 
   load();
@@ -43,10 +66,13 @@ function periodRange() {
     const f = document.getElementById('customFrom').value, t = document.getElementById('customTo').value;
     return (f && t) ? { from: f, to: t } : null;
   }
+  if (currentPeriod === 'season') {   // saison du club (mois de début : clubs.saison_start), jusqu'à aujourd'hui au plus
+    const b = seasonBounds(document.getElementById('seasonPick').value || seasonKeyFor(null, seasonStart), seasonStart);
+    return { from: b.from, to: b.to < iso(today) ? b.to : iso(today) };
+  }
   const from = new Date(today);
   if (currentPeriod === 'week') from.setDate(from.getDate() - 7);
-  else if (currentPeriod === 'month') from.setMonth(from.getMonth() - 1);
-  else from.setMonth(from.getMonth() - 12);   // saison
+  else from.setMonth(from.getMonth() - 1);
   return { from: iso(from), to: iso(today) };
 }
 
@@ -55,37 +81,39 @@ async function load() {
   const range = periodRange();
   if (!range) return toast('Choisissez une plage de dates.', 'error');
 
+  const run = ++loadRun, sel = catSel;   // un choix plus récent l'emporte sur une réponse en retard
   try {
     // Les 6 derniers mois ne dépendent pas de la période : ils partent tout de suite.
-    const monthsP = sessionsPerMonth();
+    const monthsP = sessionsPerMonth(sel);
     monthsP.catch(() => {});   // pas attendue si la période est vide
     // Séances de la période avec leurs procédés et leurs présences, en une requête
     // (avant : séances, puis présences, puis les 6 mois). Le RLS restreint au périmètre autorisé.
-    const { data: sessions, error } = await sb.from('sessions')
-      .select('id, titre, date_seance, duree_min, principes_jeu, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min), attendance(present, statut)')
-      .gte('date_seance', range.from).lte('date_seance', range.to)
-      .order('date_seance');
+    // Équipes de la séance et du joueur : pour ne compter que les catégories choisies (analytics-cats.js).
+    let query = sb.from('sessions')
+      .select('id, titre, date_seance, duree_min, principes_jeu, team_id, other_team_ids, procedures(id, duree_min, effectif, taille_terrain, principes_jeu, type_procede, nb_sequences, duree_sequence_min, temps_recup_min), attendance(present, statut, players(team_id, other_team_ids))')
+      .gte('date_seance', range.from).lte('date_seance', range.to).is('fusionnee_dans', null);   // séance fusionnée : lmfc_v52.sql
+    if (sel.length) query = query.or(catsFilter(sel));
+    const { data: found, error } = await query.order('date_seance');
     if (error) throw error;
-    const attendance = sessions.flatMap(s => s.attendance || []).filter(a => a.statut !== 'non_concerne');   // retiré de la séance : hors présence
-
+    if (run !== loadRun) return;
+    const sessions = pickCats(found, sel);
     const allProcs = sessions.flatMap(s => s.procedures || []);
-    const nbSessions = sessions.length;
-    const nbProcedures = allProcs.length;
-    const presence = attendance.length ? Math.round(attendance.filter(a => a.present).length / attendance.length * 100) : 0;
-    // Volume de travail = temps ballon, récupérations exclues.
-    const volume = sessionWorkMin(allProcs);
+    const k = sessionKpis(sessions);
 
-    document.getElementById('kpiSessions').textContent = nbSessions;
-    document.getElementById('kpiProcedures').textContent = nbProcedures;
-    document.getElementById('kpiPresence').textContent = presence + '%';
-    document.getElementById('kpiVolume').textContent = volume.toLocaleString('fr-FR') + " min";
+    document.getElementById('kpiSessions').textContent = k.sessions;
+    document.getElementById('kpiProcedures').textContent = k.procedures;
+    document.getElementById('kpiPresence').textContent = k.presence == null ? '—' : `${k.presence} %`;
+    document.getElementById('kpiVolume').textContent = k.volume.toLocaleString('fr-FR') + " min";
+    renderCompare(compareRows(found, sel, catTeams.map(t => t.id)));
 
-    if (nbSessions === 0 && nbProcedures === 0) { showEmpty(); return; }
+    if (k.sessions === 0) { showEmpty(); return; }
     restoreCharts();
 
     // Saisies équivalentes regroupées (« 7c7 » = « 7v7 », label-norm.js).
     split('chartCategory', countNormalized(allProcs.map(p => p.type_procede)));
-    columns('chartMonths', await monthsP);
+    const months = await monthsP;
+    if (run !== loadRun) return;
+    columns('chartMonths', months);
     hbar('chartVolume', volumePerSession(sessions), ' min');
     // Un principe par séance (les anciennes séances le reprennent de leurs procédés).
     hbar('chartPrincipes', countNormalized(sessions.map(s => sessionPrinciple(s, s.procedures))));
@@ -101,12 +129,15 @@ function volumePerSession(sessions) {
     .filter(r => r.c > 0).sort((a, b) => b.c - a.c).slice(0, 8);
 }
 
-/** Série continue des 6 derniers mois (indépendante du filtre de période). */
-async function sessionsPerMonth() {
+/** Série continue des 6 derniers mois (indépendante du filtre de période, pas des catégories). */
+async function sessionsPerMonth(sel) {
   const from = new Date(); from.setMonth(from.getMonth() - 5); from.setDate(1);
-  const { data } = await sb.from('sessions').select('date_seance').gte('date_seance', from.toISOString().slice(0, 10));
+  let query = sb.from('sessions').select('date_seance, team_id, other_team_ids').gte('date_seance', from.toISOString().slice(0, 10)).is('fusionnee_dans', null);
+  if (sel.length) query = query.or(catsFilter(sel));
+  const { data, error } = await query;
+  if (error) throw error;
   const found = {};
-  (data || []).forEach(s => { const ym = (s.date_seance || '').slice(0, 7); found[ym] = (found[ym] || 0) + 1; });
+  pickCats(data || [], sel).forEach(s => { const ym = (s.date_seance || '').slice(0, 7); found[ym] = (found[ym] || 0) + 1; });
   const months = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
@@ -166,15 +197,16 @@ async function exportAnalyticsPdf() {
   btn.disabled = true;
   try {
     const club = window.CURRENT_PROFILE?.clubs?.nom || 'Le Mans FC';
-    const team = typeof currentTeam === 'function' ? currentTeam()?.nom : null;
-    const period = document.querySelector('#periodSwitch button.active')?.textContent.trim() || '';
+    const team = catsLabel(catSel);
+    const period = currentPeriod === 'season' ? `Saison ${document.getElementById('seasonPick').value}`
+      : document.querySelector('#periodSwitch button.active')?.textContent.trim() || '';
     const { from, to } = periodRange() || {};
     const range = [from, to].every(Boolean) ? `${fmtDate(from)} – ${fmtDate(to)}` : period;
     const k = await openPdf({ accent: window.CURRENT_PROFILE?.clubs?.color, runTitle: 'Bilan des séances', runRight: club });
     k.cover({
       kicker: `${club} · Bilan`,
       title: 'Bilan des séances',
-      subtitle: [team || 'Toutes les équipes', period].filter(Boolean).join(' – '),
+      subtitle: [team, period].filter(Boolean).join(' – '),
       facts: [['Période', range], ['Édité le', new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })]],
     });
     const val = (id) => document.getElementById(id)?.textContent.trim() || '—';
@@ -184,6 +216,12 @@ async function exportAnalyticsPdf() {
       { label: 'Présence', value: val('kpiPresence'), sub: 'moyenne' },
       { label: 'Volume', value: val('kpiVolume'), sub: 'de travail' },
     ]);
+    const cmp = [...document.querySelectorAll('#catCompare:not(.hidden) tbody tr')].map(tr => [...tr.children].map(c => c.textContent));
+    if (cmp.length) {
+      k.section('Comparaison des catégories', { note: 'Une séance commune compte dans chacune de ses équipes.' });
+      k.table({ cols: ['Catégorie', 'Séances', 'Procédés', 'Présence', 'Volume'].map((label, i) => ({ label, w: i ? 1 : 1.6, align: i ? 'right' : 'left' })),
+        rows: cmp });
+    }
     const all = PRINT_CHARTS.map(([id, title]) => ({ title, src: chartForPrint(id) }));
     const shown = all.filter(x => x.src), empty = all.filter(x => !x.src).map(x => x.title);
     k.section('Activité', { keep: shown.length ? 70 : 12 });
@@ -199,7 +237,7 @@ async function exportAnalyticsPdf() {
       k.y += h + 12;
     }
     if (shown.length && empty.length) k.text(`Sans donnée sur la période : ${empty.join(', ').toLowerCase()}.`, { size: 7.6, color: PDF_MUTE });
-    k.save(pdfFileName('bilan', team || 'club', new Date().toISOString().slice(0, 10)));
+    k.save(pdfFileName('bilan', catSel.length ? team : 'club', new Date().toISOString().slice(0, 10)));
     toast('PDF généré', 'success');
   } catch (e) {
     console.error('Export PDF du bilan impossible', e);

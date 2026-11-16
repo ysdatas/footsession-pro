@@ -77,6 +77,9 @@
       <p class="text-muted card-lead">E-mail + fonction (+ fiche pour un joueur). La personne crée son compte avec cette adresse : l’accès s’active seul.</p>
       <form id="accessForm" class="access-form">
         <input id="accEmail" type="email" required placeholder="prenom.nom@email.com" aria-label="Adresse e-mail" autocomplete="off">
+        <input id="accNom" type="text" maxlength="120" placeholder="Prénom Nom (facultatif)" aria-label="Nom de la personne" autocomplete="off">
+        <!-- Responsabilité, équipes, lecture club (lmfc_v55.sql, club-invite.js) : préparés avant la première connexion -->
+        <select id="accResp" aria-label="Responsabilité"></select>
         <select id="accRole" aria-label="Fonction">
           <option value="joueur">Joueur</option>
           <option value="coach">Coach</option>
@@ -84,6 +87,12 @@
           <option value="admin">Administrateur</option>
         </select>
         <select id="accPlayer" aria-label="Fiche joueur"><option value="">Choisir le joueur…</option></select>
+        <fieldset id="accScope" class="acc-scope hidden">
+          <legend>Équipes</legend>
+          <div id="accTeams" class="acc-teams" role="group" aria-label="Équipes du compte"></div>
+          <label class="acc-club" for="accClub"><input type="checkbox" id="accClub"> Lecture sur toutes les équipes</label>
+          <small id="accScopeHint" class="field-hint"></small>
+        </fieldset>
         <button class="btn btn-primary" type="submit">Donner l’accès</button>
       </form>
       <div id="pendingList"></div>
@@ -121,6 +130,7 @@
   <script src="assets/js/nav-mobile.js"></script>
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
+  <script src="assets/js/club-invite.js"></script>   <!-- accès préparés (lmfc_v55.sql) -->
   <script src="assets/js/club-page.js"></script>
   <script src="assets/js/club-access.js"></script>
 </body>

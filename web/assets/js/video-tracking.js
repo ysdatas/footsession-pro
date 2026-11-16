@@ -7,7 +7,8 @@
    Voir supabase/fix_audit_2026_09.sql.
    ============================================================ */
 
-function initVideoTracking({ videoId, videoElId }) {
+/* seqId : la séquence regardée (« Mes vidéos » → séquence), notée à l'ouverture de la lecture (lmfc_v58.sql). */
+function initVideoTracking({ videoId, videoElId, seqId = null }) {
   const video = document.getElementById(videoElId);
   if (!video) return;
 
@@ -35,7 +36,7 @@ function initVideoTracking({ videoId, videoElId }) {
     starting = (async () => {
       try {
         const duration = Number.isFinite(video.duration) ? Math.round(video.duration) : null;
-        viewId = await track({ p_view_id: null, p_duration: duration });
+        viewId = await track({ p_view_id: null, p_duration: duration, ...(seqId ? { p_sequence_id: seqId } : {}) });
         lastReported = Math.floor(video.currentTime || 0);
       } catch (e) {
         // Silencieux : le visionnage doit rester fluide même si le suivi échoue.

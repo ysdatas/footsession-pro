@@ -54,11 +54,21 @@ function matchSquad(rows) {
    pas à une compétition (nom d'équipe lu par erreur à l'import :
    « LE MANS FC ») → '' : « Compétition non renseignée ». */
 const MH_STOP = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'd', 'l', 'et', 'en']);
+/* Catégorie lue dans un libellé (compétition, nom d'équipe) : l'âge d'abord (« U15 », « U 15 »),
+   sinon le niveau senior (« N2 », « National 2 », « R1 », « Régional 1 », « D1 ») ; '' : inconnue. */
+function mhCatOf(s) {
+  const t = mhWords(s).join(' ');
+  const age = t.match(/\bu ?(\d{1,2})\b/), lvl = t.match(/\b(n|r|d|national|regional|district) ?([1-9])\b/);
+  return age ? `u${age[1]}` : lvl ? `${lvl[1][0]}${lvl[2]}` : '';
+}
 const mhWords = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(w => w && !MH_STOP.has(w));
 const MH_COMP = /journ[ée]e|tour|poule|phase|plateau|senior|\bu\d{2}\b|r[ée]gional|national|district|coupe|championnat|crit[ée]rium|amica|f[ée]minin|futsal|ligue|\b[ldnr]\d\b/i;   // = FFF_COMP (fff-import.js)
+/* La catégorie écrite dans le nom (« Régional 1 U15 ») fait partie de la clé : « Régional 1 U15 » et
+   « Régional 1 U18 » sont deux compétitions. Une catégorie après le tiret (« … - U19 - U18 ») n'y entre
+   pas : ce sont les catégories admises, pas la compétition. */
 function mhCompKey(name) {
-  const head = String(name || '').split(/\s[-–]\s/)[0];
-  return MH_COMP.test(String(name || '')) ? mhWords(head).slice(0, 2).join(' ') : '';
+  const head = String(name || '').split(/\s[-–]\s/)[0], cat = mhCatOf(head);
+  return MH_COMP.test(String(name || '')) ? [...mhWords(head).slice(0, 2), cat].filter((w, i, a) => w && a.indexOf(w) === i).join(' ') : '';
 }
 /* Libellé tout en capitales ou tout en minuscules (FFF, saisie rapide) → « Coupe Gambardella » ; U19, N2 gardés. */
 const mhTitle = (s) => (s === s.toUpperCase() || s === s.toLowerCase()
@@ -77,13 +87,25 @@ function mhCompetitions(list) {
     .sort((a, b) => (!a.key) - (!b.key) || b.n - a.n || a.label.localeCompare(b.label, 'fr'));
 }
 /* Doublons possibles : même date et même adversaire (premier mot distinctif : « BOUCHEMAINE ES » = « bouchemaine »),
-   quelle que soit l'équipe (un match saisi à la main puis importé de la FFF). id → les autres matchs du groupe. */
+   quelle que soit l'équipe (un match saisi à la main puis importé de la FFF), sauf :
+     - deux catégories connues et différentes (U15 / U18, N2 / N3 : celle de la compétition, sinon
+       celle du nom de l'équipe, teamNameOf) : deux matchs du club, pas un doublon ;
+     - une paire déclarée « Ce n'est pas un doublon » (distinct : clés mhPairKey, lmfc_v53.sql).
+   id → les autres matchs du groupe. */
 const MH_CLUB_WORDS = new Set(['fc', 'as', 'us', 'es', 'sc', 'ac', 'af', 'aj', 'cs', 'js', 'st', 'sco', 'ofc', 'ussa', 'usja', 'stade', 'union', 'olympique', 'sporting', 'racing', 'entente', 'club', 'football']);
 const mhOppKey = (s) => mhWords(s).find(w => w.length > 2 && !MH_CLUB_WORDS.has(w)) || mhWords(s)[0] || '';
-function mhDuplicates(list) {
+const mhPairKey = (a, b) => `${Math.min(a, b)}-${Math.max(a, b)}`;
+const mhMatchCat = (m, teamNameOf = () => '') => mhCatOf(m.competition) || mhCatOf(teamNameOf(m.team_id));
+function mhTwins(m, others, { teamNameOf = () => '', distinct = new Set() } = {}) {
+  const k = `${m.date_match}|${mhOppKey(m.adversaire)}`, cat = mhMatchCat(m, teamNameOf);
+  return others.filter(x => x !== m && x.id !== m.id && `${x.date_match}|${mhOppKey(x.adversaire)}` === k
+    && !(cat && mhMatchCat(x, teamNameOf) && cat !== mhMatchCat(x, teamNameOf))
+    && !(m.id && distinct.has(mhPairKey(m.id, x.id))));
+}
+function mhDuplicates(list, opts) {
   const by = new Map(), out = new Map();
   list.forEach(m => { const k = `${m.date_match}|${mhOppKey(m.adversaire)}`; by.set(k, [...(by.get(k) || []), m]); });
-  by.forEach(group => { if (group.length > 1) group.forEach(m => out.set(m.id, group.filter(x => x !== m))); });
+  by.forEach(group => { if (group.length > 1) group.forEach(m => { const t = mhTwins(m, group, opts); if (t.length) out.set(m.id, t); }); });
   return out;
 }
 

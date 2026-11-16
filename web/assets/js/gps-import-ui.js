@@ -81,7 +81,7 @@ async function giSessions() {
   const date = giEl('giDate').value, team = Number(giEl('giTeam').value) || null, sel = giEl('giSession');
   sel.innerHTML = '<option value="">— Aucune —</option>';
   if (!date) return;
-  let q = sb.from('sessions').select('id, titre, heure').eq('date_seance', date);
+  let q = sb.from('sessions').select('id, titre, heure').eq('date_seance', date).is('fusionnee_dans', null);   // fusionnée : lmfc_v52.sql
   if (team) q = q.eq('team_id', team);
   const { data } = await q;
   sel.innerHTML += (data || []).map(s => `<option value="${s.id}">${escapeHtml(s.titre)}${s.heure ? ` – ${s.heure.slice(0, 5)}` : ''}</option>`).join('');

@@ -41,7 +41,9 @@ const VW_ICON = {
   scissors: '<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>',
   pen: '<path d="M21.17 6.81a1 1 0 0 0-3.98-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
   send: '<path d="M14.54 21.69a.5.5 0 0 0 .94-.03l6.5-19a.5.5 0 0 0-.64-.64l-19 6.5a.5.5 0 0 0-.03.94l7.93 3.18a2 2 0 0 1 1.11 1.11z"/><path d="m21.85 2.15-10.94 10.94"/>',
-  prev: '<path d="m15 18-6-6 6-6"/>', next: '<path d="m9 18 6-6-6-6"/>', back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  prev: '<path d="m15 18-6-6 6-6"/>', next: '<path d="m9 18 6-6-6-6"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  'skip-prev': '<path d="M18 19 9 12l9-7z"/><path d="M6 19V5"/>', 'skip-next': '<path d="m6 5 9 7-9 7z"/><path d="M18 5v14"/>', back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
   more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.43 1.43l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
@@ -55,9 +57,12 @@ const VW_ICON = {
 const vwIc = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${VW_ICON[k]}</svg>`;
 const vwDate = (d) => new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 /* Ce qu'un compte en consultation seule peut faire : regarder. */
-const VW_VIEW_ACTS = new Set(['toggle', 'rate', 'fullscreen', 'frame-back', 'frame-fwd', 'precise', 'to-source', 'sheet-close']);
+const VW_VIEW_ACTS = new Set(['toggle', 'stop', 'nav-prev', 'nav-next', 'rate', 'fullscreen', 'frame-back', 'frame-fwd', 'precise', 'to-source', 'sheet-close']);
 
-async function mountVideoWorkspace(root, { video, src, player, mode, userId, focusSeq = null, onChange = null, backHref = null, history: useHistory = false, readOnly = false }) {
+/* nav : { index, total, label, onStep(±1) } quand la séquence fait partie d'une liste (« Mes vidéos »,
+   « À traiter », vidéos d'un joueur) : Précédent et Suivant sont alors dans la barre, sous l'image,
+   autour de Lecture/Pause et Stop ; l'ordre et les filtres de la liste viennent de la page. */
+async function mountVideoWorkspace(root, { video, src, player, mode, userId, focusSeq = null, onChange = null, backHref = null, history: useHistory = false, readOnly = false, nav = null }) {
   // Nouveau montage dans le même conteneur (autre séquence, Précédent / Suivant) :
   // l'élément est remplacé, et les écouteurs du montage précédent partent avec
   // lui. Avant, ils restaient : un retour envoyé sur la séquence ouverte partait
@@ -82,7 +87,11 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
         </div>
         <div class="vw-panel" data-el="panel">
           <div class="vw-controls">
+            ${nav ? `<button class="vw-ctl" type="button" data-act="nav-prev" aria-label="Séquence précédente" title="Précédent"${nav.index > 0 ? '' : ' disabled'}>${vwIc('skip-prev')}</button>` : ''}
             <button class="vw-ctl vw-play" type="button" data-act="toggle" aria-label="Lecture">${vwIc('play')}</button>
+            <button class="vw-ctl" type="button" data-act="stop" aria-label="Stop : retour au début" title="Stop">${vwIc('stop')}</button>
+            ${nav ? `<button class="vw-ctl" type="button" data-act="nav-next" aria-label="Séquence suivante" title="Suivant"${nav.index < nav.total - 1 ? '' : ' disabled'}>${vwIc('skip-next')}</button>
+            <span class="vw-navpos" aria-live="polite" title="${escapeHtml(nav.label || 'Séquence')}">${nav.index + 1} / ${nav.total}</span>` : ''}
             <span class="vw-time"><span data-el="time">0:00</span><span class="vw-time-total" data-el="total"> / 0:00</span></span>
             <span class="vw-spacer"></span>
             ${readOnly ? '' : `<button class="vw-ctl" type="button" data-act="undo" aria-label="Annuler la dernière opération" title="Annuler" disabled>${vwIc('undo')}</button>
@@ -655,6 +664,8 @@ async function mountVideoWorkspace(root, { video, src, player, mode, userId, foc
     if (!act) return;
     const s = cur();
     if (act === 'toggle') return togglePlay();
+    if (act === 'stop') { endHold(); vid.pause(); w.stopAt = null; vid.currentTime = playRange()?.start ?? 0; return; }
+    if (act === 'nav-prev' || act === 'nav-next') return nav?.onStep(act === 'nav-next' ? 1 : -1);
     if (act === 'rate') return cycleRate();
     if (act === 'fullscreen') return toggleFullscreen();
     if (act === 'frame-back') return step(-1);

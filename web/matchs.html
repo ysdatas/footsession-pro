@@ -92,6 +92,12 @@
         </div>
       </div>
       <div id="mpList" class="mp-list"></div>
+      <!-- Relances (lmfc_v59.sql, remind-ui.js) : joueurs qui n'ont pas noté leur RPE ou donné leur avis -->
+      <div class="mt-remind hidden" id="mRemind" role="group" aria-label="Relancer les joueurs">
+        <span>Relancer les joueurs :</span>
+        <button class="btn btn-sm" type="button" data-remind="rpe_match">RPE manquants</button>
+        <button class="btn btn-sm" type="button" data-remind="avis">Avis manquants</button>
+      </div>
 
       <p class="form-kicker">Bilan</p>
       <div class="field"><label for="m-comment">Commentaire général</label><textarea id="m-comment" rows="3"></textarea></div>
@@ -166,6 +172,8 @@
   <script src="assets/js/fff-import.js"></script>
   <script src="assets/js/match-history.js"></script>
   <script src="assets/js/match-merge.js"></script>
+  <script src="assets/js/player-exterieur.js"></script>   <!-- joueurs extérieurs (lmfc_v54.sql) -->
+  <script src="assets/js/remind-ui.js"></script>   <!-- relances (lmfc_v59.sql) -->
   <script src="assets/js/matchs-page.js"></script>
   <script src="assets/js/matchs-fff.js"></script>
   <script src="assets/js/match-sheet.js"></script>

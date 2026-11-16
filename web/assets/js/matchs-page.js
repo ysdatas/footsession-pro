@@ -18,6 +18,9 @@ let clubPlayers = [];    // tout l'effectif du club (noms, recherche)
 let editing = null;      // match ouvert : { id, rows: Map(player_id → ligne), removed: Set }
 let comp = null;         // compétition choisie (clé mhCompKey, '' = non renseignée, 'dup' = doublons) ; null = toutes
 let dups = new Map();    // id → matchs du club à la même date contre le même adversaire (mhDuplicates)
+let allMatches = [];     // tous les matchs lisibles du club : doublons, et comparaison avant d'enregistrer
+let distinctPairs = new Set();   // paires déclarées « Ce n'est pas un doublon » (lmfc_v53.sql, mhPairKey)
+const dupOpts = () => ({ teamNameOf: teamName, distinct: distinctPairs });
 /* Mode sélection (administrateur, coachs) : plusieurs matchs d'un coup ; Maj + clic
    prend une plage (pickRange). Seuls les matchs affichés (filtre) comptent. */
 const pick = { on: false, ids: new Set(), anchor: null };
@@ -69,9 +72,10 @@ const playerOf = (id) => clubPlayers.find(p => p.id === id);
   openMatchFromUrl();
 })();
 
-/* matchs.html?id=… (calendrier, liens) : ouvre ce match, même hors de l'équipe choisie. */
+/* matchs.html?id=… (calendrier, liens, « Retour au match ») : ouvre ce match, même hors de l'équipe
+   choisie. Le lien sert une fois (takeUrlParam, app.js) : fermée, la fenêtre ne se rouvre plus seule. */
 async function openMatchFromUrl() {
-  const id = Number(new URLSearchParams(location.search).get('id'));
+  const id = Number(takeUrlParam('id'));
   if (!id) return;
   const known = matches.find(m => m.id === id);
   if (known) return openMatch(known);
@@ -97,7 +101,7 @@ function initTabs() {
 
 /* ---------- Chargement ---------- */
 async function loadPlayers() {
-  const { data, error } = await sb.from('players').select('id, nom, prenom, numero, poste, team_id, other_team_ids').order('nom');
+  const { data, error } = await sb.from('players').select('id, nom, prenom, numero, poste, team_id, other_team_ids, date_naissance, exterieur, origine').order('nom');
   if (error) { console.error('Effectif indisponible', error); toast(error.message, 'error'); return; }
   clubPlayers = data || [];
 }
@@ -105,8 +109,9 @@ async function loadPlayers() {
 async function loadMatches() {
   const list = document.getElementById('matchList');
   // Doublons cherchés dans tout le club (la RLS limite) : un match saisi dans une équipe, importé dans une autre.
-  const [{ data, error }, all] = await Promise.all([byTeam(sb.from('matches').select('*, match_players(count)')).order('date_match', { ascending: false }),
-    sb.from('matches').select('id, team_id, date_match, adversaire, ext_source')]);
+  const [{ data, error }, all, decided] = await Promise.all([byTeam(sb.from('matches').select('*, match_players(count)')).order('date_match', { ascending: false }),
+    sb.from('matches').select('id, team_id, date_match, heure, adversaire, competition, lieu, score_pour, score_contre, ext_source'),
+    sb.from('match_not_duplicates').select('match_a, match_b')]);   // lmfc_v53.sql ; sans elle, aucune décision
   if (error) {
     console.error('Matchs illisibles (lmfc_v11.sql ?)', error);
     list.innerHTML = '<div class="empty">Les retours de match ne sont pas encore disponibles. Prévenez l’administrateur du club.</div>';
@@ -114,7 +119,10 @@ async function loadMatches() {
     return;
   }
   matches = data || [];
-  dups = mhDuplicates(all.data || matches);
+  allMatches = all.data || matches;
+  if (decided.error) console.warn('Décisions « pas un doublon » non lues (lmfc_v53.sql ?)', decided.error.message);
+  distinctPairs = new Set((decided.data || []).map(d => mhPairKey(d.match_a, d.match_b)));
+  dups = mhDuplicates(allMatches, dupOpts());
   if (comp === null) comp = pageState().comp ?? null;
   renderMatches();
 }
@@ -233,7 +241,7 @@ function canEditMatch(m) {
   return m.team_id ? mine.includes(m.team_id) : !(window.CLUB_TEAMS || []).length;
 }
 async function openMatch(m) {
-  editing = { id: m?.id || null, rows: new Map(), removed: new Set(), editable: canEditMatch(m),
+  editing = { id: m?.id || null, orig: m || null, rows: new Map(), removed: new Set(), editable: canEditMatch(m),
     extras: [...(m?.hors_plateforme || [])], hadExtras: !!m?.hors_plateforme?.length };   // hors plateforme (lmfc_v37.sql)
   const set = (id, v) => { document.getElementById(id).value = v ?? ''; };
   set('m-adv', m?.adversaire); set('m-date', m?.date_match || new Date().toISOString().slice(0, 10));
@@ -274,7 +282,33 @@ async function openMatch(m) {
     renderFeedback(fb);
   }
   renderRows();
+  editing.snap = matchSnapshot();
+  // Relances (lmfc_v59.sql) : match enregistré, déjà joué, staff qui relance.
+  document.getElementById('mRemind').classList.toggle('hidden', !(m?.id && m.date_match <= new Date().toISOString().slice(0, 10)
+    && ['admin', 'coach', 'prepa', 'analyste'].includes(myProfile.role)));   // fiche d'un joueur ouverte depuis ce match : rien de non enregistré ne doit se perdre
 }
+
+/* Lien vers la fiche d'un joueur depuis le match (lot 2.4) : sa fiche propose « Retour au match ».
+   Match modifié et pas encore enregistré : la fiche s'ouvre dans un nouvel onglet, rien ne se perd. */
+const matchBack = () => (editing?.id ? `matchs?id=${editing.id}` : 'matchs');
+const matchSnapshot = () => JSON.stringify([
+  [...document.querySelectorAll('#matchModal input:not([type="search"]), #matchModal select, #matchModal textarea')].map(f => (f.type === 'checkbox' ? f.checked : f.value)),
+  [...editing.rows.values()], editing.extras, [...editing.removed]]);
+/* Relancer (remind-ui.js) : les joueurs de la feuille et de l'équipe ; la base garde ceux qui doivent encore répondre. */
+document.getElementById('mRemind').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-remind]');
+  if (!b || !editing?.id) return;
+  const team = Number(val('m-team')) || null, ids = new Set([...editing.rows.keys(), ...clubPlayers.filter(p => team && playerInTeam(p, team)).map(p => p.id)]);
+  openRemindDialog({ kind: b.dataset.remind, id: editing.id, label: `${val('m-adv')} – ${fmtDateFr(val('m-date'))}`,
+    players: [...ids].map(id => ({ id, name: playerName(playerOf(id)) })) });
+});
+document.getElementById('matchModal').addEventListener('click', (e) => {
+  const a = e.target.closest('a.player-link');
+  if (!a || e.metaKey || e.ctrlKey || !editing || editing.snap === matchSnapshot()) return;
+  e.preventDefault();
+  window.open(a.href, '_blank', 'noopener');
+  toast('Le match a des modifications non enregistrées : la fiche s’ouvre dans un nouvel onglet.', 'info');
+});
 
 /* Avis des joueurs (lmfc_v36.sql), en lecture : ceux que la base laisse voir (joueurs suivis). */
 function renderFeedback(res) {
@@ -284,7 +318,7 @@ function renderFeedback(res) {
   document.getElementById('mfStaff').classList.toggle('hidden', !list.length);
   document.getElementById('mfCount').textContent = list.length ? `(${list.length})` : '';
   document.getElementById('mfList').innerHTML = list.map(f => `<article class="mf-item">
-      <p class="mf-who"><strong>${escapeHtml(name(f))}</strong> <small>${escapeHtml(fmtDateFr(f.updated_at.slice(0, 10)))}</small></p>
+      <p class="mf-who"><strong>${playerLink(f.player_id, name(f), '', matchBack())}</strong> <small>${escapeHtml(fmtDateFr(f.updated_at.slice(0, 10)))}</small></p>
       ${f.individuel ? `<p class="mf-q">Sa performance</p><p class="mf-a">${escapeHtml(f.individuel)}</p>` : ''}
       ${f.collectif ? `<p class="mf-q">L’équipe</p><p class="mf-a">${escapeHtml(f.collectif)}</p>` : ''}
     </article>`).join('');
@@ -302,7 +336,8 @@ function renderRows() {
   document.getElementById('mpList').innerHTML = rows.length ? rows.map(r => {
     const name = playerName(playerOf(r.player_id));
     return `<div class="mp-row" data-player="${r.player_id}">
-      <span class="mp-name">${playerLink(r.player_id, name, ' target="_blank" rel="noopener" title="Fiche du joueur (nouvel onglet)"')}${r.ext_data
+      <span class="mp-name">${playerLink(r.player_id, name, ' title="Fiche du joueur"', matchBack())}${playerOf(r.player_id)?.exterieur
+        ? ` <span class="fff-st" title="${escapeHtml(extTeamLabel(playerOf(r.player_id)))}">Extérieur</span>` : ''}${r.ext_data
         ? ` <span class="fff-st${mpEdited(r) ? ' is-warn' : ''}" title="Lu sur la feuille de match FFF">${mpEdited(r) ? 'FFF – modifié' : 'FFF'}</span>` : ''}</span>
       <select data-k="statut" aria-label="Statut de ${escapeHtml(name)}" ${dis}><option value="">—</option>${STATUTS_MATCH.map(([k, l]) => `<option value="${k}"${r.statut === k ? ' selected' : ''}>${l}</option>`).join('')}</select>
       ${num(r, 'minutes', 130, 'min')}${num(r, 'buts', 20, 'buts')}${num(r, 'passes', 20, 'passes')}${num(r, 'cartons_jaunes', 2, 'jaune')}
@@ -318,7 +353,8 @@ function renderRows() {
       <span class="mp-name">${escapeHtml(x.nom)} <span class="fff-st is-warn" title="Sans fiche : sur la feuille de ce match seulement, dans aucune statistique">Hors plateforme</span></span>
       <span class="mp-extra">${escapeHtml([STATUT_MATCH_LABEL[x.statut], x.minutes != null && `${x.minutes} min`, x.buts && `${x.buts} but${x.buts > 1 ? 's' : ''}`,
         x.cartons_jaunes && `${x.cartons_jaunes} jaune`, x.carton_rouge && 'rouge'].filter(Boolean).join(' – ') || '—')}</span>
-      ${editing.editable ? `<button class="att-remove" type="button" data-remove-extra="${i}" aria-label="Retirer ${escapeHtml(x.nom)} du match" title="Retirer du match">✕</button>` : ''}
+      ${editing.editable ? `<button class="btn btn-sm" type="button" data-extra-fiche="${i}" title="Lui créer une fiche de joueur extérieur (ou retrouver la sienne) : ce match comptera dans ses statistiques">Créer sa fiche</button>
+        <button class="att-remove" type="button" data-remove-extra="${i}" aria-label="Retirer ${escapeHtml(x.nom)} du match" title="Retirer du match">✕</button>` : ''}
     </div>`).join(''));
 }
 
@@ -328,6 +364,22 @@ function addRow(id) {
   if (editing.rows.has(id)) return;
   editing.removed.delete(id);
   editing.rows.set(id, { player_id: id, statut: null, minutes: null, buts: null, passes: null, note: null, commentaire: '' });
+}
+
+/* Joueur hors plateforme (lmfc_v37.sql) → fiche de joueur extérieur (lmfc_v54.sql), retrouvée ou créée :
+   sa ligne du match garde statut, minutes, buts et cartons, et compte désormais dans ses statistiques. */
+async function extraToFiche(i) {
+  const x = editing.extras[i];
+  const p = await newExterieur(x.nom, clubPlayers);   // player-exterieur.js
+  if (!p) return;
+  if (!clubPlayers.some(c => c.id === p.id)) clubPlayers.push(p);
+  if (editing.rows.has(p.id)) return toast(`${playerName(p)} est déjà sur la feuille de ce match.`, 'error');
+  addRow(p.id);
+  Object.assign(editing.rows.get(p.id), { statut: x.statut || null, minutes: x.minutes ?? null, buts: x.buts ?? null,
+    cartons_jaunes: x.cartons_jaunes ?? null, carton_rouge: x.carton_rouge ?? null });
+  editing.extras.splice(i, 1);
+  renderRows();
+  toast('Ligne reprise sur sa fiche : enregistrez le match.', 'success');
 }
 
 function candidates(query) {
@@ -350,6 +402,8 @@ function initEditor() {
   list.addEventListener('click', (e) => {
     const x = e.target.closest('[data-remove-extra]');
     if (x && editing.editable) { editing.extras.splice(Number(x.dataset.removeExtra), 1); return renderRows(); }
+    const f = e.target.closest('[data-extra-fiche]');
+    if (f && editing.editable) return extraToFiche(Number(f.dataset.extraFiche));
     const r = rowOf(e);
     if (!r || !editing.editable) return;
     const b = e.target.closest('[data-note]');
@@ -372,12 +426,23 @@ function initEditor() {
   const search = document.getElementById('mpSearch'), results = document.getElementById('mpResults');
   const renderResults = () => {
     const list = candidates(search.value);
-    results.innerHTML = list.map(p => `<button type="button" class="guest-hit" data-add="${p.id}">
-        <strong>${escapeHtml(playerName(p))}</strong><span>${escapeHtml(teamName(p.team_id) || 'Sans équipe')}${p.numero != null ? ` | #${p.numero}` : ''}</span></button>`).join('')
-      || (search.value.trim().length >= 2 ? '<p class="text-muted guest-none">Aucun joueur du club ne correspond.</p>' : '');
+    const q = search.value.trim();
+    results.innerHTML = (list.map(p => `<button type="button" class="guest-hit" data-add="${p.id}">
+        <strong>${escapeHtml(playerName(p))}</strong><span>${escapeHtml(extTeamLabel(p))}${p.numero != null ? ` | #${p.numero}` : ''}</span></button>`).join('')
+      || (q.length >= 2 ? '<p class="text-muted guest-none">Aucun joueur du club ne correspond.</p>' : ''))
+      + (q.length >= 2 && editing.editable ? `<button type="button" class="guest-hit guest-new" data-new-ext><strong>+ Joueur extérieur</strong><span>« ${escapeHtml(q)} » n’a pas de fiche au club</span></button>` : '');
   };
   search.addEventListener('input', renderResults);
-  results.addEventListener('click', (e) => {
+  results.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-new-ext]')) {
+      const p = await newExterieur(search.value, clubPlayers);   // player-exterieur.js (lmfc_v54.sql)
+      if (!p) return;
+      if (!clubPlayers.some(x => x.id === p.id)) clubPlayers.push(p);
+      addRow(p.id);
+      search.value = '';
+      renderResults();
+      return renderRows();
+    }
     const b = e.target.closest('[data-add]');
     if (!b) return;
     addRow(Number(b.dataset.add));
@@ -388,6 +453,21 @@ function initEditor() {
   document.getElementById('m-save').addEventListener('click', saveMatch);
   document.getElementById('m-delete').addEventListener('click', deleteMatch);
   document.getElementById('m-dup').addEventListener('click', async (e) => {
+    // Garder les deux : l'alerte se retire pour cette fois ; elle reviendra.
+    const keep = e.target.closest('[data-dup-keep]');
+    if (keep) { keep.closest('.dup-item').remove(); if (!document.querySelector('#m-dup .dup-item')) document.getElementById('m-dup').classList.add('hidden'); return; }
+    const distinct = e.target.closest('[data-dup-distinct]');
+    if (distinct) {
+      distinct.disabled = true;
+      try {
+        await markNotDuplicate(editing.id, [Number(distinct.dataset.dupDistinct)]);   // match-merge.js
+        toast('Noté : ce ne sont pas des doublons. L’alerte ne reviendra plus.', 'success');
+        await loadMatches();
+        const { data } = await sb.from('matches').select('*').eq('id', editing.id).single();
+        if (data) openMatch(data);
+      } catch (err) { toast(err.message, 'error'); distinct.disabled = false; }
+      return;
+    }
     const b = e.target.closest('[data-merge]');
     if (!b || !await confirmDialog('Réunir l’autre match dans celui-ci ?\n\nSes joueurs absents d’ici y sont ajoutés ; pour ceux présents dans les deux, les cases vides d’ici sont complétées, comme le score ou la compétition. Puis l’autre match est supprimé (corbeille). Les modifications non enregistrées de cette fenêtre sont perdues.')) return;
     b.disabled = true;
@@ -418,6 +498,21 @@ async function saveMatch() {
   };
   if (!document.getElementById('m-team-field').classList.contains('hidden')) row.team_id = Number(val('m-team')) || null;
   if (editing.extras.length || editing.hadExtras) row.hors_plateforme = editing.extras;   // envoyé s'il sert (lmfc_v37.sql)
+  // Doublon possible (nouveau match, ou date, adversaire, équipe, compétition changés) : comparer et choisir avant d'enregistrer.
+  const o = editing.orig, team = 'team_id' in row ? row.team_id : o?.team_id ?? null;
+  let distinctFrom = [];
+  if (!o || ['date_match', 'adversaire', 'competition'].some(k => (row[k] || null) !== (o[k] || null)) || team !== (o.team_id ?? null)) {
+    const twins = mhTwins({ ...row, id: editing.id, team_id: team }, allMatches, dupOpts());
+    if (twins.length) {
+      const choice = await dupDialog({ ...row, team_id: team }, twins);   // match-merge.js
+      if (!choice) return;
+      if (choice === 'open') {
+        const { data } = await sb.from('matches').select('*').eq('id', twins[0].id).single();
+        return data ? openMatch(data) : toast('Match introuvable.', 'error');
+      }
+      if (choice === 'distinct') distinctFrom = twins.map(t => t.id);
+    }
+  }
   const btn = document.getElementById('m-save');
   btn.disabled = true;
   try {
@@ -449,6 +544,7 @@ async function saveMatch() {
       const { error } = await sb.from('match_players').upsert(rows, { onConflict: 'match_id,player_id' });
       if (error) throw error;
     }
+    if (distinctFrom.length) await markNotDuplicate(id, distinctFrom).catch(e => toast(`Match enregistré, mais la décision « pas un doublon » ne l’est pas : ${e.message}`, 'error'));
     closeModal('matchModal');
     toast('Match enregistré', 'success');
     await loadMatches();
@@ -499,7 +595,7 @@ async function showPlayerHistory(pid) {
   try {
     const rows = await loadPlayerMatchRows(pid);
     box.innerHTML = `<div class="mh-head"><button type="button" class="btn btn-sm" data-mh-back><span class="arr arr-l" aria-hidden="true"></span>Effectif</button>
-      <h2 class="as-h3">${escapeHtml(playerName(playerOf(pid)))}</h2>${playerLink(pid, 'Fiche du joueur →')}</div>${mhHistoryHtml(rows)}`;
+      <h2 class="as-h3">${escapeHtml(playerName(playerOf(pid)))}</h2>${playerLink(pid, 'Fiche du joueur →', '', 'matchs')}</div>${mhHistoryHtml(rows)}`;
   } catch (e) { console.error('Historique du joueur illisible', e); box.innerHTML = `<p class="text-danger">${escapeHtml(e.message)}</p>`; }
 }
 async function squadClick(e) {

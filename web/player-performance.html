@@ -60,6 +60,7 @@
           <div class="eyebrow-row">
             <span class="eyebrow hero-kicker" id="perfKicker">Fiche joueur</span>
             <button class="btn btn-sm btn-ghost hidden perf-staff-only" id="btnEditPlayer" type="button">Modifier</button>
+            <button class="btn btn-sm btn-ghost hidden" id="btnAttachExt" type="button" title="Il a déjà une fiche au club : tout son historique y passe">Rattacher à une fiche du club…</button>
           </div>
           <h1 id="playerName">Chargement…</h1>
           <p id="playerMeta" class="subtitle">—</p>
@@ -74,8 +75,6 @@
         <div class="perf-metric"><span>Masse grasse</span><strong id="metricBodyFat">—</strong><small id="metricBodyFatWhen"></small></div>
       </div>
 
-      <!-- Onglet Analyse : filtres généraux, à la place des mesures (analyse-view.js, analyse.css) -->
-      <div class="an-filters" id="anFilters" role="group" aria-label="Filtres généraux de l'analyse"></div>
     </section>
 
     <!-- Onglets du staff : la fiche, la performance et les vidéos du joueur, sans changer de page -->
@@ -200,6 +199,8 @@
 
       <!-- Analyse : séquences codées, AVEC BALLON | SANS BALLON (analyse-*.js, lmfc_v48.sql) -->
       <section class="pf-panel" id="pfPanel-analyse" data-pf-panel="analyse" role="tabpanel" aria-labelledby="pfTab-analyse" hidden>
+        <!-- Filtres généraux de l'analyse : dans l'onglet, sous les onglets ; l'en-tête du joueur ne change pas (analyse-view.js) -->
+        <div class="an-filters card" id="anFilters" role="group" aria-label="Filtres généraux de l'analyse"></div>
         <div id="pfAnalyse"><p class="text-muted">Chargement…</p></div>
       </section>
     </div>
@@ -449,6 +450,7 @@
   <script src="assets/js/gps-card.js"></script>
   <script src="assets/js/procedure-time.js"></script>
   <script src="assets/js/match-history.js"></script>
+  <script src="assets/js/player-exterieur.js"></script>   <!-- joueurs extérieurs (lmfc_v54.sql) -->
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/excel-match.js"></script>

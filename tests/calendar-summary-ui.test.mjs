@@ -12,6 +12,9 @@ const context = {
   escapeHtml: value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
   teamName: id => ({ 1: 'Pro', 2: 'N2' })[id] || '',
 };
+// nav.js : équipes d'une séance (lmfc_v51.sql)
+context.sessionTeamIds = s => [s?.team_id, ...(s?.other_team_ids || [])].filter(Boolean);
+context.sessionTeamsLabel = s => context.sessionTeamIds(s).map(context.teamName).filter(Boolean).join(' + ');
 vm.runInNewContext(readFileSync(new URL('../web/assets/js/calendar-summary.js', import.meta.url), 'utf8'), context);
 const run = code => vm.runInContext(code, context);
 
@@ -19,6 +22,11 @@ run(`CS.editable = true; CS.fields = { lieu: 'Terrain annexe' };`);
 const sessionFields = run(`csFieldsHtml({kind:'seance', id:1, team_id:1, date:'2026-11-05', row:{titre:'Entraînement', date_seance:'2026-11-05', lieu:'Terrain annexe', duree_min:90.5}})`);
 assert.match(sessionFields, /data-cs-field="lieu" type="text" value="Terrain annexe"/, 'le lieu libre d’une séance est préservé');
 assert.match(sessionFields, /step="0\.01"/, 'une durée décimale existante reste valide');
+assert.match(sessionFields, /<p class="cs-read">Pro<\/p>/, 'séance d’une seule équipe : son nom');
+const shared = run(`csFieldsHtml({kind:'seance', id:3, team_id:1, date:'2026-11-05', row:{titre:'Commune', date_seance:'2026-11-05', other_team_ids:[2]}})`);
+assert.match(shared, /<p class="cs-read">Pro \+ N2<\/p>/, 'séance commune : ses équipes');
+assert.equal(run(`csInItem({ id: 9, team_id: 2 }, {kind:'seance', team_id:1, row:{other_team_ids:[2]}})`), true, 'joueur d’une équipe associée : membre, pas invité');
+assert.equal(run(`csInItem({ id: 9, team_id: 2 }, {kind:'match', team_id:1, row:{}})`), false, 'match : une seule équipe');
 run(`CS.fields = { lieu: 'exterieur' };`);
 const matchFields = run(`csFieldsHtml({kind:'match', id:2, team_id:1, date:'2026-11-05', row:{adversaire:'Rival', date_match:'2026-11-05', lieu:'exterieur', stade:'Stade', competition:'Coupe'}})`);
 assert.match(matchFields, /data-cs-field="lieu"[\s\S]*value="exterieur" selected/, 'le match conserve son lieu normalisé');

@@ -7,6 +7,8 @@
                                 vers le staff qui le suit
      POST /api/push/rpe  { kind, id, players } → relance RPE (lmfc_v50.sql) : la
                                 base choisit les destinataires, le Worker livre
+     POST /api/push/remind { kind, id, players } → relance d'avis (id : le match)
+                                ou de vidéos (id : null), lmfc_v59.sql, même circuit
    L'envoi libre est réservé à l'administrateur du club. Celui du
    calendrier ne prend rien de la page : la base (lmfc_v30.sql) a préparé
    les messages et les destinataires de SES changements. Joueurs et appareils
@@ -39,7 +41,8 @@ export async function push(request, env, route) {
   if (route === 'key') return request.method === 'GET' ? Response.json({ key: publicKey(env) }) : fail(405, 'Méthode non autorisée.');
   if (route === 'send') return request.method === 'POST' ? send(request, env) : fail(405, 'Méthode non autorisée.');
   if (route === 'calendar' || route === 'soreness') return request.method === 'POST' ? queued(request, env, route) : fail(405, 'Méthode non autorisée.');
-  if (route === 'rpe') return request.method === 'POST' ? rpeRemind(request, env) : fail(405, 'Méthode non autorisée.');
+  if (route === 'rpe') return request.method === 'POST' ? remind(request, env, RPE_REMIND) : fail(405, 'Méthode non autorisée.');
+  if (route === 'remind') return request.method === 'POST' ? remind(request, env, OTHER_REMIND) : fail(405, 'Méthode non autorisée.');
   return new Response('Not found', { status: 404 });
 }
 
@@ -107,15 +110,19 @@ async function queued(request, env, route) {
 /* Relance RPE : la base vérifie droits, joueurs, délai et doublons, trace la relance
    (rpe_remind_take) ; on livre, puis on lui dit combien d'appareils ont reçu (rpe_remind_done).
    12 joueurs × 3 appareils + 3 appels Supabase : sous les 50 sous-requêtes. */
-async function rpeRemind(request, env) {
+/* Relances : la base (rpe_remind_take, remind_take) choisit les joueurs, trace et prépare les
+   messages ; le Worker livre et lui rend le nombre d'appareils atteints (rpe_remind_done). */
+const RPE_REMIND = { fn: 'rpe_remind_take', kinds: ['seance', 'match'], idOk: (kind, id) => Number.isSafeInteger(id) };
+const OTHER_REMIND = { fn: 'remind_take', kinds: ['avis', 'video'], idOk: (kind, id) => (kind === 'video' ? id === null : Number.isSafeInteger(id)) };
+async function remind(request, env, { fn, kinds, idOk }) {
   const token = tokenOf(request);
   if (!token) return fail(401, 'Connexion requise.');
   const b = await request.json().catch(() => null) || {};
-  if (!['seance', 'match'].includes(b.kind) || !Number.isSafeInteger(b.id) || !Array.isArray(b.players) || !b.players.length
+  if (!kinds.includes(b.kind) || !idOk(b.kind, b.id ?? null) || !Array.isArray(b.players) || !b.players.length
       || b.players.length > 12 || !b.players.every(Number.isSafeInteger)) return fail(400, 'Relance invalide.');
   publicKey(env);
-  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/rpe_remind_take`, {
-    method: 'POST', body: JSON.stringify({ p_kind: b.kind, p_id: b.id, p_players: b.players }),
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST', body: JSON.stringify({ p_kind: b.kind, p_id: b.id ?? null, p_players: b.players }),
     headers: { apikey: env.SUPABASE_KEY, authorization: `Bearer ${token}`, 'content-type': 'application/json' },
   });
   const out = await r.json().catch(() => null);

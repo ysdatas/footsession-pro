@@ -145,10 +145,10 @@ async function loadSr(force = false) {
   try {
     const isMatch = SR.scope === 'match', to = SR.period && SR.period.to < srToday() ? SR.period.to : srToday(), none = { data: [] };
     const [s, p, remind] = await Promise.all([
-      isMatch ? none : byTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
-        .lte('date_seance', SR.period && SR.period.to < srToday() ? SR.period.to : srToday()).gte('date_seance', SR.period?.from || '1900-01-01')
+      isMatch ? none : bySessionTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, other_team_ids, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
+        .lte('date_seance', SR.period && SR.period.to < srToday() ? SR.period.to : srToday()).gte('date_seance', SR.period?.from || '1900-01-01').is('fusionnee_dans', null)
         .order('date_seance', { ascending: false }).order('heure', { ascending: false, nullsFirst: false }).limit(SR.period ? 200 : SR.n),
-      sb.from('players').select(`id, nom, prenom, auth_user_id${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
+      sb.from('players').select(`id, nom, prenom, auth_user_id, exterieur${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
       srRemindLoad(),   // relances (lmfc_v50.sql) ; null sans la migration
     ]);
     if (s.error || p.error) throw s.error || p.error;
@@ -200,7 +200,7 @@ function srConcerned(s, p) {
   if (att?.statut === 'non_concerne') return false;   // retiré de cette séance (lmfc_v30.sql)
   if (s.sheet?.length) return rpeOnSheet(s.sheet, p.id);
   if (!(window.CLUB_TEAMS || []).length) return true;
-  return s.team_id != null && (s.team_id === p.team_id || (p.other_team_ids || []).includes(s.team_id));
+  return !p.exterieur && sessionTeamIds(s).some(t => t === p.team_id || (p.other_team_ids || []).includes(t));   // associées : lmfc_v51.sql ; extérieur : lmfc_v54.sql
 }
 
 /* État d'une case : { v, staff } réponse ; 'miss' attendue et absente ; 'wait' attendue, délai pas fini ; 'abs' absence enregistrée ; null pas concerné. */

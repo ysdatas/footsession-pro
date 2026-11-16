@@ -45,11 +45,14 @@
         <button data-period="season">Saison</button>
         <button data-period="custom">Personnalisé</button>
       </div>
+      <select id="seasonPick" class="hidden" aria-label="Saison"></select>
       <div id="customRange" class="hidden" style="display:flex;gap:10px;align-items:center;">
         <input type="date" id="customFrom"><span class="text-muted">→</span><input type="date" id="customTo">
         <button class="btn btn-sm" id="applyCustom" type="button">Appliquer</button>
       </div>
     </div>
+
+    <div class="segmented cat-switch" id="catSwitch" role="group" aria-label="Catégories : une ou plusieurs"></div>
 
     <div id="analyticsContent">
       <div class="kpi-grid kpi-band" id="analyticsKpis">
@@ -58,6 +61,14 @@
         <div class="card kpi"><div class="kpi-num" id="kpiPresence">—</div><div class="kpi-label">Présence moyenne</div></div>
         <div class="card kpi gold"><div class="kpi-num" id="kpiVolume">—</div><div class="kpi-label">Volume de travail</div></div>
       </div>
+
+      <section id="catCompare" class="card cat-compare hidden" aria-labelledby="catCompareTitle">
+        <h2 class="chart-title" id="catCompareTitle">Comparaison des catégories <span>une séance commune compte dans chacune de ses équipes</span></h2>
+        <table class="table">
+          <thead><tr><th scope="col">Catégorie</th><th scope="col">Séances</th><th scope="col">Procédés</th><th scope="col">Présence</th><th scope="col">Volume</th></tr></thead>
+          <tbody id="catCompareBody"></tbody>
+        </table>
+      </section>
 
       <div id="chartsArea" class="charts-area">
         <h2 class="section-kicker">Rythme</h2>
@@ -86,6 +97,8 @@
   <script src="assets/js/procedure-time.js"></script>
   <script src="assets/js/pdf-kit.js"></script>
   <script src="assets/js/label-norm.js"></script>
+  <script src="assets/js/perf-metrics.js"></script>
+  <script src="assets/js/analytics-cats.js"></script>
   <script src="assets/js/analytics-charts.js"></script>
   <script src="assets/js/analytics-page.js"></script>
 </body>

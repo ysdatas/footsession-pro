@@ -39,8 +39,11 @@
         <a class="btn" href="sessions" data-back><span class="arr arr-l" aria-hidden="true"></span>Séances</a>
         <button class="btn hidden" id="btnPdfFull" type="button" title="Fiche détaillée : une page par procédé avec schéma">PDF complet</button>
         <button class="btn hidden" id="btnPdfCoach" type="button" title="Tout sur une feuille, à distribuer avant la séance">Fiche coach</button>
+        <button class="btn hidden" id="btnMerge" type="button" title="Réunir cette séance et une autre saisie à part (récapitulatif avant toute modification)">Fusionner…</button>
       </div>
     </div>
+    <!-- Fusion de séances (lmfc_v52.sql, session-merge.js) -->
+    <div class="merge-banner card hidden" id="mergeBanner" role="status"></div>
 
     <div class="card">
       <h2 class="as-h3">Informations de la séance</h2>
@@ -55,7 +58,12 @@
           <input id="f-heure" type="time"></div>
         <datalist id="principesList"></datalist>
         <div class="field span-4"><label for="f-equipe">Équipe</label>
-          <input id="f-equipe" placeholder="Ex: U17"></div>
+          <input id="f-equipe" placeholder="Ex: U17">
+          <!-- Équipes associées (lmfc_v51.sql) : rempli par session-edit-page.js quand le club a des équipes -->
+          <div class="team-assoc hidden" id="teamAssoc" role="group" aria-labelledby="teamAssocLabel">
+            <p class="field-hint" id="teamAssocLabel">Équipes associées : leurs joueurs et leur staff ont aussi cette séance.</p>
+            <div class="assoc-chips" id="otherTeams"></div>
+          </div></div>
         <div class="field span-4"><label for="f-duree">Durée totale (min)</label>
           <input id="f-duree" type="text" inputmode="decimal" value="90"></div>
         <div class="field span-4"><label for="f-rpe-att">RPE attendue</label>
@@ -274,6 +282,7 @@
   <script src="assets/js/pdf-generator.js"></script>
   <script src="assets/js/pdf-coach.js"></script>
   <script src="assets/js/lightbox.js"></script>
+  <script src="assets/js/player-exterieur.js"></script>   <!-- joueurs extérieurs (lmfc_v54.sql) -->
   <script src="assets/js/session-roster.js"></script>
   <script src="assets/js/session-proc-teams.js"></script>
   <script src="assets/js/session-access.js"></script>
@@ -281,6 +290,7 @@
   <script src="assets/js/session-autosave.js"></script>
   <script src="assets/js/library.js"></script>
   <script src="assets/js/library-tags.js"></script>
+  <script src="assets/js/session-merge.js"></script>   <!-- avant la page : appelé dès le chargement de la séance -->
   <script src="assets/js/session-edit-page.js"></script>
   <script src="assets/js/session-templates.js"></script>
   <script src="assets/js/session-library.js"></script>

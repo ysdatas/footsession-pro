@@ -97,7 +97,7 @@ async function loadData() {
   // Équipe choisie dans le menu : effectif, moyennes et classements
   // ne mélangent jamais deux équipes.
   let rosterQuery = sb.from('players').select('id, nom, prenom, numero, poste').order('nom');
-  rosterQuery = byPlayerTeam(rosterQuery);
+  rosterQuery = byPlayerTeam(rosterQuery).eq('exterieur', false);   // extérieurs hors effectif : lmfc_v54.sql
   const [rRes, tRes, mRes] = await Promise.all([
     rosterQuery,
     sb.from('player_physical_tests').select('*'),
@@ -176,8 +176,8 @@ function latestMeasureFor(playerId) {
 }
 
 function visibleRoster() {
-  const q = cmpSearch.trim().toLowerCase();
-  return roster.filter(p => !q || playerName(p).toLowerCase().includes(q));
+  const q = searchKey(cmpSearch.trim());
+  return roster.filter(p => !q || searchKey(playerName(p)).includes(q));
 }
 
 function sortRows(rows, key) {

@@ -91,10 +91,17 @@ function byTeam(query, teamId = currentTeamId()) {
 function byPlayerTeam(query, teamId = currentTeamId()) {
   return teamId ? query.or(`team_id.eq.${teamId},team_id.is.null,other_team_ids.cs.{${teamId}}`) : query;
 }
-const playerInTeam = (p, teamId) => !teamId || p.team_id === teamId || p.team_id == null || (p.other_team_ids || []).includes(teamId);
+/* Un joueur extérieur (lmfc_v54.sql) n'est d'aucun effectif : il n'entre que là où on l'inscrit. */
+const playerInTeam = (p, teamId) => !p.exterieur && (!teamId || p.team_id === teamId || p.team_id == null || (p.other_team_ids || []).includes(teamId));
+/* Séances communes à plusieurs équipes (sessions.other_team_ids, lmfc_v51.sql) :
+   mêmes colonnes que les joueurs, donc même filtre. */
+const bySessionTeam = byPlayerTeam;
+const sessionTeamIds = (s) => [s?.team_id, ...(s?.other_team_ids || [])].filter(Boolean);
 function teamName(id) {
   return (window.CLUB_TEAMS || []).find(t => t.id === id)?.nom || '';
 }
+/* « U15 + U14 » : l'équipe principale d'abord. */
+const sessionTeamsLabel = (s) => sessionTeamIds(s).map(teamName).filter(Boolean).join(' + ');
 
 /* Fusionne `patch` dans les préférences SANS écraser les autres clés
    (réglages du tableau tactique, menu, équipe…). */

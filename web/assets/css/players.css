@@ -136,3 +136,19 @@
 @media (max-width: 560px) {
   .player-row.is-selectable { grid-template-columns: 22px 32px minmax(92px, 1fr) minmax(0, auto); }
 }
+
+/* Vidéos regardées (players-page.js, lmfc_v58.sql) : anneau « 7/10 » */
+.pr-watch { --p: 0; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: conic-gradient(var(--gold) calc(var(--p) * 1%), rgba(255,255,255,.12) 0); }
+.pr-watch.is-done { background: var(--success); }
+.pr-watch b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--bg-card);
+  font-size: 10px; font-weight: 600; color: var(--text-primary); letter-spacing: -.02em; }
+.pr-data .pr-watch::before { display: none; }
+.pr-data .pr-watch { margin-left: 12px; }
+
+/* Avec le filtre des vidéos (lmfc_v58.sql), trois champs : sur téléphone, la recherche garde toute la ligne. */
+@media (max-width: 640px) {
+  .players-filters:has(#videoFilter:not(.hidden)) { flex-wrap: wrap; }
+  .players-filters:has(#videoFilter:not(.hidden)) input { flex: 1 1 100%; }
+  .players-filters:has(#videoFilter:not(.hidden)) select { flex: 1 1 0; min-width: 0; }
+}

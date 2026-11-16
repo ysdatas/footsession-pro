@@ -23,6 +23,7 @@ document.getElementById('pvContent').addEventListener('click', (e) => {
   try {
     const player = await requirePlayer();
     if (!player) return;
+    markReminderOpened();   // relance « vidéos à regarder » ouverte (app.js, lmfc_v59.sql)
     const [{ data: videos, error }, { data: seqs }] = await Promise.all([
       sb.from('player_videos').select('id, titre, description, created_at, storage_path, thumb')
         .eq('player_id', player.id).order('created_at', { ascending: false }),

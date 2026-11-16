@@ -9,12 +9,11 @@
 html[data-pf="staff"][data-pf-shown="analyse"] .pf-panel:not([data-pf-panel="analyse"]),
 html[data-pf="self"] #pfPanel-analyse { display: none; }
 
-/* ---------- Menus déroulants : bandeau (à droite de l'identité) et espaces ---------- */
-.an-filters { display: none; flex: 1 1 520px; min-width: 0; min-height: 84px; }
-html[data-pf-shown="analyse"] .an-filters { display: block; }
-html[data-pf-shown="analyse"] .perf-hero-metrics { display: none; }
-/* L'identité prend sa largeur, les menus tout le reste (la fiche fait l'inverse pour ses mesures). */
-@media (min-width: 1201px) { html[data-pf-shown="analyse"] .perf-hero.hero-surface { grid-template-columns: auto minmax(0, 1fr); } }
+/* ---------- Menus déroulants : bandeau (en tête de l'onglet) et espaces ----------
+   Le bandeau est dans l'onglet, pas dans l'en-tête du joueur : l'en-tête reste le même
+   d'un onglet à l'autre (identité, club, mesures), rien ne saute en changeant d'onglet.
+   Sa hauteur est réservée avant l'arrivée des menus (CLS). */
+.an-filters { min-width: 0; min-height: 84px; margin-bottom: 16px; padding: 14px 16px; }
 .an-sel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; align-items: end; }
 .an-sel { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .an-sel > span { font-size: var(--fs-xs); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

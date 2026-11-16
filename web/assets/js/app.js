@@ -211,9 +211,19 @@ const updateNeeded = (detail) => { console.warn('Base à mettre à jour :', deta
 
 /* Nom d'un joueur, « Prénom NOM » : la seule mise en forme, partagée par les pages. */
 const playerFullName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
-/* Nom d'un joueur qui ouvre sa fiche (clic simple ; Ctrl/Cmd : nouvel onglet). */
-const playerHref = (id) => `player-performance?id=${id}`;
-const playerLink = (id, text, extra = '') => `<a class="player-link" href="${playerHref(id)}"${extra}>${escapeHtml(text)}</a>`;
+/* Relance du staff ouverte (lmfc_v59.sql) : la notification ouvre la page avec « &rappel=… » ;
+   la base note l'ouverture (remind_opened, ses relances seulement) et le paramètre disparaît de l'adresse. */
+function markReminderOpened() {
+  const id = Number(takeUrlParam('rappel'));
+  if (!id) return;
+  sb.rpc('remind_opened', { p_id: id }).then(({ error }) => { if (error) console.warn('Lecture de la relance non notée', error.message); });
+}
+/* Recherche sans casse ni accents : « eloDie » trouve « Élodie », « kante » trouve « KANTÉ ». */
+const searchKey = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+/* Nom d'un joueur qui ouvre sa fiche (clic simple ; Ctrl/Cmd : nouvel onglet). retour : la page
+   où revenir (« matchs?id=54 ») : le bouton de retour de la fiche y ramène (player-performance-page.js). */
+const playerHref = (id, retour = '') => `player-performance?id=${id}${retour ? `&retour=${encodeURIComponent(retour)}` : ''}`;
+const playerLink = (id, text, extra = '', retour = '') => `<a class="player-link" href="${playerHref(id, retour)}"${extra}>${escapeHtml(text)}</a>`;
 const capFirst = (s) => { const t = String(s ?? ''); return t.charAt(0).toUpperCase() + t.slice(1); };
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -364,10 +374,42 @@ enhanceColorInputs();
    (recherche, filtres) et sa position dans la page. Le menu ouvre la
    dernière page vue de chaque rubrique ; les liens data-back
    (« ← Joueurs ») la dernière adresse de leur page. Mémoire de
-   l'onglet du navigateur (sessionStorage), vidée à la déconnexion. */
+   l'onglet du navigateur (sessionStorage), vidée à la déconnexion.
+   États temporaires seulement (lot 4.2) : rien d'enregistré en base n'y est.
+     - Après NAV_IDLE sans activité, la mémoire repart de zéro : rubriques,
+       filtres et fiches d'avant ne reviennent plus.
+     - Une fenêtre ou une action ouverte par un lien (matchs?id=54) ne passe
+       pas par la mémoire : takeUrlParam la retire de l'adresse dès qu'elle
+       est lue ; ni le menu, ni un retour, ni un rechargement ne la rouvrent.
+     - Le menu ne ramène pas aux éditeurs (NAV_NO_RETURN : séance, tableau
+       tactique), seulement à leur liste : une ancienne séance ne se rouvre
+       pas d'elle-même. */
 const NAV_MEM = 'lmfc-nav';
-const memRead = () => { try { return JSON.parse(sessionStorage.getItem(NAV_MEM)) || {}; } catch { return {}; } };
-const memWrite = (m) => { try { sessionStorage.setItem(NAV_MEM, JSON.stringify(m)); } catch { /* stockage bloqué : pas de mémoire */ } };
+const NAV_IDLE = 60 * 60 * 1000;   // 1 h sans clic ni touche : nouvelle navigation
+const NAV_NO_RETURN = new Set(['session-edit', 'tactical-board']);
+const memRead = () => {
+  try {
+    const m = JSON.parse(sessionStorage.getItem(NAV_MEM)) || {};
+    if (m.seen && Date.now() - m.seen > NAV_IDLE) { sessionStorage.removeItem(NAV_MEM); return {}; }
+    return m;
+  } catch { return {}; }
+};
+const memWrite = (m) => { try { sessionStorage.setItem(NAV_MEM, JSON.stringify({ ...m, seen: Date.now() })); } catch { /* stockage bloqué : pas de mémoire */ } };
+/* Activité (clic, touche) : la mémoire reste valable ; au plus une écriture par minute. */
+let navSeenAt = 0;
+['pointerdown', 'keydown'].forEach(t => addEventListener(t, () => {
+  if (Date.now() - navSeenAt < 60000) return;
+  navSeenAt = Date.now();
+  memWrite(memRead());
+}, { passive: true, capture: true }));
+/* Paramètre d'adresse à usage unique : lu, puis retiré de l'adresse (et donc de la mémoire). */
+function takeUrlParam(name) {
+  const u = new URL(location.href), v = u.searchParams.get(name);
+  if (v === null) return null;
+  u.searchParams.delete(name);
+  history.replaceState(history.state, '', `${u.pathname}${u.search}${u.hash}`);
+  return v;
+}
 const pageOf = (href) => (String(href).split(/[?#]/)[0].split('/').pop() || 'index').replace(/\.html$/i, '') || 'index';
 const PAGE = pageOf(location.pathname);
 const hereUrl = () => `${location.pathname.split('/').pop() || '/'}${location.search}${location.hash}`;
@@ -379,16 +421,17 @@ function savePageState(patch) {
   memWrite(m);
 }
 function rememberUrl() {
+  if (NAV_NO_RETURN.has(PAGE)) return;   // éditeur : le menu ramène à sa liste
   const m = memRead();
   m.url = { ...m.url, [PAGE]: { u: hereUrl(), t: Date.now() } };
   memWrite(m);
 }
 /* Dernière adresse connue d'une page (ou null), et la plus récente
    d'une liste de pages (une rubrique et ses pages filles). */
-const lastUrl = (page) => memRead().url?.[page]?.u || null;
+const lastUrl = (page) => (NAV_NO_RETURN.has(page) ? null : memRead().url?.[page]?.u || null);
 function latestUrl(pages) {
   const urls = memRead().url || {};
-  const best = pages.map(p => urls[p]).filter(Boolean).sort((a, b) => b.t - a.t)[0];
+  const best = pages.filter(p => !NAV_NO_RETURN.has(p)).map(p => urls[p]).filter(Boolean).sort((a, b) => b.t - a.t)[0];
   return best?.u || null;
 }
 function clearNavMemory() { try { sessionStorage.removeItem(NAV_MEM); } catch { /* rien à vider */ } }

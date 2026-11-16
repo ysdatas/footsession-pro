@@ -1,8 +1,8 @@
 /* ============================================================
    LMFC Performance — analyse-view.js
    Onglet Analyse de la fiche joueur (staff et lecteur) :
-     - bandeau : menus déroulants des filtres généraux (#anFilters, posé
-       dans l'en-tête joueur, visible quand l'onglet est ouvert) ;
+     - bandeau : menus déroulants des filtres généraux (#anFilters, en tête
+       de l'onglet ; l'en-tête du joueur reste le même sur tous les onglets) ;
      - AVEC BALLON | SANS BALLON : trois sous-rubriques chacun (une action
        affichée à la fois), ses menus, ses chiffres, son terrain cliquable
        et « Lire les vidéos », tous tirés de la MÊME liste (anActionClips) ;

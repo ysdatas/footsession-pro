@@ -15,7 +15,11 @@ const CS_MATCH_STATUS = [['', 'À renseigner'], ['titulaire', 'Titulaire'], ['re
 const CS = { item: null, editable: false, players: [], entries: new Map(), fields: {}, loading: false };
 const csEl = (id) => document.getElementById(id);
 const csName = (p) => `${p?.prenom || ''} ${p?.nom || ''}`.trim() || 'Joueur';
-const csInTeam = (p, teamId) => !!teamId && (p.team_id === teamId || (p.other_team_ids || []).includes(teamId));
+const csInTeam = (p, teamId) => !!teamId && !p.exterieur && (p.team_id === teamId || (p.other_team_ids || []).includes(teamId));   // extérieur : lmfc_v54.sql
+/* Équipes de l'élément : une séance compte aussi ses équipes associées (lmfc_v51.sql). */
+const csSessionTeams = (item) => ({ team_id: item.team_id, other_team_ids: item.row?.other_team_ids });
+const csItemTeams = (item) => (item.kind === 'seance' ? sessionTeamIds(csSessionTeams(item)) : [item.team_id].filter(Boolean));
+const csInItem = (p, item) => csItemTeams(item).some(t => csInTeam(p, t));
 const csStatusOptions = (list, value) => list.map(([v, label]) =>
   `<option value="${v}"${v === (value || '') ? ' selected' : ''}>${label}</option>`).join('');
 
@@ -54,18 +58,18 @@ async function openCalSummary(item) {
       ? await sb.rpc('session_access_level', { p_session: item.id }) : null;
     const table = item.kind === 'seance' ? 'attendance' : 'match_players';
     const [playersRes, rosterRes] = await Promise.all([
-      sb.from('players').select('id, nom, prenom, team_id, other_team_ids, numero, poste').order('nom'),
+      sb.from('players').select('id, nom, prenom, team_id, other_team_ids, numero, poste, exterieur').order('nom'),
       sb.from(table).select(item.kind === 'seance' ? 'player_id, statut, statut_libre, invite, present' : 'player_id, statut').eq(item.kind === 'seance' ? 'session_id' : 'match_id', item.id),
     ]);
     if (playersRes.error) throw playersRes.error;
     if (rosterRes.error) throw rosterRes.error;
     CS.players = playersRes.data || [];
     const current = new Map((rosterRes.data || []).map(r => [Number(r.player_id), r]));
-    const member = CS.players.filter(p => csInTeam(p, item.team_id));
+    const member = CS.players.filter(p => csInItem(p, item));
     const candidates = new Map([...member, ...CS.players.filter(p => current.has(Number(p.id)))].map(p => [Number(p.id), p]));
     CS.entries = new Map([...candidates].map(([id, player]) => {
       const r = current.get(id);
-      const isMember = csInTeam(player, item.team_id);
+      const isMember = csInItem(player, item);
       const included = item.kind === 'seance'
         ? (r ? r.statut !== 'non_concerne' : isMember)
         : !!r;
@@ -99,7 +103,7 @@ function csFieldsHtml(i) {
     ${field('heure', 'Heure', 'time', '', (r.heure || i.heure || '').slice(0, 5))}
     ${field('duree_min', 'Durée (min)', 'number', 'min="1" max="600" step="0.01"', r.duree_min ?? 90)}
     ${field('lieu', 'Lieu', 'text', 'maxlength="120"')}
-    <p class="cs-read">${escapeHtml(teamName(i.team_id) || 'Sans équipe')}</p></div>`;
+    <p class="cs-read">${escapeHtml(sessionTeamsLabel(csSessionTeams(i)) || 'Sans équipe')}</p></div>`;
   return `<div class="cs-fields">
     ${field('adversaire', 'Adversaire', 'text', 'maxlength="120" required')}
     ${field('date', 'Date', 'date', 'required', r.date_match || i.date)}
@@ -128,7 +132,7 @@ function csPlayerRowsHtml() {
 }
 
 function csRender() {
-  const item = CS.item, team = teamName(item.team_id);
+  const item = CS.item, team = item.kind === 'seance' ? sessionTeamsLabel(csSessionTeams(item)) : teamName(item.team_id);
   csEl('calSummaryBody').innerHTML = `${!CS.editable ? '<p class="cs-readonly">Consultation seule pour cet élément.</p>' : ''}
     <div class="cs-section"><h3>Informations</h3>${csFieldsHtml(item)}</div>
     <div class="cs-section"><div class="cs-player-heading"><h3>Joueurs concernés</h3><span id="csCount"></span></div>
@@ -157,7 +161,7 @@ function csAddPlayer(e) {
   const value = e.target.value;
   const p = CS.players.find(x => `${csName(x)} – ${teamName(x.team_id) || 'Sans équipe'}` === value);
   if (!p) return;
-  const id = Number(p.id), inTeam = csInTeam(p, CS.item.team_id);
+  const id = Number(p.id), inTeam = csInItem(p, CS.item);
   CS.entries.set(id, { player: p, included: true, statut: CS.item.kind === 'seance' ? 'present' : '',
     statut_libre: '', invite: !inTeam, present: true });
   e.target.value = '';

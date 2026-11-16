@@ -207,3 +207,18 @@ a.mt-row { text-decoration: none; }
 
 /* Même raison que #cmpContent : l'effectif est redessiné au tri sans que la page bouge. */
 #squad { display: flow-root; }
+
+/* Doublons possibles : caractéristiques comparées et choix (match-merge.js, lmfc_v53.sql) */
+.dup-item + .dup-item { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(var(--gold-rgb), .2); }
+.dup-compare { width: 100%; margin: 8px 0; border-collapse: collapse; font-size: var(--fs-sm); table-layout: fixed; }
+.dup-compare td { overflow-wrap: break-word; }
+.mt-merge .dup-item > p:first-child { display: block; }
+.dup-compare th, .dup-compare td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+.dup-compare thead th { color: var(--text-secondary); font-weight: 500; }
+.dup-compare tbody th { width: 25%; color: var(--text-secondary); font-weight: 500; }
+.dup-compare tr.is-diff td { color: var(--gold-light); font-weight: 600; }
+.mt-merge .dup-actions { gap: 8px; }
+.mt-merge .dup-actions .btn { margin-left: 0; }
+.dup-dialog { width: min(600px, calc(100vw - 32px)); max-width: none; }
+.dup-dialog-body { max-height: 50vh; overflow: auto; }
+.dup-dialog-actions { flex-wrap: wrap; gap: 8px; }

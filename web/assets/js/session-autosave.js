@@ -206,7 +206,10 @@ async function saveAll() {
   if (access.ready) sessionRow.acces = access.base;
   if (hasTeams()) {
     sessionRow.team_id = sessionTeamId;
-    sessionRow.equipe = teamName(sessionTeamId) || null;
+    // « U15 + U14 » : repris tel quel par la liste, le PDF et le lien de partage.
+    sessionRow.equipe = sessionTeamsLabel({ team_id: sessionTeamId, other_team_ids: sessionOtherTeams }) || null;
+    // Envoyé seulement s'il sert : sans lmfc_v51.sql, une séance d'une seule équipe s'enregistre comme avant.
+    if (otherTeamsKnown) sessionRow.other_team_ids = sessionOtherTeams;
   }
 
   let sid = savedSessionId;

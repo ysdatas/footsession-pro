@@ -36,6 +36,7 @@
       <div class="page-actions">
         <button class="btn hidden" id="btnSelectPlayers" type="button" aria-pressed="false">Sélectionner</button>
         <button class="btn hidden" id="btnImportExcel" type="button" title="Met à jour tous les joueurs présents dans le fichier">Importer l’Excel</button>
+        <button class="btn hidden" id="btnRemindVideos" type="button" title="Notifier les joueurs affichés qui n’ont pas regardé toutes leurs vidéos">Relancer : vidéos</button>
         <button class="btn btn-primary hidden" id="btnAddPlayer" type="button">+ Ajouter</button>
       </div>
     </div>
@@ -43,6 +44,10 @@
     <div class="players-filters">
       <input id="searchPlayer" data-remember type="search" placeholder="Rechercher un joueur…" aria-label="Rechercher un joueur par son nom">
       <select id="posteFilter" data-remember aria-label="Filtrer par poste"><option value="">Tous postes</option></select>
+      <!-- Vidéos regardées (lmfc_v58.sql) : affiché au staff qui lit le suivi des vidéos -->
+      <select id="videoFilter" data-remember aria-label="Filtrer par vidéos regardées" class="hidden">
+        <option value="">Toutes les vidéos</option><option value="toutes">Tout regardé</option><option value="partiel">Regardé en partie</option>
+        <option value="aucune">Rien ouvert</option><option value="reste">Vidéos à regarder</option></select>
     </div>
 
     <div class="unassigned-bar hidden" id="unassignedBar"></div>
@@ -92,6 +97,8 @@
   <script src="assets/js/perf-metrics.js"></script>
   <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/excel-match.js"></script>
+  <script src="assets/js/player-exterieur.js"></script>   <!-- joueurs extérieurs (lmfc_v54.sql) -->
+  <script src="assets/js/remind-ui.js"></script>   <!-- relances (lmfc_v59.sql) -->
   <script src="assets/js/players-page.js"></script>
 </body>
 </html>

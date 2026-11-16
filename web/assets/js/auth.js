@@ -133,10 +133,13 @@ function homeFor(profile) {
 const roleHome = (role) => ({ joueur: 'mon-espace', lecteur: 'players' }[role] || 'dashboard');
 
 /* Rattache le compte au club si l'administrateur a enregistré son adresse
-   e-mail (Mon club → Accès). Sans effet sinon. */
+   e-mail (Mon club → Accès). Sans effet sinon. Renvoie le rôle activé,
+   'en_attente' (invitation du staff dont l'admin n'a pas encore choisi les
+   équipes, lmfc_v55.sql) ou null. */
 async function claimClubAccess() {
-  const { error } = await sb.rpc('claim_club_access');
+  const { data, error } = await sb.rpc('claim_club_access');
   if (error) console.warn('claim_club_access :', error.message);
+  return error ? null : data;
 }
 
 async function logout() {

@@ -75,7 +75,9 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   document.getElementById('homeAttn').addEventListener('click', openSoreFromCard);
   renderAttention(vRes.data || [], sRes.data || [], nRes.data || [], eRes.error ? null : (eRes.data || []));
   renderStats(mRes.data || [], tRes.data || [], player.hidden_sections || []);
+  markReminderOpened();   // app.js : avant que le lien ne soit retiré de l'adresse
   openRpeFromLink();
+  openAvisFromLink();
 })();
 
 /* Relance du staff (lmfc_v50.sql) : la notification ouvre mon-espace?rpe=s12 (séance) ou m12 (match). */
@@ -90,6 +92,23 @@ function openRpeFromLink() {
     const card = document.getElementById('phRpe');
     if (card) card.outerHTML = rpeCardHtml();
   } });
+}
+
+/* Relance d'avis du staff (lmfc_v59.sql) : la notification ouvre mon-espace?avis=12 (le match). */
+async function openAvisFromLink() {
+  const want = Number(new URLSearchParams(location.search).get('avis'));
+  if (!want) return;
+  history.replaceState(null, '', location.pathname);   // pas de nouvelle ouverture en revenant sur la page
+  const [played, fb] = await Promise.all([sb.rpc('my_avis_matches'), sb.from('match_feedback').select('match_id, individuel, collectif').eq('match_id', want)]);
+  const r = (played.data || []).find(x => x.match_id === want);
+  if (!r) return toast('Cet avis n’est plus ouvert.', 'error');
+  openMatchFeedbackSheet({ match: { id: r.match_id, titre: r.titre, date: r.date_match, form_titre: r.form_titre, form_questions: r.form_questions },
+    value: fb.data?.[0] || null, onSaved: (v) => {
+      if (phMf?.match.id !== want) return;
+      phMf.value = v;
+      const a = document.querySelector('[data-mf]');
+      if (a) a.outerHTML = mfCardHtml();
+    } });
 }
 
 /* Courbatures au réveil : le jour d'une séance seulement (soreness.js). */

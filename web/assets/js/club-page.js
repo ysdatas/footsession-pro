@@ -110,13 +110,16 @@ const playerName = playerFullName;   // app.js
 /* ---------- Accès (e-mail + fonction + fiche) et membres ---------- */
 async function loadMembers() {
   const list = document.getElementById('memberList');
-  const [{ data: members, error }, { data: players, error: rosterError }, access] = await Promise.all([
+  const [{ data: members, error }, { data: players, error: rosterError }, access, , logins] = await Promise.all([   // 4e : exceptions (club-access.js)
     // select('*') : team_id n'existe qu'après lmfc_v7.sql.
     sb.from('profiles').select('*').eq('club_id', myProfile.club_id).order('nom'),
     sb.from('players').select('id, nom, prenom, auth_user_id, team_id').eq('club_id', myProfile.club_id).order('nom'),
     isAdmin ? sb.from('club_access').select('*').is('claimed_at', null).order('created_at', { ascending: false }) : { data: [] },
     isAdmin ? loadAccessExceptions() : null,   // club-access.js (avant : après les membres)
+    isAdmin ? sb.rpc('club_member_logins', { p_days: LOGIN_DAYS }) : { data: [] },   // lmfc_v56.sql, club-invite.js
   ]);
+  if (logins?.error) console.warn('Dernières connexions indisponibles (lmfc_v56.sql ?)', logins.error.message);
+  const loginOf = new Map((logins?.data || []).map(l => [l.profile_id, l]));
   if (error || rosterError) {
     list.innerHTML = `<p class="text-danger">${escapeHtml((error || rosterError).message)}</p>`;
     return;
@@ -137,7 +140,7 @@ async function loadMembers() {
     const teamsTxt = ids.map(teamName).filter(Boolean).join(', ');
     const acc = isAdmin && m.role !== 'joueur' ? accessSummary(m) : { bits: [], none: false };
     const sub = m.role === 'joueur' ? (linked ? `Fiche : ${escapeHtml(playerName(linked))}` : 'Aucune fiche associée')
-      : [ROLE_LABELS[m.role] || m.role, teamsTxt && escapeHtml(teamsTxt), ...acc.bits].filter(Boolean).join(' – ')
+      : [m.responsabilite && escapeHtml(respLabel(m.responsabilite)), ROLE_LABELS[m.role] || m.role, teamsTxt && escapeHtml(teamsTxt), ...acc.bits].filter(Boolean).join(' – ')
         + (acc.none ? ' <span class="badge badge-red">Aucun accès</span>' : '');
     const self = m.id === myProfile.id;
     // Coach, préparateur, lecteur : rattachés à une ou plusieurs équipes, ils ne voient qu'elles. Lecteur sans équipe : tout le club (lmfc_v39.sql).
@@ -160,12 +163,15 @@ async function loadMembers() {
             ${linkOptions(m, linked)}
           </select>
           ${teamSelect}
+          ${'responsabilite' in m && m.role !== 'joueur' ? `<select class="resp-select" aria-label="Responsabilité (intitulé, sans droit)">${respOptions(m.responsabilite || '')}</select>` : ''}
           ${!['joueur', 'admin'].includes(m.role) ? `<button type="button" class="btn btn-sm" data-rights title="${m.role === 'lecteur' ? 'Exceptions par joueur' : 'Lecture sur toutes les équipes, exceptions par joueur'}">Accès</button>` : ''}
           <button type="button" class="btn btn-sm btn-danger" data-remove>Retirer</button>
         </div>`
       : `<span class="badge badge-gold">${self ? 'Vous | ' : ''}${ROLE_LABELS[m.role] || m.role}</span>`;
     const search = fold(`${m.nom || ''} ${linked ? `${playerName(linked)} ${teamName(linked.team_id) || ''}` : ''} ${ROLE_LABELS[m.role] || ''} ${teamsTxt}`);
-    return `<div class="member-row${acc.none ? ' is-noaccess' : ''}" data-search="${escapeHtml(search)}"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small></span>${controls}</div>`;
+    const login = isAdmin ? lastLoginText(loginOf.get(m.id)) : '';
+    return `<div class="member-row${acc.none ? ' is-noaccess' : ''}" data-search="${escapeHtml(search)}"><span class="member-name">${escapeHtml(m.nom || 'Membre')}<small>${sub}</small>${login
+      ? `<small class="member-login">${escapeHtml(login)}</small>` : ''}</span>${controls}</div>`;
   };
   // Groupes repliés par l'admin : ils le restent après une modification.
   const closed = new Set([...list.querySelectorAll('.member-group:not([open])')].map(g => g.dataset.group));
@@ -227,7 +233,11 @@ function filterMembers() {
 }
 document.getElementById('memberSearch').addEventListener('input', filterMembers);
 
+let pendingAccess = [], inviteReady = false;
 function renderAccess(pending) {
+  pendingAccess = pending;
+  if (!inviteReady) { initInviteForm(); inviteReady = true; }   // club-invite.js (lmfc_v55.sql)
+  else document.getElementById('accTeams').innerHTML = teamChecks('accTeam');
   const sel = document.getElementById('accPlayer');
   const taken = new Set(pending.map(a => a.player_id).filter(Boolean));
   sel.innerHTML = '<option value="">Choisir le joueur…</option>' + roster
@@ -237,8 +247,13 @@ function renderAccess(pending) {
   document.getElementById('pendingList').innerHTML = pending.length
     ? `<div class="access-list"><h4>En attente de première connexion</h4>${pending.map(a => {
         const p = roster.find(x => x.id === a.player_id);
-        return `<div class="member-row"><span class="member-name">${escapeHtml(a.email)}<small>${ROLE_LABELS[a.role] || a.role}${p ? ` | ${escapeHtml(playerName(p))}` : ''}</small></span>
-          <button class="btn btn-sm" type="button" data-access-delete="${a.id}">Annuler</button></div>`;
+        // Staff sans périmètre (invitation d'avant lmfc_v55.sql) : la base ne l'activera pas tant qu'il manque.
+        const scope = scopeText(a), missing = needsScope(a.role) && !scope;
+        const sub = [respLabel(a.responsabilite), ROLE_LABELS[a.role] || a.role, p && playerName(p), scope].filter(Boolean).map(escapeHtml).join(' | ');
+        return `<div class="member-row"><span class="member-name">${escapeHtml(a.nom || a.email)}<small>${a.nom ? `${escapeHtml(a.email)} | ` : ''}${sub}${missing
+            ? ' <span class="badge badge-red" title="Le compte restera sans accès à sa connexion tant que ses équipes ne sont pas choisies">Périmètre à définir</span>' : ''}</small></span>
+          <span class="acc-actions">${needsScope(a.role) ? `<button class="btn btn-sm${missing ? ' btn-primary' : ''}" type="button" data-access-scope="${a.id}">Périmètre…</button>` : ''}
+          <button class="btn btn-sm" type="button" data-access-delete="${a.id}">Annuler</button></span></div>`;
       }).join('')}</div>`
     : '';
 }
@@ -247,10 +262,7 @@ function renderAccess(pending) {
 const accAdminOption = document.getElementById('accRole').querySelector('option[value="admin"]');
 accAdminOption.before(new Option(ROLE_CHOICES.analyste, 'analyste'));
 accAdminOption.before(new Option(ROLE_CHOICES.lecteur, 'lecteur'));
-function syncAccessForm() {
-  document.getElementById('accPlayer').classList.toggle('hidden', document.getElementById('accRole').value !== 'joueur');
-}
-document.getElementById('accRole').addEventListener('change', syncAccessForm);
+const syncAccessForm = () => syncInviteForm();   // club-invite.js : joueur, périmètre du staff
 
 document.getElementById('accessForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -258,10 +270,12 @@ document.getElementById('accessForm').addEventListener('submit', async (e) => {
   const role = document.getElementById('accRole').value;
   const playerId = Number(document.getElementById('accPlayer').value) || null;
   if (role === 'joueur' && !playerId) return toast('Choisissez la fiche du joueur.', 'error');
+  const f = inviteFields();   // club-invite.js : nom, responsabilité, équipes, lecture club
+  if (f.error) return toast(f.error, 'error');
   const btn = e.submitter; if (btn) btn.disabled = true;
   try {
     const { error } = await sb.from('club_access').insert({
-      club_id: myProfile.club_id, email, role, player_id: role === 'joueur' ? playerId : null, created_by: myProfile.id,
+      club_id: myProfile.club_id, email, role, player_id: role === 'joueur' ? playerId : null, created_by: myProfile.id, ...f,
     });
     if (error) throw error;
     e.target.reset(); syncAccessForm();
@@ -270,11 +284,15 @@ document.getElementById('accessForm').addEventListener('submit', async (e) => {
   } catch (err) {
     console.error('Accès non enregistré', err);
     toast(err.code === '23505' ? 'Cette adresse ou ce joueur a déjà un accès en attente.'
+      : /perimetre/.test(err.message || '') ? 'Choisissez au moins une équipe, ou « Lecture sur toutes les équipes ».'
+      : /team_ids|lecture_club|responsabilite|nom/.test(err.message || '') ? updateNeeded('lmfc_v55.sql')
       : /club_access/.test(err.message || '') ? updateNeeded('platform_v2.sql') : err.message, 'error');
   } finally { if (btn) btn.disabled = false; }
 });
 
 document.getElementById('pendingList').addEventListener('click', async (e) => {
+  const s = e.target.closest('[data-access-scope]');
+  if (s) { if (await editInviteScope(pendingAccess.find(a => a.id === Number(s.dataset.accessScope)))) await loadMembers(); return; }   // club-invite.js
   const b = e.target.closest('[data-access-delete]'); if (!b) return;
   const { error } = await sb.from('club_access').delete().eq('id', Number(b.dataset.accessDelete));
   if (error) return toast(error.message, 'error');
@@ -285,6 +303,13 @@ document.getElementById('pendingList').addEventListener('click', async (e) => {
 document.getElementById('memberList').addEventListener('change', async (e) => {
   const box = e.target.closest('.member-controls'); if (!box) return;
   const profileId = box.dataset.id;
+  // Responsabilité (lmfc_v55.sql) : un intitulé, sans droit ; le rôle et les équipes restent ceux choisis.
+  if (e.target.classList.contains('resp-select')) {
+    const { data, error } = await sb.from('profiles').update({ responsabilite: e.target.value || null }).eq('id', profileId).select('id');
+    if (error || !data?.length) return toast(error?.message || 'Modification refusée.', 'error');
+    toast(e.target.value ? `Responsabilité : ${respLabel(e.target.value)}` : 'Responsabilité retirée', 'success');
+    return loadMembers();
+  }
   const multi = e.target.closest('.team-multi');
   if (multi) {
     // Enregistré à chaque case ; la liste reste ouverte pour en cocher d'autres.
@@ -385,6 +410,10 @@ document.getElementById('teamForm').addEventListener('submit', async (e) => {
   const input = document.getElementById('teamName');
   const nom = input.value.trim();
   if (!nom) return;
+  // Nom proche d'une équipe existante (« U 15 », « u15 », « U15 ») : la base n'en voit qu'un exact ; on demande.
+  const teamKey = (x) => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const twin = (window.CLUB_TEAMS || []).find(t => teamKey(t.nom) === teamKey(nom));
+  if (twin && !await confirmDialog(`Créer l’équipe « ${nom} » ?\n\nUne équipe au nom presque identique existe déjà : « ${twin.nom} ». Deux équipes séparent joueurs, séances, matchs et statistiques.`, { ok: 'Créer quand même' })) return;
   try {
     const { error } = await sb.from('teams').insert({ club_id: myProfile.club_id, nom });
     if (error) throw error;

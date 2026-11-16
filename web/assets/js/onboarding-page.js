@@ -19,9 +19,11 @@ async function check(manual) {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.href = '/'; return; }
   document.getElementById('myEmail').textContent = session.user.email || '—';
-  await claimClubAccess();
+  const claimed = await claimClubAccess();
   const { data: profile } = await sb.from('profiles').select('role, club_id').eq('id', session.user.id).maybeSingle();
   if (profile?.club_id) { window.location.href = homeFor(profile); return; }
+  // Invitation reçue, périmètre pas encore choisi : aucun accès en attendant (lmfc_v55.sql).
+  if (claimed === 'en_attente') return showErr('Votre accès est en attente : l’administrateur du club doit encore choisir vos équipes. Réessayez ensuite.');
   if (manual) showErr('Aucun accès enregistré pour cette adresse pour l’instant.');
 }
 document.getElementById('retryBtn').addEventListener('click', () => check(true));

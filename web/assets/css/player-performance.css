@@ -621,6 +621,7 @@ html[data-pf="staff"] .perf-actions { min-height: 32px; }
 html[data-pf="staff"] #pfTabs { display: flex !important; }
 html[data-pf="staff"][data-pf-shown="fiche"] .pf-panel:not([data-pf-panel="fiche"]),
 html[data-pf="staff"][data-pf-shown="performance"] .pf-panel:not([data-pf-panel="performance"]),
+html[data-pf="staff"][data-pf-shown="matchs"] .pf-panel:not([data-pf-panel="matchs"]),
 html[data-pf="staff"][data-pf-shown="videos"] .pf-panel:not([data-pf-panel="videos"]) { display: none; }
 
 /* ============================================================
