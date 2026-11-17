@@ -285,8 +285,8 @@
   <!-- Mesure physique -->
   <div class="modal-backdrop" id="measureModal">
     <div class="modal">
-      <h2 class="as-h3">Ajouter une mesure</h2>
-      <p class="text-muted modal-lead">Une ligne par mois : la saisie complète ou corrige ce mois. Un champ vide ne change rien.</p>
+      <h2 class="as-h3" id="measureModalTitle">Ajouter une mesure</h2>
+      <p class="text-muted modal-lead" id="measureModalLead">Une ligne par mois : la saisie complète ou corrige ce mois. Un champ vide ne change rien.</p>
       <div class="form-grid form-grid-2">
         <label>Date<input type="date" id="m-date"></label>
         <label>Mois<select id="m-month">
@@ -298,6 +298,8 @@
         <label>Masse grasse<span class="input-unit"><input type="number" step="0.1" id="m-fat" inputmode="decimal"><span>%</span></span></label>
       </div>
       <div class="modal-actions">
+        <button class="btn btn-danger hidden" id="btnDeleteMeasurement" type="button">Supprimer</button>
+        <span class="spacer"></span>
         <button class="btn" data-close="measureModal" type="button">Annuler</button>
         <button class="btn btn-primary" id="btnSaveMeasurement" type="button">Enregistrer la mesure</button>
       </div>
@@ -451,6 +453,7 @@
   <script src="assets/js/procedure-time.js"></script>
   <script src="assets/js/match-history.js"></script>
   <script src="assets/js/player-exterieur.js"></script>   <!-- joueurs extérieurs (lmfc_v54.sql) -->
+  <script src="assets/js/perf-measure-edit.js"></script>   <!-- modifier / supprimer une mesure -->
   <script src="assets/js/player-performance-page.js"></script>
   <script src="assets/js/excel-import.js"></script>
   <script src="assets/js/excel-match.js"></script>

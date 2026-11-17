@@ -333,12 +333,14 @@ function renderRows() {
   const n = rows.length + editing.extras.length;
   document.getElementById('mpCount').textContent = n ? `· ${n}` : '';
   const num = (r, k, max, unit) => `<label class="mp-num"><input data-k="${k}" type="number" min="0" max="${max}" inputmode="numeric" value="${r[k] ?? ''}" ${dis}><span>${unit}</span></label>`;
-  document.getElementById('mpList').innerHTML = rows.length ? rows.map(r => {
+  // En-tête des colonnes (grand écran) : chaque champ garde aussi son libellé pour les lecteurs d'écran et le téléphone.
+  const head = `<div class="mp-head" aria-hidden="true"><span>Joueur</span><span>Statut</span><span>Min</span><span>Buts</span><span>Passes</span>
+    <span>Jaune</span><span>Rouge</span><span>Note</span><span>Commentaire</span><span></span></div>`;
+  document.getElementById('mpList').innerHTML = rows.length ? head + rows.map(r => {
     const name = playerName(playerOf(r.player_id));
     return `<div class="mp-row" data-player="${r.player_id}">
-      <span class="mp-name">${playerLink(r.player_id, name, ' title="Fiche du joueur"', matchBack())}${playerOf(r.player_id)?.exterieur
-        ? ` <span class="fff-st" title="${escapeHtml(extTeamLabel(playerOf(r.player_id)))}">Extérieur</span>` : ''}${r.ext_data
-        ? ` <span class="fff-st${mpEdited(r) ? ' is-warn' : ''}" title="Lu sur la feuille de match FFF">${mpEdited(r) ? 'FFF – modifié' : 'FFF'}</span>` : ''}</span>
+      <span class="mp-name">${playerLink(r.player_id, name, ` title="${escapeHtml(name)} – fiche du joueur"`, matchBack())}${playerOf(r.player_id)?.exterieur
+        ? `<span class="mp-src" title="${escapeHtml(extTeamLabel(playerOf(r.player_id)))}">Extérieur</span>` : ''}${mpSrcHtml(r)}</span>
       <select data-k="statut" aria-label="Statut de ${escapeHtml(name)}" ${dis}><option value="">—</option>${STATUTS_MATCH.map(([k, l]) => `<option value="${k}"${r.statut === k ? ' selected' : ''}>${l}</option>`).join('')}</select>
       ${num(r, 'minutes', 130, 'min')}${num(r, 'buts', 20, 'buts')}${num(r, 'passes', 20, 'passes')}${num(r, 'cartons_jaunes', 2, 'jaune')}
       <label class="mp-red"><input type="checkbox" data-k="carton_rouge"${r.carton_rouge ? ' checked' : ''} ${dis}><span>rouge</span></label>
@@ -358,8 +360,6 @@ function renderRows() {
     </div>`).join(''));
 }
 
-/* Ligne préremplie par la feuille de match (lmfc_v33.sql) puis corrigée à la main. */
-const mpEdited = (r) => ['statut', 'minutes', 'buts', 'cartons_jaunes', 'carton_rouge'].some(k => k in r.ext_data && (r[k] ?? null) !== (r.ext_data[k] ?? null));
 function addRow(id) {
   if (editing.rows.has(id)) return;
   editing.removed.delete(id);
@@ -398,6 +398,7 @@ function initEditor() {
     if (k === 'statut' || k === 'commentaire') r[k] = e.target.value || null;
     else if (k === 'carton_rouge') r[k] = e.target.checked;
     else r[k] = e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value)));
+    if (r.ext_data) e.target.closest('.mp-row')?.querySelector('.mp-src.is-fff')?.replaceWith(mpSrcNode(r));   // « modifié » suit la saisie
   });
   list.addEventListener('click', (e) => {
     const x = e.target.closest('[data-remove-extra]');

@@ -507,13 +507,15 @@ function renderMeasurements() {
   // La taille n'est dans le tableau que pour le staff (le joueur la voit en tête de page).
   const cols = [['height_cm', 'Taille', 0, 'cm'], ['weight_kg', 'Poids', 1, 'kg'], ['body_fat_pct', 'MG', 1, '%']]
     .filter(([k]) => (k !== 'height_cm' || isStaff()) && measureShown(k));
-  const grid = `style="grid-template-columns:1.2fr repeat(${cols.length}, 1fr)"`;
+  // Staff qui peut écrire : « Modifier » en bout de ligne (perf-measure-edit.js).
+  const grid = `style="grid-template-columns:1.2fr repeat(${cols.length}, 1fr)${canEditPerformance ? ' auto' : ''}"`;
 
   wrap.innerHTML = `<div class="measurement-table">
-    <div class="measurement-row header" ${grid}><span>Mois</span>${cols.map(([, label]) => `<span>${label}</span>`).join('')}</div>
+    <div class="measurement-row header" ${grid}><span>Mois</span>${cols.map(([, label]) => `<span>${label}</span>`).join('')}${canEditPerformance ? '<span><span class="sr-only">Actions</span></span>' : ''}</div>
     ${ordered.map(m => `<div class="measurement-row" ${grid}>
       <span>${esc(m.month_label || '—')}</span>
       ${cols.map(([k, , d, u]) => `<span>${m[k] != null ? `${fmt(m[k], d)} ${u}` : '—'}</span>`).join('')}
+      ${canEditPerformance ? `<span class="measure-actions">${measureEditButton(m)}</span>` : ''}
     </div>`).join('')}
   </div>`;
 }
@@ -1092,6 +1094,7 @@ function seasonMonthOf(iso) {
    l'Excel et n'apparaissait jamais dans l'en-tête. */
 function openMeasureModal() {
   if (!canEditPerformance) return;
+  setMeasureMode(null);   // perf-measure-edit.js
   const today = localToday();
   document.getElementById('m-date').value = today;
   const month = seasonMonthOf(today);
@@ -1141,6 +1144,7 @@ function withoutEmpty(body) {
 
 async function saveMeasurement() {
   if (!canEditPerformance) return;
+  if (measureEditId) return updateMeasurement();   // ligne existante (perf-measure-edit.js)
   const body = {
     club_id: player.club_id,
     player_id: player.id,

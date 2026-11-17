@@ -155,6 +155,20 @@ body.fp-fm-page { background: var(--bg-primary); }
   font-size: var(--fs-xs);
 }
 
+/* « Modifier » en bout de ligne (perf-measure-edit.js) : la ligne garde sa hauteur. */
+.fp-fm-page .measurement-row > .measure-actions {
+  padding: 2px 8px;
+  text-align: right;
+}
+.fp-fm-page .measure-edit {
+  min-height: 28px;
+  color: var(--text-secondary);
+}
+.fp-fm-page .measure-edit:hover,
+.fp-fm-page .measure-edit:focus-visible {
+  color: var(--text-primary);
+}
+
 .fp-fm-page .note-card {
   border: 1px solid var(--border);
   background: var(--bg-surface);

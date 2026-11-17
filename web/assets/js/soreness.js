@@ -97,7 +97,7 @@ async function soreSave() {
 }
 
 /* ---------- Staff : vue « Courbatures » du Suivi RPE ----------
-   players : [{ id, nom, prenom }] ; days : ['2026-10-26', …] ; rows : player_soreness ; alerts : non vues. */
+   players : [{ id, nom, prenom, auth_user_id }] (tous les joueurs concernés, « sans compte » si aucun compte relié) ; days : ['2026-10-26', …] ; rows : player_soreness ; alerts : non vues. */
 function soreHtml({ players, days, rows, alerts }) {
   const name = (id) => playerFullName(players.find(p => p.id === id) || {});
   const cell = new Map(rows.map(r => [`${r.player_id}:${r.jour}`, r]));
@@ -106,14 +106,16 @@ function soreHtml({ players, days, rows, alerts }) {
         <span>3 jours de suite, jusqu’au ${rpeDate(a.jour)} :</span>${soreChips(a.muscles)}
         <button class="btn btn-sm" type="button" data-sore-seen="${a.id}">Vu</button></div>`).join('')}</section>`
     : '<p class="sore-ok">Aucune alerte : aucun joueur courbaturé au même endroit 3 jours de suite.</p>';
-  const shown = players.filter(p => days.some(d => cell.has(`${p.id}:${d}`)));
-  if (!shown.length) return `${alertsHtml}<div class="empty">Aucune réponse au questionnaire sur ces jours.</div>`;
+  // Tous les joueurs concernés, même sans réponse (avant : seulement ceux qui avaient répondu, les autres disparaissaient).
+  const silent = players.filter(p => !days.some(d => cell.has(`${p.id}:${d}`))).length;
+  if (silent === players.length) return `${alertsHtml}<div class="empty">Aucune réponse au questionnaire sur ces jours.</div>`;
   return `${alertsHtml}
     <div class="sr-table-wrap"><table class="table sr-table sore-table"><thead><tr><th scope="col">Joueur</th>
       ${days.map(d => `<th scope="col">${rpeDate(d).slice(0, 5)}</th>`).join('')}</tr></thead>
-      <tbody>${shown.map(p => `<tr><th scope="row">${escapeHtml(name(p.id))}</th>${days.map(d => {
+      <tbody>${players.map(p => `<tr><th scope="row">${escapeHtml(name(p.id))}${'auth_user_id' in p && !p.auth_user_id
+        ? ' <small class="sore-noacc" title="Aucun compte joueur relié à cette fiche : il ne reçoit pas le questionnaire">sans compte</small>' : ''}</th>${days.map(d => {
         const r = cell.get(`${p.id}:${d}`);
         return r ? `<td><span class="sore-n" style="--rpe:${soreColor(r.niveau)}">${r.niveau}</span>${soreChips(r.muscles, true)}</td>` : '<td class="sore-none">—</td>';
       }).join('')}</tr>`).join('')}</tbody></table></div>
-    <p class="sore-foot">Niveau au réveil (0 à 10) et muscles : <span class="sore-chip is-bas">bas du corps</span> <span class="sore-chip is-haut">haut du corps</span>. Case vide : pas de réponse ce jour-là.</p>`;
+    <p class="sore-foot">Niveau au réveil (0 à 10) et muscles : <span class="sore-chip is-bas">bas du corps</span> <span class="sore-chip is-haut">haut du corps</span>. Case vide : pas de réponse ce jour-là${silent ? ` (${silent} joueur${silent > 1 ? 's' : ''} sans aucune réponse sur ces jours)` : ''}.</p>`;
 }

@@ -6,7 +6,7 @@
    le staff corrige les associations → « Préremplir la fiche ».
    Rien n'est enregistré avant « Enregistrer » ; les valeurs lues sont
    gardées dans ext_data (lmfc_v33.sql) : une correction à la main
-   s'affiche « modifié ». Une valeur absente de la feuille ne remplace
+   s'affiche « FFF · modifié » (mpSrcHtml). Une valeur absente de la feuille ne remplace
    rien de ce que le staff a déjà saisi. Un joueur sans fiche (un pro qui
    descend) peut être gardé « hors plateforme » : sur ce match seulement,
    sans fiche ni statistiques (matches.hors_plateforme, lmfc_v37.sql).
@@ -107,6 +107,27 @@ function sheetApply() {
   renderRows();
   closeModal('sheetModal');
   toast(`${n} joueur${n > 1 ? 's' : ''} prérempli${n > 1 ? 's' : ''} : vérifiez, puis « Enregistrer ».`, 'success');
+}
+
+/* Badge d'une ligne du match (renderRows, matchs-page.js), sur une ligne : « FFF » = lue sur la feuille ;
+   « FFF · modifié » = corrigée à la main depuis, le titre dit quoi et la valeur de la feuille.
+   Rien sur la feuille vaut 0 but, 0 jaune, pas de rouge : ce n'est pas une modification. */
+const MS_EDIT_KEYS = [['statut', 'statut'], ['minutes', 'minutes'], ['buts', 'buts'], ['cartons_jaunes', 'carton jaune'], ['carton_rouge', 'carton rouge']];
+const msSame = (k, a, b) => (k === 'carton_rouge' ? !!a === !!b
+  : k === 'buts' || k === 'cartons_jaunes' ? (a || 0) === (b || 0) : (a ?? null) === (b ?? null));
+const msSheetValue = (k, v) => (k === 'statut' ? STATUT_MATCH_LABEL[v] || '—' : k === 'carton_rouge' ? (v ? 'oui' : 'non') : v ?? '—');
+function mpSrcHtml(r) {
+  if (!r.ext_data) return '';
+  const edits = MS_EDIT_KEYS.filter(([k]) => k in r.ext_data && !msSame(k, r[k], r.ext_data[k]));
+  const title = edits.length
+    ? `Lu sur la feuille de match FFF, puis modifié à la main : ${edits.map(([k, l]) => `${l} (feuille : ${msSheetValue(k, r.ext_data[k])})`).join(', ')}`
+    : 'Lu sur la feuille de match FFF';
+  return `<span class="mp-src is-fff${edits.length ? ' is-edited' : ''}" title="${escapeHtml(title)}">FFF${edits.length ? '<span class="mp-src-mod"> · modifié</span>' : ''}</span>`;
+}
+function mpSrcNode(r) {
+  const t = document.createElement('template');
+  t.innerHTML = mpSrcHtml(r);
+  return t.content.firstElementChild;
 }
 
 (function initSheet() {

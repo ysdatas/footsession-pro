@@ -169,6 +169,7 @@
 .sore-n { display: inline-grid; place-items: center; min-width: 24px; height: 22px; margin-right: 4px; padding: 0 4px; border-radius: 6px;
   background: var(--rpe); color: #0A0A0A; font: 600 var(--fs-xs)/1 var(--font-num); }
 .sore-none { color: var(--text-muted); }
+.sore-noacc { margin-left: 6px; font-size: var(--fs-xs); font-weight: 400; color: var(--text-muted); }
 .sore-table tbody th { font-weight: 600; text-align: left; white-space: nowrap; }
 .sore-foot { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 @media (max-width: 560px) { .sore-scale { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
