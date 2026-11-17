@@ -39,9 +39,18 @@ const libReload = () => libPage.browser?.reload();
 document.getElementById('btnLibTags').addEventListener('click', () => openTagManager(libReload));
 
 /* ---------- Fichier : empreinte, doublon, miniature, envoi ---------- */
-async function libSha256(file) {
-  const buf = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+/* Empreinte (doublons) : SHA-256 du fichier entier s'il tient en une requête ;
+   au-delà, SHA-256 des empreintes de ses morceaux de 50 Mo, lus un par un
+   (jamais tout le fichier en mémoire). Un même fichier donne toujours la même. */
+async function libSha256(file, { onStep, signal } = {}) {
+  if (file.size <= VIDEO_PART_BYTES) return videoChunkHash(file);
+  const parts = [];
+  for (let at = 0; at < file.size; at += VIDEO_CHUNK) {
+    signal?.throwIfAborted();
+    onStep?.(`Vérification du fichier… ${Math.round(at / file.size * 100)} %`);
+    parts.push(await videoChunkHash(file.slice(at, at + VIDEO_CHUNK)));
+  }
+  return videoChunkHash(new Blob([parts.join('')]));
 }
 function libFileDuration(file) {
   return new Promise((resolve) => {
@@ -61,10 +70,10 @@ let libStamp = 0;
    renvoyé) ; item : procédé visible qui l'utilise déjà.
    Utilisé aussi pour remplacer la vidéo d'un procédé (library-item.js). */
 async function libUploadFile(file, { onProgress, onStep, signal } = {}) {
-  // Empreinte calculée sur le fichier entier, en mémoire : les procédés restent sous la limite d'une requête.
-  if (file.size > VIDEO_PART_BYTES) throw new Error(`Fichier trop volumineux : ${Math.round(VIDEO_PART_BYTES / 1048576)} Mo au maximum pour la bibliothèque.`);
+  // Même plafond que les vidéos joueurs : au-delà de 95 Mo, envoi en morceaux (uploadVideoFile).
+  if (file.size > VIDEO_MAX_BYTES) throw new Error(`Fichier trop volumineux : ${VIDEO_MAX_TEXT} au maximum pour la bibliothèque.`);
   onStep?.('Vérification du fichier…');
-  const sha = await libSha256(file);
+  const sha = await libSha256(file, { onStep, signal });
   const byHash = async () => {
     const { data, error } = await sb.rpc('library_file_by_hash', { p_sha256: sha });
     if (error) throw error;
