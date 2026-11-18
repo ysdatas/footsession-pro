@@ -262,7 +262,7 @@
     </details>
     <details class="faq-q">
       <summary>Comment importer l’Excel des tests physiques ?</summary>
-      <div class="faq-a"><p><em>Joueurs</em> → « Importer l’Excel », ou depuis la page Performance d’un joueur (administrateur, préparateur physique). Avant tout enregistrement, l’aperçu montre la source (fichier, onglets reconnus, saison visée), puis une ligne par joueur de l’Excel avec la fiche retenue, et « Voir » détaille les valeurs lues. Le joueur est reconnu sur plusieurs critères : nom et prénom, date de naissance, équipe, taille. Une date de naissance différente écarte une fiche. Quand plusieurs fiches restent possibles (homonymes, fiche sans prénom), la ligne est « À choisir » : chaque fiche possible est affichée avec son équipe, sa date de naissance et sa taille, et rien n’est importé sans votre choix. La date de naissance du classeur complète les fiches qui n’en ont pas, sans jamais en remplacer une autre. Rien n’est inventé : une cellule vide ne supprime rien en mode « Compléter ».</p>
+      <div class="faq-a"><p><em>Joueurs</em> → « Importer l’Excel », ou depuis la page Performance d’un joueur (administrateur, coach, préparateur physique, analyste vidéo, pour les joueurs de leurs équipes). Avant tout enregistrement, l’aperçu montre la source (fichier, onglets reconnus, saison visée), puis une ligne par joueur de l’Excel avec la fiche retenue, et « Voir » détaille les valeurs lues. Le joueur est reconnu sur plusieurs critères : nom et prénom, date de naissance, équipe, taille. Une date de naissance différente écarte une fiche. Quand plusieurs fiches restent possibles (homonymes, fiche sans prénom), la ligne est « À choisir » : chaque fiche possible est affichée avec son équipe, sa date de naissance et sa taille, et rien n’est importé sans votre choix. La date de naissance du classeur complète les fiches qui n’en ont pas, sans jamais en remplacer une autre. Rien n’est inventé : une cellule vide ne supprime rien en mode « Compléter ».</p>
       <p>Le classeur Espoirs est lu aussi : la date de naissance donne l’âge de chaque mesure et remplit la fiche quand l’import la crée. L’onglet « Tests de force » n’est pas encore importé.</p></div>
     </details>
     <details class="faq-q">
@@ -333,7 +333,7 @@
       <div class="faq-a">
       <p>Trois sources, et seulement trois :</p>
       <ol>
-        <li><strong>Le classeur Excel du préparateur physique</strong>, importé depuis la page <em>Joueurs</em> (bouton « Importer l’Excel ») ou depuis une fiche Performance. Réservé à l’administrateur et au préparateur physique. Chaque import met à jour tous les joueurs reconnus dans le fichier ; un joueur dont le prénom diffère de sa fiche n’est importé qu’après confirmation.</li>
+        <li><strong>Le classeur Excel du préparateur physique</strong>, importé depuis la page <em>Joueurs</em> (bouton « Importer l’Excel ») ou depuis une fiche Performance. Réservé à l’administrateur, au coach, au préparateur physique et à l’analyste vidéo, pour les joueurs de leurs équipes. Chaque import met à jour tous les joueurs reconnus dans le fichier ; un joueur dont le prénom diffère de sa fiche n’est importé qu’après confirmation.</li>
         <li><strong>La saisie manuelle</strong> dans la fiche Performance d’un joueur (« + Mesure », « + Tests »), par les mêmes rôles. Le coach consulte ces données sans les modifier.</li>
         <li><strong>Les présences</strong>, cochées dans chaque séance.</li>
       </ol>
@@ -515,7 +515,7 @@
         <thead><tr><th></th><th>Voit</th><th>Modifie</th></tr></thead>
         <tbody>
           <tr><td>Administrateur</td><td>Tout</td><td>Tout, plus la gestion du club : accès, membres, équipes, couleur du club, suppression de fiches ; corbeille complète</td></tr>
-          <tr><td>Coach</td><td>Séances, joueurs, performance (consultation), vidéos, statistiques de visionnage</td><td>Séances, retours de match, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs. <strong>Pas</strong> les données physiques ni les tests</td></tr>
+          <tr><td>Coach</td><td>Séances, joueurs, performance, vidéos, statistiques de visionnage</td><td>Séances, retours de match, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, tests physiques et mesures (taille, poids, masse grasse) des joueurs de ses équipes</td></tr>
           <tr><td>Préparateur physique</td><td>Joueurs, performance, objectifs et préventions</td><td>Données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Consulte les séances qui lui sont ouvertes ; pas de vidéos</td></tr>
           <tr><td>Joueur</td><td>Ses propres données : poids, masse grasse, chronos, radar, objectifs, préventions, programme terrain, vidéos</td><td>Ses séquences : sélection, dessins, analyse, envoi au staff ; « fait » et ressenti sur ses exercices</td></tr>
         </tbody>

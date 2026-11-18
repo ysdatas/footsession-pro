@@ -39,7 +39,7 @@ const pickPlayers = { on: false, ids: new Set(), anchor: null };
   }
 
   // Import du classeur du préparateur : réservé aux rôles qui écrivent la
-  // performance (is_performance_editor() côté base : admin et préparateur).
+  // performance (can_edit_physical() côté base, lmfc_v60.sql : admin, coach, préparateur, analyste).
   if (canEditPerformanceData(myProfile.role)) {
     const btn = document.getElementById('btnImportExcel');
     btn.classList.remove('hidden');

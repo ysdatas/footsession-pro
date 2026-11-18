@@ -283,6 +283,11 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            bloque les doublons 12 h ; Worker /api/push/remind) ; rpe_remind_take : lien avec la
                                            relance ; après lmfc_v58.sql ; retour arrière : lmfc_v59_retour.sql (efface les relances
                                            d'avis et de vidéos)
+78. supabase/lmfc_v60.sql                  les coachs saisissent les tests et les mesures physiques : can_edit_physical()
+                                           (admin, préparateur, analyste, coach) pour l'ajout, la modification et la
+                                           suppression sur player_physical_tests et player_physical_measurements, toujours
+                                           bornées par player_level() = 'modification' ; is_performance_editor() inchangé ;
+                                           après lmfc_v59.sql ; retour arrière : lmfc_v60_retour.sql (aucune donnée effacée)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -374,7 +379,7 @@ de visionnage n'enregistre rien.**
 | Rôle | Accès |
 |---|---|
 | `admin` | Tout, plus la gestion du club (**Mon club**) : accès par e-mail, membres, équipes, couleur du club, suppression de fiches ; toute la corbeille |
-| `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage. **Consulte** la performance sans modifier les données physiques ni les tests |
+| `coach` | Séances, fiches joueurs, objectifs et préventions, programme terrain, vidéos et séquences, retours aux joueurs, statistiques de visionnage ; tests physiques et mesures (taille, poids, masse grasse) des joueurs de ses équipes, import Excel compris (`lmfc_v60.sql`) |
 | `prepa` | Préparateur physique : données physiques, tests, import Excel, photos des joueurs, objectifs et préventions. Ni vidéos, ni séances, ni tableau tactique. Bibliothèque vidéo : consulte ce qu'on lui ouvre (`lmfc_v24.sql`) |
 | `analyste` | Analyste vidéo : mêmes pages de travail que le coach, avec écriture **uniquement dans ses équipes attribuées** : joueurs, performance, séances, matchs, calendrier, RPE, schémas, vidéos et séquences (`lmfc_v41.sql`, `lmfc_v42.sql`). Pro est affectée par défaut si l'équipe existe ; l'admin peut ajouter N2. Pas de réglages du club, gestion des rôles ni gestion de la bibliothèque vidéo globale |
 | `lecteur` | Consultation seule (un scout) : **les joueurs des équipes cochées dans Mon club**, ou tous ceux rattachés à une équipe s'il n'en a aucune (`lmfc_v39.sql`) (fiche, parcours, objectifs, préventions, programme, tests physiques et radar, vidéos, séquences, statistiques de visionnage). Ni mesures physiques (taille, poids, masse grasse : données de santé, `lmfc_v23.sql`), ni séances, ni matchs, ni tableau tactique. Aucune écriture, refusée par la base sur chaque table (`lmfc_v22.sql`) ; l'admin peut lui masquer un joueur (exception « aucun ») |
@@ -411,7 +416,7 @@ sont calculées au sein de l'équipe du joueur.
   (`profiles.lecture_club`) → lecture ; sinon rien. Un joueur sans aucune équipe n'est vu que
   de l'admin, sauf exception (`lmfc_v39.sql`) : la page Joueurs lui propose de le rattacher.
   Le rôle borne la modification (préparateur : physique ; coach :
-  fiches, vidéos). Toutes les tables d'un joueur (fiche, vidéos, séquences, vues, tests,
+  fiches, vidéos, et physique depuis `lmfc_v60.sql`). Toutes les tables d'un joueur (fiche, vidéos, séquences, vues, tests,
   mesures, points, médias, programme, exercices, parcours), le stockage (photos, médias,
   anciennes vidéos : dossier `club/joueur/…`), la corbeille (vue et restauration) et le Worker
   R2 (envoi, suppression) suivent ce niveau. Séances et matchs : `team_level()` (coach de

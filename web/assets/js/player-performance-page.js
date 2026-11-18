@@ -880,7 +880,7 @@ async function loadPage() {
   canEditPlayer = !readOnly && canEditPlayers(ctxProfile.role);
   document.getElementById('perfRoleLabel').textContent = ctxProfile.role === 'joueur' ? 'Espace joueur'
     : readOnly ? 'Dossier individuel – consultation (accès en lecture)'
-    : canEditPerformance ? 'Dossier individuel' : 'Dossier individuel – consultation (données physiques : préparateur)';
+    : canEditPerformance ? 'Dossier individuel' : 'Dossier individuel – consultation';
   document.getElementById('perfKicker').textContent = ctxProfile.role === 'joueur'
     ? 'Ma performance' : 'Fiche joueur';
   document.querySelectorAll('.perf-editor-only').forEach(el => el.classList.toggle('hidden', !canEditPerformance));

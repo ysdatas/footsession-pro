@@ -172,7 +172,7 @@ function canEdit(role) {                       // sÃ©ances, fiches joueurs, schÃ
 const canEditTeamContent = (role) => ['admin', 'coach', 'analyste'].includes(role);
 const canAccessTeamReviewTools = (role) => ['admin', 'coach', 'prepa', 'analyste'].includes(role);
 const canEditPlayers = (role) => ['admin', 'coach', 'analyste'].includes(role);
-const canEditPerformanceData = (role) => ['admin', 'prepa', 'analyste'].includes(role);
+const canEditPerformanceData = (role) => ['admin', 'prepa', 'analyste', 'coach'].includes(role);   // = can_edit_physical() (lmfc_v60.sql)
 const canManageVideos        = (role) => ['admin', 'coach'].includes(role);
 const canManagePlayerVideos  = (role) => ['admin', 'coach', 'analyste'].includes(role);
 const canManagePlans         = (role) => STAFF_ALL.includes(role) || role === 'analyste';
