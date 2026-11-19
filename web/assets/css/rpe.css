@@ -6,6 +6,13 @@
 .rpe-modal { max-width: 440px; }
 .rpe-session { margin: -6px 0 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
 .rpe-q { margin: 0 0 10px; font-weight: 600; }
+/* Même demi-journée (lmfc_v61.sql) : le joueur coche la séance où il était. */
+.rpe-slot { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.rpe-slot legend { padding: 0 4px; font-weight: 600; }
+.rpe-slot-help { margin: 0 0 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
+.rpe-slot-opts { display: grid; gap: 6px; }
+.rpe-slot-opt { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; }
+.rpe-slot-opt input { width: 18px; height: 18px; margin: 0; }
 .rpe-scale { display: grid; gap: 6px; }
 .rpe-opt {
   display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 46px; padding: 4px 12px 4px 4px;
@@ -81,6 +88,10 @@
 .sr-c.is-miss { background: transparent; border: 1px dashed var(--gold); color: var(--gold); }
 .sr-c.is-wait { background: transparent; border: 1px dashed var(--border-strong, #3a3a3a); color: var(--text-secondary); }
 .sr-c.is-abs { background: transparent; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; }
+/* RPE de la demi-journée noté à une autre séance (lmfc_v61.sql) ; « 2× » : un doublon d'avant à effacer. */
+.sr-c.is-away { background: transparent; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; font-style: italic; }
+.sr-c.has-dup { position: relative; }
+.sr-c .sr-dup { position: absolute; top: -6px; right: -6px; padding: 0 3px; border-radius: 6px; background: var(--danger, #c0392b); color: #fff; font-size: 9px; font-style: normal; line-height: 14px; }
 .sr-c:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 /* Relance (suivi-rpe-remind.js) : cloche en pastille sur le coin de la case « … », sans élargir la colonne. */
 .sr-has-bell { position: relative; }

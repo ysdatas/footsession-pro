@@ -86,7 +86,9 @@ function openRpeFromLink() {
   if (!want) return;
   history.replaceState(null, '', location.pathname);   // pas de nouvelle ouverture en revenant sur la page
   const todo = phRpeTodo(), item = todo.find(s => `${s.match ? 'm' : 's'}${s.id}` === want);
-  if (!item) return toast(phRpe.some(s => `${s.match ? 'm' : 's'}${s.id}` === want && s.rpe != null) ? 'Ton RPE est déjà enregistré. Merci !' : 'Cette saisie n’est plus ouverte.');
+  const row = phRpe.find(s => `${s.match ? 'm' : 's'}${s.id}` === want);
+  if (!item) return toast(row?.rpe != null ? 'Ton RPE est déjà enregistré. Merci !'
+    : row?.ailleurs ? `Ton effort de cette demi-journée se note avec : ${row.ailleurs}.` : 'Cette saisie n’est plus ouverte.');
   openRpeSheet({ session: item, pending: [item, ...todo.filter(s => s !== item)], onSaved: (v, it) => {
     it.rpe = v;
     const card = document.getElementById('phRpe');
@@ -152,7 +154,7 @@ function openMfFromCard(e) {
 let phRpe = [], phRpeOn = false;
 const phDay = (iso) => { const d = Math.round((new Date(new Date().toDateString()) - new Date(`${iso}T00:00`)) / 864e5);
   return d === 0 ? 'aujourd’hui' : d === 1 ? 'hier' : `il y a ${d} jours`; };
-const phRpeTodo = () => phRpe.filter(s => s.rpe == null && rpeOpen(s.date_seance, s.heure));
+const phRpeTodo = () => rpeTodo(phRpe);   // rpe.js : sans les séances notées ailleurs à la même demi-journée
 function rpeCardHtml() {
   const todo = phRpeTodo(), s = todo[0] || phRpe.find(x => x.rpe != null);
   // Toujours là : le joueur sait où noter même quand aucune séance n'attend.

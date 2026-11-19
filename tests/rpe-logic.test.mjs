@@ -36,4 +36,17 @@ assert.equal(vm.runInContext('rpeColor(1)', ctx), 'hsl(130 62% 46%)', 'vert pour
 assert.equal(vm.runInContext('rpeColor(10)', ctx), 'hsl(0 62% 46%)', 'rouge pour 10');
 assert.equal(vm.runInContext('rpeFr(6.25)', ctx), '6,3');
 
-console.log('rpe-logic : OK (réponse attendue, échelle)');
+// Un seul RPE par demi-journée (lmfc_v61.sql, rpe_half) : avant 13 h le matin ; sans heure, toute la journée.
+const same = (a, b) => vm.runInContext(`rpeSameSlot(${JSON.stringify(a)}, ${JSON.stringify(b)})`, ctx);
+const d0 = '2026-11-19';
+assert.equal(same({ date: d0, heure: '10:00:00' }, { date: d0, heure: '12:59' }), true, 'deux séances du matin');
+assert.equal(same({ date: d0, heure: '10:00' }, { date: d0, heure: '13:00' }), false, '13 h : l’après-midi');
+assert.equal(same({ date: d0, heure: null }, { date: d0, heure: '17:00' }), true, 'sans heure : toute la journée');
+assert.equal(same({ date: d0, heure: '10:00' }, { date: '2026-11-18', heure: '10:00' }), false, 'autre jour');
+assert.equal(same({ date: d0, heure: '10:00', match: true }, { date: d0, heure: '10:00' }), false, 'un match garde son RPE');
+const todo = vm.runInContext(`rpeTodo([{ id: 1, date_seance: ${JSON.stringify(day(-1))}, rpe: null }, { id: 2, date_seance: ${JSON.stringify(day(-1))}, rpe: null, ailleurs: 'N2' },
+  { id: 3, date_seance: ${JSON.stringify(day(-1))}, rpe: 6 }]).map(s => s.id)`, ctx);
+assert.deepEqual([...todo], [1], 'à noter : ni notée, ni notée ailleurs');
+assert.equal(vm.runInContext(`rpeSlotLabel({ titre: 'Séance', equipe: 'N2', heure: '10:30:00' })`, ctx), 'Séance – N2 à 10:30');
+
+console.log('rpe-logic : OK (réponse attendue, échelle, demi-journée)');

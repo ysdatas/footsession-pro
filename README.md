@@ -288,6 +288,13 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            suppression sur player_physical_tests et player_physical_measurements, toujours
                                            bornées par player_level() = 'modification' ; is_performance_editor() inchangé ;
                                            après lmfc_v59.sql ; retour arrière : lmfc_v60_retour.sql (aucune donnée effacée)
+79. supabase/lmfc_v61.sql                  un seul RPE de séance par demi-journée (matin avant 13 h, après-midi ; sans heure,
+                                           toute la journée), toutes équipes confondues : rpe_slot_owner (le RPE déjà donné,
+                                           sinon la seule séance où le joueur est noté présent, sinon la seule sans absence,
+                                           sinon le joueur choisit son équipe) ; rpe_set refuse l'autre séance au joueur et y
+                                           déplace le RPE pour le staff ; déclencheur session_rpe_one_per_half ;
+                                           my_rpe_sessions avec equipe et ailleurs ; rpe_slot_others (staff) ; doublons
+                                           d'avant gardés ; après lmfc_v60.sql ; retour arrière : lmfc_v61_retour.sql
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo

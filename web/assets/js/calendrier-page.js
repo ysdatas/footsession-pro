@@ -66,9 +66,13 @@ async function fetchItems(from, to) {
     // Séances et matchs à noter (RPE) marqués dans le calendrier : le joueur les voit sans chercher.
     const [{ data, error }, todo] = await Promise.all([sb.rpc('my_calendar', { p_from: from, p_to: to }), myRpeItems()]);
     if (error) throw error;
-    const toRate = new Set(todo.rows.filter(r => r.rpe == null && rpeOpen(r.date_seance, r.heure)).map(r => `${r.match ? 'match' : 'seance'}:${r.id}`));
+    // rpeTodo (rpe.js) : sans les séances dont la demi-journée se note avec une autre (lmfc_v61.sql).
+    CAL.rpeRows = todo.rows;
+    const rows = new Map(todo.rows.map(r => [`${r.match ? 'match' : 'seance'}:${r.id}`, r]));
+    const toRate = new Set(rpeTodo(todo.rows).map(r => `${r.match ? 'match' : 'seance'}:${r.id}`));
     return (data || []).map(r => ({ kind: r.kind, id: r.id, date: r.date_cal, heure: hhmm(r.heure), titre: r.titre,
-      team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, rpeTodo: toRate.has(`${r.kind}:${r.id}`) }));
+      team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, rpeTodo: toRate.has(`${r.kind}:${r.id}`),
+      rpeAilleurs: rows.get(`${r.kind}:${r.id}`)?.ailleurs || null }));
   }
   const [s, m, e] = await Promise.all([
     bySessionTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, other_team_ids, serie_id, lieu, duree_min, created_by'))
@@ -224,10 +228,24 @@ async function calRpe(i, form) {
   box.innerHTML = data
     ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> | ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
     : i.rpeTodo ? '<button type="button" class="btn btn-primary" id="calRpeBtn">Noter mon effort</button>'
+      : i.rpeAilleurs ? `<p class="text-muted">Un seul RPE par demi-journée : ton effort se note avec ${escapeHtml(i.rpeAilleurs)}.</p>`
       : `<p class="text-muted">${upcoming ? `Tu pourras noter ton effort après ${match ? 'le match' : 'la séance'}.` : `La saisie est fermée (${RPE_DAYS} jours après la séance).`}</p>`;
-  document.getElementById('calRpeBtn')?.addEventListener('click', () => openRpeSheet({
-    session: { id: i.id, titre: match ? `Match contre ${i.titre}` : i.titre, date: i.date, heure: i.heure, match, form_titre: form?.titre, form_questions: form?.questions },
-    onSaved: () => { i.rpeTodo = false; renderCal(); calRpe(i, form); } }));
+  document.getElementById('calRpeBtn')?.addEventListener('click', () => {
+    // La ligne de myRpeItems (équipe comprise) ; les autres séances de la demi-journée, pour choisir.
+    const row = (CAL.rpeRows || []).find(r => !!r.match === match && r.id === i.id);
+    const session = row || { id: i.id, titre: match ? `Match contre ${i.titre}` : i.titre, date: i.date, heure: i.heure, match, form_titre: form?.titre, form_questions: form?.questions };
+    const slot = row ? rpeTodo(CAL.rpeRows).filter(r => r !== row && rpeSameSlot(r, row)) : [];
+    openRpeSheet({ session, pending: slot.length ? [session, ...slot] : [],
+      onSaved: (v, saved) => {
+        // La séance notée, et celles de sa demi-journée, ne sont plus à noter.
+        CAL.items.forEach(x => {
+          const r = (CAL.rpeRows || []).find(y => !!y.match === (x.kind === 'match') && y.id === x.id);
+          if (r && (r === saved || (x.id === saved.id && (x.kind === 'match') === !!saved.match))) x.rpeTodo = false;
+          else if (r?.ailleurs && x.rpeTodo) { x.rpeTodo = false; x.rpeAilleurs = r.ailleurs; }
+        });
+        renderCal(); calRpe(i, form);
+      } });
+  });
 }
 
 /* ---------- Commandes ---------- */

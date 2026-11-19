@@ -59,7 +59,7 @@ function srRespCard(s, j, open) {
   const head = ['RPE', ...(s.match ? SR_AVIS.map(([, l]) => l) : []), ...qs.map(q => q.label)];
   const body = rows.map(({ p, c }) => {
     const rpe = c?.v ? `<span class="sr-resp-rpe" style="--rpe:${rpeColor(c.v)}" title="${escapeHtml(rpeLabel(c.v))}">${c.v}</span>`
-      : `<span class="sr-resp-none">${c === 'abs' ? 'abs.' : c === 'wait' ? 'en attente' : '—'}</span>`;
+      : `<span class="sr-resp-none">${c === 'abs' ? 'abs.' : c === 'away' ? 'ailleurs' : c === 'wait' ? 'en attente' : '—'}</span>`;
     const avis = s.match ? SR_AVIS.map(([k]) => srRespCell(fb.get(p.id)?.[k])) : [];
     const more = qs.map(q => srRespCell(extra.find(r => r.player_id === p.id && r.form_id === q.form)?.answers?.[q.id]));
     return `<tr><th scope="row">${escapeHtml(playerFullName(p))}</th><td>${rpe}</td>${[...avis, ...more].join('')}</tr>`;
