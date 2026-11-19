@@ -90,6 +90,7 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
     loadSr();
   });
   renderSrTeams(); srPressed(); loadSr();
+  faLoad();   // alertes des questionnaires (form-alerts.js, lmfc_v62.sql)
 })();
 
 /* 10 / 20 / 50 dernières séances, une semaine (celle d'aujourd'hui pour commencer) ou des dates (4 semaines). */

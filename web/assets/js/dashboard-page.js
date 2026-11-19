@@ -66,7 +66,7 @@ async function renderAttention(profile, can) {
     // Tout part en une vague (avant : les joueurs de l'équipe d'abord, puis le
     // reste filtré sur eux). La base ne renvoie que les joueurs permis ; le
     // filtre de l'équipe choisie se fait ici, sur leurs identifiants.
-    const [pRes, seqRes, nextRes, objRes, accessRes, measRes, soreRes] = await Promise.all([
+    const [pRes, seqRes, nextRes, objRes, accessRes, measRes, soreRes, faRes] = await Promise.all([
       byPlayerTeam(sb.from('players').select('id').eq('exterieur', false)),   // extérieurs hors effectif : lmfc_v54.sql
       can('videos')
         ? sb.from('video_sequences').select('id, player_id, submitted_at, feedback_at').not('submitted_at', 'is', null)
@@ -85,6 +85,7 @@ async function renderAttention(profile, can) {
             .eq('month_label', month).eq('season_key', seasonKeyFor(null, clubSeasonStartMonth(profile.clubs)))
         : none,
       can('rpe') ? sb.from('soreness_alerts').select('player_id').is('vu_at', null) : none,   // lmfc_v35.sql
+      can('rpe') ? sb.rpc('form_alerts_open') : none,   // lmfc_v62.sql : questionnaires après séance et match
     ]);
     if (pRes.error) throw pRes.error;
     [seqRes, nextRes, objRes, accessRes, measRes].forEach(r => { if (r.error) console.warn('Accueil : donnée indisponible', r.error); });
@@ -133,6 +134,14 @@ async function renderAttention(profile, can) {
       cards.unshift(attnCard({
         href: 'suivi-rpe?vue=courbatures', icon: 'rpe', tone: 'urgent',
         value: sore, label: 'Courbatures', detail: `joueur${sore > 1 ? 's' : ''} courbaturé${sore > 1 ? 's' : ''} 3 jours de suite`,
+      }));
+    }
+    // Questionnaires : plaisir, vie personnelle, jambes ou douleur à surveiller (alerte non vue) ; rien sans lmfc_v62.sql.
+    const fa = faRes.error ? 0 : new Set(mine(faRes).map(r => r.player_id)).size;
+    if (fa) {
+      cards.unshift(attnCard({
+        href: 'suivi-rpe', icon: 'rpe', tone: 'urgent',
+        value: fa, label: 'Alertes questionnaires', detail: `joueur${fa > 1 ? 's' : ''} à suivre après séance ou match`,
       }));
     }
     if (profile.role === 'admin' && accessRes.count) {

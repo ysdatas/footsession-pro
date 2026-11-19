@@ -295,6 +295,13 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            déplace le RPE pour le staff ; déclencheur session_rpe_one_per_half ;
                                            my_rpe_sessions avec equipe et ailleurs ; rpe_slot_others (staff) ; doublons
                                            d'avant gardés ; après lmfc_v60.sql ; retour arrière : lmfc_v61_retour.sql
+80. supabase/lmfc_v62.sql                  questionnaires après séance (N2 et Espoirs, Section) et après match (Espoirs et
+                                           réserve, Section) : quatre formulaires par club, copies du RPE de séance et du RPE de
+                                           match, créés désactivés et sans équipe (le club les attribue dans Formulaires) ;
+                                           règle « alerte » dans la question (serie : sous 5 trois jours de suite ; seuil : 3 ou
+                                           moins ; douleur : au-dessus de 0, avec la zone) ; form_alerts_open() (14 jours, selon la
+                                           RLS des réponses), form_alert_seen() « Vu » ; après lmfc_v61.sql ;
+                                           retour arrière : lmfc_v62_retour.sql (refusé si des joueurs ont répondu)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1194,6 +1201,7 @@ node tests/access-matrix-sql.test.mjs tests/v39-sql.test.mjs  # droits par profi
 node tests/v42-sql.test.mjs       # Analyste : ce que v42 ouvre, sans rien retirer aux autres comptes (RPE, admin, GPS), dans l'ordre de la production et du README (PGlite)
 node tests/v46-sql.test.mjs       # récapitulatif du calendrier : feuille de match, retrait de séance, sur l'état de production et le code complet (PGlite)
 node tests/v47-sql.test.mjs       # RPE, courbatures et avis dans Formulaires : réponses intactes, équipes, copies, questions ajoutées, droits, retour arrière (PGlite)
+node tests/v62-sql.test.mjs       # questionnaires après séance et match : formulaires créés, alertes (série, seuil, douleur), périmètre, « Vu », retour arrière (PGlite)
 node tests/analyst-role-sql.test.mjs  # rôle Analyste vidéo : portée, RLS, outils d'équipe, défaut Pro et retours (PGlite)
 node tests/tactical-save.test.mjs  # publication immuable d'image tactique puis référence en base
 node tests/page-globals.test.mjs  # deux scripts d'une même page ne déclarent pas le même nom

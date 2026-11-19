@@ -58,10 +58,13 @@ function cfReadEditor() {
     const origin = CF.editing?.version?.questions?.find(x => x.id === row.dataset.questionId && x.fixe);
     if (origin) return { ...origin, label: row.querySelector('[data-cf-label]').value.trim() };
     const type = row.querySelector('[data-cf-type]').value;
-    const q = { id: row.dataset.questionId, label: row.querySelector('[data-cf-label]').value.trim(), type,
-      required: row.querySelector('[data-cf-required]').checked };
+    // Une question déjà enregistrée garde ses bornes et sa règle d'alerte (lmfc_v62.sql) tant que son type ne change pas.
+    const prev = CF.editing?.version?.questions?.find(x => x.id === row.dataset.questionId && x.type === type);
+    const q = { ...(prev ? { alerte: prev.alerte, min: prev.min, max: prev.max } : {}), id: row.dataset.questionId,
+      label: row.querySelector('[data-cf-label]').value.trim(), type, required: row.querySelector('[data-cf-required]').checked };
+    Object.keys(q).forEach(k => q[k] === undefined && delete q[k]);
     if (type === 'choice') q.options = row.querySelector('[data-cf-options]').value.split('\n').map(x => x.trim()).filter(Boolean);
-    if (type === 'scale') { q.min = 1; q.max = 10; }
+    if (type === 'scale' && q.min == null) { q.min = 1; q.max = 10; }
     return q;
   });
   return { id: CF.editing?.id ?? null, copy_of: CF.editing?.copy_of ?? null, source: CF.editing?.source ?? null, title: document.getElementById('cfName').value.trim(),

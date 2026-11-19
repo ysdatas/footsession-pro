@@ -11,7 +11,7 @@ const cfSources = {
   courbatures: { quand: 'Les jours de séance, au réveil', lieu: 'Suivi RPE', page: 'suivi-rpe' },
   avis_match: { quand: 'Après chaque match', lieu: 'Matchs', page: 'matchs' },
 };
-const cfTypeLabels = { text: 'Texte court', textarea: 'Texte long', number: 'Nombre', scale: 'Échelle 1–10', choice: 'Choix', boolean: 'Oui / non' };
+const cfTypeLabels = { text: 'Texte court', textarea: 'Texte long', number: 'Nombre', scale: 'Échelle (de 0 ou 1 à 10)', choice: 'Choix', boolean: 'Oui / non' };
 const cfUid = () => `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.code)
   ? 'Les migrations lmfc_v44.sql, lmfc_v45.sql et lmfc_v47.sql sont nécessaires pour gérer les formulaires et consulter leurs réponses.'
