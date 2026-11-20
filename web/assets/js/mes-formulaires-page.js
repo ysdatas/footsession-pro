@@ -1,34 +1,31 @@
-/* Formulaires personnalisés du joueur (lmfc_v45.sql).
+/* Formulaires personnalisés du joueur (lmfc_v45.sql, lmfc_v47.sql, lmfc_v63.sql).
    L’envoi est validé côté serveur ; le navigateur ne peut ni lire les réponses
-   d’un autre joueur ni remplacer une réponse déjà envoyée. */
+   d’un autre joueur ni remplacer une réponse déjà envoyée.
+   Écran compact : les questionnaires sont repliés, du plus récent au plus ancien,
+   un seul ouvert à la fois ; ceux de plus de deux jours sont rangés à part.
+   Les échelles et Oui / non se touchent (pastilles) ; chaque réponse part avec son
+   vrai type : une échelle est un nombre, jamais le texte « 8 ». */
 const MF = { player: null, pending: [], history: [], historyMore: false, busy: false, demo: false };
 const MF_PAGE = 50;   // réponses chargées à la fois ; custom_forms_my_history en rend 100 au plus
+const MF_RECENT_DAYS = 2;   // au-delà : « Plus anciens à remplir », replié
+const MF_CHIPS_MAX = 6;     // une question à choix plus longue reste une liste
 
 (async () => {
   const pending = document.getElementById('mfPending');
+  pending.addEventListener('submit', mfSubmit);
+  pending.addEventListener('change', mfProgress);
+  document.addEventListener('toggle', mfToggle, true);   // un seul questionnaire ouvert
   if (mfLocalPreview()) {
     MF.demo = true;
-    MF.pending = [{ form_id: 9001, version_id: 9002, version_no: 2, titre: 'Questionnaire après la séance',
-      description: 'Aide ton staff à comprendre comment tu as vécu cette séance.', team_nom: 'Pro', questions: [
-        { id: 'intensite', label: 'Comment évalues-tu l’intensité ?', type: 'scale', min: 1, max: 10, required: true },
-        { id: 'recuperation', label: 'Comment te sens-tu pour la récupération ?', type: 'choice', options: ['Très bien', 'Correctement', 'Difficilement'], required: true },
-        { id: 'commentaire', label: 'Un commentaire pour le staff ?', type: 'textarea', required: false },
-      ] }];
-    MF.history = [{ response_id: 9003, titre: 'Questionnaire de la semaine', version_no: 1, team_nom: 'Pro',
-      submitted_at: new Date(Date.now() - 86400000).toISOString(),
-      questions: [{ id: 'sommeil', label: 'Comment as-tu dormi ?', type: 'choice', required: true, options: ['Bien', 'Moyen', 'Mal'] }],
-      answers: { sommeil: 'Bien' } }];
+    mfDemo();
     document.getElementById('mfPreviewNotice').classList.remove('hidden');
     document.getElementById('mfSubtitle').textContent = 'Réponds aux questionnaires de tes équipes et retrouve tes réponses précédentes.';
-    document.getElementById('mfPending').addEventListener('submit', mfSubmit);
     mfRender();
     return;
   }
-
   try {
     MF.player = await requirePlayer();
     if (!MF.player) return;
-    document.getElementById('mfPending').addEventListener('submit', mfSubmit);
     document.getElementById('mfHistoryMore').addEventListener('click', mfMore);
     await mfLoad();
   } catch (e) {
@@ -43,6 +40,31 @@ function mfLocalPreview() {
     && new URLSearchParams(location.search).get('preview') === '1';
 }
 
+/* Aperçu local : quelques questionnaires d'essai, rien n'est envoyé. */
+function mfDemo() {
+  const day = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return mfIso(d); };
+  const qs = [
+    { id: 'intensite', label: 'Comment évalues-tu l’intensité ?', type: 'scale', min: 1, max: 10, required: true, niveaux: FQ_RPE_PRESET },
+    { id: 'plaisir', label: 'As-tu pris du plaisir ?', type: 'scale', min: 0, max: 10, required: true },
+    { id: 'douleur', label: 'As-tu des douleurs ?', type: 'boolean', required: true },
+    { id: 'zone', label: 'Si oui, où ?', type: 'choice', options: ['Ischio-jambiers', 'Quadriceps', 'Adducteurs', 'Mollets', 'Genou', 'Cheville', 'Autre'], required: false },
+    { id: 'muscu', label: 'Temps de musculation après la séance (en minutes)', type: 'number', required: false },
+    { id: 'commentaire', label: 'Un commentaire pour le staff ?', type: 'textarea', required: false },
+  ];
+  MF.pending = [
+    { form_id: 9001, version_id: 9002, version_no: 2, titre: `Après séance · Séance Espoirs · ${mfDateFr(day(0))}`, team_nom: 'Espoirs', occurrence: 's1', jour: day(0), questions: qs },
+    { form_id: 9001, version_id: 9002, version_no: 2, titre: `Après séance · Séance N2 · ${mfDateFr(day(1))}`, team_nom: 'N2', occurrence: 's2', jour: day(1), questions: qs },
+    { form_id: 9001, version_id: 9002, version_no: 2, titre: `Après séance · Séance N2 · ${mfDateFr(day(6))}`, team_nom: 'N2', occurrence: 's3', jour: day(6), questions: qs },
+    { form_id: 9003, version_id: 9004, version_no: 1, titre: 'Questionnaire de la semaine', description: 'Aide ton staff à préparer la semaine.', team_nom: 'N2', occurrence: '', jour: null,
+      questions: [{ id: 'sommeil', label: 'Comment as-tu dormi ?', type: 'choice', required: true, options: ['Bien', 'Moyen', 'Mal'] }] },
+  ];
+  MF.history = [{ response_id: 9005, titre: 'Après séance', version_no: 1, team_nom: 'N2', submitted_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    questions: qs, answers: { intensite: 7, plaisir: 8, douleur: false, muscu: 20 } }];
+}
+
+function mfIso(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function mfDateFr(iso) { return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; }
+
 function mfError(e) {
   return ['PGRST202', 'PGRST203', '42883'].includes(e?.code)
     ? 'Les formulaires joueurs ne sont pas encore installés. Les migrations lmfc_v45.sql et lmfc_v47.sql sont nécessaires.'
@@ -50,8 +72,7 @@ function mfError(e) {
 }
 
 async function mfLoad() {
-  const pendingBox = document.getElementById('mfPending');
-  pendingBox.innerHTML = '<div class="empty">Chargement des formulaires…</div>';
+  document.getElementById('mfPending').innerHTML = '<div class="empty">Chargement des formulaires…</div>';
   document.getElementById('mfHistory').innerHTML = '<div class="empty">Chargement de l’historique…</div>';
   const [pending, history] = await Promise.all([
     sb.rpc('custom_forms_my_pending'),
@@ -67,17 +88,62 @@ async function mfLoad() {
   mfRender();
 }
 
+/* Jour d'un questionnaire : rendu par la base (lmfc_v63.sql), sinon la date en fin de titre. */
+function mfDay(form) {
+  if (form.jour) return String(form.jour).slice(0, 10);
+  const m = /(\d{2})\/(\d{2})\/(\d{4})\s*$/.exec(form.titre || '');
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+
+/* « Aujourd'hui », « Hier », « mardi 17 novembre ». */
+function mfDayLabel(iso) {
+  if (!iso) return 'À remplir quand tu veux';
+  const today = new Date(), yest = new Date();
+  yest.setDate(today.getDate() - 1);
+  if (iso === mfIso(today)) return 'Aujourd’hui';
+  if (iso === mfIso(yest)) return 'Hier';
+  return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${iso}T12:00`));
+}
+
+/* Des éléments rangés par jour, dans l'ordre reçu. */
+function mfByDay(items, dayOf) {
+  const groups = [];
+  for (const item of items) {
+    const day = dayOf(item), last = groups[groups.length - 1];
+    if (last && last.day === day) last.items.push(item); else groups.push({ day, items: [item] });
+  }
+  return groups;
+}
+
 function mfRender() {
+  const box = document.getElementById('mfPending');
   document.getElementById('mfPendingCount').textContent = MF.pending.length ? `${MF.pending.length} en attente` : '';
-  document.getElementById('mfPending').innerHTML = MF.pending.length ? MF.pending.map(mfFormHtml).join('')
-    : '<div class="empty">Aucun questionnaire à remplir pour le moment.</div>';
+  if (!MF.pending.length) {
+    box.innerHTML = '<div class="empty">Aucun questionnaire à remplir pour le moment.</div>';
+    mfRenderHistory();
+    return;
+  }
+  // Sans date d'abord (à remplir quand il veut), puis du plus récent au plus ancien.
+  const list = MF.pending.map((form, i) => ({ form, i, day: mfDay(form) }))
+    .sort((a, b) => (a.day === b.day ? a.i - b.i : !a.day ? -1 : !b.day ? 1 : b.day.localeCompare(a.day)));
+  const limit = new Date();
+  limit.setDate(limit.getDate() - MF_RECENT_DAYS);
+  const recent = list.filter(x => !x.day || x.day >= mfIso(limit)), older = list.filter(x => !recent.includes(x));
+  const groups = (items) => mfByDay(items, x => x.day).map(g => `<div class="mf-day"><h3 class="mf-day-title">${escapeHtml(mfDayLabel(g.day))}</h3>
+    ${g.items.map(x => mfFormHtml(x.form, x.i, x === list[0])).join('')}</div>`).join('');
+  box.innerHTML = groups(recent) + (older.length ? `<details class="mf-older"><summary>Plus anciens à remplir <span class="mf-count">${older.length}</span></summary>
+    ${groups(older)}</details>` : '');
+  box.querySelectorAll('[data-mf-form]').forEach(f => mfProgress({ target: f }));
   mfRenderHistory();
 }
 
 // À part : charger l'historique ne doit pas effacer un questionnaire en cours de saisie.
 function mfRenderHistory() {
   document.getElementById('mfHistoryCount').textContent = MF.history.length ? `${MF.history.length} réponse${MF.history.length === 1 ? '' : 's'}` : '';
-  document.getElementById('mfHistory').innerHTML = MF.history.length ? MF.history.map(mfHistoryHtml).join('')
+  const day = (r) => { const d = r.submitted_at ? new Date(r.submitted_at) : null; return d && !Number.isNaN(d.getTime()) ? mfIso(d) : null; };
+  document.getElementById('mfHistory').innerHTML = MF.history.length
+    ? mfByDay(MF.history, day).map(g => `<div class="mf-day"><h3 class="mf-day-title">${escapeHtml(g.day ? mfDayLabel(g.day) : 'Date inconnue')}</h3>
+      ${g.items.map(mfHistoryHtml).join('')}</div>`).join('')
     : '<div class="empty">Tes réponses envoyées apparaîtront ici.</div>';
   document.getElementById('mfHistoryMore').classList.toggle('hidden', !MF.historyMore);
 }
@@ -97,35 +163,87 @@ async function mfMore(e) {
   } finally { button.disabled = false; }
 }
 
-function mfFormHtml(form, formIndex) {
+/* Un questionnaire replié : titre, séance ou match, nombre de questions ; ouvert, ses questions. */
+function mfFormHtml(form, index, open) {
   const questions = Array.isArray(form.questions) ? form.questions : [];
-  return `<article class="mf-card">
-    <h3>${escapeHtml(form.titre)}</h3>
-    ${form.description ? `<p>${escapeHtml(form.description)}</p>` : ''}
-    <div class="mf-card-meta"><span>${escapeHtml(form.team_nom || 'Mon équipe')}</span><span>Version ${Number(form.version_no) || 1}</span><span>${questions.length} question${questions.length === 1 ? '' : 's'}</span></div>
-    <form class="mf-fields" data-mf-form="${Number(form.version_id)}" data-mf-occurrence="${escapeHtml(form.occurrence || '')}">
-      ${questions.map((q, index) => mfQuestionHtml(q, `${formIndex}-${index}`)).join('')}
-      <p class="mf-error" data-mf-error aria-live="polite"></p>
-      <button class="btn btn-primary" type="submit">Envoyer mes réponses</button>
+  const [title, ...context] = String(form.titre || 'Formulaire').split(' · ');
+  return `<details class="mf-card" data-mf-card${open ? ' open' : ''}>
+    <summary><span class="mf-card-title">${escapeHtml(title)}</span>
+      <span class="mf-card-sub">${escapeHtml([context.join(' · '), form.team_nom].filter(Boolean).join(' | '))}</span>
+      <span class="mf-card-n" data-mf-n>${questions.length} question${questions.length === 1 ? '' : 's'}</span></summary>
+    ${form.description ? `<p class="mf-card-desc">${escapeHtml(form.description)}</p>` : ''}
+    <form class="mf-fields" novalidate data-mf-form="${Number(form.version_id)}" data-mf-occurrence="${escapeHtml(form.occurrence || '')}" data-mf-index="${index}">
+      ${questions.map((q, i) => mfQuestionHtml(q, `${index}-${i}`)).join('')}
+      <div class="mf-submit-bar"><p class="mf-error" data-mf-error aria-live="polite"></p>
+        <button class="btn btn-primary" type="submit">Envoyer mes réponses</button></div>
     </form>
-  </article>`;
+  </details>`;
 }
 
-function mfQuestionHtml(question, index) {
-  const id = `mf-${index}-${String(question.id || '').replace(/[^a-z0-9_-]/gi, '')}`;
-  const label = `${escapeHtml(question.label || 'Question')}<small>${question.required ? 'Obligatoire' : 'Facultatif'}</small>`;
-  const required = question.required ? ' required' : '';
-  const input = (control) => `<div class="field mf-field"><label for="${id}">${label}</label>${control}</div>`;
-  if (question.type === 'textarea') return input(`<textarea id="${id}" data-mf-answer="${escapeHtml(question.id)}" rows="3" maxlength="2000"${required}></textarea>`);
-  if (question.type === 'text') return input(`<input id="${id}" data-mf-answer="${escapeHtml(question.id)}" type="text" maxlength="200"${required}>`);
-  if (question.type === 'number') return input(`<input id="${id}" data-mf-answer="${escapeHtml(question.id)}" type="number" step="any"${required}>`);
-  if (question.type === 'boolean') return input(`<select id="${id}" data-mf-answer="${escapeHtml(question.id)}"${required}><option value="">Choisir</option><option value="true">Oui</option><option value="false">Non</option></select>`);
-  const min = Number.isInteger(Number(question.min)) ? Number(question.min) : 1;
-  const max = Number.isInteger(Number(question.max)) ? Number(question.max) : 10;
-  const options = question.type === 'choice'
-    ? (question.options || []).map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('')
-    : Array.from({ length: Math.max(0, Math.min(10, max - min + 1)) }, (_, n) => `<option value="${min + n}">${min + n}</option>`).join('');
-  return input(`<select id="${id}" data-mf-answer="${escapeHtml(question.id)}"${required}><option value="">Choisir</option>${options}</select>`);
+function mfQuestionHtml(q, index) {
+  const id = `mf-${index}-${String(q.id || '').replace(/[^a-z0-9_-]/gi, '')}`, key = escapeHtml(q.id);
+  const label = `${escapeHtml(q.label || 'Question')} <small>${q.required ? 'Obligatoire' : 'Facultatif'}</small>`;
+  const field = (control) => `<div class="field mf-field" data-mf-q="${key}"><label for="${id}">${label}</label>${control}</div>`;
+  // Pastilles : un groupe de boutons radio, une seule réponse, grosse cible au doigt.
+  const chips = (opts, cls = '') => `<fieldset class="field mf-field" data-mf-q="${key}"><legend>${label}</legend>
+    <div class="mf-chips${cls}" role="radiogroup">${opts.map((o, i) => `<label class="mf-chip"${o.color ? ` style="--lv:${o.color}"` : ''}>
+      <input type="radio" name="${id}" value="${escapeHtml(o.value)}" data-mf-answer="${key}" data-mf-kind="${o.kind}"${i === 0 ? ` id="${id}"` : ''}>
+      <span class="mf-chip-v">${escapeHtml(o.text)}</span>${o.sub ? `<span class="mf-chip-l">${escapeHtml(o.sub)}</span>` : ''}</label>`).join('')}</div>
+    ${q.type === 'scale' ? `<p class="mf-chip-out" data-mf-out aria-live="polite"></p>` : ''}</fieldset>`;
+  if (q.type === 'textarea') return field(`<textarea id="${id}" data-mf-answer="${key}" data-mf-kind="text" rows="3" maxlength="2000"></textarea>`);
+  if (q.type === 'text') return field(`<input id="${id}" data-mf-answer="${key}" data-mf-kind="text" type="text" maxlength="200">`);
+  if (q.type === 'number') return field(`<input id="${id}" data-mf-answer="${key}" data-mf-kind="number" type="text" inputmode="decimal" autocomplete="off">`);
+  if (q.type === 'boolean') return chips([{ value: 'true', text: 'Oui', kind: 'boolean' }, { value: 'false', text: 'Non', kind: 'boolean' }], ' is-two');
+  if (q.type === 'choice') {
+    const options = Array.isArray(q.options) ? q.options : [];
+    if (options.length <= MF_CHIPS_MAX) return chips(options.map(o => ({ value: o, text: o, kind: 'text' })), ' is-text');
+    return field(`<select id="${id}" data-mf-answer="${key}" data-mf-kind="text"><option value="">Choisir</option>${options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}</select>`);
+  }
+  const levels = fqLevels(q);   // échelle : la valeur reste un nombre, le libellé s'affiche
+  return chips(levels.map(n => ({ value: String(n.valeur), text: String(n.valeur), sub: levels.length <= 5 ? n.libelle : '', color: n.couleur, kind: 'number' })),
+    levels.length > 6 ? ' is-scale is-long' : ' is-scale');
+}
+
+/* Les réponses d'un questionnaire, chacune avec son vrai type. Erreur : la première question à revoir. */
+function mfAnswers(form, questions) {
+  const answers = {};
+  for (const q of questions) {
+    const inputs = [...form.querySelectorAll('[data-mf-answer]')].filter(x => x.dataset.mfAnswer === q.id);
+    const input = inputs.find(x => x.type !== 'radio') || inputs.find(x => x.checked) || null;
+    const raw = input ? input.value.trim() : '';
+    let value = null;
+    if (raw !== '') {
+      const kind = input.dataset.mfKind;
+      if (kind === 'number') {
+        value = Number(raw.replace(',', '.'));
+        if (!Number.isFinite(value)) return { error: `Indique un nombre pour « ${q.label} ».`, q };
+      } else value = kind === 'boolean' ? raw === 'true' : raw;
+    }
+    if (value === null && q.required) return { error: `Réponds à « ${q.label} ».`, q };
+    answers[q.id] = value;
+  }
+  return { answers };
+}
+
+/* Réponses données / questions, et le libellé du niveau choisi sous l'échelle. */
+function mfProgress(e) {
+  const form = e.target.closest?.('[data-mf-form]');
+  if (!form) return;
+  const questions = MF.pending[Number(form.dataset.mfIndex)]?.questions || [];
+  const done = questions.filter(q => [...form.querySelectorAll('[data-mf-answer]')].some(x => x.dataset.mfAnswer === q.id && (x.type === 'radio' ? x.checked : x.value.trim() !== ''))).length;
+  const n = form.closest('[data-mf-card]')?.querySelector('[data-mf-n]');
+  if (n) n.textContent = done ? `${done}/${questions.length} répondues` : `${questions.length} question${questions.length === 1 ? '' : 's'}`;
+  const box = e.target.closest?.('[data-mf-q]');
+  if (box) box.classList.remove('is-missing');
+  const out = box?.querySelector('[data-mf-out]'), q = questions.find(x => x.id === box?.dataset.mfQ);
+  if (out && q) out.textContent = fqLevel(q, box.querySelector('input:checked')?.value)?.libelle || '';
+}
+
+/* Un seul questionnaire ouvert : en ouvrir un referme les autres. */
+function mfToggle(e) {
+  const card = e.target;
+  if (!card.matches?.('[data-mf-card]') || !card.open) return;
+  document.querySelectorAll('[data-mf-card][open]').forEach(x => { if (x !== card) x.open = false; });
 }
 
 async function mfSubmit(e) {
@@ -133,34 +251,32 @@ async function mfSubmit(e) {
   if (!form) return;
   e.preventDefault();
   if (MF.busy) return;
-  if (!form.reportValidity()) return;
-  const answers = {};
-  form.querySelectorAll('[data-mf-answer]').forEach(field => {
-    const value = field.value;
-    if (value === '') { answers[field.dataset.mfAnswer] = null; return; }
-    if (field.type === 'number') answers[field.dataset.mfAnswer] = Number(value);
-    else if (field.tagName === 'SELECT' && (value === 'true' || value === 'false')) answers[field.dataset.mfAnswer] = value === 'true';
-    else answers[field.dataset.mfAnswer] = value;
-  });
-  const versionId = Number(form.dataset.mfForm), button = form.querySelector('button[type="submit"]');
-  const error = form.querySelector('[data-mf-error]');
-  MF.busy = true; button.disabled = true; error.textContent = 'Envoi…'; error.classList.remove('mf-success');
+  const source = MF.pending[Number(form.dataset.mfIndex)];
+  const error = form.querySelector('[data-mf-error]'), button = form.querySelector('button[type="submit"]');
+  const read = mfAnswers(form, source?.questions || []);
+  error.classList.remove('mf-success');
+  if (read.error) {
+    error.textContent = read.error;
+    const box = [...form.querySelectorAll('[data-mf-q]')].find(x => x.dataset.mfQ === read.q.id);
+    box?.classList.add('is-missing');
+    box?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    box?.querySelector('input, select, textarea')?.focus({ preventScroll: true });
+    return;
+  }
+  const versionId = Number(form.dataset.mfForm);
+  MF.busy = true; button.disabled = true; error.textContent = 'Envoi…';
   try {
     if (MF.demo) {
-      const source = MF.pending.find(x => Number(x.version_id) === versionId);
-      if (!source) throw new Error('Ce questionnaire n’est plus disponible.');
-      MF.history.unshift({ response_id: Date.now(), titre: source.titre, version_no: source.version_no,
-        team_nom: source.team_nom, submitted_at: new Date().toISOString(), questions: source.questions, answers });
-      MF.pending = MF.pending.filter(x => Number(x.version_id) !== versionId);
+      MF.history.unshift({ response_id: Date.now(), titre: source.titre.split(' · ')[0], version_no: source.version_no,
+        team_nom: source.team_nom, submitted_at: new Date().toISOString(), questions: source.questions, answers: read.answers });
+      MF.pending = MF.pending.filter(x => x !== source);
+      mfRender();
     } else {
-      const { error: submitError } = await sb.rpc('custom_form_submit', { p_version_id: versionId, p_answers: answers, p_occurrence: form.dataset.mfOccurrence });
+      const { error: submitError } = await sb.rpc('custom_form_submit', { p_version_id: versionId, p_answers: read.answers, p_occurrence: form.dataset.mfOccurrence });
       if (submitError) throw submitError;
       await mfLoad();
     }
-    if (MF.demo) mfRender();
-    toast('Réponse envoyée. Elle est maintenant dans ton historique.', 'success');
-    error.textContent = 'Réponse envoyée. Tu peux la consulter dans « Mes réponses ». ';
-    error.classList.add('mf-success');
+    toast('Réponse envoyée. Elle est maintenant dans « Mes réponses ».', 'success');
   } catch (err) {
     console.error('Réponse au formulaire non envoyée', err);
     error.textContent = mfError(err);
@@ -168,21 +284,18 @@ async function mfSubmit(e) {
   } finally { MF.busy = false; }
 }
 
+/* Une réponse envoyée, repliée : titre et heure ; ouverte, chaque question et la réponse enregistrée. */
 function mfHistoryHtml(response) {
   const questions = Array.isArray(response.questions) ? response.questions : [];
   const answers = response.answers && typeof response.answers === 'object' ? response.answers : {};
   const when = response.submitted_at ? new Date(response.submitted_at) : null;
-  const date = when && !Number.isNaN(when.getTime())
-    ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(when) : 'Date inconnue';
-  return `<article class="mf-history-card">
-    <div class="mf-history-head"><div><h3>${escapeHtml(response.titre || 'Formulaire')}</h3><span class="mf-count">${escapeHtml(response.team_nom || 'Mon équipe')} | Version ${Number(response.version_no) || 1}</span></div><time datetime="${escapeHtml(response.submitted_at || '')}">${escapeHtml(date)}</time></div>
-    <dl class="mf-answer-list">${questions.map(q => `<div class="mf-answer"><dt>${escapeHtml(q.label || 'Question')}</dt><dd>${escapeHtml(mfAnswerText(answers[q.id]))}</dd></div>`).join('')}</dl>
-  </article>`;
-}
-
-function mfAnswerText(value) {
-  if (value == null || value === '') return 'Sans réponse';
-  if (value === true) return 'Oui';
-  if (value === false) return 'Non';
-  return String(value);
+  const time = when && !Number.isNaN(when.getTime()) ? new Intl.DateTimeFormat('fr-FR', { timeStyle: 'short' }).format(when) : '';
+  const [title, ...context] = String(response.titre || 'Formulaire').split(' · ');
+  return `<details class="mf-history-card">
+    <summary><span class="mf-card-title">${escapeHtml(title)}</span>
+      <span class="mf-card-sub">${escapeHtml([context.join(' · '), response.team_nom].filter(Boolean).join(' | '))}</span>
+      <time datetime="${escapeHtml(response.submitted_at || '')}">${escapeHtml(time)}</time></summary>
+    <dl class="mf-answer-list">${questions.filter(q => !q.fixe).map(q => `<div class="mf-answer"><dt>${escapeHtml(q.label || 'Question')}</dt>
+      <dd>${escapeHtml(fqAnswerText(q, answers[q.id]) || 'Sans réponse')}</dd></div>`).join('')}</dl>
+  </details>`;
 }

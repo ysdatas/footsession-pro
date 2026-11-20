@@ -11,7 +11,7 @@ const cfSources = {
   courbatures: { quand: 'Les jours de séance, au réveil', lieu: 'Suivi RPE', page: 'suivi-rpe' },
   avis_match: { quand: 'Après chaque match', lieu: 'Matchs', page: 'matchs' },
 };
-const cfTypeLabels = { text: 'Texte court', textarea: 'Texte long', number: 'Nombre', scale: 'Échelle (de 0 ou 1 à 10)', choice: 'Choix', boolean: 'Oui / non' };
+const cfTypeLabels = { text: 'Texte court', textarea: 'Texte long', number: 'Nombre', scale: 'Échelle (niveaux)', choice: 'Choix', boolean: 'Oui / non' };
 const cfUid = () => `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.code)
   ? 'Les migrations lmfc_v44.sql, lmfc_v45.sql et lmfc_v47.sql sont nécessaires pour gérer les formulaires et consulter leurs réponses.'
@@ -77,6 +77,7 @@ function cfBind() {
   document.addEventListener('click', cfClick);
   document.getElementById('cfEditorForm').addEventListener('submit', cfSave);
   document.getElementById('cfQuestions').addEventListener('change', cfQuestionChange);
+  document.getElementById('cfMoment').addEventListener('change', cfMomentChange);
 }
 
 async function cfLoad() {
@@ -86,11 +87,13 @@ async function cfLoad() {
   status.textContent = 'Chargement des formulaires…';
   try {
     const [f, t] = await Promise.all([
-      sb.from('custom_forms').select('id, titre, description, actif, source, created_by, updated_at').order('updated_at', { ascending: false }),
+      // « * » : archive_le n'existe qu'avec lmfc_v63.sql ; un formulaire supprimé (archivé) n'est plus listé.
+      sb.from('custom_forms').select('*').order('updated_at', { ascending: false }),
       sb.from('teams').select('id, nom').eq('club_id', CF.profile.club_id).order('sort_order').order('nom'),
     ]);
     if (f.error || t.error) throw f.error || t.error;
-    const ids = (f.data || []).map(x => x.id);
+    const live = (f.data || []).filter(x => !x.archive_le);
+    const ids = live.map(x => x.id);
     const [v, a] = ids.length ? await Promise.all([
       sb.from('custom_form_versions').select('id, form_id, version_no, titre, description, questions, created_at').in('form_id', ids).order('version_no', { ascending: false }),
       sb.from('custom_form_teams').select('form_id, team_id, teams(id, nom)').in('form_id', ids),
@@ -102,7 +105,7 @@ async function cfLoad() {
     for (const row of v.data || []) versions.set(row.form_id, [...(versions.get(row.form_id) || []), row]);
     const teamLinks = new Map();
     for (const row of a.data || []) teamLinks.set(row.form_id, [...(teamLinks.get(row.form_id) || []), Number(row.team_id)]);
-    CF.forms = (f.data || []).map(row => {
+    CF.forms = live.map(row => {
       const history = versions.get(row.id) || [];
       return { ...row, versions: history, version: history[0] || null, team_ids: teamLinks.get(row.id) || [] };
     });
@@ -162,15 +165,8 @@ function cfOpenResponse(id) {
   document.getElementById('cfResponseMeta').textContent = `${response.player_name_snapshot} – ${response.team_name_snapshot} – Version ${response.version_no} – ${when}`;
   const answers = response.answers && typeof response.answers === 'object' ? response.answers : {};
   document.getElementById('cfResponseAnswers').innerHTML = (response.questions_snapshot || []).map(q =>
-    `<div><dt>${escapeHtml(q.label || 'Question')}</dt><dd>${escapeHtml(cfAnswerText(answers[q.id]))}</dd></div>`).join('');
+    `<div><dt>${escapeHtml(q.label || 'Question')}</dt><dd>${escapeHtml(fqAnswerText(q, answers[q.id]) || 'Sans réponse')}</dd></div>`).join('');
   openModal('cfResponseModal');
-}
-
-function cfAnswerText(value) {
-  if (value == null || value === '') return 'Sans réponse';
-  if (value === true) return 'Oui';
-  if (value === false) return 'Non';
-  return String(value);
 }
 
 function cfRender() {
@@ -192,7 +188,8 @@ function cfRender() {
         <span>${teams.length ? teams.map(escapeHtml).join(' | ') : 'Aucune équipe affectée'}</span></div>
       <div class="cf-card-actions">
         ${shared ? '' : `<button class="btn btn-sm" type="button" data-cf-edit="${form.id}">Modifier</button>
-        <button class="btn btn-sm" type="button" data-cf-toggle="${form.id}">${form.actif ? 'Désactiver' : 'Réactiver'}</button>`}
+        <button class="btn btn-sm" type="button" data-cf-toggle="${form.id}">${form.actif ? 'Désactiver' : 'Réactiver'}</button>
+        <button class="btn btn-sm btn-danger" type="button" data-cf-delete="${form.id}">Supprimer</button>`}
         ${form.source ? `<button class="btn btn-sm" type="button" data-cf-copy="${form.id}">Copier pour une équipe</button>` : ''}
       </div>
     </article>`;
@@ -200,6 +197,9 @@ function cfRender() {
 }
 
 async function cfClick(e) {
+  if (cfEditorClick(e)) return;   // formulaires-editor.js : déplacer, niveaux
+  const del = e.target.closest('[data-cf-delete]');
+  if (del) return cfDelete(Number(del.dataset.cfDelete));
   const response = e.target.closest('[data-cf-response]');
   if (response) return cfOpenResponse(response.dataset.cfResponse);
   if (e.target.closest('#cfResponsesMore')) return cfLoadResponses(true);
@@ -279,5 +279,32 @@ async function cfPersist(form) {
     console.error('Formulaire non enregistré', e);
     message.textContent = cfError(e);
     if (editorOpen) document.getElementById('cfSave').disabled = false;
+  } finally { CF.busy = false; }
+}
+
+/* Supprimer : sans réponse, le formulaire est effacé ; avec des réponses, il est archivé
+   (lmfc_v63.sql) : retiré des équipes, plus jamais proposé, ses réponses restent ci-dessous. */
+async function cfDelete(id) {
+  const form = CF.forms.find(x => Number(x.id) === Number(id));
+  if (!form || CF.busy) return;
+  const rpe = ['rpe_seance', 'rpe_match'].includes(form.source) ? ' Ses équipes ne recevront plus le RPE par ce formulaire : attribuez-leur un autre formulaire de la même sorte si besoin.' : '';
+  if (!await confirmDialog(`Supprimer « ${form.titre} » ? Il ne sera plus proposé aux joueurs.${rpe} Les réponses déjà reçues ne sont jamais effacées : elles restent consultables.`)) return;
+  const status = document.getElementById('cfStatus');
+  CF.busy = true;
+  try {
+    if (CF.demo) {
+      CF.forms = CF.forms.filter(x => x !== form);
+      cfRender();
+      toast('Aperçu local : formulaire retiré.', 'success');
+      return;
+    }
+    const { data, error } = await sb.rpc('custom_form_delete', { p_form: form.id });
+    if (error) throw error;
+    toast(data === 'archive' ? 'Formulaire supprimé. Ses réponses restent consultables.' : 'Formulaire supprimé.', 'success');
+    CF.busy = false;
+    await cfLoad();
+  } catch (e) {
+    console.error('Formulaire non supprimé', e);
+    status.textContent = ['PGRST202', '42883'].includes(e?.code) ? 'La suppression demande la migration lmfc_v63.sql.' : cfError(e);
   } finally { CF.busy = false; }
 }

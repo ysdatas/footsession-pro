@@ -24,7 +24,7 @@ try {
 const TITRES = ['Après séance — N2 et Espoirs', 'Après séance — Section', 'Après match — Espoirs et réserve', 'Après match — Section'];
 
 const { db, rest } = await fullDb(pg, { until: 'lmfc_v61.sql' });
-assert.deepEqual(rest, ['lmfc_v62.sql'], 'v62 est la migration suivante');
+assert.equal(rest[0], 'lmfc_v62.sql', 'v62 est la migration suivante');
 await seed(db);
 const as = actor(db), q = (s, p) => db.query(s, p);
 const rows = async (s, p) => (await q(s, p)).rows;

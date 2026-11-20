@@ -35,6 +35,15 @@ const rpeWhat = (s) => (s.match ? 'tout le match' : 'toute la séance');
    d'origine. Les questions ajoutées se posent dans « Mes formulaires », après la réponse. */
 const formLabel = (item, id) => item?.form_questions?.find(q => q.id === id)?.label;
 const formHasMore = (item) => (item?.form_questions || []).some(q => !q.fixe);
+/* Échelle montrée au joueur : les niveaux réglés dans Formulaires (lmfc_v63.sql : libellé, couleur,
+   niveaux retirés), sinon RPE_SCALE. La valeur envoyée reste le nombre de 1 à 10. */
+function rpeScaleOf(item) {
+  const q = item?.form_questions?.find(x => x.id === 'rpe');
+  if (!Array.isArray(q?.niveaux) || !q.niveaux.length) return RPE_SCALE.map(([v, l]) => [v, l, rpeColor(v)]);
+  return q.niveaux.map(n => [Number(n.valeur), String(n.libelle || ''), /^#[0-9a-f]{6}$/i.test(n.couleur || '') ? n.couleur : rpeColor(n.valeur)])
+    .filter(([v]) => Number.isInteger(v) && v >= 1 && v <= 10).sort((a, b) => a[0] - b[0]);
+}
+const rpeLabelOf = (item, v) => rpeScaleOf(item).find(([n]) => n === Number(v))?.[1] ?? rpeLabel(v);
 const FORM_MORE = '<a class="btn btn-sm" href="mes-formulaires">Répondre aux questions suivantes</a>';
 /* Une séance est-elle dans le délai de saisie du joueur ? (la base tranche.) Avec son heure,
    pas avant qu'elle commence : la réponse est définitive, et le calendrier ouvre dès le matin. */
@@ -134,9 +143,10 @@ function rpeRender(value = null) {
   }).join('');
   document.getElementById('rpePickBox').classList.toggle('hidden', !pending.some(s => s !== session && !slot.includes(s)));
   document.getElementById('rpePick').innerHTML = pending.map((s, i) => `<option value="${i}"${s === session ? ' selected' : ''}>${escapeHtml([rpeWhen(s), s.titre, s.equipe].filter(Boolean).join(' – '))}</option>`).join('');
+  const scale = player ? rpeScaleOf(null) : rpeScaleOf(session);   // le staff garde l'échelle de référence
   document.getElementById('rpeStatus').textContent = value ? `RPE actuel : ${value} – ${rpeLabel(value)}. Touche une autre valeur pour la changer.` : '';
-  document.getElementById('rpeScale').innerHTML = RPE_SCALE.map(([v, label]) => `<button type="button" class="rpe-opt" data-rpe-v="${v}"
-      aria-pressed="${v === Number(value)}" style="--rpe:${rpeColor(v)}"><b>${v}</b><span>${label}</span></button>`).join('');
+  document.getElementById('rpeScale').innerHTML = scale.map(([v, label, color]) => `<button type="button" class="rpe-opt" data-rpe-v="${v}"
+      aria-pressed="${v === Number(value)}" style="--rpe:${color}"><b>${v}</b><span>${escapeHtml(label)}</span></button>`).join('');
 }
 
 async function rpeSave(v) {
@@ -145,7 +155,7 @@ async function rpeSave(v) {
   if (sheet.hasAttribute('data-busy')) return;   // un seul envoi à la fois
   // Le joueur ne revient pas sur sa réponse : une touche de travers ne doit pas rester.
   const slot = player ? [] : pending.filter(s => s !== session && rpeSameSlot(s, session));
-  if (!player && !await confirmDialog(`${v}/10 (${rpeLabel(v)}) pour ${[session.titre, session.equipe, rpeWhen(session)].filter(Boolean).join(', ')} ?\n\n${
+  if (!player && !await confirmDialog(`${v}/10${rpeLabelOf(session, v) ? ` (${rpeLabelOf(session, v)})` : ''} pour ${[session.titre, session.equipe, rpeWhen(session)].filter(Boolean).join(', ')} ?\n\n${
     slot.length ? `Ce sera ta seule réponse de la demi-journée : ${slot.map(rpeSlotLabel).join(', ')} ne sera plus à noter.\n\n` : ''}Une fois enregistrée, ta réponse ne se modifie plus.`)) return;
   sheet.setAttribute('data-busy', '');
   status.textContent = 'Enregistrement…';

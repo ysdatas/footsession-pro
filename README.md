@@ -302,6 +302,14 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            moins ; douleur : au-dessus de 0, avec la zone) ; form_alerts_open() (14 jours, selon la
                                            RLS des réponses), form_alert_seen() « Vu » ; après lmfc_v61.sql ;
                                            retour arrière : lmfc_v62_retour.sql (refusé si des joueurs ont répondu)
+81. supabase/lmfc_v63.sql                  formulaires plus fiables et plus libres : custom_form_submit reconnaît un nombre
+                                           envoyé en texte (« 8 ») et « true »/« false », une liste vide vaut sans réponse ;
+                                           échelles à niveaux personnalisés (« niveaux » : valeur, libellé, couleur ;
+                                           custom_form_version_check), y compris le RPE d'origine (bornes figées) ;
+                                           custom_forms_my_pending rend le jour, du plus récent au plus ancien ;
+                                           custom_form_delete() efface un formulaire sans réponse, archive les autres
+                                           (archive_le, réponses intactes) ; texte de réglage de v62 retiré pour les joueurs ;
+                                           après lmfc_v62.sql ; retour arrière : lmfc_v63_retour.sql
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1202,6 +1210,7 @@ node tests/v42-sql.test.mjs       # Analyste : ce que v42 ouvre, sans rien retir
 node tests/v46-sql.test.mjs       # récapitulatif du calendrier : feuille de match, retrait de séance, sur l'état de production et le code complet (PGlite)
 node tests/v47-sql.test.mjs       # RPE, courbatures et avis dans Formulaires : réponses intactes, équipes, copies, questions ajoutées, droits, retour arrière (PGlite)
 node tests/v62-sql.test.mjs       # questionnaires après séance et match : formulaires créés, alertes (série, seuil, douleur), périmètre, « Vu », retour arrière (PGlite)
+node tests/v63-sql.test.mjs       # formulaires : nombres envoyés en texte, niveaux d'échelle, jour des questionnaires, suppression archivée, retour arrière (PGlite)
 node tests/analyst-role-sql.test.mjs  # rôle Analyste vidéo : portée, RLS, outils d'équipe, défaut Pro et retours (PGlite)
 node tests/tactical-save.test.mjs  # publication immuable d'image tactique puis référence en base
 node tests/page-globals.test.mjs  # deux scripts d'une même page ne déclarent pas le même nom

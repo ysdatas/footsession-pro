@@ -60,4 +60,12 @@ assert.match(playerJs, /p_occurrence: form\.dataset\.mfOccurrence/, 'les questio
 assert.match(readme, /65\. supabase\/lmfc_v47\.sql/);
 assert.match(js, /CF\.responseOnly/);
 assert.match(readme, /63\. supabase\/lmfc_v45\.sql/);
+// lmfc_v63.sql : une échelle part en nombre, jamais en texte ; échelles à niveaux ; suppression.
+assert.match(playerJs, /kind === 'number'[\s\S]*Number\(raw\.replace\(',', '\.'\)\)/, 'une échelle ou un nombre part en nombre');
+assert.match(playerJs, /fqLevels\(q\)/, 'les niveaux réglés sont montrés au joueur');
+assert.match(playerPage, /form-levels\.js[\s\S]*mes-formulaires-page\.js/);
+assert.match(editor, /data-cf-move/, 'les questions se déplacent');
+assert.match(editor, /cfReadLevels/, 'les niveaux d’une échelle se règlent');
+assert.match(js, /custom_form_delete/, 'un formulaire se supprime, ses réponses restent');
+assert.match(readme, /81\. supabase\/lmfc_v63\.sql/);
 console.log('custom-forms-contract : OK');

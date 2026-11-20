@@ -108,6 +108,8 @@ function srUrl() {
   if (SR.scope === 'match') u.searchParams.set('type', 'matchs'); else u.searchParams.delete('type');
   if (SR.view === 'dash') u.searchParams.delete('vue'); else u.searchParams.set('vue', { grid: 'joueurs', resp: 'reponses', sore: 'courbatures' }[SR.view]);
   history.replaceState(null, '', u);
+  const hist = document.getElementById('btnSrHist');   // l'historique s'ouvre sur la même équipe
+  if (hist) hist.href = SR.team ? `historique-reponses?team=${SR.team}` : 'historique-reponses';
 }
 function srPressed() {
   const mode = SR.period?.mode || String(SR.n), p = SR.period, today = srToday(), box = document.getElementById('srPeriod');
@@ -149,7 +151,7 @@ async function loadSr(force = false) {
       isMatch ? none : bySessionTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, other_team_ids, duree_min, rpe_attendue, procedures(nb_sequences, duree_sequence_min, duree_min, temps_recup_min)'), SR.team)
         .lte('date_seance', SR.period && SR.period.to < srToday() ? SR.period.to : srToday()).gte('date_seance', SR.period?.from || '1900-01-01').is('fusionnee_dans', null)
         .order('date_seance', { ascending: false }).order('heure', { ascending: false, nullsFirst: false }).limit(SR.period ? 200 : SR.n),
-      sb.from('players').select(`id, nom, prenom, auth_user_id, exterieur${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
+      sb.from('players').select(`id, nom, prenom, auth_user_id, exterieur, photo_path${(window.CLUB_TEAMS || []).length ? ', team_id, other_team_ids' : ''}`).order('nom'),
       srRemindLoad(),   // relances (lmfc_v50.sql) ; null sans la migration
     ]);
     if (s.error || p.error) throw s.error || p.error;

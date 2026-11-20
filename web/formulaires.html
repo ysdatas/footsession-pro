@@ -42,7 +42,7 @@
     <div id="cfManage">
       <section class="cf-notice" aria-label="Conservation des réponses">
         <strong>Historique protégé</strong>
-        <span>Modifier un formulaire crée une nouvelle version. Désactiver un formulaire le conserve avec ses versions précédentes. Le RPE, les courbatures et l’avis de match gardent leurs réponses dans Suivi RPE et Matchs.</span>
+        <span>Modifier un formulaire crée une nouvelle version. Désactiver un formulaire le conserve avec ses versions précédentes. Supprimer un formulaire ne supprime jamais ses réponses : elles restent ci-dessous. Le RPE, les courbatures et l’avis de match gardent leurs réponses dans Suivi RPE et Matchs.</span>
       </section>
       <p class="cf-status" id="cfStatus" role="status" aria-live="polite">Chargement des formulaires…</p>
       <div class="cf-list" id="cfList"></div>
@@ -72,7 +72,13 @@
       <p class="text-muted cf-modal-lead" id="cfLead"></p>
       <form id="cfEditorForm">
         <div class="field"><label for="cfName">Nom du formulaire</label><input id="cfName" required maxlength="100" autocomplete="off"></div>
-        <div class="field"><label for="cfDescription">Description <span class="text-muted">(facultatif)</span></label><textarea id="cfDescription" rows="2" maxlength="1000"></textarea></div>
+        <div class="field"><label for="cfDescription">Description <span class="text-muted">(facultatif, montrée aux joueurs)</span></label><textarea id="cfDescription" rows="2" maxlength="1000"></textarea></div>
+        <div class="field" id="cfMomentField"><label for="cfMoment">Quand le poser</label>
+          <select id="cfMoment">
+            <option value="">Une fois, dans « Mes formulaires »</option>
+            <option value="rpe_seance">Après chaque séance, avec le RPE (Suivi RPE)</option>
+            <option value="rpe_match">Après chaque match, avec le RPE (Suivi RPE)</option>
+          </select></div>
         <fieldset class="cf-fieldset">
           <legend>Équipes destinataires</legend>
           <p class="text-muted cf-hint">Choisissez les équipes auxquelles ce formulaire est rattaché.</p>
@@ -99,6 +105,7 @@
   <script src="assets/js/nav-mobile.js"></script>
   <script src="assets/js/nav.js"></script>
   <script src="assets/js/app.js"></script>
+  <script src="assets/js/form-levels.js"></script>
   <script src="assets/js/formulaires-editor.js"></script>
   <script src="assets/js/formulaires-page.js"></script>
 </body>
