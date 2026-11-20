@@ -46,6 +46,14 @@
 .cf-level-x { width:30px; padding:4px 0; justify-content:center; }
 .cf-q-required { grid-column:1/-1; }
 .cf-active { display:flex; align-items:center; gap:9px; margin:14px 0 4px; }
+.cf-plan { display:grid; gap:10px; }
+.cf-plan .field { margin:0; }
+.cf-plan .cf-hint { margin:0; }
+.cf-days { display:flex; flex-wrap:wrap; gap:6px; }
+.cf-day { display:flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid var(--border); border-radius:9px; background:var(--bg-hover); cursor:pointer; }
+.cf-day input { accent-color:var(--gold); }
+.cf-day:has(input:checked) { border-color:color-mix(in srgb,var(--gold) 55%,var(--border)); }
+.cf-period { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
 .cf-modal .modal-actions { position:sticky; bottom:-24px; margin:16px -24px -24px; padding:14px 24px; border-top:1px solid var(--border); background:var(--bg-surface); }
 .cf-responses { margin-top:34px; padding-top:22px; border-top:1px solid var(--border); }
 .cf-responses-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }

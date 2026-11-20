@@ -25,10 +25,7 @@ function cfOpen(id, copy = false) {
   document.getElementById('cfDescription').value = form?.description || '';
   document.getElementById('cfActive').checked = form?.actif ?? true;
   document.getElementById('cfEditorStatus').textContent = '';
-  // Moment : seulement à la création ; ensuite le formulaire garde sa sorte.
-  const moment = document.getElementById('cfMoment');
-  moment.value = '';
-  document.getElementById('cfMomentField').classList.toggle('hidden', !!form);
+  cfPlanFill(form, copy);
   document.getElementById('cfTeams').innerHTML = CF.teams.length ? CF.teams.map(team => `<label class="cf-team"><input type="checkbox" value="${team.id}"${form?.team_ids.includes(Number(team.id)) ? ' checked' : ''}><span>${escapeHtml(team.nom)}</span></label>`).join('')
     : '<p class="text-muted">Aucune équipe n’est disponible dans votre périmètre.</p>';
   const questions = form?.version?.questions || [{ id: cfUid(), label: '', type: 'text', required: true }];
@@ -39,10 +36,55 @@ function cfOpen(id, copy = false) {
   document.getElementById('cfName').focus();
 }
 
+/* Quand le poser (lmfc_v65.sql) : moment, jours, veille ou jour du match, période.
+   Après séance ou match : choisi à la création seulement (le formulaire en devient une copie
+   du formulaire d'origine) ; un formulaire d'origine ne règle que sa période. */
+const CF_SOURCES = ['rpe_seance', 'rpe_match'];
+function cfPlanFill(form, copy) {
+  const moment = document.getElementById('cfMoment'), plan = form?.planning || {};
+  const fixed = !!form?.source;   // après séance, match, courbatures, avis : la sorte ne change pas
+  moment.querySelectorAll('[data-cf-extra]').forEach(o => o.remove());
+  // Un formulaire « une fois » ou planifié ne devient pas un formulaire après séance : on en crée un nouveau.
+  moment.querySelectorAll('option').forEach(o => { o.disabled = fixed ? o.value !== form.source : !!form && CF_SOURCES.includes(o.value); });
+  if (fixed && !moment.querySelector(`option[value="${form.source}"]`)) moment.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(form.source)}" data-cf-extra>${escapeHtml(cfSources[form.source]?.quand || form.source)}</option>`);
+  moment.value = fixed ? form.source : plan.mode || '';
+  moment.disabled = fixed;
+  document.querySelectorAll('#cfDays input').forEach(x => { x.checked = (plan.jours || []).includes(Number(x.value)); });
+  document.getElementById('cfMatchWhen').value = plan.quand || 'veille';
+  document.getElementById('cfFrom').value = plan.du || '';
+  document.getElementById('cfTo').value = plan.au || '';
+  cfPlanUi();
+}
+
+function cfPlanUi() {
+  const mode = document.getElementById('cfMoment').value;
+  document.getElementById('cfDays').classList.toggle('hidden', mode !== 'semaine');
+  document.getElementById('cfMatchWhenField').classList.toggle('hidden', mode !== 'avant_match');
+}
+
+/* Le réglage lu dans l'éditeur ; null : une fois, sans période. error si incomplet. */
+function cfReadPlan(source) {
+  const mode = document.getElementById('cfMoment').value, du = document.getElementById('cfFrom').value, au = document.getElementById('cfTo').value;
+  const plan = {};
+  if (['jour', 'semaine', 'avant_match'].includes(mode) && !source) plan.mode = mode;
+  if (plan.mode === 'semaine') {
+    plan.jours = [...document.querySelectorAll('#cfDays input:checked')].map(x => Number(x.value));
+    if (!plan.jours.length) return { error: 'Cochez au moins un jour de la semaine.' };
+  }
+  if (plan.mode === 'avant_match') plan.quand = document.getElementById('cfMatchWhen').value;
+  if (du) plan.du = du;
+  if (au) plan.au = au;
+  if (du && au && du > au) return { error: 'La période commence après sa fin : vérifiez Du et Au.' };
+  return { plan: Object.keys(plan).length ? plan : null };
+}
+
 /* Nouveau formulaire posé après chaque séance ou match : il part d'une copie du formulaire d'origine
    du club (custom_form_duplicate), dont la question RPE vient en tête, verrouillée. */
 function cfMomentChange() {
-  const source = document.getElementById('cfMoment').value;
+  cfPlanUi();
+  if (CF.editing?.id || (CF.editing?.source && !CF.editing?.copy_of)) return;   // formulaire enregistré : sa sorte ne change pas
+  const source = CF_SOURCES.includes(document.getElementById('cfMoment').value) ? document.getElementById('cfMoment').value : '';
+  if (source === (CF.editing?.source || '')) return;
   document.querySelectorAll('#cfQuestions .cf-question[data-fixe]').forEach(x => x.remove());
   const base = source ? CF.forms.find(f => f.source === source && !f.created_by) || CF.forms.find(f => f.source === source) : null;
   if (source && !base) {
@@ -197,7 +239,9 @@ function cfReadEditor() {
     error ||= r.error;
     return r.q || q;
   });
-  return { error, id: CF.editing?.id ?? null, copy_of: CF.editing?.copy_of ?? null, source: CF.editing?.source ?? null, title: document.getElementById('cfName').value.trim(),
+  const plan = cfReadPlan(CF.editing?.source);
+  error ||= plan.error;
+  return { error, planning: plan.plan ?? null, id: CF.editing?.id ?? null, copy_of: CF.editing?.copy_of ?? null, source: CF.editing?.source ?? null, title: document.getElementById('cfName').value.trim(),
     description: document.getElementById('cfDescription').value.trim() || null, questions,
     team_ids: [...document.querySelectorAll('#cfTeams input:checked')].map(x => Number(x.value)),
     active: document.getElementById('cfActive').checked, expected_version: CF.editing?.version?.version_no ?? null };

@@ -182,7 +182,7 @@ function cfRender() {
     const shared = form.source && !form.created_by && CF.profile.role !== 'admin';
     return `<article class="cf-card">
       <div class="cf-card-head"><h2>${escapeHtml(form.titre)}</h2><span class="cf-badge${form.actif ? ' is-active' : ''}">${form.actif ? 'Actif' : 'Désactivé'}</span></div>
-      ${source ? `<p>${source.quand} | réponses dans <a href="${source.page}">${source.lieu}</a></p>` : ''}
+      <p>${escapeHtml(cfPlanText(form))}${source ? ` | réponses dans <a href="${source.page}">${source.lieu}</a>` : ''}</p>
       ${form.description ? `<p>${escapeHtml(form.description)}</p>` : ''}
       <div class="cf-meta"><span>Version ${form.version?.version_no || 0} | ${form.versions?.length || (form.version ? 1 : 0)} conservée${(form.versions?.length || 1) > 1 ? 's' : ''}</span><span>${questions.length} question${questions.length === 1 ? '' : 's'}</span>
         <span>${teams.length ? teams.map(escapeHtml).join(' | ') : 'Aucune équipe affectée'}</span></div>
@@ -252,6 +252,7 @@ async function cfPersist(form) {
       const nextVersion = { version_no: versionNo || 1, questions: form.questions };
       const versions = old?.versions || (old?.version ? [old.version] : []);
       const saved = { id: form.id ?? Date.now(), titre: form.title, description: form.description, actif: form.active, source: form.source,
+        planning: form.planning === undefined ? old?.planning ?? null : form.planning,
         team_ids: form.team_ids, version: nextVersion, versions: changed ? [...versions, nextVersion] : versions };
       CF.forms = old ? CF.forms.map(x => x === old ? saved : x) : [saved, ...CF.forms];
       cfRender();
@@ -272,7 +273,15 @@ async function cfPersist(form) {
       p_team_ids: form.team_ids, p_active: form.active, p_expected_version: form.expected_version,
     });
     if (error) throw error;
+    // Quand le poser (lmfc_v65.sql) : enregistré à part, seulement s'il a changé.
+    const before = CF.forms.find(x => Number(x.id) === Number(data.id))?.planning ?? null;
+    let planError = null;
+    if (form.planning !== undefined && JSON.stringify(form.planning) !== JSON.stringify(before)) {
+      const { error: e2 } = await sb.rpc('custom_form_plan', { p_form: data.id, p_planning: form.planning });
+      if (e2) planError = ['PGRST202', '42883'].includes(e2.code) ? 'Le moment n’est pas enregistré : la migration lmfc_v65.sql est nécessaire.' : e2.message;
+    }
     await cfLoad();
+    if (planError) { message.textContent = planError; if (editorOpen) document.getElementById('cfSave').disabled = false; return; }
     if (editorOpen) closeModal('cfEditor');
     toast(`Formulaire enregistré – version ${data.version_no}.`, 'success');
   } catch (e) {
@@ -307,4 +316,18 @@ async function cfDelete(id) {
     console.error('Formulaire non supprimé', e);
     status.textContent = ['PGRST202', '42883'].includes(e?.code) ? 'La suppression demande la migration lmfc_v63.sql.' : cfError(e);
   } finally { CF.busy = false; }
+}
+
+/* Quand le formulaire est posé, en clair : « Chaque jour | du 01/12/2026 au 15/12/2026 ». */
+function cfPlanText(form) {
+  const plan = form.planning || {}, fr = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+  const days = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  const when = form.source ? cfSources[form.source]?.quand || 'Après chaque séance'
+    : plan.mode === 'jour' ? 'Chaque jour'
+      : plan.mode === 'semaine' ? `Chaque ${(plan.jours || []).map(d => days[d - 1]).join(', ')}`
+        : plan.mode === 'avant_match' ? (plan.quand === 'jour' ? 'Le jour de chaque match' : 'La veille de chaque match')
+          : 'Une fois';
+  const period = plan.du && plan.au ? (plan.du === plan.au ? `le ${fr(plan.du)}` : `du ${fr(plan.du)} au ${fr(plan.au)}`)
+    : plan.du ? `à partir du ${fr(plan.du)}` : plan.au ? `jusqu’au ${fr(plan.au)}` : '';
+  return [when, period].filter(Boolean).join(' | ');
 }

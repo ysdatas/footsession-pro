@@ -73,12 +73,31 @@
       <form id="cfEditorForm">
         <div class="field"><label for="cfName">Nom du formulaire</label><input id="cfName" required maxlength="100" autocomplete="off"></div>
         <div class="field"><label for="cfDescription">Description <span class="text-muted">(facultatif, montrée aux joueurs)</span></label><textarea id="cfDescription" rows="2" maxlength="1000"></textarea></div>
-        <div class="field" id="cfMomentField"><label for="cfMoment">Quand le poser</label>
-          <select id="cfMoment">
-            <option value="">Une fois, dans « Mes formulaires »</option>
-            <option value="rpe_seance">Après chaque séance, avec le RPE (Suivi RPE)</option>
-            <option value="rpe_match">Après chaque match, avec le RPE (Suivi RPE)</option>
-          </select></div>
+        <fieldset class="cf-fieldset cf-plan" id="cfMomentField">
+          <legend>Quand le poser</legend>
+          <div class="field"><label for="cfMoment">Moment</label>
+            <select id="cfMoment">
+              <option value="">Une fois, dans « Mes formulaires »</option>
+              <option value="jour">Chaque jour</option>
+              <option value="semaine">Certains jours de la semaine</option>
+              <option value="avant_match">Avant chaque match</option>
+              <option value="rpe_seance">Après chaque séance, avec le RPE (Suivi RPE)</option>
+              <option value="rpe_match">Après chaque match, avec le RPE (Suivi RPE)</option>
+            </select></div>
+          <div class="cf-days hidden" id="cfDays" role="group" aria-label="Jours de la semaine">
+            <label class="cf-day"><input type="checkbox" value="1"><span>Lun.</span></label><label class="cf-day"><input type="checkbox" value="2"><span>Mar.</span></label>
+            <label class="cf-day"><input type="checkbox" value="3"><span>Mer.</span></label><label class="cf-day"><input type="checkbox" value="4"><span>Jeu.</span></label>
+            <label class="cf-day"><input type="checkbox" value="5"><span>Ven.</span></label><label class="cf-day"><input type="checkbox" value="6"><span>Sam.</span></label>
+            <label class="cf-day"><input type="checkbox" value="7"><span>Dim.</span></label>
+          </div>
+          <div class="field hidden" id="cfMatchWhenField"><label for="cfMatchWhen">Avant le match</label>
+            <select id="cfMatchWhen"><option value="veille">La veille du match</option><option value="jour">Le jour du match</option></select></div>
+          <div class="cf-period">
+            <div class="field"><label for="cfFrom">Du <span class="text-muted">(facultatif)</span></label><input type="date" id="cfFrom"></div>
+            <div class="field"><label for="cfTo">Au <span class="text-muted">(facultatif)</span></label><input type="date" id="cfTo"></div>
+          </div>
+          <p class="text-muted cf-hint">Le joueur répond le jour même ou jusqu’à deux jours après. Une seule date : la même dans Du et Au.</p>
+        </fieldset>
         <fieldset class="cf-fieldset">
           <legend>Équipes destinataires</legend>
           <p class="text-muted cf-hint">Choisissez les équipes auxquelles ce formulaire est rattaché.</p>

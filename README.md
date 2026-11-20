@@ -310,6 +310,15 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            custom_form_delete() efface un formulaire sans réponse, archive les autres
                                            (archive_le, réponses intactes) ; texte de réglage de v62 retiré pour les joueurs ;
                                            après lmfc_v62.sql ; retour arrière : lmfc_v63_retour.sql
+82. supabase/lmfc_v64.sql                  questionnaires après le RPE et avis de match proposés dans Mes formulaires pour une
+                                           séance ou un match du jour, d'hier ou d'avant-hier seulement (custom_forms_my_pending ;
+                                           custom_form_submit refuse plus ancien) ; le RPE garde 14 jours ; après lmfc_v63.sql ;
+                                           retour arrière : lmfc_v64_retour.sql
+83. supabase/lmfc_v65.sql                  quand poser un formulaire : custom_forms.planning (une fois, chaque jour, jours de la
+                                           semaine, avant le match la veille ou le jour, période du/au ; après séance ou match :
+                                           période seulement) ; custom_form_plan() ; custom_forms_my_pending et
+                                           custom_form_submit suivent le réglage (de J à J-2, jamais avant la création) ;
+                                           après lmfc_v64.sql ; retour arrière : lmfc_v65_retour.sql (réglages perdus)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1211,6 +1220,8 @@ node tests/v46-sql.test.mjs       # récapitulatif du calendrier : feuille de ma
 node tests/v47-sql.test.mjs       # RPE, courbatures et avis dans Formulaires : réponses intactes, équipes, copies, questions ajoutées, droits, retour arrière (PGlite)
 node tests/v62-sql.test.mjs       # questionnaires après séance et match : formulaires créés, alertes (série, seuil, douleur), périmètre, « Vu », retour arrière (PGlite)
 node tests/v63-sql.test.mjs       # formulaires : nombres envoyés en texte, niveaux d'échelle, jour des questionnaires, suppression archivée, retour arrière (PGlite)
+node tests/v64-sql.test.mjs       # questionnaires proposés de J à J-2 seulement, J-3 refusé, retour arrière (PGlite)
+node tests/v65-sql.test.mjs       # quand poser un formulaire : chaque jour, jours de la semaine, avant le match, période, droits, retour arrière (PGlite)
 node tests/analyst-role-sql.test.mjs  # rôle Analyste vidéo : portée, RLS, outils d'équipe, défaut Pro et retours (PGlite)
 node tests/tactical-save.test.mjs  # publication immuable d'image tactique puis référence en base
 node tests/page-globals.test.mjs  # deux scripts d'une même page ne déclarent pas le même nom
