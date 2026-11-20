@@ -55,7 +55,7 @@ function srRespWho(p) {
   const url = SR.resp.photos?.get(p.photo_path);
   const face = url ? `<img class="sr-resp-face" src="${escapeHtml(url)}" alt="" loading="lazy" width="28" height="28">`
     : `<span class="sr-resp-face" aria-hidden="true">${escapeHtml(srInitials(p))}</span>`;
-  return `<a class="sr-resp-who" href="historique-reponses?joueur=${Number(p.id)}&team=${Number(SR.team) || ''}" title="Toutes les réponses de ${escapeHtml(playerFullName(p))}">${face}<span>${escapeHtml(playerFullName(p))}</span></a>`;
+  return `<a class="sr-resp-who" href="suivi-rpe?vue=historique&joueur=${Number(p.id)}&team=${Number(SR.team) || ''}" title="Toutes les réponses de ${escapeHtml(playerFullName(p))}">${face}<span>${escapeHtml(playerFullName(p))}</span></a>`;
 }
 
 /* Une séance ou un match : un tableau joueurs × questions. */

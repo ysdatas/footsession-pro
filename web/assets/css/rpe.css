@@ -228,39 +228,25 @@
 .sr-txt.is-open { display: block; -webkit-line-clamp: unset; }
 .sr-txt:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* ---------- Historique des réponses (historique-reponses.html) ---------- */
-.hr-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px 12px; margin: 0 0 10px; }
+/* ---------- Vue Historique (suivi-rpe-hist.js) : même tableau que Réponses ---------- */
+.hr-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 12px; margin: 0 0 10px; max-width: 900px; }
 .hr-filters .field { margin: 0; }
 .hr-filters select, .hr-filters input { width: 100%; min-width: 0; }
-.hr-note { margin: 0 0 16px; max-width: 80ch; font-size: var(--fs-sm); color: var(--text-secondary); }
-.hr-body { display: grid; gap: 10px; }
-.hr-body.is-loading { opacity: .55; }
-.hr-player { margin: 0; padding: 0; overflow: hidden; }
-.hr-player > summary { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 16px; cursor: pointer; list-style: none; }
-.hr-player > summary::-webkit-details-marker { display: none; }
-.hr-player > summary:hover { background: var(--bg-hover); }
-.hr-player > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
-.hr-player-name { flex: 1; min-width: 0; font-weight: 600; }
-.hr-player-n { color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-.hr-player-body { display: grid; gap: 10px; padding: 0 16px 16px; }
-.hr-day { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card); }
-.hr-day-title { margin: 0 0 8px; font-size: var(--fs-md); }
-.hr-day-title::first-letter { text-transform: uppercase; }
-.hr-event + .hr-event { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
-.hr-event-title { margin: 0 0 8px; color: var(--text-secondary); font-size: var(--fs-sm); font-weight: 600; }
-.hr-forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 8px; }
-.hr-form { padding: 10px 12px; border-radius: 9px; background: var(--bg-hover); }
-.hr-form header { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.hr-form header span { color: var(--text-muted); font-size: var(--fs-xs); }
-.hr-form dl { display: grid; gap: 6px; margin: 0; }
-.hr-form dt { color: var(--text-secondary); font-size: var(--fs-xs); }
-.hr-form dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.hr-form .is-empty dd { color: var(--text-muted); font-style: italic; }
-.hr-dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: var(--lv); vertical-align: 1px; }
+.hr-th-form { display: block; margin-bottom: 2px; color: var(--text-muted); font-size: 10px; font-weight: 600; text-transform: none; }
+.hr-who { display: flex; align-items: center; gap: 8px; max-width: 240px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+.hr-who.is-player { cursor: pointer; }
+.hr-who > span, .hr-who:not(.is-player) { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 100%; overflow: hidden; }
+.hr-who strong, .hr-who small { max-width: 100%; white-space: nowrap; }
+.hr-who strong { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.hr-who small { overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 400; }
+.hr-who.is-player:hover strong { text-decoration: underline; text-underline-offset: 2px; }
+.hr-who:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.hr-table tr.hr-newday > * { border-top: 2px solid var(--border); }
 /* Téléphone : la colonne du joueur, collée à gauche, laisse la place aux réponses. */
 @media (max-width: 560px) {
   .sr-resp-who { max-width: 128px; gap: 6px; font-size: var(--fs-xs); }
   .sr-resp-face { width: 24px; height: 24px; }
   .sr-resp-table tbody th { padding-inline: 6px; }
   .sr-th { width: 120px; }
+  .hr-who { max-width: 150px; font-size: var(--fs-xs); }
 }

@@ -934,10 +934,10 @@ async function loadPage() {
   if (ctxProfile.role === 'joueur') { setPlayerShellUser(player); applyPlayerVisibility(); }
   else setupVisibilityToggles();
   renderRpeTrend(player.id);   // RPE après les séances (rpe.js) : le joueur et le staff qui le suit
-  // Staff qui suit le RPE : toutes les réponses du joueur, journée par journée (historique-reponses).
+  // Staff qui suit le RPE : toutes les réponses du joueur, journée par journée (Suivi RPE, vue Historique).
   const hist = document.getElementById('btnRpeHist');
   if (hist && ['admin', 'coach', 'prepa', 'analyste'].includes(ctxProfile.role)) {
-    hist.href = `historique-reponses?joueur=${Number(player.id)}${player.team_id ? `&team=${Number(player.team_id)}` : ''}`;
+    hist.href = `suivi-rpe?vue=historique&joueur=${Number(player.id)}${player.team_id ? `&team=${Number(player.team_id)}` : ''}`;
     hist.classList.remove('hidden');
   }
   renderGpsCard(player.id, ctxProfile.role === 'joueur');   // GPS (gps-card.js) : le staff, ou le joueur pour ce qui lui est ouvert

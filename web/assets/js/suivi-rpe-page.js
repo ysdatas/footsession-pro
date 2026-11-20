@@ -55,7 +55,7 @@ const srTeams = () => { const all = window.CLUB_TEAMS || [], mine = accountTeams
   const url = new URL(location.href), teams = srTeams(), asked = Number(url.searchParams.get('team'));
   SR.team = (teams.find(t => t.id === asked) || teams.find(t => t.id === currentTeamId()) || teams[0])?.id ?? null;
   SR.scope = url.searchParams.get('type') === 'matchs' ? 'match' : 'seance';
-  SR.view = { joueurs: 'grid', reponses: 'resp', courbatures: 'sore' }[url.searchParams.get('vue')] || 'dash';
+  SR.view = { joueurs: 'grid', reponses: 'resp', courbatures: 'sore', historique: 'hist' }[url.searchParams.get('vue')] || 'dash';
   if (SR.scope === 'match' && SR.view === 'sore') SR.view = 'dash';   // les courbatures suivent les jours de séance
   document.getElementById('srBody').addEventListener('click', srClick);
   document.getElementById('btnSrRemind').addEventListener('click', srTeamRemind);
@@ -106,10 +106,10 @@ function srUrl() {
   const u = new URL(location.href);
   if (SR.team) u.searchParams.set('team', SR.team); else u.searchParams.delete('team');
   if (SR.scope === 'match') u.searchParams.set('type', 'matchs'); else u.searchParams.delete('type');
-  if (SR.view === 'dash') u.searchParams.delete('vue'); else u.searchParams.set('vue', { grid: 'joueurs', resp: 'reponses', sore: 'courbatures' }[SR.view]);
+  if (SR.view === 'dash') u.searchParams.delete('vue'); else u.searchParams.set('vue', { grid: 'joueurs', resp: 'reponses', sore: 'courbatures', hist: 'historique' }[SR.view]);
+  // Les filtres de l'historique ne restent dans l'adresse que dans sa vue.
+  if (SR.view !== 'hist') ['joueur', 'du', 'au', 'form'].forEach(k => u.searchParams.delete(k));
   history.replaceState(null, '', u);
-  const hist = document.getElementById('btnSrHist');   // l'historique s'ouvre sur la même équipe
-  if (hist) hist.href = SR.team ? `historique-reponses?team=${SR.team}` : 'historique-reponses';
 }
 function srPressed() {
   const mode = SR.period?.mode || String(SR.n), p = SR.period, today = srToday(), box = document.getElementById('srPeriod');
@@ -124,6 +124,11 @@ function srPressed() {
   document.querySelectorAll('[data-sr-view]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.srView === SR.view)));
   document.querySelectorAll('[data-sr-scope]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.srScope === SR.scope)));
   document.querySelector('[data-sr-view="sore"]')?.classList.toggle('hidden', SR.scope === 'match');
+  // Historique : ses propres dates et tous les questionnaires ; séances / matchs et période ne servent pas.
+  const hist = SR.view === 'hist';
+  document.querySelector('[data-sr-scope]')?.parentElement.classList.toggle('hidden', hist);
+  document.querySelector('[data-sr-n]')?.parentElement.classList.toggle('hidden', hist);
+  if (hist) box.classList.add('hidden');
 }
 function renderSrTeams() {
   document.body.dataset.team = SR.team || '';   // la ligne « club – équipe » et la barre du haut suivent la capsule
@@ -231,6 +236,7 @@ function srCell(s, p) {
 function renderSr() {
   srTeamBtn();
   const team = (window.CLUB_TEAMS || []).find(t => t.id === SR.team), body = document.getElementById('srBody');
+  if (SR.view === 'hist') { renderSrHist(body); return; }   // suivi-rpe-hist.js : ses propres données
   if (!SR.sessions.length) {
     document.getElementById('srStatus').textContent = team ? team.nom : '';
     body.innerHTML = `<div class="empty">${SR.scope === 'match' ? (SR.period ? 'Aucun match de cette équipe sur cette période.' : 'Aucun match joué pour cette équipe.')
