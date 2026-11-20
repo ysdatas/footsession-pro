@@ -592,8 +592,7 @@ function renderIdentity() {
 async function loadClubLogo() {
   const path = ctxProfile?.clubs?.logo_path;
   if (!path) return;
-  const { data } = await sb.storage.from('logos').createSignedUrl(path, 3600);
-  clubLogoUrl = data?.signedUrl || null;
+  clubLogoUrl = (await signedUrls('logos', [path])).get(path) || null;
 }
 
 /* ------------------------------------------------------------

@@ -54,8 +54,8 @@ const noTeamsLabel = (role) => (role === 'lecteur' ? 'Tout le club' : 'Aucune é
     });
 
     if (club?.logo_path) {
-      const { data } = await sb.storage.from('logos').createSignedUrl(club.logo_path, 3600);
-      if (data?.signedUrl) showLogo(data.signedUrl);
+      const logoUrl = (await signedUrls('logos', [club.logo_path])).get(club.logo_path);
+      if (logoUrl) showLogo(logoUrl);
     }
 
     renderTeams(isAdmin);

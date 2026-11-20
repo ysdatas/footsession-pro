@@ -146,6 +146,7 @@ async function logout() {
   if (typeof clearNavMemory === 'function') clearNavMemory();
   if (typeof clearNavCache === 'function') clearNavCache();
   clearAuthCache();
+  try { localStorage.removeItem('lmfc-signed'); } catch { /* rien à vider */ }   // liens du stockage (app.js)
   await sb.auth.signOut();
   window.location.href = '/';
 }

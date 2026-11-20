@@ -25,8 +25,7 @@ async function loadProgram(playerId) {
   const paths = [...new Set(data.flatMap(e => [e.image_path, e.schema_path]).filter(Boolean))];
   const urls = {};
   if (paths.length) {
-    const { data: signed } = await sb.storage.from(PROGRAM_BUCKET).createSignedUrls(paths, 3600);
-    (signed || []).forEach(s => { if (s.signedUrl) urls[s.path] = s.signedUrl; });
+    (await signedUrls(PROGRAM_BUCKET, paths)).forEach((url, path) => { urls[path] = url; });   // liens gardés (app.js)
   }
   return data.map(e => ({ ...e, image_url: urls[e.image_path] || null, schema_url: urls[e.schema_path] || null }));
 }

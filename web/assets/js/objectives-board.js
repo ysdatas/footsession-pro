@@ -283,9 +283,9 @@ async function openObjectiveModal(editId = null, presetPlayer = null, kind = 'ob
     // Images existantes : URL signées seulement à l'ouverture (pas pour toute la liste).
     const media = [...(objBoard.media.get(r.id) || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id);
     if (!media.length) return;
-    const { data: signed } = await sb.storage.from(NOTES_BUCKET).createSignedUrls(media.map(m => m.storage_path), 3600);
+    const signed = await signedUrls(NOTES_BUCKET, media.map(m => m.storage_path));   // liens gardés (app.js)
     if (objBoard.editId !== r.id) return;
-    objBoard.draft.existing = media.map((m, i) => ({ id: m.id, path: m.storage_path, url: signed?.[i]?.signedUrl || '', pdf: isPdfMedia(m), caption: m.caption || '', removed: false }));
+    objBoard.draft.existing = media.map(m => ({ id: m.id, path: m.storage_path, url: signed.get(m.storage_path) || '', pdf: isPdfMedia(m), caption: m.caption || '', removed: false }));
     renderObjImages();
   }
 }

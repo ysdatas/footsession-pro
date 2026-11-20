@@ -53,26 +53,28 @@ function loadScriptOnce(src, integrity, global) {
 }
 const loadLib = (name) => loadScriptOnce(...LIBS[name]);
 
-/* ---------- Liens signés du stockage (photos, logos) ----------
-   Gardés 50 min dans l'onglet : une photo déjà vue garde la même adresse,
-   le navigateur la reprend de son cache au lieu de la retélécharger à
-   chaque page. Les liens manquants partent en une seule requête.
+/* ---------- Liens signés du stockage (photos, logos, schémas, images des notes) ----------
+   Un lien signé change à chaque demande : le navigateur ne peut alors rien
+   reprendre de son cache et retélécharge l'image (trafic sortant Supabase).
+   Ici un lien vit 24 h et se garde 23 h dans le navigateur (localStorage,
+   partagé entre onglets, vidé à la déconnexion) : même adresse, même image
+   en cache. Les liens manquants partent en une seule requête.
    Renvoie Map(chemin → lien). */
-const SIGNED_MEMO = 'lmfc-signed';
+const SIGNED_MEMO = 'lmfc-signed', SIGNED_TTL = 86400, SIGNED_KEEP = 23 * 3600 * 1000;
 async function signedUrls(bucket, paths) {
   const now = Date.now(), out = new Map(), missing = [];
   let memo = {};
-  try { memo = JSON.parse(sessionStorage.getItem(SIGNED_MEMO) || '{}'); } catch { /* mémoire illisible : on redemande */ }
+  try { memo = JSON.parse(localStorage.getItem(SIGNED_MEMO) || '{}'); } catch { /* mémoire illisible : on redemande */ }
   [...new Set(paths.filter(Boolean))].forEach(p => {
     const m = memo[`${bucket}/${p}`];
     if (m && m.exp > now) out.set(p, m.url); else missing.push(p);
   });
   if (!missing.length) return out;
-  const { data, error } = await sb.storage.from(bucket).createSignedUrls(missing, 3600);
+  const { data, error } = await sb.storage.from(bucket).createSignedUrls(missing, SIGNED_TTL);
   if (error) console.warn('Liens du stockage indisponibles', bucket, error.message);
-  (data || []).forEach(d => { if (d.signedUrl) { out.set(d.path, d.signedUrl); memo[`${bucket}/${d.path}`] = { url: d.signedUrl, exp: now + 50 * 60000 }; } });
+  (data || []).forEach(d => { if (d.signedUrl) { out.set(d.path, d.signedUrl); memo[`${bucket}/${d.path}`] = { url: d.signedUrl, exp: now + SIGNED_KEEP }; } });
   try {
-    sessionStorage.setItem(SIGNED_MEMO, JSON.stringify(Object.fromEntries(Object.entries(memo).filter(([, m]) => m.exp > now))));
+    localStorage.setItem(SIGNED_MEMO, JSON.stringify(Object.fromEntries(Object.entries(memo).filter(([, m]) => m.exp > now))));
   } catch { /* stockage plein ou bloqué : pas de mémoire, rien de grave */ }
   return out;
 }

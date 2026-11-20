@@ -93,9 +93,7 @@ async function loadTemplates() {
   }
   const paths = TPL.rows.map(t => t.image_path).filter(p => p && !TPL.urls.has(p));
   if (paths.length) {
-    const { data: signed, error: signErr } = await sb.storage.from('schemas').createSignedUrls(paths, 3600);
-    if (signErr) console.warn('Schémas : miniatures indisponibles', signErr);
-    (signed || []).forEach(s => s.signedUrl && TPL.urls.set(s.path, s.signedUrl));
+    (await signedUrls('schemas', paths)).forEach((url, path) => TPL.urls.set(path, url));   // liens gardés 23 h (app.js)
   }
 }
 

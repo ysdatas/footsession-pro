@@ -117,10 +117,8 @@ async function loadNotes() {
   if (mRes.error) console.error('Images des points illisibles', mRes.error);
   noteStore.notes = nRes.data || [];
   const media = mRes.data || [];
-  const { data: signed } = media.length
-    ? await sb.storage.from(NOTES_BUCKET).createSignedUrls(media.map(m => m.storage_path), 3600)
-    : { data: [] };
-  noteStore.media = media.map((m, i) => ({ ...m, signed_url: signed?.[i]?.signedUrl || '' }));
+  const signed = media.length ? await signedUrls(NOTES_BUCKET, media.map(m => m.storage_path)) : new Map();   // liens gardés (app.js)
+  noteStore.media = media.map(m => ({ ...m, signed_url: signed.get(m.storage_path) || '' }));
   renderNoteLists();
   return nRes.error || mRes.error || null;
 }

@@ -45,8 +45,14 @@ async function brandLogoDataUrl() {
 }
 
 /* Convertit un fichier du Storage en data URL (jsPDF n'accepte pas d'URL distante). */
+const STORAGE_DATA = new Map();   // lu une fois par page : un PDF de plusieurs pages ne retélécharge pas le même fichier
 async function storageToDataUrl(bucket, path) {
   if (!path) return null;
+  const key = `${bucket}/${path}`;
+  if (!STORAGE_DATA.has(key)) STORAGE_DATA.set(key, storageToDataUrlRaw(bucket, path).then(r => { if (!r) STORAGE_DATA.delete(key); return r; }));
+  return STORAGE_DATA.get(key);
+}
+async function storageToDataUrlRaw(bucket, path) {
   try {
     const { data, error } = await sb.storage.from(bucket).download(path);
     if (error || !data) return null;
