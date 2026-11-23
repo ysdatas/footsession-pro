@@ -331,6 +331,10 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
 86. supabase/lmfc_v68.sql                  courbatures : fessiers et psoas en plus (bas du corps) ; contrainte
                                            player_soreness_muscles_check et soreness_set() ; après lmfc_v67.sql ;
                                            retour arrière : lmfc_v68_retour.sql (refusé si une réponse les cite)
+87. supabase/lmfc_v69.sql                  zone de douleur des questionnaires après séance et match en choix multiple
+                                           sur la silhouette (nouvelle version, seule douleur_zone change ; pas les
+                                           formulaires « une fois ») ; custom_form_body_zones() ; après lmfc_v68.sql ;
+                                           retour arrière : lmfc_v69_retour.sql (question d'avant, nouvelle version)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1235,6 +1239,7 @@ node tests/v63-sql.test.mjs       # formulaires : nombres envoyés en texte, niv
 node tests/v64-sql.test.mjs       # questionnaires proposés de J à J-2 seulement, J-3 refusé, retour arrière (PGlite)
 node tests/v65-sql.test.mjs       # quand poser un formulaire : chaque jour, jours de la semaine, avant le match, période, droits, retour arrière (PGlite)
 node tests/v66-sql.test.mjs       # championnats : droits, nom unique, club du match, suppression, retour arrière (PGlite)
+node tests/v69-sql.test.mjs       # douleur sur la silhouette : zones = form-body.js, version ajoutée, « une fois » laissé, alerte, retour (PGlite)
 node tests/v68-sql.test.mjs       # courbatures : fessiers et psoas acceptés, muscle inconnu refusé, retour arrière refusé puis rendu (PGlite)
 node tests/v67-sql.test.mjs       # choix multiple : options exigées, liste rangée sans doublon, choix inconnu refusé, vide, retour arrière (PGlite)
 node tests/analyst-role-sql.test.mjs  # rôle Analyste vidéo : portée, RLS, outils d'équipe, défaut Pro et retours (PGlite)
