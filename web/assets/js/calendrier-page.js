@@ -27,7 +27,7 @@ function calMemo(save) {
   try {
     if (save) return localStorage.setItem(CAL_MEMO, JSON.stringify({ view: CAL.view, kinds: [...CAL.kinds] }));
     const m = JSON.parse(localStorage.getItem(CAL_MEMO) || '{}');
-    if (['month', 'week', 'list'].includes(m.view)) CAL.view = m.view;
+    if (['month', 'week', 'list', 'day'].includes(m.view)) CAL.view = m.view;
     if (Array.isArray(m.kinds)) CAL.kinds = new Set(m.kinds.filter(k => CAL_KINDS[k]));
   } catch { /* stockage indisponible : réglages par défaut */ }
 }
@@ -46,7 +46,12 @@ function calMemo(save) {
     document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
   }
   document.getElementById('calAdd').classList.toggle('hidden', !canEditTeamContent(ctx.profile.role));
+  if (CAL.asPlayer) CAL.view = 'day';   // joueur : la semaine en bandeau et ses cartes « Répondre » (calendar-player.js)
   calMemo();
+  if (!CAL.asPlayer && CAL.view === 'day') CAL.view = 'month';
+  document.querySelector('[data-cal-view="day"]').classList.toggle('hidden', !CAL.asPlayer);
+  document.querySelector('.cal-kinds').classList.toggle('hidden', CAL.asPlayer);   // joueur : séances et matchs, toujours
+  if (CAL.asPlayer) CAL.kinds = new Set(Object.keys(CAL_KINDS));   // un ancien filtre mémorisé ne cache rien
   if (CAL.view === 'list') CAL.anchor = calToday();
   bindCal();
   loadCal();
@@ -176,7 +181,8 @@ function renderCal() {
       + `${!CAL.asPlayer && currentTeam() ? ` – ${currentTeam().nom} et tout le club` : ''}`;
   }
   body.className = `cal-body is-${CAL.view}`;
-  body.innerHTML = CAL.view === 'month' ? calMonthHtml(items) : CAL.view === 'week' ? calWeekHtml(items) : calListHtml(items);
+  body.innerHTML = CAL.view === 'month' ? calMonthHtml(items) : CAL.view === 'week' ? calWeekHtml(items)
+    : CAL.view === 'day' ? calDayHtml(items) : calListHtml(items);
 }
 
 /* ---------- Ouvrir un élément ---------- */
@@ -231,28 +237,32 @@ async function calRpe(i, form) {
     : i.rpeTodo ? '<button type="button" class="btn btn-primary" id="calRpeBtn">Noter mon effort</button>'
       : i.rpeAilleurs ? `<p class="text-muted">Un seul RPE par demi-journée : ton effort se note avec ${escapeHtml(i.rpeAilleurs)}.</p>`
       : `<p class="text-muted">${upcoming ? `Tu pourras noter ton effort après ${match ? 'le match' : 'la séance'}.` : `La saisie est fermée (${RPE_DAYS} jours après la séance).`}</p>`;
-  document.getElementById('calRpeBtn')?.addEventListener('click', () => {
-    // La ligne de myRpeItems (équipe comprise) ; les autres séances de la demi-journée, pour choisir.
-    const row = (CAL.rpeRows || []).find(r => !!r.match === match && r.id === i.id);
-    const session = row || { id: i.id, titre: match ? `Match contre ${i.titre}` : i.titre, date: i.date, heure: i.heure, match, form_titre: form?.titre, form_questions: form?.questions };
-    const slot = row ? rpeTodo(CAL.rpeRows).filter(r => r !== row && rpeSameSlot(r, row)) : [];
-    openRpeSheet({ session, pending: slot.length ? [session, ...slot] : [],
-      onSaved: (v, saved) => {
-        // La séance notée, et celles de sa demi-journée, ne sont plus à noter.
-        CAL.items.forEach(x => {
-          const r = (CAL.rpeRows || []).find(y => !!y.match === (x.kind === 'match') && y.id === x.id);
-          if (r && (r === saved || (x.id === saved.id && (x.kind === 'match') === !!saved.match))) x.rpeTodo = false;
-          else if (r?.ailleurs && x.rpeTodo) { x.rpeTodo = false; x.rpeAilleurs = r.ailleurs; }
-        });
-        renderCal(); calRpe(i, form); calQuest(i);
-      } });
-  });
+  document.getElementById('calRpeBtn')?.addEventListener('click', () => calOpenRpe(i, form, () => { calRpe(i, form); calQuest(i); }));
+}
+
+/* Saisie du RPE d'une séance ou d'un match (fiche, ou « Répondre » puis POST : calendar-forms.js). */
+function calOpenRpe(i, form, after) {
+  const match = i.kind === 'match';
+  // La ligne de myRpeItems (équipe comprise) ; les autres séances de la demi-journée, pour choisir.
+  const row = (CAL.rpeRows || []).find(r => !!r.match === match && r.id === i.id);
+  const session = row || { id: i.id, titre: match ? `Match contre ${i.titre}` : i.titre, date: i.date, heure: i.heure, match, form_titre: form?.titre, form_questions: form?.questions };
+  const slot = row ? rpeTodo(CAL.rpeRows).filter(r => r !== row && rpeSameSlot(r, row)) : [];
+  openRpeSheet({ session, pending: slot.length ? [session, ...slot] : [],
+    onSaved: (v, saved) => {
+      // La séance notée, et celles de sa demi-journée, ne sont plus à noter.
+      CAL.items.forEach(x => {
+        const r = (CAL.rpeRows || []).find(y => !!y.match === (x.kind === 'match') && y.id === x.id);
+        if (r && (r === saved || (x.id === saved.id && (x.kind === 'match') === !!saved.match))) x.rpeTodo = false;
+        else if (r?.ailleurs && x.rpeTodo) { x.rpeTodo = false; x.rpeAilleurs = r.ailleurs; }
+      });
+      renderCal(); after?.();
+    } });
 }
 
 /* ---------- Commandes ---------- */
 function calGo(dir) {
   CAL.anchor = dir ? calMove(CAL.view, CAL.anchor, dir) : calToday();
-  CAL.day = dir ? (CAL.view === 'month' ? null : CAL.day) : calToday();
+  CAL.day = !dir ? calToday() : CAL.view === 'day' ? calAddDays(CAL.day || CAL.anchor, 7 * dir) : CAL.view === 'month' ? null : CAL.day;
   loadCal();
 }
 function bindCal() {
@@ -275,6 +285,8 @@ function bindCal() {
     }
   });
   document.getElementById('calBody').addEventListener('click', (e) => {
+    const reply = e.target.closest('[data-cal-reply]');   // « Répondre » : PRE ou POST (calendar-forms.js)
+    if (reply) return calReply(CAL.items[Number(reply.dataset.calReply)]);
     const open = e.target.closest('[data-cal-open]');
     if (open) return openCalItem(CAL.items[Number(open.dataset.calOpen)]);
     const cell = e.target.closest('[data-cal-cell]');   // toute la case, au doigt sur téléphone

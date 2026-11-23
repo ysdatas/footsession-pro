@@ -12,10 +12,16 @@
    en défilant ; colonnes élargissables ; une réponse longue s'ouvre au clic.
    « — » : pas de réponse au questionnaire ; « · » : questionnaire rempli, question
    laissée vide. Les valeurs sont celles enregistrées, jamais recalculées.
+   Tri et filtre (sur l'appareil, sans relire la base) : un clic sur un en-tête trie
+   la colonne (les réponses d'abord, puis en attente, sans réponse, ailleurs, abs.,
+   chacun regroupé) ; les pastilles n'affichent qu'un statut du RPE.
    ============================================================ */
 
 const SR_AVIS = [['individuel', 'Sa performance'], ['collectif', 'L’équipe']];   // comme match-feedback.js
 const srOcc = (s) => (s.match ? `m${s.id}` : `s${s.id}`);
+/* Statut du RPE d'un joueur : [clé, ordre de tri après les valeurs, libellé de la pastille]. */
+const SR_STATUS = { ok: [0, 'Ont répondu'], wait: [1, 'En attente'], none: [2, 'Sans réponse'], away: [3, 'Ailleurs'], abs: [4, 'Absents'] };
+const srStatus = (c) => (c?.v ? 'ok' : c === 'abs' ? 'abs' : c === 'away' ? 'away' : c === 'wait' ? 'wait' : 'none');
 const srInitials = (p) => `${(p.prenom || '')[0] || ''}${(p.nom || '')[0] || ''}`.toUpperCase() || '?';
 
 /* Avis et questions ajoutées des séances ou matchs affichés. Sans la migration, la vue montre le reste. */
@@ -71,19 +77,26 @@ function srRespCard(s, j, open) {
   const rows = SR.players.map((p, i) => ({ p, c: SR.cells[i][j] })).filter(x => x.c !== null);
   const answered = rows.filter(({ p, c }) => c?.v || fb.has(p.id) || extra.some(r => r.player_id === p.id)).length;
   const head = [{ label: 'RPE' }, ...(s.match ? SR_AVIS.map(([, l]) => ({ label: l })) : []), ...qs.map(x => x.q)];
+  const counts = rows.reduce((m, { c }) => m.set(srStatus(c), (m.get(srStatus(c)) || 0) + 1), new Map());
+  const chips = [['all', 'Tous', rows.length], ...Object.entries(SR_STATUS).filter(([k]) => counts.get(k)).map(([k, [, l]]) => [k, l, counts.get(k)])];
+  const sortBtn = (k, label) => `<button type="button" class="sr-sort" data-sr-sort="${k}" title="Trier par ${escapeHtml(label)}">${escapeHtml(label)}<span class="sr-sort-ic" aria-hidden="true"></span></button>`;
   const body = rows.map(({ p, c }) => {
-    const rpe = c?.v ? `<td class="is-num"><span class="sr-resp-rpe" style="--rpe:${rpeColor(c.v)}" title="${escapeHtml(rpeLabel(c.v))}">${c.v}</span></td>`
-      : `<td class="is-num"><span class="sr-resp-none">${c === 'abs' ? 'abs.' : c === 'away' ? 'ailleurs' : c === 'wait' ? 'en attente' : '—'}</span></td>`;
+    const st = srStatus(c);
+    const rpe = c?.v ? `<td class="is-num" data-sort="${Number(c.v)}"><span class="sr-resp-rpe" style="--rpe:${rpeColor(c.v)}" title="${escapeHtml(rpeLabel(c.v))}">${c.v}</span></td>`
+      : `<td class="is-num" data-grp="${SR_STATUS[st][0]}"><span class="sr-resp-none sr-st-${st}">${c === 'abs' ? 'abs.' : c === 'away' ? 'ailleurs' : c === 'wait' ? 'en attente' : '—'}</span></td>`;
     const avis = s.match ? SR_AVIS.map(([k]) => srRespCell({ type: 'textarea', required: false }, fb.get(p.id), fb.get(p.id)?.[k])) : [];
     const more = qs.map(({ form, q }) => { const r = extra.find(x => x.player_id === p.id && x.form_id === form); return srRespCell(q, r, r?.answers?.[q.id]); });
-    return `<tr><th scope="row">${srRespWho(p)}</th>${rpe}${[...avis, ...more].join('')}</tr>`;
+    return `<tr data-st="${st}"><th scope="row" data-sort="${escapeHtml(playerFullName(p).toLocaleLowerCase('fr'))}">${srRespWho(p)}</th>${rpe}${[...avis, ...more].join('')}</tr>`;
   }).join('');
   return `<details class="card sr-resp"${open ? ' open' : ''}><summary>
       <span class="sr-resp-when">${escapeHtml(srWhen(s))}</span><span class="sr-resp-title">${escapeHtml(s.adversaire || s.titre || 'Séance')}</span>
       <span class="sr-resp-count">${answered} / ${rows.length}</span></summary>
     <div class="sr-resp-body">
       <p class="sr-resp-meta"><a href="${srHref(s)}">${s.match ? 'Ouvrir le match' : 'Ouvrir la séance'}</a>${titles.size ? ` | Questions ajoutées : ${[...titles].map(escapeHtml).join(', ')}` : ''}</p>
-      ${rows.length ? `<div class="sr-resp-wrap"><table class="sr-resp-table"><thead><tr><th scope="col">Joueur</th>${head.map(h => `<th scope="col"><div class="sr-th" title="${escapeHtml(h.label || 'Question')}">${escapeHtml(h.label || 'Question')}</div></th>`).join('')}</tr></thead>
+      ${rows.length ? `<div class="sr-resp-filter" role="group" aria-label="Afficher les joueurs">${chips.map(([k, l, n]) =>
+        `<button type="button" class="sr-chip sr-st-${k}" data-sr-filter="${k}" aria-pressed="${k === 'all'}">${l} <b>${n}</b></button>`).join('')}</div>
+      <div class="sr-resp-wrap"><table class="sr-resp-table"><thead><tr><th scope="col" aria-sort="none">${sortBtn(0, 'Joueur')}</th>${head.map((h, k) =>
+        `<th scope="col" aria-sort="none"><div class="sr-th" title="${escapeHtml(h.label || 'Question')}">${sortBtn(k + 1, h.label || 'Question')}</div></th>`).join('')}</tr></thead>
         <tbody>${body}</tbody></table></div>` : '<p class="text-muted">Aucun joueur concerné.</p>'}
     </div></details>`;
 }
@@ -105,4 +118,40 @@ function srRespCell(q, row, v) {
 document.addEventListener('click', (e) => {
   const cell = e.target.closest('[data-sr-open]');
   if (cell) cell.classList.toggle('is-open');
+  const sort = e.target.closest('[data-sr-sort]'), filter = e.target.closest('[data-sr-filter]');
+  if (sort) srSortBy(sort);
+  if (filter) srFilterBy(filter);
 });
+
+/* Clé de tri d'une case : [groupe, valeur]. Les réponses d'abord, regroupées ensuite par statut, le vide à la fin. */
+function srSortKey(td) {
+  if (!td) return [9, ''];
+  if (td.dataset.grp != null) return [1 + Number(td.dataset.grp), ''];
+  if (td.dataset.sort != null) { const n = Number(td.dataset.sort); return [0, Number.isFinite(n) && td.dataset.sort !== '' ? n : td.dataset.sort]; }
+  if (td.classList.contains('is-empty')) return [9, ''];
+  const t = td.textContent.trim(), n = Number(t.replace(',', '.'));
+  return [0, t !== '' && Number.isFinite(n) ? n : t.toLocaleLowerCase('fr')];
+}
+
+/* Un clic : tri croissant, un second : décroissant (les groupes restent dans leur ordre, en bas). */
+function srSortBy(btn) {
+  const th = btn.closest('th'), table = th.closest('table'), k = Number(btn.dataset.srSort);
+  const dir = th.getAttribute('aria-sort') === 'ascending' ? -1 : 1;
+  table.querySelectorAll('thead th').forEach(x => x.setAttribute('aria-sort', 'none'));
+  th.setAttribute('aria-sort', dir === 1 ? 'ascending' : 'descending');
+  const tbody = table.tBodies[0], rows = [...tbody.rows];
+  rows.sort((a, b) => {
+    const [ga, va] = srSortKey(a.cells[k]), [gb, vb] = srSortKey(b.cells[k]);
+    if (ga !== gb) return ga - gb;
+    if (va === vb) return 0;
+    return (typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'fr')) * dir;
+  });
+  tbody.append(...rows);
+}
+
+/* Pastille : seulement les joueurs de ce statut (« Tous » : tout le monde). */
+function srFilterBy(btn) {
+  const box = btn.closest('.sr-resp-body'), want = btn.dataset.srFilter;
+  box.querySelectorAll('[data-sr-filter]').forEach(x => x.setAttribute('aria-pressed', String(x === btn)));
+  box.querySelectorAll('tbody tr').forEach(tr => { tr.hidden = want !== 'all' && tr.dataset.st !== want; });
+}

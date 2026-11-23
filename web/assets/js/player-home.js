@@ -19,12 +19,14 @@
 const PH_IC_KEY = { video: 'videos', activity: 'performance', forms: 'check' };
 const phIc = (k) => navIc(PH_IC_KEY[k] || k);
 /* Une case « Pour toi » : libellé court, chiffre, précision éventuelle (même gabarit que l'accueil du staff). */
-const phCard = ({ href, icon, value, label, detail, tone = '' }) => `
-  <a class="home-attn-card${tone ? ` is-${tone}` : ''}" href="${href}">
+const phCard = ({ href, icon, value, label, detail, tone = '', todo = false }) => `
+  <a class="home-attn-card${tone ? ` is-${tone}` : ''}${todo ? ' is-todo' : ''}" href="${href}">
     <span class="home-attn-head"><strong>${label}</strong>${phIc(icon)}</span>
     <span class="home-attn-value">${value ?? '—'}</span>
-    ${detail ? `<small>${detail}</small>` : ''}
+    ${detail ? `<small>${detail}</small>` : ''}${todo ? PH_CTA : ''}
   </a>`;
+/* Ce qui attend une réponse du joueur : carte pleine, bouton « Répondre » (dashboard.css, .is-todo). */
+const PH_CTA = '<span class="home-attn-cta" aria-hidden="true">Répondre</span>';
 const plural = (n, one, many = `${one}s`) => (n > 1 ? many : one);
 const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
 
@@ -120,10 +122,10 @@ let phFormsPending = 0;
 const phFormName = (titre, origine, appel) => (titre && titre !== origine ? titre : appel);
 function soreCardHtml() {
   const s = phSore, done = s.niveau != null;
-  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="mon-espace" data-sore>
+  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent is-todo'}" href="mon-espace" data-sore>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Courbatures au réveil', done ? 'Courbatures du matin' : 'Tes courbatures ce matin ?'))}</strong>${phIc('check')}</span>
     <span class="home-attn-value">${done ? s.niveau : '?'}<small class="rpe-of">/10</small></span>
-    <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''} | touche pour changer` : 'Aucune | touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>
+    <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''} | touche pour changer` : 'Aucune | touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>${done ? '' : PH_CTA}
   </a>`;
 }
 function openSoreFromCard(e) {
@@ -137,10 +139,10 @@ function openSoreFromCard(e) {
 let phMf = null;   // { match: { id, titre, date }, value }
 function mfCardHtml() {
   const { match: m, value } = phMf, done = mfAnswered(value);
-  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent'}" href="calendrier" data-mf>
+  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent is-todo'}" href="calendrier" data-mf>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(m.form_titre, 'Ton avis sur le match', done ? 'Ton avis sur le match' : 'Donne ton avis sur le match'))}</strong>${phIc('chat')}</span>
     <span class="home-attn-value">${done ? '✓' : '?'}</span>
-    <small>Contre ${escapeHtml(m.titre)} | ${phDay(m.date)}${done ? ' | touche pour compléter' : ''}</small>
+    <small>Contre ${escapeHtml(m.titre)} | ${phDay(m.date)}${done ? ' | touche pour compléter' : ''}</small>${done ? '' : PH_CTA}
   </a>`;
 }
 function openMfFromCard(e) {
@@ -160,10 +162,10 @@ function rpeCardHtml() {
   // Toujours là : le joueur sait où noter même quand aucune séance n'attend.
   if (!s) return phCard({ href: 'calendrier', icon: 'activity', tone: 'calm', value: '—', label: 'Ton effort (RPE)',
     detail: `Rien à noter. Après chaque séance et chaque match, ton effort se note ici (jusqu’à ${RPE_DAYS} jours après).` });
-  return `<a class="home-attn-card${todo.length ? ' is-urgent' : ' is-calm'}" id="phRpe" href="calendrier"${todo.length ? ' data-rpe' : ''}>
+  return `<a class="home-attn-card${todo.length ? ' is-urgent is-todo' : ' is-calm'}" id="phRpe" href="calendrier"${todo.length ? ' data-rpe' : ''}>
     <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Ton effort', todo.length ? 'Note ton effort' : 'Ton effort'))}</strong>${phIc('activity')}</span>
     <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
-    <small>${escapeHtml(s.titre)} | ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` | ${todo.length} à noter` : ''}</small>
+    <small>${escapeHtml(s.titre)} | ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` | ${todo.length} à noter` : ''}</small>${todo.length ? PH_CTA : ''}
   </a>`;
 }
 function openRpeFromCard(e) {
@@ -180,7 +182,7 @@ function openRpeFromCard(e) {
 function renderAttention(videos, seqs, notes, exercises) {
   const cards = [];
   if (phFormsPending) cards.push(phCard({ href: 'mes-formulaires', icon: 'forms', tone: 'urgent',
-    value: phFormsPending, label: 'Questionnaires à remplir', detail: 'Touche pour répondre' }));
+    value: phFormsPending, label: 'Questionnaires à remplir', detail: phFormsPending > 1 ? 'Ils t’attendent' : 'Il t’attend', todo: true }));
   if (phSore) cards.push(soreCardHtml());
   if (phMf && !mfAnswered(phMf.value)) cards.push(mfCardHtml());   // sans réponse : devant
   if (phRpeOn) cards.push(rpeCardHtml());

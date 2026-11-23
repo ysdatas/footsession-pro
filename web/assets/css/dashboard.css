@@ -63,6 +63,17 @@
 .home-attn-card.is-calm .home-attn-value { color: var(--text-muted); }
 .home-attn-card.is-urgent .home-attn-value { color: #FF6B7D; }
 .home-attn-card.is-urgent .home-attn-head .ic { color: #FF6B7D; }
+/* À remplir par le joueur (player-home.js) : carte pleine, contrastée, avec son bouton « Répondre ». */
+.home-attn-card.is-todo { background: linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%); box-shadow: 1px 0 0 rgba(0,0,0,.35), 0 1px 0 rgba(0,0,0,.35); }
+.home-attn-card.is-todo:hover { background: linear-gradient(135deg, #d8203d 0%, var(--red) 100%); }
+.home-attn-card.is-todo .home-attn-head strong { color: #fff; font-size: var(--fs-md); font-weight: 600; }
+.home-attn-card.is-todo .home-attn-head .ic { width: 18px; height: 18px; color: #fff; }
+.home-attn-card.is-todo .home-attn-value { color: #fff; font-weight: 700; }
+.home-attn-card.is-todo .rpe-of { color: rgba(255,255,255,.75); }
+.home-attn-card.is-todo small { color: rgba(255,255,255,.88); }
+.home-attn-cta { display: inline-flex; align-items: center; justify-content: center; gap: 6px; align-self: flex-start; margin-top: 6px; padding: 7px 16px;
+  border-radius: 999px; background: #fff; color: var(--red-deep); font-size: var(--fs-sm); font-weight: 700; }
+.home-attn-cta::after { content: ""; width: 7px; height: 7px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: rotate(45deg); }
 
 .home-account { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .home-account .card { display: flex; flex-direction: column; }

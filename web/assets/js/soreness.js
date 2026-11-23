@@ -34,18 +34,18 @@ function openSorenessSheet({ today, onSaved }) {
         <h2 class="as-h3" id="soreTitle"></h2>
         <p class="rpe-session" id="soreSession"></p>
         <p class="rpe-q" id="soreQ"></p>
-        <div class="sore-scale" role="group" aria-labelledby="soreQ" id="soreScale"></div>
+        <div class="sore-scale is-slider" role="group" aria-labelledby="soreQ" id="soreScale"></div>
         <div class="sore-muscles hidden" id="soreMuscles" role="group" aria-label="Muscles courbaturés"></div>
         <p class="rpe-status" id="soreStatus" role="status" aria-live="polite"></p>
         <div class="modal-actions hidden" id="soreActions"><button class="btn btn-primary" type="button" id="soreSend">Envoyer</button></div>
       </div></div>`);
     const sheet = document.getElementById('soreSheet');
     sheet.addEventListener('click', (e) => {
-      const lvl = e.target.closest('[data-sore-v]'), mus = e.target.closest('[data-sore-m]');
-      if (lvl) soreLevel(Number(lvl.dataset.soreV));
+      const mus = e.target.closest('[data-sore-m]');
       if (mus) { const k = mus.dataset.soreM, st = sheet.sore; st.muscles = st.muscles.includes(k) ? st.muscles.filter(x => x !== k) : [...st.muscles, k]; soreDraw(); }
       if (e.target.id === 'soreSend') soreSave();
     });
+    sheet.addEventListener('ls-change', (e) => soreLevel(Number(e.detail.valeur)));   // curseur (level-slider.js)
   }
   const sheet = document.getElementById('soreSheet');
   sheet.sore = { niveau: today.niveau ?? null, muscles: [...(today.muscles || [])], today, onSaved };
@@ -53,27 +53,28 @@ function openSorenessSheet({ today, onSaved }) {
   document.getElementById('soreQ').textContent = formLabel(today, 'niveau') || 'Ton niveau de courbature au réveil (0 = aucune, 10 = très fortes) :';
   document.getElementById('soreSession').textContent = [today.titre, 'aujourd’hui'].filter(Boolean).join(' – ');
   document.getElementById('soreStatus').textContent = today.niveau != null ? 'Ta réponse d’aujourd’hui : change-la si besoin.' : '';
+  // Curseur de 0 à 10, dessiné une fois : le redessiner pendant le glissement le casserait.
+  document.getElementById('soreScale').innerHTML = lsHtml({ id: 'soreRange', value: today.niveau ?? null, label: 'Niveau de courbature, de 0 à 10',
+    levels: Array.from({ length: 11 }, (_, v) => ({ valeur: v, libelle: v === 0 ? 'Aucune' : v === 10 ? 'Très fortes' : '', couleur: soreColor(v) })) });
   soreDraw();
   openModal('soreSheet');
 }
 function soreDraw() {
   const { niveau, muscles, today } = document.getElementById('soreSheet').sore;
-  document.getElementById('soreScale').innerHTML = Array.from({ length: 11 }, (_, v) => `<button type="button" class="sore-opt" data-sore-v="${v}"
-    aria-pressed="${v === niveau}" style="--rpe:${soreColor(v)}">${v}</button>`).join('');
   const box = document.getElementById('soreMuscles');
   box.classList.toggle('hidden', !niveau);
   box.innerHTML = niveau ? `<p class="rpe-q">${escapeHtml(formLabel(today, 'muscles') || 'Quels muscles sont courbaturés ?')}</p>${SORE_ZONES.map(([zone, title]) => `
     <div class="sore-zone is-${zone}"><span class="sore-zone-t">${title}</span><div class="sore-zone-list">
       ${SORE_MUSCLES.filter(m => m[3] === zone).map(([k, label]) => `<button type="button" class="sore-m is-${zone}" data-sore-m="${k}" aria-pressed="${muscles.includes(k)}">${label}</button>`).join('')}
     </div></div>`).join('')}` : '';
-  document.getElementById('soreActions').classList.toggle('hidden', !niveau);
-  document.getElementById('soreSend').disabled = !muscles.length;
+  document.getElementById('soreActions').classList.toggle('hidden', niveau == null);
+  document.getElementById('soreSend').disabled = niveau !== 0 && !muscles.length;   // 0 : aucune courbature, rien d'autre à choisir
 }
-/* 0 : fin du questionnaire, envoyé tout de suite. 1 à 10 : choisir les muscles. */
+/* 0 : aucune courbature, « Envoyer » suffit. 1 à 10 : choisir les muscles. Rien ne part en glissant. */
 function soreLevel(v) {
   const st = document.getElementById('soreSheet').sore;
   st.niveau = v;
-  if (v === 0) { st.muscles = []; soreDraw(); return soreSave(); }
+  if (v === 0) st.muscles = [];
   soreDraw();
 }
 async function soreSave() {

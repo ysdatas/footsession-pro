@@ -104,6 +104,11 @@ function openRpeSheet({ session, value = null, player = null, onSaved, pending =
     document.getElementById('rpeScale').addEventListener('click', (e) => {
       const b = e.target.closest('[data-rpe-v]');
       if (b) rpeSave(Number(b.dataset.rpeV));
+      if (e.target.closest('#rpeOk')) rpeSave(Number(document.getElementById('rpeSheet').rpe.pick));   // joueur : curseur puis Valider
+    });
+    document.getElementById('rpeScale').addEventListener('ls-change', (e) => {
+      document.getElementById('rpeSheet').rpe.pick = e.detail.valeur;
+      document.getElementById('rpeOk').disabled = false;
     });
     document.getElementById('rpeClear').addEventListener('click', () => rpeSave(null));
     document.getElementById('rpePick').addEventListener('change', (e) => {
@@ -124,7 +129,7 @@ function openRpeSheet({ session, value = null, player = null, onSaved, pending =
   document.getElementById('rpeStaffActions').classList.toggle('hidden', !(player && value));
   rpeRender(value);
   openModal('rpeSheet');
-  (document.querySelector('#rpeScale [aria-pressed="true"]') || document.querySelector('#rpeScale .rpe-opt')).focus();
+  document.querySelector('#rpeScale [aria-pressed="true"], #rpeScale .rpe-opt, #rpeScale input')?.focus();
 }
 /* La séance ou le match affiché : date et heure, la liste s'il en reste plusieurs à noter, l'échelle. */
 function rpeRender(value = null) {
@@ -145,7 +150,16 @@ function rpeRender(value = null) {
   document.getElementById('rpePick').innerHTML = pending.map((s, i) => `<option value="${i}"${s === session ? ' selected' : ''}>${escapeHtml([rpeWhen(s), s.titre, s.equipe].filter(Boolean).join(' – '))}</option>`).join('');
   const scale = player ? rpeScaleOf(null) : rpeScaleOf(session);   // le staff garde l'échelle de référence
   document.getElementById('rpeStatus').textContent = value ? `RPE actuel : ${value} – ${rpeLabel(value)}. Touche une autre valeur pour la changer.` : '';
-  document.getElementById('rpeScale').innerHTML = scale.map(([v, label, color]) => `<button type="button" class="rpe-opt" data-rpe-v="${v}"
+  // Joueur : un curseur coloré puis « Valider » (level-slider.js) ; staff : les boutons, un clic enregistre.
+  const box = document.getElementById('rpeScale');
+  box.classList.toggle('is-slider', !player);
+  if (!player) {
+    document.getElementById('rpeSheet').rpe.pick = null;
+    box.innerHTML = `${lsHtml({ id: 'rpeRange', levels: scale.map(([valeur, libelle, couleur]) => ({ valeur, libelle, couleur })), label: 'Ton effort, de 1 à 10' })}
+      <button type="button" class="btn btn-primary rpe-ok" id="rpeOk" disabled>Valider mon effort</button>`;
+    return;
+  }
+  box.innerHTML = scale.map(([v, label, color]) => `<button type="button" class="rpe-opt" data-rpe-v="${v}"
       aria-pressed="${v === Number(value)}" style="--rpe:${color}"><b>${v}</b><span>${escapeHtml(label)}</span></button>`).join('');
 }
 

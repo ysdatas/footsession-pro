@@ -166,3 +166,46 @@ p.cal-kind { margin: -6px 0 10px; }
 .ce-preview { min-height: 1.4em; margin: 4px 0 0; color: var(--gold); font-size: var(--fs-sm); font-weight: 500; }
 .ce-modal input[type="radio"], .ce-modal input[type="checkbox"] { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; accent-color: var(--gold); }
 .ce-end label { flex-wrap: wrap; }
+
+/* Joueur, vue Jour (calendar-player.js) : bandeau de la semaine et cartes « Répondre ». */
+.cal-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 0 0 14px; padding: 8px 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); }
+.cal-strip-d { display: grid; justify-items: center; gap: 4px; min-height: 66px; padding: 6px 0; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; }
+.cal-strip-w { font-size: var(--fs-xs); }
+.cal-strip-n { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--text-primary);
+  font: 600 1rem/1 var(--font-num); }
+.cal-strip-d.is-today .cal-strip-n { color: var(--red-ui); }
+.cal-strip-d[aria-pressed="true"] .cal-strip-n { background: var(--red); color: #fff; }
+.cal-strip-dots { display: flex; gap: 3px; min-height: 5px; }
+.cal-strip-dots i { width: 5px; height: 5px; border-radius: 50%; background: #6b7cff; }
+.cal-strip-d:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cal-cards { display: grid; gap: 12px; min-height: 120px; }
+.cal-card { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border); border-left: 4px solid #6b7cff; border-radius: var(--radius-md);
+  background: var(--bg-card); }
+.cal-card.k-match { border-left-color: var(--red-ui); }
+.cal-card.k-evenement { border-left-color: var(--gold); }
+.cal-card.is-todo { border-color: rgba(var(--gold-rgb), .45); }
+.cal-card-open { display: grid; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cal-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cal-card-time { color: var(--text-primary); font: 600 var(--fs-md)/1 var(--font-num); }
+.cal-card-title { color: var(--text-primary); font-size: 1rem; font-weight: 600; line-height: 1.3; }
+.cal-card-sub { color: var(--text-secondary); font-size: var(--fs-sm); }
+.cal-card-reply { justify-content: center; gap: 8px; min-height: 46px; border-radius: 999px; background: var(--bg-hover); font-size: var(--fs-md); font-weight: 600; }
+.cal-card.is-todo .cal-card-reply { border-color: var(--gold); background: var(--gold); color: #111; }
+
+/* « Répondre » : la phase (calendar-forms.js) */
+.cal-phase { display: grid; gap: 10px; }
+.cal-phase-sub { margin: -4px 0 0; color: var(--text-secondary); font-size: var(--fs-sm); }
+.cal-phase-q { margin: 6px 0 0; text-align: center; font-weight: 600; }
+.cal-phase-btns { display: grid; gap: 10px; }
+.cal-phase-btn { display: grid; gap: 2px; min-height: 58px; padding: 10px; border: 2px solid transparent; border-radius: 999px; background: var(--red);
+  color: #fff; font: 700 1.05rem/1.1 var(--font-main); letter-spacing: .04em; cursor: pointer; }
+.cal-phase-btn small { font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; opacity: .85; }
+.cal-phase-btn[aria-pressed="true"] { border-color: #fff; }
+.cal-phase-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cal-phase-list { display: grid; gap: 8px; min-height: 0; }
+.cal-phase-list:empty { display: none; }
+.cal-phase-act { justify-content: center; min-height: 46px; }
+.cal-phase-note { margin: 0; text-align: center; color: var(--text-secondary); }
+.cal-phase-cancel { justify-self: center; }

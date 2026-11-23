@@ -255,3 +255,24 @@
 .cal-quest { display: grid; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .cal-quest-part h3 { margin: 0 0 6px; color: var(--text-secondary); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; }
 .cal-quest-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Curseur (level-slider.js) dans les fenêtres RPE et courbatures. */
+.rpe-scale.is-slider, .sore-scale.is-slider { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.rpe-ok { justify-self: stretch; }
+
+/* Réponses (suivi-rpe-resp.js) : filtre par statut et tri par colonne. */
+.sr-resp-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.sr-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-surface); color: var(--text-secondary); font: 500 var(--fs-xs)/1 var(--font-main); cursor: pointer; }
+.sr-chip b { color: var(--text-primary); font-family: var(--font-num); }
+.sr-chip[aria-pressed="true"] { border-color: var(--gold); background: rgba(var(--gold-rgb), .14); color: var(--text-primary); }
+.sr-chip:focus-visible, .sr-sort:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.sr-sort { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.sr-sort:hover { color: var(--text-primary); }
+.sr-sort-ic { display: inline-block; width: 0; height: 0; margin-left: 5px; vertical-align: middle; border: 4px solid transparent; opacity: .35;
+  border-top-color: currentColor; border-bottom-width: 0; }
+th[aria-sort="ascending"] .sr-sort, th[aria-sort="descending"] .sr-sort { color: var(--gold); }
+th[aria-sort="ascending"] .sr-sort-ic { opacity: 1; border-top-color: transparent; border-bottom: 4px solid currentColor; border-top-width: 0; }
+th[aria-sort="descending"] .sr-sort-ic { opacity: 1; }
+.sr-resp-none.sr-st-abs { color: #ff8a80; }
+.sr-resp-none.sr-st-away { color: #8ab4ff; }
+.sr-resp-none.sr-st-wait { color: var(--gold); }

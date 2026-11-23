@@ -210,7 +210,7 @@ function mfQuestionHtml(q, index) {
     if (options.length <= MF_CHIPS_MAX) return chips(options.map(o => ({ value: o, text: o, kind: 'text' })), ' is-text');
     return field(`<select id="${id}" data-mf-answer="${key}" data-mf-kind="text"><option value="">Choisir</option>${options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}</select>`);
   }
-  if (q.curseur === true) return fsHtml(q, id, key, label);   // échelle en curseur (form-slider.js)
+  if (q.curseur !== false) return fsHtml(q, id, key, label);   // échelle au curseur, sauf pastilles choisies (form-slider.js)
   const levels = fqLevels(q);   // échelle : la valeur reste un nombre, le libellé s'affiche
   return chips(levels.map(n => ({ value: String(n.valeur), text: String(n.valeur), sub: levels.length <= 5 ? n.libelle : '', color: n.couleur, kind: 'number' })),
     levels.length > 6 ? ' is-scale is-long' : ' is-scale');

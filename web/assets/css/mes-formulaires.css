@@ -85,23 +85,13 @@
   .mf-page .pv-head > .btn { width:100%; justify-content:center; }
 }
 
-/* Silhouette du corps (form-body.js) : un raccourci au doigt au-dessus des cases. */
-.fb-svg { display:block; width:100%; max-width:340px; height:auto; aspect-ratio:250 / 272; margin:4px auto 10px; }
-.fb-skin { fill:color-mix(in srgb, var(--text-muted) 28%, var(--bg-card)); }
-.fb-z { fill:rgba(var(--gold-rgb), .12); stroke:var(--gold-border); stroke-width:1; cursor:pointer; }
-.fb-z:hover { fill:rgba(var(--gold-rgb), .3); }
-.fb-z.is-on { fill:var(--gold); stroke:var(--gold-light); }
-.fb-cap { fill:var(--text-secondary); font-size:10px; }
+/* Silhouette du corps (form-body.js) : la photo, zones cliquables par-dessus. */
+.fb-svg { display:block; width:100%; max-width:520px; height:auto; aspect-ratio:560 / 420; margin:4px auto 10px; }
+.fb-bg { fill:#fff; }
+.fb-z { fill:rgba(37, 99, 235, .14); stroke:#2563eb; stroke-width:2; cursor:pointer; }
+.fb-z:hover { fill:rgba(37, 99, 235, .3); }
+.fb-z.is-on { fill:rgba(37, 99, 235, .75); stroke:#1e3a8a; stroke-width:2.5; }
+.fb-cap { fill:#555; font-size:13px; font-weight:600; }
 
-/* Échelle en curseur (form-slider.js) : rail coloré, valeur au-dessus, pas de saut à la première touche. */
-.mf-slider-out { min-height:1.4em; margin:2px 0 6px; text-align:center; color:var(--text-secondary); font-weight:600; }
-.mf-slider.is-set .mf-slider-out { color:var(--text-primary); font-size:var(--fs-md); }
-.mf-range { width:100%; height:32px; margin:0; padding:0; border:0; box-shadow:none; background:transparent; appearance:none; -webkit-appearance:none; cursor:pointer; }
-.mf-range::-webkit-slider-runnable-track { height:8px; border-radius:999px; background:var(--fs-track); }
-.mf-range::-moz-range-track { height:8px; border-radius:999px; background:var(--fs-track); }
-.mf-range::-webkit-slider-thumb { -webkit-appearance:none; width:26px; height:26px; margin-top:-9px; border:3px solid var(--text-primary); border-radius:50%; background:var(--fs-thumb, var(--text-muted)); }
-.mf-range::-moz-range-thumb { width:22px; height:22px; border:3px solid var(--text-primary); border-radius:50%; background:var(--fs-thumb, var(--text-muted)); }
-.mf-slider:not(.is-set) .mf-range { opacity:.55; }
-.mf-range:focus-visible { outline:2px solid var(--gold); outline-offset:4px; border-radius:999px; }
-.mf-slider-ends { display:flex; justify-content:space-between; gap:12px; color:var(--text-secondary); font-size:var(--fs-xs); }
+/* Échelle au curseur (form-slider.js, level-slider.js) */
 .mf-slider-skip { justify-self:start; margin-top:6px; }

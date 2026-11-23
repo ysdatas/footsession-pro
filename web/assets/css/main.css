@@ -918,3 +918,16 @@ th.sorted.asc .sort-ind { transform: rotate(180deg); }
 .remind-others p, .remind-past p { margin: 0 0 4px; font-size: var(--fs-sm); color: var(--text-secondary); }
 .remind-past { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
 .mt-remind { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: var(--fs-sm); color: var(--text-secondary); }
+
+/* Curseur de niveaux (level-slider.js) : formulaires, RPE, courbatures. Rail coloré, valeur au-dessus. */
+.ls { display:grid; gap:4px; }
+.ls-out { min-height:1.5em; margin:2px 0 4px; text-align:center; color:var(--text-secondary); font-weight:600; }
+.ls.is-set .ls-out { color:var(--text-primary); font-size:1.15rem; }
+.ls-range { width:100%; height:36px; margin:0; padding:0; border:0; box-shadow:none; background:transparent; appearance:none; -webkit-appearance:none; cursor:pointer; touch-action:pan-y; }
+.ls-range::-webkit-slider-runnable-track { height:10px; border-radius:999px; background:var(--ls-track); }
+.ls-range::-moz-range-track { height:10px; border-radius:999px; background:var(--ls-track); }
+.ls-range::-webkit-slider-thumb { -webkit-appearance:none; width:30px; height:30px; margin-top:-10px; border:3px solid #fff; border-radius:50%; background:var(--ls-thumb, #9a9a9a); box-shadow:0 1px 4px rgba(0,0,0,.5); }
+.ls-range::-moz-range-thumb { width:26px; height:26px; border:3px solid #fff; border-radius:50%; background:var(--ls-thumb, #9a9a9a); }
+.ls:not(.is-set) .ls-range { opacity:.6; }
+.ls-range:focus-visible { outline:2px solid var(--gold); outline-offset:4px; border-radius:999px; }
+.ls-ends { display:flex; justify-content:space-between; gap:12px; color:var(--text-secondary); font-size:var(--fs-xs); }

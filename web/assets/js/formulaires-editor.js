@@ -108,7 +108,7 @@ function cfQuestionHtml(question) {
       <div class="field"><label for="cf-label-${id}">Intitulé</label><input id="cf-label-${id}" data-cf-label required maxlength="180" value="${escapeHtml(question.label || '')}" placeholder="Votre question"></div>
       <div class="field"><label for="cf-type-${id}">Type de réponse</label><select id="cf-type-${id}" data-cf-type${lock}>${Object.entries(cfTypeLabels).map(([value, label]) => `<option value="${value}"${question.type === value ? ' selected' : ''}>${label}</option>`).join('')}</select></div>
       <div class="field cf-q-options${['choice', 'multi'].includes(question.type) && !question.fixe ? '' : ' hidden'}"><label for="cf-options-${id}">Choix proposés, un par ligne</label><textarea id="cf-options-${id}" data-cf-options rows="3" maxlength="1000" placeholder="Option 1\nOption 2">${escapeHtml(choices)}</textarea></div>
-      <label class="check cf-q-curseur${question.type === 'scale' && !question.fixe ? '' : ' hidden'}"><input type="checkbox" data-cf-curseur${question.curseur ? ' checked' : ''}> Répondre avec un curseur (sinon des pastilles)</label>
+      <label class="check cf-q-curseur${question.type === 'scale' && !question.fixe ? '' : ' hidden'}"><input type="checkbox" data-cf-curseur${question.curseur === false ? '' : ' checked'}> Répondre avec un curseur (sinon des pastilles)</label>
       <label class="check cf-q-corps${question.type === 'multi' && !question.fixe ? '' : ' hidden'}"><input type="checkbox" data-cf-corps${question.corps ? ' checked' : ''}> Silhouette du corps (zones cliquables)</label>
       <div class="cf-q-levels${levels ? '' : ' hidden'}" data-cf-levels-box>${cfLevelsHtml(question)}</div>
       <label class="check cf-q-required"><input type="checkbox" data-cf-required${question.required === false ? '' : ' checked'}${lock}> Réponse obligatoire</label>
@@ -245,7 +245,7 @@ function cfReadEditor() {
     if (type === 'choice' || type === 'multi') q.options = row.querySelector('[data-cf-options]').value.split('\n').map(x => x.trim()).filter(Boolean);
     if (type === 'multi' && row.querySelector('[data-cf-corps]').checked) q.corps = true;
     if (type !== 'scale') return q;
-    if (row.querySelector('[data-cf-curseur]').checked) q.curseur = true;   // form-slider.js
+    q.curseur = row.querySelector('[data-cf-curseur]').checked;   // form-slider.js ; sans réglage : curseur
     const r = cfScale(q, row, false);
     error ||= r.error;
     return r.q || q;
