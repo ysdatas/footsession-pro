@@ -1,6 +1,7 @@
 /* ============================================================
    LMFC Performance — soreness.js : courbatures avant la séance (lmfc_v35.sql)
-     - joueur (accueil) : openSorenessSheet, niveau au réveil 0 à 10 ;
+     - joueur : le questionnaire pré-séance (todo-parts.js) ; openSorenessSheet
+       pour changer sa réponse du jour (fiche de la séance, calendrier), niveau 0 à 10 ;
        0 = fin du questionnaire ; 1 à 10 : les muscles courbaturés, bas du
        corps et haut du corps en deux couleurs, puis « Envoyer ». La base
        (soreness_set) décide : jour de séance, muscles connus, et l'alerte
@@ -49,7 +50,7 @@ function openSorenessSheet({ today, onSaved }) {
   }
   const sheet = document.getElementById('soreSheet');
   sheet.sore = { niveau: today.niveau ?? null, muscles: [...(today.muscles || [])], today, onSaved };
-  document.getElementById('soreTitle').textContent = today.form_titre || 'Courbatures au réveil';
+  document.getElementById('soreTitle').textContent = 'Courbatures du matin';   // jamais le nom réglé par le staff (équipes)
   document.getElementById('soreQ').textContent = formLabel(today, 'niveau') || 'Ton niveau de courbature au réveil (0 = aucune, 10 = très fortes) :';
   document.getElementById('soreSession').textContent = [today.titre, 'aujourd’hui'].filter(Boolean).join(' – ');
   document.getElementById('soreStatus').textContent = today.niveau != null ? 'Ta réponse d’aujourd’hui : change-la si besoin.' : '';
@@ -93,7 +94,6 @@ async function soreSave() {
   if (data.alerte) siteApi('push/soreness', { method: 'POST' }, 'Notifications').catch(e => console.warn('Alerte courbatures non envoyée sur les téléphones', e));
   status.textContent = 'Envoyé, merci !';
   st.onSaved?.({ niveau: data.niveau, muscles: data.muscles });
-  if (formHasMore(st.today)) { status.innerHTML = `Envoyé, merci ! ${FORM_MORE}`; return; }
   setTimeout(() => closeModal('soreSheet'), 800);
 }
 

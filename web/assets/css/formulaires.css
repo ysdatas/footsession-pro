@@ -1,17 +1,5 @@
-.cf-notice { display:flex; gap:10px; align-items:flex-start; margin:18px 0; padding:14px 16px; border:1px solid var(--border); border-left:3px solid var(--gold); border-radius:12px; background:var(--bg-surface); color:var(--text-secondary); font-size:var(--fs-sm); line-height:1.5; }
-.cf-notice strong { flex:none; color:var(--text-primary); }
 .cf-preview { margin:12px 0; padding:10px 12px; border:1px dashed var(--gold-border); border-radius:10px; color:var(--gold-light); font-size:var(--fs-sm); }
 .cf-status { min-height:1.5em; margin:12px 0; color:var(--text-secondary); font-size:var(--fs-sm); }
-.cf-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:14px; }
-.cf-card { display:flex; flex-direction:column; gap:12px; min-width:0; padding:18px; border:1px solid var(--border); border-radius:14px; background:var(--bg-card); }
-.cf-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-.cf-card h2 { margin:0; font-size:var(--fs-lg); line-height:1.3; overflow-wrap:anywhere; }
-.cf-card p { margin:0; color:var(--text-secondary); font-size:var(--fs-sm); line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
-.cf-badge { flex:none; padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:var(--text-secondary); font-size:var(--fs-xs); }
-.cf-badge.is-active { border-color:color-mix(in srgb,var(--gold) 55%,var(--border)); color:var(--gold); }
-.cf-meta { display:flex; flex-wrap:wrap; gap:6px; color:var(--text-muted); font-size:var(--fs-xs); }
-.cf-meta span { padding:4px 7px; border-radius:7px; background:var(--surface-raised); }
-.cf-card-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; padding-top:4px; }
 .cf-modal { width:min(720px,calc(100vw - 24px)); max-width:none; max-height:min(88vh,900px); overflow-y:auto; overscroll-behavior:contain; }
 .cf-modal-lead { margin:0 0 18px; font-size:var(--fs-sm); }
 .cf-fieldset { min-width:0; margin:18px 0; padding:14px; border:1px solid var(--border); border-radius:12px; }
@@ -22,18 +10,12 @@
 .cf-team input,.cf-active input { flex:none; accent-color:var(--gold); }
 .cf-team span { overflow-wrap:anywhere; }
 .cf-question-list { display:grid; gap:12px; margin-bottom:12px; }
-.cf-question { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--bg-hover); }
-.cf-question-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,.5fr); gap:10px; min-width:0; }
 .cf-question .field { margin:0; }
 .cf-question .field label { font-size:var(--fs-xs); }
 .cf-question .field input,.cf-question .field select,.cf-question .field textarea { width:100%; min-width:0; }
 .cf-q-options { grid-column:1/-1; }
 .cf-q-options textarea { resize:vertical; }
-.cf-q-remove,.cf-q-lock { align-self:start; }
-.cf-q-actions { display:flex; flex-direction:column; align-items:stretch; gap:6px; }
-.cf-q-actions .btn-icon { width:100%; }
 /* Niveaux d'une échelle : valeur, libellé, couleur, retirer. */
-.cf-q-levels { grid-column:1/-1; display:grid; gap:8px; padding:10px; border:1px dashed var(--border); border-radius:9px; }
 .cf-levels-head { margin:0; font-size:var(--fs-xs); font-weight:600; }
 .cf-levels-presets { display:flex; flex-wrap:wrap; gap:6px; }
 .cf-levels { display:grid; gap:6px; }
@@ -44,7 +26,6 @@
 .cf-level-c input[type=color] { width:34px; height:30px; padding:0 2px; border:1px solid var(--border); border-radius:6px; background:none; cursor:pointer; }
 .cf-level-c input[type=checkbox]:not(:checked) + input[type=color] { opacity:.35; }
 .cf-level-x { width:30px; padding:4px 0; justify-content:center; }
-.cf-q-required, .cf-q-corps, .cf-q-curseur { grid-column:1/-1; }
 .cf-active { display:flex; align-items:center; gap:9px; margin:14px 0 4px; }
 .cf-plan { display:grid; gap:10px; }
 .cf-plan .field { margin:0; }
@@ -73,14 +54,57 @@
 .cf-response-answers dt { margin-bottom:4px; color:var(--text-secondary); font-size:var(--fs-sm); }
 .cf-response-answers dd { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
 @media(max-width:640px) {
-  .cf-notice { display:block; }
-  .cf-notice strong { display:block; margin-bottom:4px; }
-  .cf-question-fields { grid-template-columns:1fr; }
-  .cf-question { grid-template-columns:1fr; }
-  .cf-q-actions { flex-direction:row; flex-wrap:wrap; }
-  .cf-q-actions .btn-icon { width:44px; }
   .cf-modal { padding:18px 16px; }
   .cf-modal .modal-actions { bottom:-18px; margin:14px -16px -18px; padding:12px 16px; }
   .cf-response-row { grid-template-columns:1fr; }
   .cf-response-row .btn { width:100%; }
+}
+
+/* Liste (formulaires-list.js) : trois groupes, une ligne par formulaire, « Modifier » en vue, le reste dans « Plus ». */
+.cf-list { display:grid; gap:26px; }
+.cf-group-head { margin-bottom:10px; }
+.cf-group-head h2 { margin:0; font-size:var(--fs-md); }
+.cf-group-head p { margin:2px 0 0; color:var(--text-muted); font-size:var(--fs-sm); }
+.cf-group-list { display:grid; border:1px solid var(--border); border-radius:14px; background:var(--bg-card); }
+.cf-card { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:8px 16px; padding:14px 16px; }
+.cf-card + .cf-card { border-top:1px solid var(--border); }
+.cf-card.is-off .cf-card-title, .cf-card.is-off .cf-card-meta { opacity:.6; }
+.cf-card-main { display:grid; gap:3px; min-width:0; }
+.cf-card-title { margin:0; font-size:var(--fs-md); font-weight:600; overflow-wrap:anywhere; }
+.cf-card-meta, .cf-card-link { margin:0; color:var(--text-secondary); font-size:var(--fs-sm); overflow-wrap:anywhere; }
+.cf-card-meta::first-letter { text-transform:uppercase; }
+.cf-card-link { color:var(--text-muted); font-size:var(--fs-xs); }
+.cf-state { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted); font-size:var(--fs-xs); white-space:nowrap; }
+.cf-state::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--text-muted); }
+.cf-state.is-on { color:var(--text-secondary); }
+.cf-state.is-on::before { background:var(--success); }
+.cf-card-actions { display:flex; align-items:center; gap:8px; }
+.cf-more { position:relative; }
+.cf-more > summary { list-style:none; }
+.cf-more > summary::-webkit-details-marker { display:none; }
+.cf-more-menu { position:absolute; left:0; top:calc(100% + 6px); z-index:20; display:grid; min-width:200px; padding:6px; border:1px solid var(--border);
+  border-radius:10px; background:var(--bg-surface); box-shadow:0 8px 24px rgba(0,0,0,.45); }
+.cf-more-menu button { min-height:40px; padding:0 12px; border:0; border-radius:7px; background:none; color:var(--text-primary); font:inherit; text-align:left; cursor:pointer; }
+.cf-more-menu button:hover, .cf-more-menu button:focus-visible { background:var(--bg-hover); outline:none; }
+.cf-more-menu .is-danger { color:var(--red-ui); }
+.cf-foot { margin:18px 0 0; color:var(--text-muted); font-size:var(--fs-xs); }
+
+/* Une question (formulaires-editor.js) : l'intitulé et ses flèches, puis la réponse et son aide. */
+.cf-question { display:grid; gap:10px; padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--bg-hover); }
+.cf-q-top { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; }
+.cf-q-actions { display:flex; align-items:center; gap:4px; }
+.cf-q-actions .btn-icon { width:36px; justify-content:center; }
+.cf-q-row { display:grid; grid-template-columns:minmax(0,260px) auto; align-items:end; gap:10px 16px; }
+.cf-q-row .check { min-height:40px; }
+.cf-q-hint { margin:-4px 0 0; color:var(--text-muted); font-size:var(--fs-xs); }
+.cf-q-levels { display:grid; gap:8px; }
+.cf-q-levels > summary { cursor:pointer; color:var(--gold); font-size:var(--fs-sm); }
+.cf-q-levels[open] { padding:10px; border:1px dashed var(--border); border-radius:9px; }
+.cf-add { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.cf-add span { margin-right:4px; color:var(--text-secondary); font-size:var(--fs-sm); font-weight:600; }
+@media(min-width:641px) { .cf-more-menu { left:auto; right:0; } }   /* « Plus » au bout de la ligne : le menu s'ouvre vers la gauche */
+@media(max-width:640px) {
+  .cf-card { grid-template-columns:minmax(0,1fr) auto; }
+  .cf-card-actions { grid-column:1/-1; }
+  .cf-q-row { grid-template-columns:1fr; }
 }

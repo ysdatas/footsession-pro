@@ -335,6 +335,11 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            sur la silhouette (nouvelle version, seule douleur_zone change ; pas les
                                            formulaires « une fois ») ; custom_form_body_zones() ; après lmfc_v68.sql ;
                                            retour arrière : lmfc_v69_retour.sql (question d'avant, nouvelle version)
+88. supabase/lmfc_v70.sql                  RPE du joueur : du jour même à deux jours après (rpe_open), et fin de la
+                                           règle « un seul RPE par demi-journée » (lmfc_v61.sql) : chaque équipe à
+                                           part, plus de statut « ailleurs » ; rpe_set, my_rpe_sessions,
+                                           rpe_slot_others, match_rpe_set ; témoin rpe_regles() ; après lmfc_v69.sql ;
+                                           retour arrière : lmfc_v70_retour.sql (aucune réponse effacée)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1239,6 +1244,8 @@ node tests/v63-sql.test.mjs       # formulaires : nombres envoyés en texte, niv
 node tests/v64-sql.test.mjs       # questionnaires proposés de J à J-2 seulement, J-3 refusé, retour arrière (PGlite)
 node tests/v65-sql.test.mjs       # quand poser un formulaire : chaque jour, jours de la semaine, avant le match, période, droits, retour arrière (PGlite)
 node tests/v66-sql.test.mjs       # championnats : droits, nom unique, club du match, suppression, retour arrière (PGlite)
+node tests/player-todo.test.mjs   # « À remplir » du joueur : questionnaire pré-séance / après séance, noms sans équipe, deux jours, ordre
+node tests/v70-sql.test.mjs       # RPE sur deux jours (J-3 refusé), deux équipes à la même demi-journée sans « ailleurs », staff, retour (PGlite)
 node tests/v69-sql.test.mjs       # douleur sur la silhouette : zones = form-body.js, version ajoutée, « une fois » laissé, alerte, retour (PGlite)
 node tests/v68-sql.test.mjs       # courbatures : fessiers et psoas acceptés, muscle inconnu refusé, retour arrière refusé puis rendu (PGlite)
 node tests/v67-sql.test.mjs       # choix multiple : options exigées, liste rangée sans doublon, choix inconnu refusé, vide, retour arrière (PGlite)

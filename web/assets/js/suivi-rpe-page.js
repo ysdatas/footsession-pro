@@ -279,7 +279,6 @@ function renderSr() {
     <p class="sr-legend"><span class="sr-c is-miss" aria-hidden="true">?</span> réponse manquante (délai passé)
       | <span class="sr-c is-wait" aria-hidden="true">…</span> en attente : le joueur peut encore répondre
       | <span class="sr-c is-abs" aria-hidden="true">abs.</span> absence enregistrée
-      | <span class="sr-c is-away" aria-hidden="true">ailleurs</span> RPE noté à une autre séance de la même demi-journée (un seul par demi-journée)
       | <span class="rpe-staff">staff</span> saisi ou corrigé par le staff${srCanRemind() ? `
       | <span class="sr-bell" aria-hidden="true">${SR_BELL}</span> relancer le joueur sur son téléphone (une fois par ${SR_REMIND_H} h)` : ''}.
       Touchez une case pour saisir ou corriger à la place du joueur. Les joueurs répondent depuis leur espace jusqu’à ${RPE_DAYS} jours après la séance ;

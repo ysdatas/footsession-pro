@@ -7,12 +7,6 @@
 .rpe-session { margin: -6px 0 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
 .rpe-q { margin: 0 0 10px; font-weight: 600; }
 /* Même demi-journée (lmfc_v61.sql) : le joueur coche la séance où il était. */
-.rpe-slot { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
-.rpe-slot legend { padding: 0 4px; font-weight: 600; }
-.rpe-slot-help { margin: 0 0 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
-.rpe-slot-opts { display: grid; gap: 6px; }
-.rpe-slot-opt { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; }
-.rpe-slot-opt input { width: 18px; height: 18px; margin: 0; }
 .rpe-scale { display: grid; gap: 6px; }
 .rpe-opt {
   display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 46px; padding: 4px 12px 4px 4px;
@@ -253,11 +247,10 @@
 
 /* Calendrier, joueur : avant / après la séance (calendar-forms.js). */
 .cal-quest { display: grid; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
-.cal-quest-part h3 { margin: 0 0 6px; color: var(--text-secondary); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; }
+.cal-quest-h { margin: 0; color: var(--text-secondary); font-size: var(--fs-sm); font-weight: 600; }
 .cal-quest-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 /* Curseur (level-slider.js) dans les fenêtres RPE et courbatures. */
-.rpe-scale.is-slider, .sore-scale.is-slider { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.rpe-ok { justify-self: stretch; }
+.sore-scale.is-slider { display: grid; grid-template-columns: 1fr; gap: 12px; }
 
 /* Réponses (suivi-rpe-resp.js) : filtre par statut et tri par colonne. */
 .sr-resp-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }

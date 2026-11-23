@@ -46,8 +46,10 @@ function calMemo(save) {
     document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
   }
   document.getElementById('calAdd').classList.toggle('hidden', !canEditTeamContent(ctx.profile.role));
-  if (CAL.asPlayer) CAL.view = 'day';   // joueur : la semaine en bandeau et ses cartes « Répondre » (calendar-player.js)
   calMemo();
+  // Joueur : toujours sur « Jour » à l'ouverture (la semaine en bandeau et ses cartes « Répondre »,
+  // calendar-player.js), même si une autre vue a été choisie la dernière fois sur cet appareil.
+  if (CAL.asPlayer) CAL.view = 'day';
   if (!CAL.asPlayer && CAL.view === 'day') CAL.view = 'month';
   document.querySelector('[data-cal-view="day"]').classList.toggle('hidden', !CAL.asPlayer);
   document.querySelector('.cal-kinds').classList.toggle('hidden', CAL.asPlayer);   // joueur : séances et matchs, toujours
@@ -68,16 +70,14 @@ function calError(e) {
 async function fetchItems(from, to) {
   const score = (r) => (r.score_pour != null && r.score_contre != null ? `${r.score_pour} – ${r.score_contre}` : null);
   if (CAL.asPlayer) {
-    // Séances et matchs à noter (RPE) marqués dans le calendrier : le joueur les voit sans chercher.
-    const [{ data, error }, todo] = await Promise.all([sb.rpc('my_calendar', { p_from: from, p_to: to }), myRpeItems()]);
+    // À remplir (player-todo.js), lu une fois : chaque séance ou match porte ses questionnaires,
+    // et sa carte son bouton « Répondre » (calendar-player.js).
+    CAL.todoP ||= ptLoad().catch(e => { console.error('Calendrier : questionnaires à remplir illisibles', e); return { items: [], rpe: [] }; });
+    const [{ data, error }, todo] = await Promise.all([sb.rpc('my_calendar', { p_from: from, p_to: to }), CAL.todoP]);
     if (error) throw error;
-    // rpeTodo (rpe.js) : sans les séances dont la demi-journée se note avec une autre (lmfc_v61.sql).
-    CAL.rpeRows = todo.rows;
-    const rows = new Map(todo.rows.map(r => [`${r.match ? 'match' : 'seance'}:${r.id}`, r]));
-    const toRate = new Set(rpeTodo(todo.rows).map(r => `${r.match ? 'match' : 'seance'}:${r.id}`));
+    const forEv = (kind, id) => todo.items.filter(t => t.kind === kind && Number(t.id) === Number(id));
     return (data || []).map(r => ({ kind: r.kind, id: r.id, date: r.date_cal, heure: hhmm(r.heure), titre: r.titre,
-      team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, rpeTodo: toRate.has(`${r.kind}:${r.id}`),
-      rpeAilleurs: rows.get(`${r.kind}:${r.id}`)?.ailleurs || null }));
+      team_id: r.team_id, lieu: r.lieu, stade: r.stade, score: score(r), notes: r.notes, todo: forEv(r.kind, r.id) }));
   }
   const [s, m, e] = await Promise.all([
     bySessionTeam(sb.from('sessions').select('id, titre, date_seance, heure, team_id, other_team_ids, serie_id, lieu, duree_min, created_by'))
@@ -132,7 +132,7 @@ function calItemHtml(i) {
   return `<button type="button" class="cal-item k-${i.kind}" data-cal-open="${CAL.items.indexOf(i)}">
     <span class="cal-time">${i.heure || ''}</span>
     <span class="cal-what"><span class="cal-kind">${CAL_KINDS[i.kind]}</span><strong>${escapeHtml(calTitleOf(i))}</strong>${sub ? `<small>${escapeHtml(sub)}</small>` : ''}</span>
-    ${i.score ? `<span class="cal-score">${escapeHtml(i.score)}</span>` : ''}${i.rpeTodo ? '<span class="cal-rpe-todo">RPE à noter</span>' : ''}
+    ${i.score ? `<span class="cal-score">${escapeHtml(i.score)}</span>` : ''}${i.todo?.length ? '<span class="cal-rpe-todo">À remplir</span>' : ''}
   </button>`;
 }
 
@@ -144,7 +144,7 @@ function calMonthHtml(items) {
     const label = `${calDayLabel(d)}${list.length ? `, ${list.length} élément${list.length > 1 ? 's' : ''}` : ''}`;
     return `<div class="${cls}" data-cal-cell="${d}">
       <button type="button" class="cal-num" data-cal-day="${d}" aria-label="${label}" aria-pressed="${d === CAL.day}"${d === today ? ' aria-current="date"' : ''}>${Number(d.slice(8))}</button>
-      ${list.slice(0, 3).map(i => `<button type="button" class="cal-chip k-${i.kind}" data-cal-open="${CAL.items.indexOf(i)}">${i.rpeTodo ? '<i class="cal-chip-rpe">RPE</i> ' : ''}${i.heure ? `<b>${i.heure}</b> ` : ''}${escapeHtml(calTitleOf(i))}</button>`).join('')}
+      ${list.slice(0, 3).map(i => `<button type="button" class="cal-chip k-${i.kind}" data-cal-open="${CAL.items.indexOf(i)}">${i.todo?.length ? '<i class="cal-chip-todo"><span class="sr-only">À remplir : </span></i>' : ''}${i.heure ? `<b>${i.heure}</b> ` : ''}${escapeHtml(calTitleOf(i))}</button>`).join('')}
       ${list.length > 3 ? `<span class="cal-more">+${list.length - 3}</span>` : ''}
     </div>`;
   }).join('');
@@ -196,67 +196,56 @@ function openCalItem(i) {
   document.getElementById('calDetailTitle').textContent = calTitleOf(i);
   document.getElementById('calDetailBody').innerHTML = `<p class="cal-kind k-${i.kind}">${CAL_KINDS[i.kind]}</p>
     <dl class="cal-dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>
-    ${CAL.asPlayer && i.kind !== 'evenement' ? '<div class="cal-rpe" id="calRpe" aria-live="polite"></div><div class="cal-quest hidden" id="calQuest"></div>' : ''}
+    ${CAL.asPlayer && i.kind !== 'evenement' ? '<div class="cal-quest hidden" id="calQuest"></div><div class="cal-rpe" id="calRpe" aria-live="polite"></div>' : ''}
+    ${CAL.asPlayer && i.kind === 'seance' && i.date === calToday() ? '<div class="cal-rpe" id="calSore" aria-live="polite"></div>' : ''}
     ${CAL.asPlayer && i.kind === 'match' && i.date <= calToday() ? '<div class="cal-rpe" id="calAvis" aria-live="polite"></div>' : ''}`;
   openModal('calDetailModal');
   if (CAL.asPlayer && i.kind !== 'evenement') calPlayerForms(i);
 }
 
-/* Joueur : ce que l'équipe de l'événement lui propose (Formulaires, lmfc_v47.sql). */
+/* Joueur : ce qu'il a à remplir (calendar-forms.js), puis ce qu'il a déjà donné (effort, avis). */
 async function calPlayerForms(i) {
+  calQuest(i);
   const { data, error } = await sb.rpc('my_event_forms', { p_kind: i.kind, p_id: i.id });
   if (error) console.warn('Formulaires de l’événement indisponibles', error.message);
   const form = (source) => (data || []).find(f => f.source === source);
   calRpe(i, form(i.kind === 'match' ? 'rpe_match' : 'rpe_seance'));
-  calQuest(i);   // courbatures et questionnaires, avant / après (calendar-forms.js)
   if (i.kind === 'match' && i.date <= calToday()) calAvis(i, form('avis_match'));
+  if (document.getElementById('calSore')) calSore(i);
 }
 
-/* Joueur : son avis sur un match joué (match-feedback.js, lmfc_v36.sql), à compléter quand il veut. */
+/* Joueur : ses courbatures du matin déjà envoyées pour cette séance, à changer si besoin (soreness.js). */
+async function calSore(i) {
+  const box = document.getElementById('calSore'), { data, error } = await sb.rpc('my_soreness_today');
+  if (error && !['PGRST202', '42883'].includes(error.code)) console.warn('Courbatures du jour illisibles', error.message);
+  const s = data?.[0];
+  if (!box || !s || s.niveau == null || Number(s.session_id) !== Number(i.id)) { box?.remove(); return; }
+  box.innerHTML = `<p>Courbatures du matin : <strong>${Number(s.niveau)}/10</strong></p><button type="button" class="btn" id="calSoreBtn">Modifier</button>`;
+  document.getElementById('calSoreBtn').addEventListener('click', () => openSorenessSheet({ today: s, onSaved: () => calSore(i) }));
+}
+
+/* Joueur : son avis sur un match joué (match-feedback.js, lmfc_v36.sql), à relire ou compléter.
+   Sans réponse, il se donne dans le questionnaire après match (calQuest). */
 async function calAvis(i, form) {
   const box = document.getElementById('calAvis');
   const { data, error } = await sb.from('match_feedback').select('individuel, collectif').eq('match_id', i.id).maybeSingle();
   if (error) { if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('Avis de match illisible', error.message); box.remove(); return; }
-  const done = mfAnswered(data);
-  if (!form && !done) { box.remove(); return; }   // son équipe ne reçoit pas l'avis
-  box.innerHTML = `<p>${done ? 'Ton avis sur ce match est enregistré.' : 'Ton avis sur ta performance et sur celle de l’équipe ?'}</p>
-    <button type="button" class="btn${done ? '' : ' btn-primary'}" id="calAvisBtn">${done ? 'Relire ou compléter' : 'Donner mon avis'}</button>`;
+  if (!mfAnswered(data)) { box.remove(); return; }
+  box.innerHTML = '<p>Ton avis sur ce match est enregistré.</p><button type="button" class="btn" id="calAvisBtn">Relire ou compléter</button>';
   document.getElementById('calAvisBtn').addEventListener('click', () => openMatchFeedbackSheet({
-    match: { id: i.id, titre: i.titre, date: i.date, form_titre: form?.titre, form_questions: form?.questions }, value: data, onSaved: () => calAvis(i, form) }));
+    match: { id: i.id, titre: i.titre, date: i.date, form_questions: form?.questions }, value: data, onSaved: () => calAvis(i, form) }));
 }
 
-/* Joueur : son RPE de la séance ou du match, définitif ; sinon la saisie, de l'heure prévue à J+14. */
+/* Joueur : son effort (RPE) déjà noté, définitif ; avant la séance, quand il pourra répondre.
+   À noter, il se donne dans le questionnaire après séance (calQuest). */
 async function calRpe(i, form) {
   const box = document.getElementById('calRpe'), match = i.kind === 'match', upcoming = i.date >= calToday();
   const { data, error } = await sb.from(match ? 'match_rpe' : 'session_rpe').select('rpe, corrige_par').eq(match ? 'match_id' : 'session_id', i.id).maybeSingle();
   if (error) { if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('RPE illisible', error.message); box.remove(); return; }
-  if (!data && !form) { box.remove(); return; }   // son équipe ne reçoit pas le RPE
-  if (match && !data && !i.rpeTodo && !upcoming) { box.remove(); return; }   // il n'a pas joué, ou le délai est passé
+  if (!data && (!form || i.todo?.some(t => t.phase === 'post') || !upcoming)) { box.remove(); return; }
   box.innerHTML = data
     ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> | ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
-    : i.rpeTodo ? '<button type="button" class="btn btn-primary" id="calRpeBtn">Noter mon effort</button>'
-      : i.rpeAilleurs ? `<p class="text-muted">Un seul RPE par demi-journée : ton effort se note avec ${escapeHtml(i.rpeAilleurs)}.</p>`
-      : `<p class="text-muted">${upcoming ? `Tu pourras noter ton effort après ${match ? 'le match' : 'la séance'}.` : `La saisie est fermée (${RPE_DAYS} jours après la séance).`}</p>`;
-  document.getElementById('calRpeBtn')?.addEventListener('click', () => calOpenRpe(i, form, () => { calRpe(i, form); calQuest(i); }));
-}
-
-/* Saisie du RPE d'une séance ou d'un match (fiche, ou « Répondre » puis POST : calendar-forms.js). */
-function calOpenRpe(i, form, after) {
-  const match = i.kind === 'match';
-  // La ligne de myRpeItems (équipe comprise) ; les autres séances de la demi-journée, pour choisir.
-  const row = (CAL.rpeRows || []).find(r => !!r.match === match && r.id === i.id);
-  const session = row || { id: i.id, titre: match ? `Match contre ${i.titre}` : i.titre, date: i.date, heure: i.heure, match, form_titre: form?.titre, form_questions: form?.questions };
-  const slot = row ? rpeTodo(CAL.rpeRows).filter(r => r !== row && rpeSameSlot(r, row)) : [];
-  openRpeSheet({ session, pending: slot.length ? [session, ...slot] : [],
-    onSaved: (v, saved) => {
-      // La séance notée, et celles de sa demi-journée, ne sont plus à noter.
-      CAL.items.forEach(x => {
-        const r = (CAL.rpeRows || []).find(y => !!y.match === (x.kind === 'match') && y.id === x.id);
-        if (r && (r === saved || (x.id === saved.id && (x.kind === 'match') === !!saved.match))) x.rpeTodo = false;
-        else if (r?.ailleurs && x.rpeTodo) { x.rpeTodo = false; x.rpeAilleurs = r.ailleurs; }
-      });
-      renderCal(); after?.();
-    } });
+    : `<p class="text-muted">Tu pourras répondre après ${match ? 'le match' : 'la séance'}, jusqu’à ${RPE_DAYS} jours après.</p>`;
 }
 
 /* ---------- Commandes ---------- */

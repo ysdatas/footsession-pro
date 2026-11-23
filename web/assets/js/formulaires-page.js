@@ -11,7 +11,6 @@ const cfSources = {
   courbatures: { quand: 'Les jours de séance, au réveil', lieu: 'Suivi RPE', page: 'suivi-rpe' },
   avis_match: { quand: 'Après chaque match', lieu: 'Matchs', page: 'matchs' },
 };
-const cfTypeLabels = { text: 'Texte court', textarea: 'Texte long', number: 'Nombre', scale: 'Échelle (niveaux)', choice: 'Choix', multi: 'Choix multiple', boolean: 'Oui / non' };
 const cfUid = () => `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.code)
   ? 'Les migrations lmfc_v44.sql, lmfc_v45.sql et lmfc_v47.sql sont nécessaires pour gérer les formulaires et consulter leurs réponses.'
@@ -30,6 +29,10 @@ const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.co
         { id: 'intensite', label: 'Comment évalues-tu l’intensité ?', type: 'scale', min: 1, max: 10, required: true },
         { id: 'ressenti', label: 'Un commentaire ?', type: 'textarea', required: false },
       ] } },
+      { id: 9005, titre: 'Courbatures au réveil', actif: true, source: 'courbatures', team_ids: [1, 2, 3, 4], versions: [{ version_no: 1 }], version: { version_no: 1, questions: [
+        { id: 'niveau', label: 'Ton niveau de courbature au réveil (0 = aucune, 10 = très fortes) :', type: 'scale', min: 0, max: 10, required: true, fixe: true }] } },
+      { id: 9006, titre: 'Forme du jour', actif: true, planning: { mode: 'jour' }, team_ids: [3], versions: [{ version_no: 1 }], version: { version_no: 1, questions: [
+        { id: 'sommeil', label: 'Comment as-tu dormi ?', type: 'scale', min: 0, max: 10, required: true }] } },
       { id: 9002, titre: 'Récupération', description: '', actif: false, team_ids: [4], versions: [{ version_no: 1 }], version: { version_no: 1, questions: [
         { id: 'sommeil', label: 'Comment as-tu dormi ?', type: 'choice', options: ['Bien', 'Moyen', 'Mal'], required: true },
       ] } },
@@ -45,7 +48,7 @@ const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.co
     document.getElementById('cfResponsesStatus').textContent = '1 réponse – aperçu local';
     cfRender();
     cfRenderResponses();
-    document.getElementById('cfStatus').textContent = '3 exemples – mode aperçu local';
+    document.getElementById('cfStatus').textContent = `${CF.forms.length} exemples – mode aperçu local`;
     return;
   }
   const ctx = await requireAuth();
@@ -169,34 +172,8 @@ function cfOpenResponse(id) {
   openModal('cfResponseModal');
 }
 
-function cfRender() {
-  const list = document.getElementById('cfList');
-  if (!CF.forms.length) {
-    list.innerHTML = '<div class="empty">Créez un formulaire et sélectionnez les équipes qui le recevront.</div>';
-    return;
-  }
-  list.innerHTML = CF.forms.map(form => {
-    const teams = form.team_ids.map(id => CF.teams.find(t => Number(t.id) === Number(id))?.nom).filter(Boolean);
-    const questions = form.version?.questions || [], source = cfSources[form.source];
-    // Formulaire d'origine partagé par le club : la base le réserve à l'admin, un prépa le copie pour son équipe.
-    const shared = form.source && !form.created_by && CF.profile.role !== 'admin';
-    return `<article class="cf-card">
-      <div class="cf-card-head"><h2>${escapeHtml(form.titre)}</h2><span class="cf-badge${form.actif ? ' is-active' : ''}">${form.actif ? 'Actif' : 'Désactivé'}</span></div>
-      <p>${escapeHtml(cfPlanText(form))}${source ? ` | réponses dans <a href="${source.page}">${source.lieu}</a>` : ''}</p>
-      ${form.description ? `<p>${escapeHtml(form.description)}</p>` : ''}
-      <div class="cf-meta"><span>Version ${form.version?.version_no || 0} | ${form.versions?.length || (form.version ? 1 : 0)} conservée${(form.versions?.length || 1) > 1 ? 's' : ''}</span><span>${questions.length} question${questions.length === 1 ? '' : 's'}</span>
-        <span>${teams.length ? teams.map(escapeHtml).join(' | ') : 'Aucune équipe affectée'}</span></div>
-      <div class="cf-card-actions">
-        ${shared ? '' : `<button class="btn btn-sm" type="button" data-cf-edit="${form.id}">Modifier</button>
-        <button class="btn btn-sm" type="button" data-cf-toggle="${form.id}">${form.actif ? 'Désactiver' : 'Réactiver'}</button>
-        <button class="btn btn-sm btn-danger" type="button" data-cf-delete="${form.id}">Supprimer</button>`}
-        ${form.source ? `<button class="btn btn-sm" type="button" data-cf-copy="${form.id}">Copier pour une équipe</button>` : ''}
-      </div>
-    </article>`;
-  }).join('');
-}
-
 async function cfClick(e) {
+  cfMoreClose(e);                 // formulaires-list.js : menu « Plus » refermé hors de lui
   if (cfEditorClick(e)) return;   // formulaires-editor.js : déplacer, niveaux
   const del = e.target.closest('[data-cf-delete]');
   if (del) return cfDelete(Number(del.dataset.cfDelete));
@@ -225,8 +202,9 @@ async function cfClick(e) {
     remove.closest('.cf-question').remove();
     return cfCountQuestions();
   }
-  if (e.target.closest('[data-cf-add-question]')) {
-    document.getElementById('cfQuestions').insertAdjacentHTML('beforeend', cfQuestionHtml({ id: cfUid(), label: '', type: 'text', required: true }));
+  const addQ = e.target.closest('[data-cf-add-question]');
+  if (addQ) {   // Curseur, Oui / non, Choix, Silhouette, Texte (formulaires-editor.js)
+    document.getElementById('cfQuestions').insertAdjacentHTML('beforeend', cfQuestionHtml(cfNewQuestion(addQ.dataset.cfAddQuestion || 'text')));
     cfCountQuestions();
     document.querySelector('#cfQuestions .cf-question:last-child [data-cf-label]').focus();
   }
@@ -316,18 +294,4 @@ async function cfDelete(id) {
     console.error('Formulaire non supprimé', e);
     status.textContent = ['PGRST202', '42883'].includes(e?.code) ? 'La suppression demande la migration lmfc_v63.sql.' : cfError(e);
   } finally { CF.busy = false; }
-}
-
-/* Quand le formulaire est posé, en clair : « Chaque jour | du 01/12/2026 au 15/12/2026 ». */
-function cfPlanText(form) {
-  const plan = form.planning || {}, fr = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
-  const days = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
-  const when = form.source ? cfSources[form.source]?.quand || 'Après chaque séance'
-    : plan.mode === 'jour' ? 'Chaque jour'
-      : plan.mode === 'semaine' ? `Chaque ${(plan.jours || []).map(d => days[d - 1]).join(', ')}`
-        : plan.mode === 'avant_match' ? (plan.quand === 'jour' ? 'Le jour de chaque match' : 'La veille de chaque match')
-          : 'Une fois';
-  const period = plan.du && plan.au ? (plan.du === plan.au ? `le ${fr(plan.du)}` : `du ${fr(plan.du)} au ${fr(plan.au)}`)
-    : plan.du ? `à partir du ${fr(plan.du)}` : plan.au ? `jusqu’au ${fr(plan.au)}` : '';
-  return [when, period].filter(Boolean).join(' | ');
 }

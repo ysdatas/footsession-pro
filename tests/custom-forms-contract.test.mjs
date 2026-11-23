@@ -11,7 +11,8 @@ const js = read('web/assets/js/formulaires-page.js');
 const editor = read('web/assets/js/formulaires-editor.js');
 const css = read('web/assets/css/formulaires.css');
 const playerPage = read('web/mes-formulaires.html');
-const playerJs = read('web/assets/js/mes-formulaires-page.js');
+// Mes formulaires : la page, ses questions, le questionnaire regroupé et sa liste (player-todo.js).
+const playerJs = ['mes-formulaires-page.js', 'mf-questions.js', 'todo-parts.js', 'player-todo.js'].map(f => read(`web/assets/js/${f}`)).join('\n');
 const playerHome = read('web/assets/js/player-home.js');
 const readme = read('README.md');
 
@@ -46,7 +47,7 @@ assert.match(playerJs, /custom_forms_my_pending/);
 assert.match(playerJs, /custom_forms_my_history/);
 assert.match(playerJs, /custom_form_submit/);
 assert.match(playerJs, /MF\.demo/);
-assert.match(playerHome, /custom_forms_my_pending/);
+assert.match(playerHome, /ptLoad\(\)/, 'l’accueil lit la même liste « À remplir » que Mes formulaires');
 assert.match(js, /custom_form_responses/);
 assert.match(js, /\.range\(from, from \+ CF_PAGE - 1\)/, 'le staff retrouve toutes les réponses, page par page');
 assert.match(page, /id="cfResponsesMore"/);
@@ -56,14 +57,15 @@ assert.match(page, /formulaires-editor\.js[\s\S]*formulaires-page\.js/, 'l’éd
 assert.match(js, /custom_form_duplicate/, 'une copie n’est créée qu’à l’enregistrement');
 assert.match(editor, /copy_of: found\.id/);
 assert.match(editor, /x\.fixe\)/, 'une question d’origine garde tout, sauf son intitulé');
-assert.match(playerJs, /p_occurrence: form\.dataset\.mfOccurrence/, 'les questions ajoutées désignent leur séance');
+assert.match(playerJs, /p_occurrence: p\.form\.occurrence/, 'un questionnaire désigne sa séance');
+assert.match(playerJs, /p_occurrence: occ/, 'les questions ajoutées suivent la réponse d’origine, même séance');
 assert.match(readme, /65\. supabase\/lmfc_v47\.sql/);
 assert.match(js, /CF\.responseOnly/);
 assert.match(readme, /63\. supabase\/lmfc_v45\.sql/);
 // lmfc_v63.sql : une échelle part en nombre, jamais en texte ; échelles à niveaux ; suppression.
 assert.match(playerJs, /kind === 'number'[\s\S]*Number\(raw\.replace\(',', '\.'\)\)/, 'une échelle ou un nombre part en nombre');
 assert.match(playerJs, /fqLevels\(q\)/, 'les niveaux réglés sont montrés au joueur');
-assert.match(playerPage, /form-levels\.js[\s\S]*mes-formulaires-page\.js/);
+assert.match(playerPage, /form-levels\.js[\s\S]*player-todo\.js[\s\S]*todo-parts\.js[\s\S]*mes-formulaires-page\.js/);
 assert.match(editor, /data-cf-move/, 'les questions se déplacent');
 assert.match(editor, /cfReadLevels/, 'les niveaux d’une échelle se règlent');
 assert.match(js, /custom_form_delete/, 'un formulaire se supprime, ses réponses restent');

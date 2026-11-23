@@ -923,11 +923,16 @@ th.sorted.asc .sort-ind { transform: rotate(180deg); }
 .ls { display:grid; gap:4px; }
 .ls-out { min-height:1.5em; margin:2px 0 4px; text-align:center; color:var(--text-secondary); font-weight:600; }
 .ls.is-set .ls-out { color:var(--text-primary); font-size:1.15rem; }
-.ls-range { width:100%; height:36px; margin:0; padding:0; border:0; box-shadow:none; background:transparent; appearance:none; -webkit-appearance:none; cursor:pointer; touch-action:pan-y; }
-.ls-range::-webkit-slider-runnable-track { height:10px; border-radius:999px; background:var(--ls-track); }
-.ls-range::-moz-range-track { height:10px; border-radius:999px; background:var(--ls-track); }
-.ls-range::-webkit-slider-thumb { -webkit-appearance:none; width:30px; height:30px; margin-top:-10px; border:3px solid #fff; border-radius:50%; background:var(--ls-thumb, #9a9a9a); box-shadow:0 1px 4px rgba(0,0,0,.5); }
-.ls-range::-moz-range-thumb { width:26px; height:26px; border:3px solid #fff; border-radius:50%; background:var(--ls-thumb, #9a9a9a); }
-.ls:not(.is-set) .ls-range { opacity:.6; }
-.ls-range:focus-visible { outline:2px solid var(--gold); outline-offset:4px; border-radius:999px; }
+/* Zone de glissement (level-slider.js) : le vrai curseur, invisible, reste dessous pour le clavier. */
+.ls-zone { position:relative; height:48px; touch-action:pan-y; cursor:pointer; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; }
+.ls-range { position:absolute; inset:0; width:100%; height:100%; margin:0; padding:0; border:0; opacity:0; pointer-events:none; }
+.ls-rail { position:absolute; left:15px; right:15px; top:50%; height:10px; margin-top:-5px; border-radius:999px; background:var(--ls-track); }
+.ls:not(.is-set) .ls-rail { opacity:.5; }
+.ls-rail i { position:absolute; top:50%; width:4px; height:4px; margin:-2px 0 0 -2px; border-radius:50%; background:rgba(255,255,255,.6); }
+.ls-thumb { position:absolute; top:50%; left:calc(15px + (100% - 30px) * var(--ls-pos, .5)); width:30px; height:30px; margin:-15px 0 0 -15px;
+  border:3px solid #fff; border-radius:50%; background:var(--ls-thumb, #8a8a8a); box-shadow:0 1px 4px rgba(0,0,0,.5);
+  transition:left .15s ease-out, transform .12s ease-out; }
+.ls-zone.is-drag .ls-thumb { transition:none; transform:scale(1.15); }
+.ls-range:focus-visible ~ .ls-thumb { outline:2px solid var(--gold); outline-offset:3px; }
+@media (prefers-reduced-motion: reduce) { .ls-thumb { transition:none; } }
 .ls-ends { display:flex; justify-content:space-between; gap:12px; color:var(--text-secondary); font-size:var(--fs-xs); }

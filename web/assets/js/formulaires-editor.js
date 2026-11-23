@@ -1,10 +1,36 @@
 /* Éditeur d'un formulaire (formulaires-page.js) : fenêtre, questions, lecture.
+   Le type de réponse se choisit comme le joueur le verra : Curseur, Pastilles, Oui / non,
+   Choix unique ou multiple, Silhouette du corps, Nombre, Texte (CF_KINDS) ; « Curseur »
+   et « Pastilles » sont deux échelles (curseur : false pour les pastilles), « Silhouette »
+   un choix multiple marqué corps (form-body.js).
    Les questions d'origine (fixe, lmfc_v47.sql) ne changent que d'intitulé, et de niveaux
    pour le RPE (lmfc_v63.sql) : la base le vérifie. Les questions se déplacent (↑ ↓) ;
    une échelle se règle niveau par niveau (valeur, libellé, couleur) : la valeur reste
    le nombre enregistré, utile aux calculs. */
-const CF_LEAD = 'Les réponses déjà reçues ne changent pas. Modifier les questions propose de nouveau le formulaire aux joueurs ; le renommer, non.';
-const CF_LEAD_ORIGIN = 'Les réponses déjà reçues ne changent pas. Une question ajoutée est posée dans « Mes formulaires », après la réponse d’origine. Une équipe n’a qu’un formulaire de chaque sorte : la cocher ici la retire de l’autre.';
+const CF_LEAD = 'Les réponses déjà reçues ne changent pas. Changer les questions repropose le formulaire aux joueurs ; le renommer, non.';
+const CF_LEAD_ORIGIN = 'Les réponses déjà reçues ne changent pas. Les questions ajoutées sont posées avec la question d’origine, sur le même écran. Une équipe n’a qu’un formulaire de chaque sorte : la cocher ici la retire de l’autre.';
+/* [valeur, libellé, groupe, ce que voit le joueur] */
+const CF_KINDS = [
+  ['scale', 'Curseur', 'Échelle', 'Le joueur glisse un curseur coloré d’un niveau à l’autre.'],
+  ['scale-chips', 'Pastilles', 'Échelle', 'Le joueur touche une pastille par niveau.'],
+  ['boolean', 'Oui / non', 'Choix', 'Deux boutons : Oui, Non.'],
+  ['choice', 'Choix unique', 'Choix', 'Une seule réponse parmi vos choix.'],
+  ['multi', 'Choix multiple', 'Choix', 'Plusieurs réponses possibles parmi vos choix.'],
+  ['body', 'Silhouette du corps', 'Choix', 'Le joueur touche les zones du corps, face et dos (plusieurs possibles).'],
+  ['number', 'Nombre', 'Saisie libre', 'Un nombre : minutes, kilos…'],
+  ['text', 'Texte court', 'Saisie libre', 'Une ligne de texte.'],
+  ['textarea', 'Texte long', 'Saisie libre', 'Un commentaire de quelques lignes.'],
+];
+const cfKindOf = (q) => (q.type === 'scale' ? (q.curseur === false ? 'scale-chips' : 'scale') : q.type === 'multi' && q.corps ? 'body' : q.type);
+const cfKindType = (k) => (k === 'scale-chips' ? 'scale' : k === 'body' ? 'multi' : k);
+const cfKindHint = (k) => CF_KINDS.find(x => x[0] === k)?.[3] || '';
+/* Une question neuve, du type choisi (boutons « Ajouter », formulaires-page.js). */
+function cfNewQuestion(kind) {
+  const q = { id: cfUid(), label: '', type: cfKindType(kind), required: true };
+  if (q.type === 'scale') Object.assign(q, { min: 0, max: 10, curseur: kind === 'scale' });
+  if (kind === 'body') Object.assign(q, { corps: true, options: [...FB_DEFAULT] });
+  return q;
+}
 const CF_PALETTE = ['#2e7d32', '#ef6c00', '#c62828'];   // couleur proposée pour un nouveau niveau : vert, orange, rouge
 /* Réglages rapides d'une échelle : remplacent les niveaux affichés, modifiables ensuite. */
 const CF_PRESETS = {
@@ -101,24 +127,28 @@ function cfMomentChange() {
 function cfQuestionHtml(question) {
   const id = escapeHtml(question.id || cfUid()), choices = Array.isArray(question.options) ? question.options.join('\n') : '';
   const lock = question.fixe ? ' disabled' : '';   // question d'origine : seul son intitulé change (lmfc_v47.sql)
-  const levels = question.type === 'scale' && (!question.fixe || question.id === 'rpe');
+  const kind = cfKindOf(question), type = cfKindType(kind);
+  const levels = type === 'scale' && (!question.fixe || question.id === 'rpe');
+  const groups = [...new Set(CF_KINDS.map(k => k[2]))].map(g => `<optgroup label="${g}">${CF_KINDS.filter(k => k[2] === g)
+    .map(([v, l]) => `<option value="${v}"${kind === v ? ' selected' : ''}>${l}</option>`).join('')}</optgroup>`).join('');
   return `<fieldset class="cf-question" data-question-id="${id}"${question.fixe ? ' data-fixe' : ''}>
     <legend class="sr-only">Question</legend>
-    <div class="cf-question-fields">
-      <div class="field"><label for="cf-label-${id}">Intitulé</label><input id="cf-label-${id}" data-cf-label required maxlength="180" value="${escapeHtml(question.label || '')}" placeholder="Votre question"></div>
-      <div class="field"><label for="cf-type-${id}">Type de réponse</label><select id="cf-type-${id}" data-cf-type${lock}>${Object.entries(cfTypeLabels).map(([value, label]) => `<option value="${value}"${question.type === value ? ' selected' : ''}>${label}</option>`).join('')}</select></div>
-      <div class="field cf-q-options${['choice', 'multi'].includes(question.type) && !question.fixe ? '' : ' hidden'}"><label for="cf-options-${id}">Choix proposés, un par ligne</label><textarea id="cf-options-${id}" data-cf-options rows="3" maxlength="1000" placeholder="Option 1\nOption 2">${escapeHtml(choices)}</textarea></div>
-      <label class="check cf-q-curseur${question.type === 'scale' && !question.fixe ? '' : ' hidden'}"><input type="checkbox" data-cf-curseur${question.curseur === false ? '' : ' checked'}> Répondre avec un curseur (sinon des pastilles)</label>
-      <label class="check cf-q-corps${question.type === 'multi' && !question.fixe ? '' : ' hidden'}"><input type="checkbox" data-cf-corps${question.corps ? ' checked' : ''}> Silhouette du corps (zones cliquables)</label>
-      <div class="cf-q-levels${levels ? '' : ' hidden'}" data-cf-levels-box>${cfLevelsHtml(question)}</div>
-      <label class="check cf-q-required"><input type="checkbox" data-cf-required${question.required === false ? '' : ' checked'}${lock}> Réponse obligatoire</label>
+    <div class="cf-q-top">
+      <div class="field cf-q-label"><label for="cf-label-${id}">Question</label><input id="cf-label-${id}" data-cf-label required maxlength="180" value="${escapeHtml(question.label || '')}" placeholder="Votre question"></div>
+      <div class="cf-q-actions">
+        <button class="btn btn-sm btn-icon" type="button" data-cf-move="-1" aria-label="Monter la question">↑</button>
+        <button class="btn btn-sm btn-icon" type="button" data-cf-move="1" aria-label="Descendre la question">↓</button>
+        ${question.fixe && !question.retirable ? '<span class="cf-q-lock">Question d’origine</span>'
+          : '<button class="btn btn-sm btn-icon cf-q-remove" type="button" data-cf-remove-question aria-label="Retirer cette question">×</button>'}
+      </div>
     </div>
-    <div class="cf-q-actions">
-      <button class="btn btn-sm btn-icon" type="button" data-cf-move="-1" aria-label="Monter la question">↑</button>
-      <button class="btn btn-sm btn-icon" type="button" data-cf-move="1" aria-label="Descendre la question">↓</button>
-      ${question.fixe && !question.retirable ? '<span class="cf-q-lock">Question d’origine</span>'
-        : '<button class="btn btn-sm cf-q-remove" type="button" data-cf-remove-question aria-label="Supprimer cette question">Retirer</button>'}
+    <div class="cf-q-row">
+      <div class="field cf-q-kind"><label for="cf-type-${id}">Réponse</label><select id="cf-type-${id}" data-cf-type${lock}>${groups}</select></div>
+      <label class="check cf-q-required"><input type="checkbox" data-cf-required${question.required === false ? '' : ' checked'}${lock}> Obligatoire</label>
     </div>
+    <p class="cf-q-hint" data-cf-hint>${escapeHtml(cfKindHint(kind))}</p>
+    <div class="field cf-q-options${['choice', 'multi'].includes(type) && !question.fixe ? '' : ' hidden'}"><label for="cf-options-${id}">Choix proposés, un par ligne</label><textarea id="cf-options-${id}" data-cf-options rows="3" maxlength="1000" placeholder="Option 1\nOption 2">${escapeHtml(choices)}</textarea></div>
+    <details class="cf-q-levels${levels ? '' : ' hidden'}" data-cf-levels-box><summary>Régler les niveaux : valeurs, libellés, couleurs</summary>${cfLevelsHtml(question)}</details>
   </fieldset>`;
 }
 
@@ -180,24 +210,20 @@ function cfEditorClick(e) {
 
 function cfQuestionChange(e) {
   if (e.target.matches('[data-cf-lv-color]')) { e.target.closest('.cf-level-c').querySelector('[data-cf-lv-colored]').checked = true; return; }
-  if (e.target.matches('[data-cf-corps]')) {   // silhouette (form-body.js) : sans choix saisis, toutes les zones
-    const options = e.target.closest('.cf-question').querySelector('[data-cf-options]');
-    if (e.target.checked && !options.value.trim()) options.value = FB_DEFAULT.join('\n');
-    return;
-  }
   const select = e.target.closest('[data-cf-type]');
   if (!select) return;
-  const row = select.closest('.cf-question');
-  row.querySelector('.cf-q-options').classList.toggle('hidden', !['choice', 'multi'].includes(select.value));
-  row.querySelector('.cf-q-corps').classList.toggle('hidden', select.value !== 'multi');
-  row.querySelector('.cf-q-curseur').classList.toggle('hidden', select.value !== 'scale');
-  row.querySelector('[data-cf-levels-box]').classList.toggle('hidden', select.value !== 'scale');
+  const row = select.closest('.cf-question'), kind = select.value, type = cfKindType(kind);
+  const options = row.querySelector('[data-cf-options]');
+  if (kind === 'body' && !options.value.trim()) options.value = FB_DEFAULT.join('\n');   // silhouette : toutes les zones
+  row.querySelector('.cf-q-options').classList.toggle('hidden', !['choice', 'multi'].includes(type));
+  row.querySelector('[data-cf-levels-box]').classList.toggle('hidden', type !== 'scale');
+  row.querySelector('[data-cf-hint]').textContent = cfKindHint(kind);
 }
 
 function cfCountQuestions() {
   const count = document.querySelectorAll('#cfQuestions .cf-question').length;
   document.getElementById('cfQuestionCount').textContent = `(${count}/30)`;
-  document.querySelector('[data-cf-add-question]').disabled = count >= 30;
+  document.querySelectorAll('[data-cf-add-question]').forEach(b => { b.disabled = count >= 30; });
 }
 
 /* Les niveaux lus dans l'éditeur ; error si une valeur est fausse ou en double. */
@@ -237,15 +263,15 @@ function cfReadEditor() {
       error ||= r.error;
       return r.q || q;
     }
-    const type = row.querySelector('[data-cf-type]').value;
+    const kind = row.querySelector('[data-cf-type]').value, type = cfKindType(kind);
     // Une question déjà enregistrée garde sa règle d'alerte (lmfc_v62.sql) tant que son type ne change pas.
     const prev = CF.editing?.version?.questions?.find(x => x.id === row.dataset.questionId && x.type === type);
     const q = { ...(prev?.alerte ? { alerte: prev.alerte } : {}), id: row.dataset.questionId,
       label: row.querySelector('[data-cf-label]').value.trim(), type, required: row.querySelector('[data-cf-required]').checked };
     if (type === 'choice' || type === 'multi') q.options = row.querySelector('[data-cf-options]').value.split('\n').map(x => x.trim()).filter(Boolean);
-    if (type === 'multi' && row.querySelector('[data-cf-corps]').checked) q.corps = true;
+    if (kind === 'body') q.corps = true;
     if (type !== 'scale') return q;
-    q.curseur = row.querySelector('[data-cf-curseur]').checked;   // form-slider.js ; sans réglage : curseur
+    q.curseur = kind === 'scale';   // form-slider.js : curseur, sinon pastilles
     const r = cfScale(q, row, false);
     error ||= r.error;
     return r.q || q;

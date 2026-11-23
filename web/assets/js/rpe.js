@@ -5,15 +5,13 @@
      - RPE_SCALE : 1 à 10, libellés de l'échelle CR-10, une couleur
        du vert (facile) au rouge (maximal) ;
      - myRpeItems : ce que le joueur peut noter, séances et matchs ;
-     - openRpeSheet : la saisie du joueur (accueil, calendrier) ; dix
-       grosses touches, une confirmation : sa réponse est définitive ;
-       pending : ce qu'il lui reste à noter, à choisir, l'un après
-       l'autre ; avec player, la saisie ou la correction du staff
-       (séance, Suivi RPE), marquée ;
+     - openRpeSheet : la saisie ou la correction du staff à la place du
+       joueur (séance, Suivi RPE), marquée ; le joueur, lui, note son
+       effort dans le questionnaire après séance (todo-parts.js) ;
      - rpeExpected : la réponse est-elle attendue de ce joueur ?
      - renderRpeTrend : l'évolution d'un joueur (fiche, staff et joueur).
    Écriture par rpe_set() et match_rpe_set() seulement : la base vérifie
-   la séance ou le match, le délai (jusqu'à J+14, lmfc_v37.sql), la réponse
+   la séance ou le match, le délai (jusqu'à J+2, lmfc_v70.sql), la réponse
    unique et les droits. Aucun calcul de charge, aucune alerte.
    ============================================================ */
 
@@ -21,7 +19,7 @@ const RPE_SCALE = [
   [1, 'Très, très facile'], [2, 'Facile'], [3, 'Modéré'], [4, 'Un peu dur'], [5, 'Dur'],
   [6, 'Dur +'], [7, 'Très dur'], [8, 'Très dur +'], [9, 'Presque maximal'], [10, 'Maximal'],
 ];
-const RPE_DAYS = 14;   // = rpe_open() : saisie du jour de la séance à J+14
+const RPE_DAYS = 2;   // = rpe_open() (lmfc_v70.sql) : saisie du jour de la séance à J+2
 const rpeLabel = (v) => RPE_SCALE.find(([n]) => n === Number(v))?.[1] || '';
 const rpeColor = (v) => `hsl(${Math.round(130 - (Number(v) - 1) * 14.4)} 62% 46%)`;
 const rpeFr = (x) => String(Math.round(x * 10) / 10).replace('.', ',');
@@ -32,9 +30,8 @@ const rpeDate = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.sl
 const rpeWhen = (s) => [s.date && rpeDate(s.date), s.heure?.slice(0, 5)].filter(Boolean).join(' à ');
 const rpeWhat = (s) => (s.match ? 'tout le match' : 'toute la séance');
 /* Textes réglés dans Formulaires (lmfc_v47.sql), portés par la séance ou le match ; sinon ceux
-   d'origine. Les questions ajoutées se posent dans « Mes formulaires », après la réponse. */
+   d'origine. Les questions ajoutées se posent avec, dans le même questionnaire (todo-parts.js). */
 const formLabel = (item, id) => item?.form_questions?.find(q => q.id === id)?.label;
-const formHasMore = (item) => (item?.form_questions || []).some(q => !q.fixe);
 /* Échelle montrée au joueur : les niveaux réglés dans Formulaires (lmfc_v63.sql : libellé, couleur,
    niveaux retirés), sinon RPE_SCALE. La valeur envoyée reste le nombre de 1 à 10. */
 function rpeScaleOf(item) {
@@ -44,7 +41,6 @@ function rpeScaleOf(item) {
     .filter(([v]) => Number.isInteger(v) && v >= 1 && v <= 10).sort((a, b) => a[0] - b[0]);
 }
 const rpeLabelOf = (item, v) => rpeScaleOf(item).find(([n]) => n === Number(v))?.[1] ?? rpeLabel(v);
-const FORM_MORE = '<a class="btn btn-sm" href="mes-formulaires">Répondre aux questions suivantes</a>';
 /* Une séance est-elle dans le délai de saisie du joueur ? (la base tranche.) Avec son heure,
    pas avant qu'elle commence : la réponse est définitive, et le calendrier ouvre dès le matin. */
 function rpeOpen(iso, heure = null) {
@@ -61,15 +57,9 @@ function rpeOpen(iso, heure = null) {
    Seule une absence enregistrée l'exclut. participe : procedure-time.js. */
 const rpeExpected = (row) => !row || participe({ ...row, statut: row.statut || (row.present ? 'present' : 'absent') });
 
-/* Un seul RPE de séance par demi-journée (lmfc_v61.sql, rpe_half) : le matin avant 13 h,
-   l'après-midi ensuite ; une séance sans heure touche toute la journée. */
-const rpeHalf = (heure) => (heure ? (heure.slice(0, 5) < '13:00' ? 'matin' : 'apres_midi') : null);
-const rpeSameSlot = (a, b) => !a.match && !b.match && a.date === b.date
-  && (!a.heure || !b.heure || rpeHalf(a.heure) === rpeHalf(b.heure));
-/* Pour le joueur : « Titre – Équipe à 10:00 », comme rpe_session_label. */
-const rpeSlotLabel = (s) => [s.titre || 'Séance', s.equipe].filter(Boolean).join(' – ') + (s.heure ? ` à ${s.heure.slice(0, 5)}` : '');
-/* Ce qui reste à noter : sans réponse, ouvert, et pas noté avec une autre séance de la demi-journée. */
-const rpeTodo = (rows) => rows.filter(s => s.rpe == null && !s.ailleurs && rpeOpen(s.date_seance, s.heure));
+/* Ce qui reste à noter : sans réponse et ouvert. Chaque équipe à part (lmfc_v70.sql : plus de
+   règle de demi-journée, une séance n'est plus notée « ailleurs »). */
+const rpeTodo = (rows) => rows.filter(s => s.rpe == null && rpeOpen(s.date_seance, s.heure));
 
 /* Séances et matchs que le joueur peut noter (noté ou non), du plus récent au plus ancien :
    { id, titre, date, date_seance, heure, rpe, corrige, match }. Sans séances lisibles : error. */
@@ -81,20 +71,15 @@ async function myRpeItems() {
     .sort((a, b) => b.date.localeCompare(a.date) || (b.heure || '').localeCompare(a.heure || '')) };
 }
 
-/* Saisie. session : { id, titre, date, heure, match } ; onSaved(valeur, ou null si effacée ; séance ou match).
-   player : { id, nom } pour la saisie du staff à la place du joueur.
-   pending (joueur) : ce qu'il lui reste à noter, session comprise (le même objet). */
-function openRpeSheet({ session, value = null, player = null, onSaved, pending = [], note = '' }) {
+/* Saisie du staff à la place du joueur. session : { id, titre, date, heure, match } ;
+   player : { id, nom } ; onSaved(valeur, ou null si effacée ; séance ou match). */
+function openRpeSheet({ session, value = null, player, onSaved, note = '' }) {
   if (!document.getElementById('rpeSheet')) {
     document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="rpeSheet">
       <div class="modal rpe-modal" role="dialog" aria-modal="true" aria-labelledby="rpeTitle">
         <button type="button" class="modal-x" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         <h2 class="as-h3" id="rpeTitle"></h2>
         <p class="rpe-session" id="rpeSession"></p>
-        <div class="field hidden" id="rpePickBox"><label for="rpePick">À noter</label><select id="rpePick"></select></div>
-        <fieldset class="rpe-slot hidden" id="rpeSlotBox"><legend>Avec quelle équipe t’es-tu entraîné ?</legend>
-          <p class="rpe-slot-help">Plusieurs séances à la même demi-journée : une seule réponse, pour celle où tu étais.</p>
-          <div class="rpe-slot-opts" id="rpeSlotOpts"></div></fieldset>
         <p class="rpe-q" id="rpeQ"></p>
         <div class="rpe-scale" role="group" aria-labelledby="rpeQ" id="rpeScale"></div>
         <p class="rpe-help" id="rpeHelp"></p>
@@ -104,77 +89,36 @@ function openRpeSheet({ session, value = null, player = null, onSaved, pending =
     document.getElementById('rpeScale').addEventListener('click', (e) => {
       const b = e.target.closest('[data-rpe-v]');
       if (b) rpeSave(Number(b.dataset.rpeV));
-      if (e.target.closest('#rpeOk')) rpeSave(Number(document.getElementById('rpeSheet').rpe.pick));   // joueur : curseur puis Valider
-    });
-    document.getElementById('rpeScale').addEventListener('ls-change', (e) => {
-      document.getElementById('rpeSheet').rpe.pick = e.detail.valeur;
-      document.getElementById('rpeOk').disabled = false;
     });
     document.getElementById('rpeClear').addEventListener('click', () => rpeSave(null));
-    document.getElementById('rpePick').addEventListener('change', (e) => {
-      const r = document.getElementById('rpeSheet').rpe;
-      r.session = r.pending[Number(e.target.value)];   // par position : une séance et un match peuvent avoir le même numéro
-      rpeRender();
-    });
-    document.getElementById('rpeSlotOpts').addEventListener('change', (e) => {
-      const r = document.getElementById('rpeSheet').rpe, s = r.pending[Number(e.target.value)];
-      if (s) { r.session = s; rpeRender(); }
-    });
   }
   const sheet = document.getElementById('rpeSheet');
-  sheet.rpe = { session, player, onSaved, pending, note };
-  document.getElementById('rpeHelp').textContent = [note, player
-    ? 'Saisie du staff à la place du joueur : elle reste marquée « saisi par le staff ».'
-    : '1 = très, très facile – 10 = effort maximal. Ta réponse va au staff, jamais aux autres joueurs. Une fois enregistrée, elle ne se modifie plus.'].filter(Boolean).join(' ');
-  document.getElementById('rpeStaffActions').classList.toggle('hidden', !(player && value));
+  sheet.rpe = { session, player, onSaved };
+  document.getElementById('rpeHelp').textContent = [note, 'Saisie du staff à la place du joueur : elle reste marquée « saisi par le staff ».'].filter(Boolean).join(' ');
+  document.getElementById('rpeStaffActions').classList.toggle('hidden', !value);
   rpeRender(value);
   openModal('rpeSheet');
-  document.querySelector('#rpeScale [aria-pressed="true"], #rpeScale .rpe-opt, #rpeScale input')?.focus();
+  document.querySelector('#rpeScale [aria-pressed="true"], #rpeScale .rpe-opt')?.focus();
 }
-/* La séance ou le match affiché : date et heure, la liste s'il en reste plusieurs à noter, l'échelle. */
+/* La séance ou le match, puis l'échelle de référence : un clic enregistre. */
 function rpeRender(value = null) {
-  const { session, pending, player } = document.getElementById('rpeSheet').rpe;
-  document.getElementById('rpeTitle').textContent = player ? `RPE de ${player.nom}` : session.form_titre || 'Ton effort';
-  document.getElementById('rpeQ').textContent = player ? `Effort ressenti par le joueur sur ${rpeWhat(session)} :`
-    : formLabel(session, 'rpe') || `Comment as-tu ressenti l’effort de ${rpeWhat(session)} ?`;
+  const { session, player } = document.getElementById('rpeSheet').rpe;
+  document.getElementById('rpeTitle').textContent = `RPE de ${player.nom}`;
+  document.getElementById('rpeQ').textContent = `Effort ressenti par le joueur sur ${rpeWhat(session)} :`;
   document.getElementById('rpeSession').textContent = [session.titre, session.equipe, rpeWhen(session)].filter(Boolean).join(' – ');
-  // Même demi-journée : le joueur choisit la séance où il était ; la liste, pour le reste.
-  const slot = player ? [] : pending.filter(s => rpeSameSlot(s, session));
-  document.getElementById('rpeSlotBox').classList.toggle('hidden', slot.length < 2);
-  document.getElementById('rpeSlotOpts').innerHTML = slot.length < 2 ? '' : slot.map(s => {
-    const i = pending.indexOf(s);
-    return `<label class="rpe-slot-opt"><input type="radio" name="rpeSlot" value="${i}"${s === session ? ' checked' : ''}>
-      <span>${escapeHtml(rpeSlotLabel(s))}</span></label>`;
-  }).join('');
-  document.getElementById('rpePickBox').classList.toggle('hidden', !pending.some(s => s !== session && !slot.includes(s)));
-  document.getElementById('rpePick').innerHTML = pending.map((s, i) => `<option value="${i}"${s === session ? ' selected' : ''}>${escapeHtml([rpeWhen(s), s.titre, s.equipe].filter(Boolean).join(' – '))}</option>`).join('');
-  const scale = player ? rpeScaleOf(null) : rpeScaleOf(session);   // le staff garde l'échelle de référence
   document.getElementById('rpeStatus').textContent = value ? `RPE actuel : ${value} – ${rpeLabel(value)}. Touche une autre valeur pour la changer.` : '';
-  // Joueur : un curseur coloré puis « Valider » (level-slider.js) ; staff : les boutons, un clic enregistre.
-  const box = document.getElementById('rpeScale');
-  box.classList.toggle('is-slider', !player);
-  if (!player) {
-    document.getElementById('rpeSheet').rpe.pick = null;
-    box.innerHTML = `${lsHtml({ id: 'rpeRange', levels: scale.map(([valeur, libelle, couleur]) => ({ valeur, libelle, couleur })), label: 'Ton effort, de 1 à 10' })}
-      <button type="button" class="btn btn-primary rpe-ok" id="rpeOk" disabled>Valider mon effort</button>`;
-    return;
-  }
-  box.innerHTML = scale.map(([v, label, color]) => `<button type="button" class="rpe-opt" data-rpe-v="${v}"
+  document.getElementById('rpeScale').innerHTML = rpeScaleOf(null).map(([v, label, color]) => `<button type="button" class="rpe-opt" data-rpe-v="${v}"
       aria-pressed="${v === Number(value)}" style="--rpe:${color}"><b>${v}</b><span>${escapeHtml(label)}</span></button>`).join('');
 }
 
 async function rpeSave(v) {
   const sheet = document.getElementById('rpeSheet'), status = document.getElementById('rpeStatus');
-  const { session, player, onSaved, pending } = sheet.rpe;
+  const { session, player, onSaved } = sheet.rpe;
   if (sheet.hasAttribute('data-busy')) return;   // un seul envoi à la fois
-  // Le joueur ne revient pas sur sa réponse : une touche de travers ne doit pas rester.
-  const slot = player ? [] : pending.filter(s => s !== session && rpeSameSlot(s, session));
-  if (!player && !await confirmDialog(`${v}/10${rpeLabelOf(session, v) ? ` (${rpeLabelOf(session, v)})` : ''} pour ${[session.titre, session.equipe, rpeWhen(session)].filter(Boolean).join(', ')} ?\n\n${
-    slot.length ? `Ce sera ta seule réponse de la demi-journée : ${slot.map(rpeSlotLabel).join(', ')} ne sera plus à noter.\n\n` : ''}Une fois enregistrée, ta réponse ne se modifie plus.`)) return;
   sheet.setAttribute('data-busy', '');
   status.textContent = 'Enregistrement…';
-  const { data, error } = await sb.rpc(session.match ? 'match_rpe_set' : 'rpe_set',
-    { [session.match ? 'p_match' : 'p_session']: session.id, p_rpe: v, ...(player && { p_player: player.id }) });
+  const { error } = await sb.rpc(session.match ? 'match_rpe_set' : 'rpe_set',
+    { [session.match ? 'p_match' : 'p_session']: session.id, p_rpe: v, p_player: player.id });
   sheet.removeAttribute('data-busy');
   if (error) {
     console.error('RPE non enregistré', error);
@@ -182,22 +126,8 @@ async function rpeSave(v) {
     return;
   }
   document.querySelectorAll('#rpeScale .rpe-opt').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.rpeV) === v)));
-  const done = v == null ? 'RPE effacé.' : `Enregistré : ${v} – ${rpeLabel(v)}${player ? ' (saisi par le staff)' : '. Merci !'}${
-    data?.deplace ? ` Retiré de : ${data.deplace}.` : ''}`;
-  status.textContent = done;
-  // Les autres séances de la demi-journée se notent désormais avec celle-ci (lmfc_v61.sql).
-  slot.forEach(s => { s.ailleurs = rpeSlotLabel(session); });
+  status.textContent = v == null ? 'RPE effacé.' : `Enregistré : ${v} – ${rpeLabel(v)} (saisi par le staff)`;
   onSaved?.(v, session);
-  sheet.rpe.more ||= !player && formHasMore(session);
-  // D'autres à noter : le suivant, sans refermer.
-  const rest = pending.filter(s => s !== session && !slot.includes(s));
-  if (rest.length) {
-    Object.assign(sheet.rpe, { session: rest[0], pending: rest });
-    rpeRender();
-    status.textContent = `${done} Encore ${rest.length} à noter.`;
-    return;
-  }
-  if (sheet.rpe.more) { status.innerHTML = `${escapeHtml(done)} ${FORM_MORE}`; status.scrollIntoView({ block: 'nearest' }); return; }
   setTimeout(() => { if (sheet.rpe?.session === session) closeModal('rpeSheet'); }, 900);
 }
 

@@ -2,34 +2,32 @@
    LMFC Performance — calendar-player.js (calendrier, joueur)
    Vue « Jour » du joueur, comme une appli de suivi : la semaine en bandeau
    (lun. à dim., un point par séance ou match), puis les cartes du jour choisi,
-   chacune avec son bouton « Répondre » bien visible (PRE ou POST :
-   calendar-forms.js). Toucher la carte ouvre la fiche (openCalItem).
+   avec son bouton « Répondre » (PRE ou POST : calendar-forms.js), doré quand un
+   questionnaire l'attend (player-todo.js). Toucher la carte ouvre la fiche (openCalItem).
    Dépend de calendar-utils.js et de calendrier-page.js (CAL, calTitleOf, calSub).
    ============================================================ */
 
 function calStripHtml(items) {
   const { from } = calRange('day', CAL.anchor), days = calByDay(items), today = calToday(), sel = CAL.day || today;
   return `<div class="cal-strip" role="group" aria-label="Jours de la semaine">${Array.from({ length: 7 }, (_, k) => {
-    const d = calAddDays(from, k), n = (days.get(d) || []).filter(i => i.kind !== 'evenement').length;
+    const d = calAddDays(from, k), list = (days.get(d) || []).filter(i => i.kind !== 'evenement'), n = list.length, todo = list.some(i => i.todo?.length);
     return `<button type="button" class="cal-strip-d${d === today ? ' is-today' : ''}" data-cal-cell="${d}" aria-pressed="${d === sel}"
-      aria-label="${escapeHtml(calDayLabel(d))}${n ? `, ${n} séance${n > 1 ? 's' : ''} ou match${n > 1 ? 's' : ''}` : ''}"${d === today ? ' aria-current="date"' : ''}>
+      aria-label="${escapeHtml(calDayLabel(d))}${n ? `, ${n} séance${n > 1 ? 's' : ''} ou match${n > 1 ? 's' : ''}` : ''}${todo ? ', à remplir' : ''}"${d === today ? ' aria-current="date"' : ''}>
       <span class="cal-strip-w">${CAL_DOW[k].toLowerCase()}.</span><span class="cal-strip-n">${Number(d.slice(8))}</span>
-      <span class="cal-strip-dots" aria-hidden="true">${'<i></i>'.repeat(Math.min(n, 3))}</span></button>`;
+      <span class="cal-strip-dots" aria-hidden="true">${list.slice(0, 3).map(i => `<i class="k-${i.kind}${i.todo?.length ? ' is-todo' : ''}"></i>`).join('')}</span></button>`;
   }).join('')}</div>`;
 }
 
-/* Une carte : heure, type, titre, puis « Répondre » (séance ou match), ou « RPE à noter » en rappel. */
+/* Une carte : heure, type, titre ; « Répondre » (PRE ou POST), doré s'il y a quelque chose à remplir. */
 function calCardHtml(i) {
-  const idx = CAL.items.indexOf(i), sub = calSub(i), answer = i.kind !== 'evenement';
-  return `<article class="cal-card k-${i.kind}${i.rpeTodo ? ' is-todo' : ''}">
+  const idx = CAL.items.indexOf(i), sub = calSub(i), todo = i.todo?.length;
+  return `<article class="cal-card k-${i.kind}${todo ? ' is-todo' : ''}">
     <button type="button" class="cal-card-open" data-cal-open="${idx}">
-      <span class="cal-card-top"><span class="cal-card-time">${i.heure || 'Horaire à venir'}</span>
-        ${i.rpeTodo ? '<span class="cal-rpe-todo">RPE à noter</span>' : ''}</span>
+      <span class="cal-card-time">${i.heure || 'Horaire à venir'}</span>
       <span class="cal-card-title">${escapeHtml(`${CAL_KINDS[i.kind]} – ${calTitleOf(i)}`)}</span>
       ${sub ? `<span class="cal-card-sub">${escapeHtml(sub)}</span>` : ''}
     </button>
-    ${answer ? `<button type="button" class="btn cal-card-reply" data-cal-reply="${idx}">
-      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Répondre</button>` : ''}
+    ${i.kind !== 'evenement' ? `<button type="button" class="btn cal-card-reply" data-cal-reply="${idx}">Répondre</button>` : ''}
   </article>`;
 }
 

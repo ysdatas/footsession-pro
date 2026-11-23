@@ -16,26 +16,37 @@
 
 /* Questionnaire replié : une ligne, toute la largeur cliquable. */
 .mf-card, .mf-history-card { min-width:0; border:1px solid var(--border); border-radius:12px; background:var(--bg-card); }
-.mf-card > summary, .mf-history-card > summary, .mf-older > summary {
+.mf-card > summary, .mf-history-card > summary {
   display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:12px; align-items:center;
   min-height:52px; padding:10px 40px 10px 14px; position:relative; cursor:pointer; list-style:none; -webkit-tap-highlight-color:transparent;
 }
-.mf-card > summary::-webkit-details-marker, .mf-history-card > summary::-webkit-details-marker, .mf-older > summary::-webkit-details-marker { display:none; }
-.mf-card > summary::after, .mf-history-card > summary::after, .mf-older > summary::after {
+.mf-card > summary::-webkit-details-marker, .mf-history-card > summary::-webkit-details-marker { display:none; }
+.mf-card > summary::after, .mf-history-card > summary::after {
   content:''; position:absolute; right:16px; top:50%; width:7px; height:7px; margin-top:-6px;
   border-right:1.5px solid var(--text-muted); border-bottom:1.5px solid var(--text-muted); transform:rotate(45deg); transition:transform .15s ease;
 }
-.mf-card[open] > summary::after, .mf-history-card[open] > summary::after, .mf-older[open] > summary::after { margin-top:-2px; transform:rotate(-135deg); }
-.mf-card > summary:focus-visible, .mf-history-card > summary:focus-visible, .mf-older > summary:focus-visible { outline:2px solid var(--gold); outline-offset:-2px; border-radius:12px; }
+.mf-card[open] > summary::after, .mf-history-card[open] > summary::after { margin-top:-2px; transform:rotate(-135deg); }
+.mf-card > summary:focus-visible, .mf-history-card > summary:focus-visible { outline:2px solid var(--gold); outline-offset:-2px; border-radius:12px; }
 .mf-card-title { grid-column:1; font-weight:600; overflow-wrap:anywhere; }
 .mf-card-sub { grid-column:1; color:var(--text-secondary); font-size:var(--fs-xs); overflow-wrap:anywhere; }
 .mf-card-n, .mf-history-card time { grid-column:2; grid-row:1 / span 2; color:var(--text-muted); font-size:var(--fs-xs); font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .mf-card[open] { border-color:color-mix(in srgb, var(--gold) 45%, var(--border)); }
 .mf-card-desc { margin:0 14px 4px; color:var(--text-secondary); font-size:var(--fs-sm); line-height:1.5; white-space:pre-wrap; }
-.mf-older { margin-top:14px; border:1px dashed var(--border); border-radius:12px; }
-.mf-older > summary { grid-template-columns:auto 1fr; justify-items:start; gap:8px; color:var(--text-secondary); font-weight:600; }
-.mf-older[open] > .mf-day:first-of-type { margin-top:2px; }
-.mf-older > .mf-day { padding:0 10px 10px; }
+
+/* Questionnaire regroupé (todo-parts.js) : une pastille par moment, comme à l'accueil
+   aux couleurs du club (avant : or, après : rouge, à remplir une fois : gris) ; ses parties à la suite. */
+.pt-card > summary .mf-card-title { display:flex; align-items:center; gap:8px; }
+.pt-card > summary .mf-card-title::before { content:""; flex:0 0 auto; width:10px; height:10px; border-radius:50%; background:var(--pt-c, var(--gold)); }
+.pt-card.is-pre { --pt-c:var(--gold); }
+.pt-card.is-post { --pt-c:var(--red-ui); }
+.pt-card.is-libre { --pt-c:var(--text-muted); }
+.pt-part { display:grid; gap:16px; min-width:0; }
+.pt-part + .pt-part { padding-top:16px; border-top:1px solid var(--border); }
+.pt-part-title { margin:0; font-size:var(--fs-md); font-weight:600; }
+.pt-zone { display:grid; gap:6px; }
+.pt-zone + .pt-zone { margin-top:10px; }
+.pt-zone-t { color:var(--text-secondary); font-size:var(--fs-xs); font-weight:600; }
+.pt-note { margin:0; color:var(--text-muted); font-size:var(--fs-xs); text-align:center; }
 
 /* Questions. */
 .mf-fields { display:grid; gap:16px; padding:6px 14px 0; }

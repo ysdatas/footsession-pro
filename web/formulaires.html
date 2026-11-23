@@ -31,21 +31,18 @@
     <div class="page-head">
       <div><p class="page-kicker" aria-hidden="true">Suivi des joueurs</p>
         <h1>Formulaires</h1>
-        <p class="subtitle" id="cfSubtitle">Créez, versionnez et affectez des questionnaires à vos équipes.</p>
+        <p class="subtitle" id="cfSubtitle">Les questionnaires que reçoivent tes joueurs, avant et après la séance ou le match.</p>
       </div>
       <div class="page-actions">
-        <a class="btn" href="suivi-rpe">Retour au Suivi RPE</a>
-        <button class="btn btn-primary" type="button" data-cf-new>+ Nouveau formulaire</button>
+        <a class="btn" href="suivi-rpe">Suivi RPE</a>
+        <button class="btn btn-primary" type="button" data-cf-new>Nouveau formulaire</button>
       </div>
     </div>
     <section class="cf-preview hidden" id="cfPreviewNotice" role="status">Aperçu local : vos essais restent en mémoire sur cette page et ne sont pas enregistrés dans la base.</section>
     <div id="cfManage">
-      <section class="cf-notice" aria-label="Conservation des réponses">
-        <strong>Historique protégé</strong>
-        <span>Modifier un formulaire crée une nouvelle version. Désactiver un formulaire le conserve avec ses versions précédentes. Supprimer un formulaire ne supprime jamais ses réponses : elles restent ci-dessous. Le RPE, les courbatures et l’avis de match gardent leurs réponses dans Suivi RPE et Matchs.</span>
-      </section>
       <p class="cf-status" id="cfStatus" role="status" aria-live="polite">Chargement des formulaires…</p>
       <div class="cf-list" id="cfList"></div>
+      <p class="cf-foot">Modifier un formulaire crée une nouvelle version, le supprimer ne supprime jamais ses réponses : celles déjà reçues ne changent pas.</p>
     </div>
     <section class="cf-responses" id="cfResponsesWrap" aria-labelledby="cfResponsesTitle">
       <div class="cf-responses-head"><div><h2 id="cfResponsesTitle">Réponses des joueurs</h2><p class="text-muted" id="cfResponsesHint">Les réponses visibles suivent les droits de tes équipes.</p></div><span class="cf-count" id="cfResponsesCount"></span></div>
@@ -71,8 +68,9 @@
       <h2 class="as-h3" id="cfTitle">Nouveau formulaire</h2>
       <p class="text-muted cf-modal-lead" id="cfLead"></p>
       <form id="cfEditorForm">
-        <div class="field"><label for="cfName">Nom du formulaire</label><input id="cfName" required maxlength="100" autocomplete="off"></div>
-        <div class="field"><label for="cfDescription">Description <span class="text-muted">(facultatif, montrée aux joueurs)</span></label><textarea id="cfDescription" rows="2" maxlength="1000"></textarea></div>
+        <div class="field"><label for="cfName">Nom</label><input id="cfName" required maxlength="100" autocomplete="off" aria-describedby="cfNameHint">
+          <p class="text-muted cf-hint" id="cfNameHint">Le joueur voit « Questionnaire pré-séance » ou « après séance » ; seul un formulaire à remplir une fois garde ce nom.</p></div>
+        <div class="field"><label for="cfDescription">Consigne <span class="text-muted">(facultatif, montrée aux joueurs)</span></label><textarea id="cfDescription" rows="2" maxlength="1000"></textarea></div>
         <fieldset class="cf-fieldset cf-plan" id="cfMomentField">
           <legend>Quand le poser</legend>
           <div class="field"><label for="cfMoment">Moment</label>
@@ -99,14 +97,19 @@
           <p class="text-muted cf-hint">Le joueur répond le jour même ou jusqu’à deux jours après. Une seule date : la même dans Du et Au.</p>
         </fieldset>
         <fieldset class="cf-fieldset">
-          <legend>Équipes destinataires</legend>
-          <p class="text-muted cf-hint">Choisissez les équipes auxquelles ce formulaire est rattaché.</p>
+          <legend>Équipes</legend>
           <div class="cf-team-list" id="cfTeams"></div>
         </fieldset>
         <fieldset class="cf-fieldset">
           <legend>Questions <span class="text-muted" id="cfQuestionCount"></span></legend>
           <div class="cf-question-list" id="cfQuestions"></div>
-          <button class="btn btn-sm" type="button" data-cf-add-question>+ Ajouter une question</button>
+          <div class="cf-add" role="group" aria-labelledby="cfAddLabel"><span id="cfAddLabel">Ajouter une question</span>
+            <button class="btn btn-sm" type="button" data-cf-add-question="scale">Curseur</button>
+            <button class="btn btn-sm" type="button" data-cf-add-question="boolean">Oui / non</button>
+            <button class="btn btn-sm" type="button" data-cf-add-question="choice">Choix</button>
+            <button class="btn btn-sm" type="button" data-cf-add-question="body">Silhouette</button>
+            <button class="btn btn-sm" type="button" data-cf-add-question="textarea">Texte</button>
+          </div>
         </fieldset>
         <label class="check cf-active"><input type="checkbox" id="cfActive" checked> Formulaire actif</label>
         <p class="cf-status" id="cfEditorStatus" role="status" aria-live="polite"></p>
@@ -127,6 +130,7 @@
   <script src="assets/js/form-levels.js"></script>
   <script src="assets/js/form-body.js"></script>
   <script src="assets/js/formulaires-editor.js"></script>
+  <script src="assets/js/formulaires-list.js"></script>
   <script src="assets/js/formulaires-page.js"></script>
 </body>
 </html>

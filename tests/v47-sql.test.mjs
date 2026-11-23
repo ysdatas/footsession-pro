@@ -91,11 +91,12 @@ insert into public.matches (id, club_id, team_id, adversaire, date_match, create
   assert.deepEqual(await sources(P.joueurPro), SOURCES, say('son équipe reçoit les quatre'));
 
   // Mêmes textes qu'à l'écran : la migration ne change aucune question.
-  const shown = { rpe: page('rpe.js'), sore: page('soreness.js'), avis: page('match-feedback.js') };
-  assert.match(shown.rpe, /Comment as-tu ressenti l’effort de \$\{rpeWhat\(session\)\} \?/);
+  // Le joueur répond dans le questionnaire regroupé (todo-parts.js), avec les textes de rpe.js.
+  const shown = { rpe: page('rpe.js') + page('todo-parts.js'), sore: page('soreness.js') + page('todo-parts.js'), avis: page('match-feedback.js') };
+  assert.match(shown.rpe, /Comment as-tu ressenti l’effort de \$\{rpeWhat\(p\.row\)\} \?/);
   assert.match(shown.rpe, /'toute la séance'/);
   assert.match(shown.rpe, /'tout le match'/);
-  assert.match(shown.rpe, /'Ton effort'/);
+  assert.match(shown.rpe, /Ton effort/);
   const labels = async (s) => (await latest(await form(s))).questions.map(x => x.label);
   assert.deepEqual(await labels('rpe_seance'), ['Comment as-tu ressenti l’effort de toute la séance ?']);
   assert.deepEqual(await labels('rpe_match'), ['Comment as-tu ressenti l’effort de tout le match ?']);

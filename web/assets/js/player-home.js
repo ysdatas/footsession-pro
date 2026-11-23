@@ -2,8 +2,9 @@
    LMFC Performance — player-home.js (mon-espace)
    Accueil du joueur, même signature que l'accueil du staff :
      - « Bonjour, Prénom », date, club · poste · équipe ;
-     - « Pour toi en ce moment » : RPE de la séance à noter, ou où il
-       se note (rpe.js, lmfc_v29.sql), vidéos reçues, retours du staff, objectifs et
+     - « Pour toi en ce moment » : une carte par questionnaire à remplir (player-todo.js :
+       pré-séance, après séance, avant et après match, chacun ouvert dans Mes
+       formulaires), côte à côte avec vidéos reçues, retours du staff, objectifs et
        préventions en cours, exercices à faire ;
      - « Mes derniers chiffres » : poids, masse grasse, dernière
        session de tests (RPC my_physical_* : jamais les indicateurs
@@ -19,18 +20,17 @@
 const PH_IC_KEY = { video: 'videos', activity: 'performance', forms: 'check' };
 const phIc = (k) => navIc(PH_IC_KEY[k] || k);
 /* Une case « Pour toi » : libellé court, chiffre, précision éventuelle (même gabarit que l'accueil du staff). */
-const phCard = ({ href, icon, value, label, detail, tone = '', todo = false }) => `
-  <a class="home-attn-card${tone ? ` is-${tone}` : ''}${todo ? ' is-todo' : ''}" href="${href}">
+const phCard = ({ href, icon, value, label, detail, tone = '' }) => `
+  <a class="home-attn-card${tone ? ` is-${tone}` : ''}" href="${href}">
     <span class="home-attn-head"><strong>${label}</strong>${phIc(icon)}</span>
     <span class="home-attn-value">${value ?? '—'}</span>
-    ${detail ? `<small>${detail}</small>` : ''}${todo ? PH_CTA : ''}
+    ${detail ? `<small>${detail}</small>` : ''}
   </a>`;
-/* Ce qui attend une réponse du joueur : carte pleine, bouton « Répondre » (dashboard.css, .is-todo). */
-const PH_CTA = '<span class="home-attn-cta" aria-hidden="true">Répondre</span>';
 const plural = (n, one, many = `${one}s`) => (n > 1 ? many : one);
 const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
 
 (async () => {
+  if (phFromReminder()) return;
   let player;
   try { player = await requirePlayer(); } catch (e) {
     console.error('Mon espace : fiche illisible', e);
@@ -44,7 +44,7 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
   document.getElementById('homeDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('greeting').textContent = `Bonjour${player.prenom ? `, ${player.prenom}` : ''}`;
 
-  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, rRes, cRes, mf, formRes, sourcesRes] = await Promise.all([
+  const [teamRes, vRes, sRes, nRes, eRes, mRes, tRes, todo] = await Promise.all([
     player.team_id ? sb.from('teams').select('nom').eq('id', player.team_id).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('player_videos').select('id, titre, created_at').eq('player_id', player.id).order('created_at', { ascending: false }),
     sb.from('video_sequences').select('id, label, staff_feedback, feedback_at, submitted_at').eq('player_id', player.id),
@@ -52,143 +52,56 @@ const daysAgo = (iso) => (Date.now() - new Date(iso).getTime()) / 864e5;
     sb.from('program_exercises').select('id, done_at').eq('player_id', player.id),
     sb.rpc('my_physical_measurements'),
     sb.rpc('my_physical_tests'),
-    myRpeItems(),                  // séances et matchs (lmfc_v38.sql)
-    sb.rpc('my_soreness_today'),   // lmfc_v35.sql : rien sans séance aujourd'hui
-    myMatchToReview(),             // lmfc_v36.sql : rien sans match joué ces 30 jours
-    sb.rpc('custom_forms_my_pending'), // lmfc_v45.sql : formulaires attribués, lecture joueur seulement
-    sb.rpc('my_form_sources'),         // lmfc_v47.sql : ce que reçoivent ses équipes
+    ptLoad().catch(e => { console.error('Mon espace : questionnaires à remplir illisibles', e); return null; }),
   ]);
   [vRes, sRes, nRes, eRes, mRes, tRes].forEach(r => { if (r.error) console.warn('Mon espace : donnée indisponible', r.error.message); });
 
   document.getElementById('clubLine').textContent =
     [window.PLAYER_CLUB || 'Le Mans FC', player.poste, teamRes.data?.nom].filter(Boolean).join(' – ');
 
-  if (rRes.error && rRes.error.code !== 'PGRST202') console.warn('Mon espace : RPE indisponible', rRes.error.message);
-  phRpe = rRes.rows;
-  // Sans lmfc_v29.sql, ou si ses équipes ne reçoivent pas le RPE (Formulaires) : pas de carte.
-  phRpeOn = !rRes.error && (phRpe.length > 0 || !!sourcesRes.error || sourcesRes.data.some(s => s.startsWith('rpe_')));
-  if (cRes.error && cRes.error.code !== 'PGRST202') console.warn('Mon espace : courbatures indisponibles', cRes.error.message);
-  phSore = cRes.data?.[0] || null;
-  phMf = mf;
-  phFormsPending = formRes.error ? 0 : (formRes.data || []).length;
-  if (formRes.error && !['PGRST202', 'PGRST203'].includes(formRes.error.code)) console.warn('Mon espace : formulaires indisponibles', formRes.error.message);
-  document.getElementById('homeAttn').addEventListener('click', openMfFromCard);
-  document.getElementById('homeAttn').addEventListener('click', openRpeFromCard);
-  document.getElementById('homeAttn').addEventListener('click', openSoreFromCard);
+  if (todo?.error) console.warn('Mon espace : questionnaires indisponibles', todo.error.message);
+  phTodo = todo ? todo.items : null;
   renderAttention(vRes.data || [], sRes.data || [], nRes.data || [], eRes.error ? null : (eRes.data || []));
   renderStats(mRes.data || [], tRes.data || [], player.hidden_sections || []);
-  markReminderOpened();   // app.js : avant que le lien ne soit retiré de l'adresse
-  openRpeFromLink();
-  openAvisFromLink();
 })();
 
-/* Relance du staff (lmfc_v50.sql) : la notification ouvre mon-espace?rpe=s12 (séance) ou m12 (match). */
-function openRpeFromLink() {
-  const want = new URLSearchParams(location.search).get('rpe');
-  if (!want) return;
-  history.replaceState(null, '', location.pathname);   // pas de nouvelle ouverture en revenant sur la page
-  const todo = phRpeTodo(), item = todo.find(s => `${s.match ? 'm' : 's'}${s.id}` === want);
-  const row = phRpe.find(s => `${s.match ? 'm' : 's'}${s.id}` === want);
-  if (!item) return toast(row?.rpe != null ? 'Ton RPE est déjà enregistré. Merci !'
-    : row?.ailleurs ? `Ton effort de cette demi-journée se note avec : ${row.ailleurs}.` : 'Cette saisie n’est plus ouverte.');
-  openRpeSheet({ session: item, pending: [item, ...todo.filter(s => s !== item)], onSaved: (v, it) => {
-    it.rpe = v;
-    const card = document.getElementById('phRpe');
-    if (card) card.outerHTML = rpeCardHtml();
-  } });
+/* Relance du staff (lmfc_v50.sql, lmfc_v59.sql) : la notification ouvre mon-espace?rpe=s12 (séance),
+   m12 (match) ou ?avis=12 : le questionnaire après séance ou après match, dans Mes formulaires
+   (le numéro de relance suit : Mes formulaires la note lue, markReminderOpened). */
+function phFromReminder() {
+  const p = new URLSearchParams(location.search), rpe = p.get('rpe') || '', avis = Number(p.get('avis'));
+  const key = /^[sm]\d+$/.test(rpe) ? `${rpe}:post` : avis ? `m${avis}:post` : null;
+  if (!key) return false;
+  const rappel = Number(p.get('rappel'));
+  location.replace(`mes-formulaires?u=${encodeURIComponent(key)}${rappel ? `&rappel=${rappel}` : ''}`);
+  return true;
 }
 
-/* Relance d'avis du staff (lmfc_v59.sql) : la notification ouvre mon-espace?avis=12 (le match). */
-async function openAvisFromLink() {
-  const want = Number(new URLSearchParams(location.search).get('avis'));
-  if (!want) return;
-  history.replaceState(null, '', location.pathname);   // pas de nouvelle ouverture en revenant sur la page
-  const [played, fb] = await Promise.all([sb.rpc('my_avis_matches'), sb.from('match_feedback').select('match_id, individuel, collectif').eq('match_id', want)]);
-  const r = (played.data || []).find(x => x.match_id === want);
-  if (!r) return toast('Cet avis n’est plus ouvert.', 'error');
-  openMatchFeedbackSheet({ match: { id: r.match_id, titre: r.titre, date: r.date_match, form_titre: r.form_titre, form_questions: r.form_questions },
-    value: fb.data?.[0] || null, onSaved: (v) => {
-      if (phMf?.match.id !== want) return;
-      phMf.value = v;
-      const a = document.querySelector('[data-mf]');
-      if (a) a.outerHTML = mfCardHtml();
-    } });
-}
-
-/* Courbatures au réveil : le jour d'une séance seulement (soreness.js). */
-let phSore = null;
-let phFormsPending = 0;
-/* Le nom d'un formulaire s'il a été changé (Formulaires), sinon l'appel d'origine. */
-const phFormName = (titre, origine, appel) => (titre && titre !== origine ? titre : appel);
-function soreCardHtml() {
-  const s = phSore, done = s.niveau != null;
-  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent is-todo'}" href="mon-espace" data-sore>
-    <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Courbatures au réveil', done ? 'Courbatures du matin' : 'Tes courbatures ce matin ?'))}</strong>${phIc('check')}</span>
-    <span class="home-attn-value">${done ? s.niveau : '?'}<small class="rpe-of">/10</small></span>
-    <small>${done ? (s.muscles?.length ? `${s.muscles.length} muscle${s.muscles.length > 1 ? 's' : ''} | touche pour changer` : 'Aucune | touche pour changer') : `Avant ${escapeHtml(s.titre || 'la séance')}`}</small>${done ? '' : PH_CTA}
-  </a>`;
-}
-function openSoreFromCard(e) {
-  const a = e.target.closest('[data-sore]');
-  if (!a || !phSore) return;
-  e.preventDefault();
-  openSorenessSheet({ today: phSore, onSaved: (r) => { Object.assign(phSore, r); a.outerHTML = soreCardHtml(); } });
-}
-
-/* Avis sur le match (match-feedback.js) : le dernier match joué sans réponse, sinon le dernier. */
-let phMf = null;   // { match: { id, titre, date }, value }
-function mfCardHtml() {
-  const { match: m, value } = phMf, done = mfAnswered(value);
-  return `<a class="home-attn-card${done ? ' is-calm' : ' is-urgent is-todo'}" href="calendrier" data-mf>
-    <span class="home-attn-head"><strong>${escapeHtml(phFormName(m.form_titre, 'Ton avis sur le match', done ? 'Ton avis sur le match' : 'Donne ton avis sur le match'))}</strong>${phIc('chat')}</span>
-    <span class="home-attn-value">${done ? '✓' : '?'}</span>
-    <small>Contre ${escapeHtml(m.titre)} | ${phDay(m.date)}${done ? ' | touche pour compléter' : ''}</small>${done ? '' : PH_CTA}
-  </a>`;
-}
-function openMfFromCard(e) {
-  const a = e.target.closest('[data-mf]');
-  if (!a || !phMf) return;
-  e.preventDefault();
-  openMatchFeedbackSheet({ match: phMf.match, value: phMf.value, onSaved: (v) => { phMf.value = v; a.outerHTML = mfCardHtml(); } });
-}
-
-/* RPE : la séance ou le match à noter (le plus récent sans réponse), sinon le dernier noté. */
-let phRpe = [], phRpeOn = false;
-const phDay = (iso) => { const d = Math.round((new Date(new Date().toDateString()) - new Date(`${iso}T00:00`)) / 864e5);
-  return d === 0 ? 'aujourd’hui' : d === 1 ? 'hier' : `il y a ${d} jours`; };
-const phRpeTodo = () => rpeTodo(phRpe);   // rpe.js : sans les séances notées ailleurs à la même demi-journée
-function rpeCardHtml() {
-  const todo = phRpeTodo(), s = todo[0] || phRpe.find(x => x.rpe != null);
-  // Toujours là : le joueur sait où noter même quand aucune séance n'attend.
-  if (!s) return phCard({ href: 'calendrier', icon: 'activity', tone: 'calm', value: '—', label: 'Ton effort (RPE)',
-    detail: `Rien à noter. Après chaque séance et chaque match, ton effort se note ici (jusqu’à ${RPE_DAYS} jours après).` });
-  return `<a class="home-attn-card${todo.length ? ' is-urgent is-todo' : ' is-calm'}" id="phRpe" href="calendrier"${todo.length ? ' data-rpe' : ''}>
-    <span class="home-attn-head"><strong>${escapeHtml(phFormName(s.form_titre, 'Ton effort', todo.length ? 'Note ton effort' : 'Ton effort'))}</strong>${phIc('activity')}</span>
-    <span class="home-attn-value">${s.rpe ?? '?'}<small class="rpe-of">/10</small></span>
-    <small>${escapeHtml(s.titre)} | ${phDay(s.date_seance)}${s.heure ? ` à ${s.heure.slice(0, 5)}` : ''}${todo.length > 1 ? ` | ${todo.length} à noter` : ''}</small>${todo.length ? PH_CTA : ''}
-  </a>`;
-}
-function openRpeFromCard(e) {
-  const a = e.target.closest('[data-rpe]');
-  if (!a) return;
-  e.preventDefault();
-  const pending = phRpeTodo();
-  openRpeSheet({ session: pending[0], pending, onSaved: (v, item) => {
-    item.rpe = v;
-    document.getElementById('phRpe').outerHTML = rpeCardHtml();
-  } });
+/* « À remplir » : une carte par questionnaire (player-todo.js), côte à côte avec les autres,
+   chacune avec son « Répondre » aligné en bas ; sans rouge : un liseré de couleur par moment
+   (avant : bleu, après : vert d'eau). null : illisible. */
+let phTodo = null;
+const PH_TODO_MAX = 4;
+function todoCards() {
+  if (phTodo === null) return [];
+  if (!phTodo.length) return [phCard({ href: 'mes-formulaires', icon: 'forms', tone: 'calm', value: '✓', label: 'Questionnaires', detail: 'Rien à remplir pour l’instant' })];
+  const shown = phTodo.length > PH_TODO_MAX ? phTodo.slice(0, PH_TODO_MAX - 1) : phTodo;
+  const cards = shown.map(it => `<a class="home-attn-card is-todo is-${it.phase || 'libre'}" href="mes-formulaires?u=${encodeURIComponent(it.key)}">
+    <span class="home-attn-head"><strong>${escapeHtml(it.label)}</strong>${phIc('forms')}</span>
+    <small>${escapeHtml(ptSub(it))}</small>
+    <span class="home-attn-cta">Répondre</span></a>`);
+  if (shown.length < phTodo.length) {
+    cards.push(`<a class="home-attn-card is-todo" href="mes-formulaires">
+      <span class="home-attn-head"><strong>Encore ${phTodo.length - shown.length} à remplir</strong>${phIc('forms')}</span>
+      <small>Tous tes questionnaires</small><span class="home-attn-cta">Voir</span></a>`);
+  }
+  return cards;
 }
 
 function renderAttention(videos, seqs, notes, exercises) {
-  const cards = [];
-  if (phFormsPending) cards.push(phCard({ href: 'mes-formulaires', icon: 'forms', tone: 'urgent',
-    value: phFormsPending, label: 'Questionnaires à remplir', detail: phFormsPending > 1 ? 'Ils t’attendent' : 'Il t’attend', todo: true }));
-  if (phSore) cards.push(soreCardHtml());
-  if (phMf && !mfAnswered(phMf.value)) cards.push(mfCardHtml());   // sans réponse : devant
-  if (phRpeOn) cards.push(rpeCardHtml());
-  if (phMf && mfAnswered(phMf.value)) cards.push(mfCardHtml());
+  const cards = todoCards();
   const fresh = videos.filter(v => daysAgo(v.created_at) <= 7);
-  cards.push(phCard({ href: 'mes-videos', icon: 'video', tone: fresh.length ? 'urgent' : (videos.length ? '' : 'calm'),
+  cards.push(phCard({ href: 'mes-videos', icon: 'video', tone: fresh.length ? 'new' : (videos.length ? '' : 'calm'),
     value: fresh.length || videos.length, label: fresh.length ? 'Nouvelles vidéos' : 'Vidéos du staff',
     detail: videos.length ? escapeHtml(videos[0].titre || 'Vidéo') : '' }));
 
@@ -196,7 +109,7 @@ function renderAttention(videos, seqs, notes, exercises) {
   const waiting = seqs.filter(s => s.submitted_at && !s.staff_feedback);
   const quote = (t) => `« ${escapeHtml(t.length > 50 ? `${t.slice(0, 47)}…` : t)} »`;
   cards.push(answered.length
-    ? phCard({ href: 'mes-videos?tab=seqs', icon: 'chat', tone: daysAgo(answered[0].feedback_at || 0) <= 7 ? 'urgent' : '',
+    ? phCard({ href: 'mes-videos?tab=seqs', icon: 'chat', tone: daysAgo(answered[0].feedback_at || 0) <= 7 ? 'new' : '',
         value: answered.length, label: 'Retours du staff', detail: quote(answered[0].staff_feedback) })
     : phCard({ href: 'mes-videos?tab=seqs', icon: 'chat', tone: 'calm', value: waiting.length,
         label: 'Séquences envoyées', detail: waiting.length ? 'En attente de retour' : '' }));
