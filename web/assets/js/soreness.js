@@ -13,8 +13,8 @@
 
 /* [clé (base), libellé, sigle, zone] */
 const SORE_MUSCLES = [
-  ['ischios', 'Ischio-jambiers', 'IJ', 'bas'], ['quadriceps', 'Quadriceps', 'Qua', 'bas'], ['adducteurs', 'Adducteurs', 'Add', 'bas'],
-  ['abducteurs', 'Abducteurs', 'Abd', 'bas'], ['mollets', 'Mollets', 'Mol', 'bas'],
+  ['ischios', 'Ischio-jambiers', 'IJ', 'bas'], ['quadriceps', 'Quadriceps', 'Qua', 'bas'], ['fessiers', 'Fessiers', 'Fes', 'bas'],   // fessiers, psoas : lmfc_v68.sql
+  ['adducteurs', 'Adducteurs', 'Add', 'bas'], ['abducteurs', 'Abducteurs', 'Abd', 'bas'], ['mollets', 'Mollets', 'Mol', 'bas'], ['psoas', 'Psoas', 'Pso', 'bas'],
   ['pectoraux', 'Pectoraux', 'Pec', 'haut'], ['dorsaux', 'Dorsaux', 'Dor', 'haut'], ['abdominaux', 'Abdominaux', 'Abdo', 'haut'],
   ['biceps', 'Biceps', 'Bi', 'haut'], ['triceps', 'Triceps', 'Tri', 'haut'],
 ];

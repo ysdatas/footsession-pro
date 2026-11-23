@@ -319,6 +319,18 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            période seulement) ; custom_form_plan() ; custom_forms_my_pending et
                                            custom_form_submit suivent le réglage (de J à J-2, jamais avant la création) ;
                                            après lmfc_v64.sql ; retour arrière : lmfc_v65_retour.sql (réglages perdus)
+84. supabase/lmfc_v66.sql                  championnats du club : table competitions (nom unique, libellés FFF reconnus),
+                                           matches.competition_id (le texte competition reste) ; lecture staff, écriture
+                                           admin, coach, analyste, jamais le lecteur ; après lmfc_v65.sql ;
+                                           retour arrière : lmfc_v66_retour.sql (championnats et classement perdus)
+85. supabase/lmfc_v67.sql                  formulaires : question à choix multiple (type « multi », 24 choix au plus,
+                                           silhouette du corps si « corps » : form-body.js ; réponse en liste rangée
+                                           dans l'ordre des choix, aucune case = sans réponse) ; custom_form_save
+                                           et custom_form_submit ; après lmfc_v66.sql ; retour arrière :
+                                           lmfc_v67_retour.sql (formulaires actifs à choix multiple désactivés)
+86. supabase/lmfc_v68.sql                  courbatures : fessiers et psoas en plus (bas du corps) ; contrainte
+                                           player_soreness_muscles_check et soreness_set() ; après lmfc_v67.sql ;
+                                           retour arrière : lmfc_v68_retour.sql (refusé si une réponse les cite)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1222,6 +1234,9 @@ node tests/v62-sql.test.mjs       # questionnaires après séance et match : for
 node tests/v63-sql.test.mjs       # formulaires : nombres envoyés en texte, niveaux d'échelle, jour des questionnaires, suppression archivée, retour arrière (PGlite)
 node tests/v64-sql.test.mjs       # questionnaires proposés de J à J-2 seulement, J-3 refusé, retour arrière (PGlite)
 node tests/v65-sql.test.mjs       # quand poser un formulaire : chaque jour, jours de la semaine, avant le match, période, droits, retour arrière (PGlite)
+node tests/v66-sql.test.mjs       # championnats : droits, nom unique, club du match, suppression, retour arrière (PGlite)
+node tests/v68-sql.test.mjs       # courbatures : fessiers et psoas acceptés, muscle inconnu refusé, retour arrière refusé puis rendu (PGlite)
+node tests/v67-sql.test.mjs       # choix multiple : options exigées, liste rangée sans doublon, choix inconnu refusé, vide, retour arrière (PGlite)
 node tests/analyst-role-sql.test.mjs  # rôle Analyste vidéo : portée, RLS, outils d'équipe, défaut Pro et retours (PGlite)
 node tests/tactical-save.test.mjs  # publication immuable d'image tactique puis référence en base
 node tests/page-globals.test.mjs  # deux scripts d'une même page ne déclarent pas le même nom

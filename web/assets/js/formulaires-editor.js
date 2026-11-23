@@ -107,7 +107,9 @@ function cfQuestionHtml(question) {
     <div class="cf-question-fields">
       <div class="field"><label for="cf-label-${id}">Intitulé</label><input id="cf-label-${id}" data-cf-label required maxlength="180" value="${escapeHtml(question.label || '')}" placeholder="Votre question"></div>
       <div class="field"><label for="cf-type-${id}">Type de réponse</label><select id="cf-type-${id}" data-cf-type${lock}>${Object.entries(cfTypeLabels).map(([value, label]) => `<option value="${value}"${question.type === value ? ' selected' : ''}>${label}</option>`).join('')}</select></div>
-      <div class="field cf-q-options${question.type === 'choice' && !question.fixe ? '' : ' hidden'}"><label for="cf-options-${id}">Choix proposés, un par ligne</label><textarea id="cf-options-${id}" data-cf-options rows="3" maxlength="1000" placeholder="Option 1\nOption 2">${escapeHtml(choices)}</textarea></div>
+      <div class="field cf-q-options${['choice', 'multi'].includes(question.type) && !question.fixe ? '' : ' hidden'}"><label for="cf-options-${id}">Choix proposés, un par ligne</label><textarea id="cf-options-${id}" data-cf-options rows="3" maxlength="1000" placeholder="Option 1\nOption 2">${escapeHtml(choices)}</textarea></div>
+      <label class="check cf-q-curseur${question.type === 'scale' && !question.fixe ? '' : ' hidden'}"><input type="checkbox" data-cf-curseur${question.curseur ? ' checked' : ''}> Répondre avec un curseur (sinon des pastilles)</label>
+      <label class="check cf-q-corps${question.type === 'multi' && !question.fixe ? '' : ' hidden'}"><input type="checkbox" data-cf-corps${question.corps ? ' checked' : ''}> Silhouette du corps (zones cliquables)</label>
       <div class="cf-q-levels${levels ? '' : ' hidden'}" data-cf-levels-box>${cfLevelsHtml(question)}</div>
       <label class="check cf-q-required"><input type="checkbox" data-cf-required${question.required === false ? '' : ' checked'}${lock}> Réponse obligatoire</label>
     </div>
@@ -178,10 +180,17 @@ function cfEditorClick(e) {
 
 function cfQuestionChange(e) {
   if (e.target.matches('[data-cf-lv-color]')) { e.target.closest('.cf-level-c').querySelector('[data-cf-lv-colored]').checked = true; return; }
+  if (e.target.matches('[data-cf-corps]')) {   // silhouette (form-body.js) : sans choix saisis, toutes les zones
+    const options = e.target.closest('.cf-question').querySelector('[data-cf-options]');
+    if (e.target.checked && !options.value.trim()) options.value = FB_DEFAULT.join('\n');
+    return;
+  }
   const select = e.target.closest('[data-cf-type]');
   if (!select) return;
   const row = select.closest('.cf-question');
-  row.querySelector('.cf-q-options').classList.toggle('hidden', select.value !== 'choice');
+  row.querySelector('.cf-q-options').classList.toggle('hidden', !['choice', 'multi'].includes(select.value));
+  row.querySelector('.cf-q-corps').classList.toggle('hidden', select.value !== 'multi');
+  row.querySelector('.cf-q-curseur').classList.toggle('hidden', select.value !== 'scale');
   row.querySelector('[data-cf-levels-box]').classList.toggle('hidden', select.value !== 'scale');
 }
 
@@ -233,8 +242,10 @@ function cfReadEditor() {
     const prev = CF.editing?.version?.questions?.find(x => x.id === row.dataset.questionId && x.type === type);
     const q = { ...(prev?.alerte ? { alerte: prev.alerte } : {}), id: row.dataset.questionId,
       label: row.querySelector('[data-cf-label]').value.trim(), type, required: row.querySelector('[data-cf-required]').checked };
-    if (type === 'choice') q.options = row.querySelector('[data-cf-options]').value.split('\n').map(x => x.trim()).filter(Boolean);
+    if (type === 'choice' || type === 'multi') q.options = row.querySelector('[data-cf-options]').value.split('\n').map(x => x.trim()).filter(Boolean);
+    if (type === 'multi' && row.querySelector('[data-cf-corps]').checked) q.corps = true;
     if (type !== 'scale') return q;
+    if (row.querySelector('[data-cf-curseur]').checked) q.curseur = true;   // form-slider.js
     const r = cfScale(q, row, false);
     error ||= r.error;
     return r.q || q;
@@ -255,7 +266,7 @@ async function cfSave(e) {
   if (!form.title || form.questions.some(q => !q.label)) { message.textContent = 'Renseignez le nom du formulaire et chaque question.'; return; }
   if (form.error) { message.textContent = form.error; return; }
   if (form.active && !form.team_ids.length) { message.textContent = 'Affectez un formulaire actif à au moins une équipe.'; return; }
-  if (form.questions.some(q => q.type === 'choice' && (q.options.length < 2 || new Set(q.options.map(x => x.toLocaleLowerCase('fr'))).size !== q.options.length))) {
+  if (form.questions.some(q => ['choice', 'multi'].includes(q.type) && (q.options.length < 2 || new Set(q.options.map(x => x.toLocaleLowerCase('fr'))).size !== q.options.length))) {
     message.textContent = 'Chaque question à choix doit avoir au moins deux options distinctes.'; return;
   }
   delete form.error;

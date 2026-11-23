@@ -30,6 +30,7 @@ const fqLevel = (q, v) => (v == null || v === '' ? null : fqLevels(q).find(n => 
 /* Une réponse telle qu'enregistrée, lisible : « 7 – Difficile », « Oui », « 12,5 ». Jamais recalculée. */
 function fqAnswerText(q, v) {
   if (v == null || v === '') return '';
+  if (Array.isArray(v)) return v.join(', ');   // choix multiple (lmfc_v67.sql)
   if (v === true) return 'Oui';
   if (v === false) return 'Non';
   if (typeof v === 'number') {

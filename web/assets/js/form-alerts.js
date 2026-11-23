@@ -13,7 +13,13 @@ function faText(a) {
   const r = a.regle || {}, label = a.question_label || 'Question';
   if (a.mode === 'serie') return `« ${label} » sous ${r.sous ?? 5} ${r.fois ?? 3} jours de suite (dernière réponse : ${a.valeur})`;
   if (a.mode === 'seuil') return `« ${label} » : ${a.valeur} (alerte à ${r.max ?? 3} ou moins)`;
-  return `Douleur ${a.valeur}/10${a.detail ? ` : ${a.detail}` : ' (zone non précisée)'}`;
+  return `Douleur ${a.valeur}/10${a.detail ? ` : ${faZone(a.detail)}` : ' (zone non précisée)'}`;
+}
+
+/* Zone de douleur : texte, ou liste en JSON si la question est à choix multiple (lmfc_v67.sql). */
+function faZone(detail) {
+  if (!String(detail).startsWith('[')) return detail;
+  try { const list = JSON.parse(detail); return Array.isArray(list) ? list.join(', ') : detail; } catch { return detail; }
 }
 
 const faKey = (a) => `${a.player_id}|${a.form_id}|${a.question_id}|${a.jour}`;

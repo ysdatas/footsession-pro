@@ -129,11 +129,15 @@ function mfRender() {
   const limit = new Date();
   limit.setDate(limit.getDate() - MF_RECENT_DAYS);
   const recent = list.filter(x => !x.day || x.day >= mfIso(limit)), older = list.filter(x => !recent.includes(x));
+  // Venu du calendrier (calendar-forms.js, ?f=version&o=occurrence) : ce questionnaire-là, ouvert.
+  const want = new URLSearchParams(location.search);
+  const first = list.find(x => String(x.form.version_id) === want.get('f') && (x.form.occurrence || '') === (want.get('o') || '')) || list[0];
   const groups = (items) => mfByDay(items, x => x.day).map(g => `<div class="mf-day"><h3 class="mf-day-title">${escapeHtml(mfDayLabel(g.day))}</h3>
-    ${g.items.map(x => mfFormHtml(x.form, x.i, x === list[0])).join('')}</div>`).join('');
-  box.innerHTML = groups(recent) + (older.length ? `<details class="mf-older"><summary>Plus anciens à remplir <span class="mf-count">${older.length}</span></summary>
+    ${g.items.map(x => mfFormHtml(x.form, x.i, x === first)).join('')}</div>`).join('');
+  box.innerHTML = groups(recent) + (older.length ? `<details class="mf-older"${older.includes(first) ? ' open' : ''}><summary>Plus anciens à remplir <span class="mf-count">${older.length}</span></summary>
     ${groups(older)}</details>` : '');
   box.querySelectorAll('[data-mf-form]').forEach(f => mfProgress({ target: f }));
+  if (first !== list[0]) box.querySelector('[data-mf-card][open]')?.scrollIntoView({ block: 'start' });
   mfRenderHistory();
 }
 
@@ -194,11 +198,19 @@ function mfQuestionHtml(q, index) {
   if (q.type === 'text') return field(`<input id="${id}" data-mf-answer="${key}" data-mf-kind="text" type="text" maxlength="200">`);
   if (q.type === 'number') return field(`<input id="${id}" data-mf-answer="${key}" data-mf-kind="number" type="text" inputmode="decimal" autocomplete="off">`);
   if (q.type === 'boolean') return chips([{ value: 'true', text: 'Oui', kind: 'boolean' }, { value: 'false', text: 'Non', kind: 'boolean' }], ' is-two');
+  if (q.type === 'multi') {   // choix multiple (lmfc_v67.sql) : pastilles à cocher, autant que voulu
+    const options = Array.isArray(q.options) ? q.options : [];
+    return `<fieldset class="field mf-field" data-mf-q="${key}"><legend>${label} <small>Plusieurs réponses possibles</small></legend>
+      ${fbHas(q) ? fbHtml(options) : ''}<div class="mf-chips is-text">${options.map((o, i) => `<label class="mf-chip">
+        <input type="checkbox" name="${id}" value="${escapeHtml(o)}" data-mf-answer="${key}" data-mf-kind="multi"${i === 0 ? ` id="${id}"` : ''}>
+        <span class="mf-chip-v">${escapeHtml(o)}</span></label>`).join('')}</div></fieldset>`;
+  }
   if (q.type === 'choice') {
     const options = Array.isArray(q.options) ? q.options : [];
     if (options.length <= MF_CHIPS_MAX) return chips(options.map(o => ({ value: o, text: o, kind: 'text' })), ' is-text');
     return field(`<select id="${id}" data-mf-answer="${key}" data-mf-kind="text"><option value="">Choisir</option>${options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}</select>`);
   }
+  if (q.curseur === true) return fsHtml(q, id, key, label);   // échelle en curseur (form-slider.js)
   const levels = fqLevels(q);   // échelle : la valeur reste un nombre, le libellé s'affiche
   return chips(levels.map(n => ({ value: String(n.valeur), text: String(n.valeur), sub: levels.length <= 5 ? n.libelle : '', color: n.couleur, kind: 'number' })),
     levels.length > 6 ? ' is-scale is-long' : ' is-scale');
@@ -209,6 +221,12 @@ function mfAnswers(form, questions) {
   const answers = {};
   for (const q of questions) {
     const inputs = [...form.querySelectorAll('[data-mf-answer]')].filter(x => x.dataset.mfAnswer === q.id);
+    if (inputs[0]?.type === 'checkbox') {   // choix multiple : la liste cochée, rien coché = sans réponse
+      const picked = inputs.filter(x => x.checked).map(x => x.value);
+      if (!picked.length && q.required) return { error: `Réponds à « ${q.label} ».`, q };
+      answers[q.id] = picked.length ? picked : null;
+      continue;
+    }
     const input = inputs.find(x => x.type !== 'radio') || inputs.find(x => x.checked) || null;
     const raw = input ? input.value.trim() : '';
     let value = null;
@@ -230,7 +248,7 @@ function mfProgress(e) {
   const form = e.target.closest?.('[data-mf-form]');
   if (!form) return;
   const questions = MF.pending[Number(form.dataset.mfIndex)]?.questions || [];
-  const done = questions.filter(q => [...form.querySelectorAll('[data-mf-answer]')].some(x => x.dataset.mfAnswer === q.id && (x.type === 'radio' ? x.checked : x.value.trim() !== ''))).length;
+  const done = questions.filter(q => [...form.querySelectorAll('[data-mf-answer]')].some(x => x.dataset.mfAnswer === q.id && (['radio', 'checkbox'].includes(x.type) ? x.checked : x.value.trim() !== ''))).length;
   const n = form.closest('[data-mf-card]')?.querySelector('[data-mf-n]');
   if (n) n.textContent = done ? `${done}/${questions.length} répondues` : `${questions.length} question${questions.length === 1 ? '' : 's'}`;
   const box = e.target.closest?.('[data-mf-q]');

@@ -44,7 +44,7 @@
 .cf-level-c input[type=color] { width:34px; height:30px; padding:0 2px; border:1px solid var(--border); border-radius:6px; background:none; cursor:pointer; }
 .cf-level-c input[type=checkbox]:not(:checked) + input[type=color] { opacity:.35; }
 .cf-level-x { width:30px; padding:4px 0; justify-content:center; }
-.cf-q-required { grid-column:1/-1; }
+.cf-q-required, .cf-q-corps, .cf-q-curseur { grid-column:1/-1; }
 .cf-active { display:flex; align-items:center; gap:9px; margin:14px 0 4px; }
 .cf-plan { display:grid; gap:10px; }
 .cf-plan .field { margin:0; }

@@ -190,7 +190,7 @@ function openCalItem(i) {
   document.getElementById('calDetailTitle').textContent = calTitleOf(i);
   document.getElementById('calDetailBody').innerHTML = `<p class="cal-kind k-${i.kind}">${CAL_KINDS[i.kind]}</p>
     <dl class="cal-dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>
-    ${CAL.asPlayer && i.kind !== 'evenement' ? '<div class="cal-rpe" id="calRpe" aria-live="polite"></div>' : ''}
+    ${CAL.asPlayer && i.kind !== 'evenement' ? '<div class="cal-rpe" id="calRpe" aria-live="polite"></div><div class="cal-quest hidden" id="calQuest"></div>' : ''}
     ${CAL.asPlayer && i.kind === 'match' && i.date <= calToday() ? '<div class="cal-rpe" id="calAvis" aria-live="polite"></div>' : ''}`;
   openModal('calDetailModal');
   if (CAL.asPlayer && i.kind !== 'evenement') calPlayerForms(i);
@@ -202,6 +202,7 @@ async function calPlayerForms(i) {
   if (error) console.warn('Formulaires de l’événement indisponibles', error.message);
   const form = (source) => (data || []).find(f => f.source === source);
   calRpe(i, form(i.kind === 'match' ? 'rpe_match' : 'rpe_seance'));
+  calQuest(i);   // courbatures et questionnaires, avant / après (calendar-forms.js)
   if (i.kind === 'match' && i.date <= calToday()) calAvis(i, form('avis_match'));
 }
 
@@ -243,7 +244,7 @@ async function calRpe(i, form) {
           if (r && (r === saved || (x.id === saved.id && (x.kind === 'match') === !!saved.match))) x.rpeTodo = false;
           else if (r?.ailleurs && x.rpeTodo) { x.rpeTodo = false; x.rpeAilleurs = r.ailleurs; }
         });
-        renderCal(); calRpe(i, form);
+        renderCal(); calRpe(i, form); calQuest(i);
       } });
   });
 }

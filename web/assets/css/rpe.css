@@ -250,3 +250,8 @@
   .sr-th { width: 120px; }
   .hr-who { max-width: 150px; font-size: var(--fs-xs); }
 }
+
+/* Calendrier, joueur : avant / après la séance (calendar-forms.js). */
+.cal-quest { display: grid; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cal-quest-part h3 { margin: 0 0 6px; color: var(--text-secondary); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; }
+.cal-quest-btns { display: flex; flex-wrap: wrap; gap: 8px; }
