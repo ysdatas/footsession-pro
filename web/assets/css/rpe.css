@@ -271,9 +271,10 @@ th[aria-sort="descending"] .sr-sort-ic { opacity: 1; }
 .sr-resp-none.sr-st-abs { color: #ff8a80; }
 .sr-resp-none.sr-st-wait { color: var(--gold); }
 
-/* Réponses : un bloc par jour, à la largeur de ses séances ; elles s'y suivent, la plus tôt à gauche.
+/* Réponses : un bloc par jour, à la largeur de ses séances ; elles s'y suivent, la plus tôt à gauche. Tous les jours
+   sur une ligne : les tuiles se resserrent, puis la ligne défile de côté (la plus récente en vue).
    L'heure en gros, en or ; la tuile choisie (bord or) montre son tableau dessous. */
-.sr-days { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 14px; }
+.sr-days { display:flex; flex-wrap:nowrap; gap:10px; margin:0 0 14px; padding-bottom:4px; overflow-x:auto; scrollbar-width:thin; }
 .sr-day { display:grid; grid-template-rows:auto 1fr; gap:6px; min-width:0; padding:8px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-surface); }
 .sr-day-h { display:flex; align-items:baseline; gap:6px; margin:0 4px; color:var(--text-primary); font-size:var(--fs-sm); font-weight:600; }
 .sr-day-h b { color:var(--text-secondary); font:500 var(--fs-sm)/1 var(--font-num); }
@@ -335,5 +336,7 @@ th[aria-sort="descending"] .sr-sort-ic { opacity: 1; }
 #srBar .segmented { align-items: center; }
 .sr-n { min-height: 36px; }
 /* Réponses : chaque jour à la largeur de ses séances (un jour à une séance reste étroit). */
-.sr-day { flex: 0 1 calc(var(--n, 1) * 158px + (var(--n, 1) - 1) * 6px + 18px); }
-@media (max-width: 600px) { .sr-day { flex: 1 1 100%; } }
+.sr-day { flex: 0 1 calc(var(--n, 1) * 158px + (var(--n, 1) - 1) * 6px + 18px); min-width: calc(var(--n, 1) * 112px + (var(--n, 1) - 1) * 6px + 18px); }
+/* Courbatures : l'équipe d'un joueur venu d'une autre équipe, et le choix de l'équipe. */
+.sore-team { margin-left: 8px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 500; }
+.sore-teams { margin: 0 0 12px; }

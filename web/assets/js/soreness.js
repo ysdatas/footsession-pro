@@ -98,8 +98,9 @@ async function soreSave() {
 }
 
 /* ---------- Staff : vue « Courbatures » du Suivi RPE ----------
-   players : [{ id, nom, prenom, auth_user_id }] (tous les joueurs concernés, « sans compte » si aucun compte relié) ; days : ['2026-10-26', …] ; rows : player_soreness ; alerts : non vues. */
-function soreHtml({ players, days, rows, alerts }) {
+   players : [{ id, nom, prenom, auth_user_id }] (tous les joueurs concernés, « sans compte » si aucun compte relié) ; days : ['2026-10-26', …] ; rows : player_soreness ; alerts : non vues ;
+   tag(p) : étiquette après le nom (l'équipe d'un joueur venu d'une autre équipe, suivi-rpe-grid.js). */
+function soreHtml({ players, days, rows, alerts, tag = () => '' }) {
   const name = (id) => playerFullName(players.find(p => p.id === id) || {});
   const cell = new Map(rows.map(r => [`${r.player_id}:${r.jour}`, r]));
   const alertsHtml = alerts.length ? `<section class="sore-alerts" aria-label="Alertes courbatures">${alerts.map(a => `
@@ -113,7 +114,7 @@ function soreHtml({ players, days, rows, alerts }) {
   return `${alertsHtml}
     <div class="sr-table-wrap"><table class="table sr-table sore-table"><thead><tr><th scope="col">Joueur</th>
       ${days.map(d => `<th scope="col">${rpeDate(d).slice(0, 5)}</th>`).join('')}</tr></thead>
-      <tbody>${players.map(p => `<tr><th scope="row">${escapeHtml(name(p.id))}${'auth_user_id' in p && !p.auth_user_id
+      <tbody>${players.map(p => `<tr><th scope="row">${escapeHtml(name(p.id))}${tag(p)}${'auth_user_id' in p && !p.auth_user_id
         ? ' <small class="sore-noacc" title="Aucun compte joueur relié à cette fiche : il ne reçoit pas le questionnaire">sans compte</small>' : ''}</th>${days.map(d => {
         const r = cell.get(`${p.id}:${d}`);
         return r ? `<td><span class="sore-n" style="--rpe:${soreColor(r.niveau)}">${r.niveau}</span>${soreChips(r.muscles, true)}</td>` : '<td class="sore-none">—</td>';

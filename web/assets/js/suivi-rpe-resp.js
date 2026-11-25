@@ -56,13 +56,16 @@ async function renderSrResp(body) {
   const list = SR.sessions.map((s, j) => ({ s, j, ...srRespCount(j) }));
   const sel = list.find(x => x.s.key === SR.respSel) || list.at(-1);
   SR.respSel = sel.s.key;
-  const days = [...new Set(list.map(x => x.s.date_seance))];
+  const days = [...new Set(list.map(x => x.s.date_seance))], x0 = body.querySelector('.sr-days')?.scrollLeft;
   swapKeepView(body, `<div class="sr-days" role="group" aria-label="${SR.scope === 'match' ? 'Matchs' : 'Séances'} par jour">${days.map(d => {
     const day = list.filter(x => x.s.date_seance === d);
     return `<div class="sr-day" style="--n:${day.length}"><p class="sr-day-h">${escapeHtml(srDayName(d))} <b>${d.slice(8, 10)}/${d.slice(5, 7)}</b>${day.length > 1 ? `<small>${day.length} ${SR.scope === 'match' ? 'matchs' : 'séances'}</small>` : ''}</p>
       <div class="sr-day-list">${day.map(x => srRespTile(x, x === sel)).join('')}</div></div>`;
   }).join('')}</div>
     ${srRespCard(sel.s, sel.j)}`);
+  // Jours sur une ligne qui défile : la ligne reste où elle était ; à l'ouverture, la séance choisie (la plus récente) en vue.
+  const row = body.querySelector('.sr-days'), on = row.querySelector('[aria-pressed="true"]');
+  row.scrollLeft = x0 ?? Math.max(0, on.getBoundingClientRect().right - row.getBoundingClientRect().right + 8);
 }
 
 /* Joueurs attendus (sans « autre équipe ») et réponses d'une colonne de la grille. */
@@ -108,8 +111,8 @@ function srRespCard(s, j) {
   const body = rows.map(({ p, c }) => {
     const st = srStatus(c);
     const rpe = c?.v ? `<td class="is-num" data-sort="${Number(c.v)}"><span class="sr-resp-rpe" style="--rpe:${rpeColor(c.v)}" title="${escapeHtml(rpeLabel(c.v))}">${c.v}</span></td>`
-      : `<td class="is-num" data-grp="${SR_STATUS[st][0]}"><span class="sr-resp-none sr-st-${st}"${c === 'away' ? ` title="${escapeHtml(`RPE donné avec ${srAway(s, p).other_label}`)}"` : ''}>${
-        c === 'abs' ? 'abs.' : c === 'away' ? `en ${escapeHtml(srAwayTeam(srAway(s, p)))} · ${srAway(s, p).other_rpe}` : c === 'wait' ? 'en attente' : '—'}</span></td>`;
+      : `<td class="is-num" data-grp="${SR_STATUS[st][0]}"><span class="sr-resp-none sr-st-${st}"${c === 'away' ? ` title="${escapeHtml(srAway(s, p).other_rpe == null ? srAway(s, p).other_label : `RPE donné avec ${srAway(s, p).other_label}`)}"` : ''}>${
+        c === 'abs' ? 'abs.' : c === 'away' ? (srAway(s, p).other_rpe == null ? `groupe ${escapeHtml(srAwayTeam(srAway(s, p)))}` : `en ${escapeHtml(srAwayTeam(srAway(s, p)))} · ${srAway(s, p).other_rpe}`) : c === 'wait' ? 'en attente' : '—'}</span></td>`;
     const avis = s.match ? SR_AVIS.map(([k]) => srRespCell({ type: 'textarea', required: false }, fb.get(p.id), fb.get(p.id)?.[k])) : [];
     const more = qs.map(({ form, q }) => { const r = extra.find(x => x.player_id === p.id && x.form_id === form); return srRespCell(q, r, r?.answers?.[q.id]); });
     return `<tr data-st="${st}"><th scope="row" data-sort="${escapeHtml(playerFullName(p).toLocaleLowerCase('fr'))}">${srRespWho(p)}</th>${rpe}${[...avis, ...more].join('')}</tr>`;

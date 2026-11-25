@@ -147,6 +147,8 @@
 .st-malade    { --st: #AB47BC;        --st-bg: rgba(171,71,188,.14); --st-text: #dda0e8; }
 .st-selection { --st: var(--gold);    --st-bg: rgba(var(--gold-rgb), .14); --st-text: var(--gold-light); }
 .st-groupe_pro { --st: #5C7CFA;      --st-bg: rgba(92,124,250,.14); --st-text: #a5b8ff; }
+.st-groupe    { --st: var(--red-ui);  --st-bg: rgba(232,57,79,.12); --st-text: #ff9aa8; }   /* avec un autre groupe (lmfc_v73.sql) */
+.st-hint { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.35; }
 .st-autre     { --st: #90A4AE;       --st-bg: rgba(144,164,174,.14); --st-text: #cfd8dc; }
 .att-item.st-autre { flex-wrap: wrap; }
 .st-other { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }

@@ -3,7 +3,8 @@
    Les joueurs dans la séance (lmfc_v9.sql, lmfc_v12.sql) :
      - statut de chacun (attendance.statut) : un clic sur la carte le met
        présent (un 2e clic : absent) ; la liste pour les autres : reprise,
-       blessé, sélection, groupe pro, ou « Autre » avec un motif libre
+       blessé, sélection, « Groupe Espoirs » (lmfc_v73.sql : la base le note présent
+       à la séance de ce groupe de la même demi-journée), ou « Autre » avec un motif libre
        (statut_libre) et une case « participe » (present) ;
      - invités : n'importe quel joueur du club, ajouté pour cette
        séance seulement (attendance.invite), son équipe ne change pas ;
@@ -37,7 +38,9 @@ function renderAttendance() {
           <button type="button" class="att-name" data-toggle="${i}" title="${escapeHtml(name)} : cliquer pour ${a.statut === 'present' ? 'absent' : 'présent'}" aria-pressed="${a.statut === 'present'}" ${dis}>${escapeHtml(name)}</button>
           ${guest}
           <div class="att-row"><span class="att-meta">${escapeHtml(meta)}</span>
-            <select class="st-select st-${a.statut}" data-att="${i}" aria-label="Statut de ${escapeHtml(name)}" ${dis}>${statutOptions(a.statut)}</select></div>
+            <select class="st-select st-${a.statut}" data-att="${i}" aria-label="Statut de ${escapeHtml(name)}" ${dis}>${statutOptions(a)}</select></div>
+          ${a.statut === 'groupe' ? `<p class="st-hint">Noté présent à la séance ${escapeHtml(teamName(Number(a.groupe_team_id)) || 'de ce groupe')} de la même demi-journée, s’il y en a une.</p>` : ''}
+          ${a.groupe_de ? `<p class="st-hint">Noté ici depuis sa séance de la même demi-journée (« Groupe ${escapeHtml(teamName(sessionTeamId) || '…')} »).</p>` : ''}
         </div>
         ${a.invite && CAN_WRITE ? `<button class="att-remove" type="button" data-remove-guest="${i}" aria-label="Retirer ${escapeHtml(rosterName(a))} de la séance" title="Retirer de la séance">✕</button>` : ''}
         ${a.statut === 'autre' ? `<div class="st-other">
@@ -51,10 +54,15 @@ function renderAttendance() {
   renderPitch();   // terrain d'effectif (session-pitch.js) : poignées et pions à jour
 }
 
-/* Statuts proposés ; un ancien statut (Retard, Excusé, Malade) reste affiché tel quel. */
-function statutOptions(current) {
-  const list = STATUTS_ANCIENS.some(s => s.key === current) ? [...STATUTS, STATUTS_ANCIENS.find(s => s.key === current)] : STATUTS;
-  return list.map(s => `<option value="${s.key}"${s.key === current ? ' selected' : ''}>${s.label}</option>`).join('');
+/* Statuts proposés ; un ancien statut (Retard, Excusé, Malade) reste affiché tel quel. Avec des équipes : « Groupe <équipe> »
+   pour chacune des autres équipes du club (valeur « groupe:12 ») ; « Groupe pro » ne reste que là où il est déjà noté. */
+function statutOptions(a) {
+  const current = a.statut, teams = window.CLUB_TEAMS || [], mine = sessionTeamIds({ team_id: sessionTeamId, other_team_ids: sessionOtherTeams });
+  const list = [...STATUTS.filter(s => !(teams.length && s.key === 'groupe_pro' && current !== 'groupe_pro')), ...STATUTS_ANCIENS.filter(s => s.key === current)];
+  const groups = teams.filter(t => !mine.includes(t.id) || (current === 'groupe' && Number(a.groupe_team_id) === t.id));
+  const opt = (v, l, on) => `<option value="${v}"${on ? ' selected' : ''}>${escapeHtml(l)}</option>`;
+  return list.map(s => opt(s.key, s.label, s.key === current)).join('')
+    + (groups.length ? `<optgroup label="Avec un autre groupe">${groups.map(t => opt(`groupe:${t.id}`, `Groupe ${t.nom}`, current === 'groupe' && Number(a.groupe_team_id) === t.id)).join('')}</optgroup>` : '');
 }
 
 function updatePresentCount() {
@@ -62,7 +70,7 @@ function updatePresentCount() {
   // Les autres statuts, regroupés par libellé (motif libre compris) ; « 2 blessés », « 1 groupe pro », « 1 soins ».
   const other = new Map();
   attendance.filter(a => !['present', 'absent'].includes(a.statut))
-    .forEach(a => { const l = statutLabel(a).toLowerCase(); other.set(l, { n: (other.get(l)?.n || 0) + 1, plural: a.statut !== 'autre' && a.statut !== 'groupe_pro' }); });
+    .forEach(a => { const l = statutLabel(a).toLowerCase(); other.set(l, { n: (other.get(l)?.n || 0) + 1, plural: !['autre', 'groupe_pro', 'groupe'].includes(a.statut) }); });
   const parts = [`${p} présent${p > 1 ? 's' : ''}`,
     ...[...other].map(([l, o]) => `${o.n} ${l}${o.n > 1 && o.plural ? 's' : ''}`),
     guests ? `${guests} invité${guests > 1 ? 's' : ''}` : ''].filter(Boolean);
@@ -70,9 +78,10 @@ function updatePresentCount() {
 }
 
 /* Changement de statut : équipes, bilan et compteurs suivent. */
-function setStatut(i, statut) {
-  const a = attendance[i];
+function setStatut(i, value) {
+  const a = attendance[i], [statut, team] = String(value).split(':');
   a.statut = statut;
+  a.groupe_team_id = statut === 'groupe' ? Number(team) : null;   // « groupe:12 » : Groupe <équipe 12> (lmfc_v73.sql)
   if (statut === 'autre') a.present = false;   // à cocher si le joueur participe malgré tout
   markDirty();
   renderAttendance();
@@ -243,7 +252,8 @@ function initRoster() {
 const savedAtt = new Map();      // player_id → présence telle qu'enregistrée (JSON)
 const savedBilans = new Map();   // player_id → bilan tel qu'enregistré (JSON)
 const attRow = (a) => ({ statut: a.statut, invite: !!a.invite, present: participe(a),
-  statut_libre: a.statut === 'autre' ? (a.statut_libre || '').trim().slice(0, 40) || null : null });
+  statut_libre: a.statut === 'autre' ? (a.statut_libre || '').trim().slice(0, 40) || null : null,
+  ...(a.statut === 'groupe' ? { groupe_team_id: a.groupe_team_id } : {}) });   // seulement là : sans lmfc_v73.sql, le reste s'enregistre
 const bilanRow = (b) => ({ note: b.note || null, commentaire: (b.commentaire || '').trim() || null });
 
 /* À l'ouverture : ce qui est déjà en base. */

@@ -20,7 +20,7 @@ const csInTeam = (p, teamId) => !!teamId && !p.exterieur && (p.team_id === teamI
 const csSessionTeams = (item) => ({ team_id: item.team_id, other_team_ids: item.row?.other_team_ids });
 const csItemTeams = (item) => (item.kind === 'seance' ? sessionTeamIds(csSessionTeams(item)) : [item.team_id].filter(Boolean));
 const csInItem = (p, item) => csItemTeams(item).some(t => csInTeam(p, t));
-const csStatusOptions = (list, value) => list.map(([v, label]) =>
+const csStatusOptions = (list, value) => (value === 'groupe' ? [...list, ['groupe', 'Groupe (voir la séance)']] : list).map(([v, label]) =>
   `<option value="${v}"${v === (value || '') ? ' selected' : ''}>${label}</option>`).join('');
 
 function csCanEditMatch(item) {

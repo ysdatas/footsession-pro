@@ -488,7 +488,7 @@ window.generateSessionPDF = async function (sessionId) {
   const listH = (n) => n ? Math.ceil(n / perCol) * rowH + 4 : 10;
   const STATUT_RGB = { present: [76, 175, 80], reprise: [38, 166, 154], retard: [255, 152, 0], absent: [190, 190, 196],
     excuse: [120, 144, 156], blesse: [229, 57, 53], malade: [171, 71, 188], selection: [212, 160, 10],
-    groupe_pro: [92, 124, 250], autre: [144, 164, 174] };
+    groupe_pro: [92, 124, 250], groupe: [232, 57, 79], autre: [144, 164, 174] };
   const nameOf = (a) => {
     const tags = [a.statut && !['present', 'absent'].includes(a.statut) ? statutLabel(a).toLowerCase() : '',
       a.invite ? `invité${typeof teamName === 'function' && teamName(a.team_id) ? ' · ' + teamName(a.team_id) : ''}` : ''].filter(Boolean);

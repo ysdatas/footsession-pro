@@ -8,7 +8,7 @@
        l'adresse. La RLS décide toujours de ce qui est lu ;
      - Tableau de bord (suivi-rpe-dash.js) : tuiles, graphiques, charge
        ressentie, tableau des séances ;
-     - Courbatures (soreness.js, lmfc_v35.sql) : alertes non vues (même
+     - Courbatures (suivi-rpe-grid.js, soreness.js, lmfc_v35.sql) : alertes non vues (même
        muscle 3 jours de suite, « Vu ») et la grille joueurs × jours de séance ;
      - Détail joueurs (suivi-rpe-grid.js) : la grille joueurs × séances (jusqu'à
        aujourd'hui) ; chaque case : la valeur du joueur (couleur de
@@ -27,7 +27,7 @@
    rpe-stats.js, analytics-charts.js, suivi-rpe-dash.js.
    ============================================================ */
 
-const SR = { cache: new Map(), remind: null, scope: 'seance', resp: null, n: (() => { try { return Number(localStorage.getItem('lmfc.sr.n')) || 10; } catch { return 10; } })(), period: null, sore: { rows: [], alerts: [], error: null }, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), others: new Map(), seq: 0 };
+const SR = { cache: new Map(), remind: null, scope: 'seance', resp: null, n: (() => { try { return Number(localStorage.getItem('lmfc.sr.n')) || 10; } catch { return 10; } })(), period: null, sore: { rows: [], alerts: [], error: null }, soreTeam: null, team: null, view: 'dash', sessions: [], players: [], cells: [], att: new Map(), rpe: new Map(), others: new Map(), seq: 0 };
 const srKey = (s, p) => `${s}:${p}`;
 const srIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const srToday = () => srIso(new Date());
@@ -174,7 +174,7 @@ async function loadSr(force = false) {
       .lte('date_match', to).gte('date_match', SR.period?.from || '1900-01-01')
       .order('date_match', { ascending: false }).limit(SR.period ? 200 : SR.n),
     ids.length ? Promise.all([
-      sb.from('attendance').select('session_id, player_id, statut, present, invite').in('session_id', ids),
+      sb.from('attendance').select('session_id, player_id, statut, present, invite, groupe_team_id').in('session_id', ids),
       sb.rpc('rpe_slot_others', { p_sessions: ids }),   // lmfc_v61.sql : la même demi-journée, dans les autres équipes
       sb.from('session_rpe').select('session_id, player_id, rpe, corrige_par').in('session_id', ids),
       sb.from('player_soreness').select('player_id, jour, niveau, muscles').in('jour', days),   // lmfc_v35.sql
@@ -213,7 +213,9 @@ async function loadSr(force = false) {
 }
 
 /* La séance concerne-t-elle ce joueur ? Chacun dans sa catégorie : son équipe, une invitation ou une réponse ; un joueur
-   d'une autre équipe qui « joue aussi en » seulement s'il est mis à la séance (présence ou absence notée).
+   d'une autre équipe qui « joue aussi en » seulement s'il est noté présent à la séance (présent, retard…). L'« absent »
+   de départ que la feuille de présence enregistre pour tout l'effectif ne le lie pas : sans cela il apparaissait à chaque
+   séance de l'autre équipe (« en Espoirs · 6 » l'après-midi alors qu'il n'avait fait que le matin avec elle).
    Un match : la feuille décide dès qu'elle existe, comme player_match_rpe_ok (lmfc_v38.sql). */
 function srConcerned(s, p) {
   const att = SR.att.get(srKey(s.key, p.id));
@@ -222,23 +224,26 @@ function srConcerned(s, p) {
   if (s.sheet?.length) return rpeOnSheet(s.sheet, p.id);
   if (!(window.CLUB_TEAMS || []).length) return true;
   const ids = sessionTeamIds(s);   // associées : lmfc_v51.sql ; extérieur : lmfc_v54.sql
-  return !p.exterieur && (ids.includes(p.team_id) || (!!att && ids.some(t => (p.other_team_ids || []).includes(t))));
+  return !p.exterieur && (ids.includes(p.team_id) || (!!att && rpeExpected(att) && ids.some(t => (p.other_team_ids || []).includes(t))));
 }
 
 /* Un seul RPE par demi-journée (lmfc_v71.sql) : sa réponse donnée à une autre séance de la même demi-journée
    (case grise « N2 », jamais « en attente ») ; s'il a aussi répondu ici, les doublons d'avant. */
 const srOthers = (s, p) => (s.match ? [] : (SR.others.get(srKey(s.key, p.id)) || []).filter(x => x.other_rpe != null));
-const srAway = (s, p) => (SR.rpe.has(srKey(s.key, p.id)) ? null : srOthers(s, p)[0] || null);
+/* Noté « Groupe Espoirs » à cette séance (lmfc_v73.sql) : même case grise, sans valeur tant qu'il n'a pas répondu là-bas. */
+const srGroupe = (s, p) => { const a = SR.att.get(srKey(s.key, p.id));
+  return a?.statut === 'groupe' ? { other_team: teamName(Number(a.groupe_team_id)) || 'autre groupe', other_label: statutLabel(a), other_rpe: null } : null; };
+const srAway = (s, p) => (SR.rpe.has(srKey(s.key, p.id)) ? null : srOthers(s, p)[0] || srGroupe(s, p));
 const srDups = (s, p) => (SR.rpe.has(srKey(s.key, p.id)) ? srOthers(s, p) : []);
 const srAwayTeam = (w) => w.other_team || w.other_label || 'autre équipe';
 
 /* État d'une case : { v, staff, dup } réponse ; 'miss' attendue et absente ; 'wait' attendue, délai pas fini ; 'abs' absence enregistrée ;
-   'away' noté à une autre séance de la demi-journée (même s'il n'était pas attendu ici) ; null pas concerné. */
+   'away' attendu ici mais noté à une autre séance de la demi-journée ; null pas concerné (rien, même s'il a répondu ailleurs). */
 function srCell(s, p) {
   const r = SR.rpe.get(srKey(s.key, p.id));
   if (r) return { v: r.rpe, staff: !!r.corrige_par, min: s.sheet?.find(x => x.player_id === p.id)?.minutes, dup: srDups(s, p).length > 0 };   // min : charge d'un match
-  if (srAway(s, p)) return 'away';
   if (!srConcerned(s, p)) return null;
+  if (srAway(s, p)) return 'away';
   if (!rpeExpected(SR.att.get(srKey(s.key, p.id)))) return 'abs';
   return rpeOpen(s.date_seance) ? 'wait' : 'miss';   // le joueur peut encore répondre (rpe.js)
 }
@@ -257,16 +262,7 @@ function renderSr() {
     : SR.sessions.length > 1 ? `${SR.sessions.length} dernières séances` : 'dernière séance')].filter(Boolean).join(' – ');
   if (SR.view === 'dash') { renderSrDash(body, SR.sessions, SR.players, SR.cells); return; }
   if (SR.view === 'resp') { renderSrResp(body); return; }   // suivi-rpe-resp.js
-  if (SR.view === 'sore') {
-    // Chacun dans son équipe : un joueur d'une autre équipe, seulement les jours où il est mis à une séance de celle-ci.
-    const byId = new Map(SR.players.map(p => [p.id, p])), err = SR.sore.error;
-    const dayOk = (id, d) => byId.has(id) && SR.sessions.some(s => !s.match && s.date_seance === d && srConcerned(s, byId.get(id)));
-    const inTeam = (id, d) => byId.get(id)?.team_id === SR.team || dayOk(id, d);
-    body.innerHTML = err ? `<div class="empty">${escapeHtml(['42P01', 'PGRST205'].includes(err.code) ? 'Le questionnaire de courbatures n’est pas encore installé : passez lmfc_v35.sql dans Supabase.' : err.message)}</div>`
-      : soreHtml({ players: SR.players, days: [...new Set(SR.sessions.filter(x => !x.match).map(x => x.date_seance))],
-        rows: SR.sore.rows.filter(x => dayOk(x.player_id, x.jour)), alerts: SR.sore.alerts.filter(x => inTeam(x.player_id, x.jour)) });
-    return;
-  }
+  if (SR.view === 'sore') { renderSrSore(body); return; }   // suivi-rpe-grid.js
   renderSrGrid(body);   // suivi-rpe-grid.js
 }
 
@@ -279,13 +275,15 @@ async function srClick(e) {
     SR.sore.alerts = SR.sore.alerts.filter(a => a.id !== Number(seen.dataset.soreSeen));
     return renderSr();
   }
+  const st = e.target.closest('[data-sore-team]');
+  if (st) { SR.soreTeam = st.dataset.soreTeam ? Number(st.dataset.soreTeam) : null; return renderSr(); }   // courbatures : une équipe
   const bell = e.target.closest('[data-sr-bell]');
   if (bell) return srBellClick(bell);
   const b = e.target.closest('[data-sr]');
   if (!b) return;
   const [j, i] = b.dataset.sr.split(':').map(Number), s = SR.sessions[j], p = SR.players[i];
   // Même demi-journée ailleurs : enregistrer ici y retire l'autre réponse (rpe_set, lmfc_v61.sql).
-  const elsewhere = srDups(s, p).length ? srDups(s, p) : [srAway(s, p)].filter(Boolean);
+  const elsewhere = srDups(s, p).length ? srDups(s, p) : srOthers(s, p).slice(0, 1);
   const note = elsewhere.length ? `Un seul RPE par demi-journée : ${elsewhere.map(x => `${x.other_label}${x.other_rpe != null ? ` (${x.other_rpe})` : ''}`).join(', ')}${
     elsewhere.some(x => x.other_rpe != null) ? ' sera retiré si vous enregistrez une valeur ici.' : ' : enregistrer ici fixe sa demi-journée sur cette séance.'}` : '';
   openRpeSheet({ session: { id: s.id, titre: s.titre, date: s.date_seance, heure: s.heure, match: s.match }, value: SR.rpe.get(srKey(s.key, p.id))?.rpe ?? null,

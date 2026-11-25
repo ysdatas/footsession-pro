@@ -177,8 +177,10 @@ const STATUT_LABEL = Object.fromEntries([...STATUTS, ...STATUTS_ANCIENS].map(s =
    « Autre » (motif libre) : selon sa case « participe » (present). */
 const PARTICIPE = new Set(['present', 'reprise', 'retard']);
 const participe = (a) => (a.statut === 'autre' ? !!a.present : PARTICIPE.has(a.statut));
-/* Libellé affiché : le motif libre pour « Autre ». */
-const statutLabel = (a) => (a.statut === 'autre' ? (a.statut_libre || '').trim() || 'Autre' : STATUT_LABEL[a.statut] || a.statut || '');
+/* Libellé affiché : le motif libre pour « Autre » ; « Groupe Espoirs » pour un joueur avec un autre groupe (lmfc_v73.sql). */
+const statutGroupe = (a) => `Groupe ${(window.CLUB_TEAMS || []).find(t => Number(t.id) === Number(a.groupe_team_id))?.nom || 'autre équipe'}`;
+const statutLabel = (a) => (a.statut === 'autre' ? (a.statut_libre || '').trim() || 'Autre' : a.statut === 'groupe' ? statutGroupe(a)
+  : STATUT_LABEL[a.statut] || a.statut || '');
 /* Ancienne présence (sans statut) : présent ou absent. */
 const statutOf = (row) => row?.statut || (row?.present ? 'present' : 'absent');
 

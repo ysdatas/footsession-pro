@@ -351,6 +351,12 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            équipe ; custom_form_planning_ok, custom_forms_my_pending ; témoin
                                            custom_form_moments() ; après lmfc_v71.sql ; retour arrière :
                                            lmfc_v72_retour.sql (refusé si un formulaire utilise un nouveau moment)
+91. supabase/lmfc_v73.sql                  statut « Groupe <équipe> » dans la liste de présence (attendance.statut
+                                           'groupe', groupe_team_id) : le joueur est noté présent à la séance de ce
+                                           groupe à la même demi-journée (groupe_de), le renvoi suit les changements ;
+                                           la séance d'où il vient ne lui demande plus rien ; témoin
+                                           attendance_groupes() ; après lmfc_v72.sql ; retour arrière :
+                                           lmfc_v73_retour.sql (« Groupe … » devient « Autre » avec ce motif)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1259,6 +1265,7 @@ node tests/player-todo.test.mjs   # « À remplir » du joueur : questionnaire p
 node tests/v70-sql.test.mjs       # RPE sur deux jours (J-3 refusé), deux équipes à la même demi-journée sans « ailleurs », staff, retour (PGlite)
 node tests/v71-sql.test.mjs       # un seul RPE par demi-journée (réponse donnée, pas présence), case « en N2 », staff qui déplace, retour (PGlite)
 node tests/v72-sql.test.mjs       # formulaires posés les jours de séance, après séance, après match ; plusieurs par équipe ; retour (PGlite)
+node tests/v73-sql.test.mjs       # « Groupe Espoirs » : renvoi à la séance du groupe de la même demi-journée, suivi, RPE ; retour (PGlite)
 node tests/v69-sql.test.mjs       # douleur sur la silhouette : zones = form-body.js, version ajoutée, « une fois » laissé, alerte, retour (PGlite)
 node tests/v68-sql.test.mjs       # courbatures : fessiers et psoas acceptés, muscle inconnu refusé, retour arrière refusé puis rendu (PGlite)
 node tests/v67-sql.test.mjs       # choix multiple : options exigées, liste rangée sans doublon, choix inconnu refusé, vide, retour arrière (PGlite)

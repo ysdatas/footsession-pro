@@ -359,6 +359,7 @@ async function loadSession() {
       player_id: p.id, nom: p.nom, prenom: p.prenom, numero: p.numero, poste: p.poste, team_id: p.team_id,
       statut: statutOf(attMap.get(p.id)), statut_libre: attMap.get(p.id)?.statut_libre || '',
       present: !!attMap.get(p.id)?.present, invite: !!attMap.get(p.id)?.invite,
+      groupe_team_id: attMap.get(p.id)?.groupe_team_id ?? null, groupe_de: attMap.get(p.id)?.groupe_de ?? null,   // lmfc_v73.sql
     }));
     rememberSavedRoster(attMap);   // ce qui est déjà en base ne sera pas renvoyé tel quel
     return true;
