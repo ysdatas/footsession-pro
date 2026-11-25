@@ -55,8 +55,8 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
    par le Worker du site (worker/index.js) : bande passante gratuite. Les
    anciennes restent lisibles dans le bucket Supabase « player-videos ». */
 const VIDEO_PART_BYTES = 95 * 1024 * 1024;  // une requête au Worker (MAX_BYTES) : au-delà, envoi en morceaux
-const VIDEO_MAX_BYTES = 2 * 1024 ** 3;       // = MAX_TOTAL du Worker
-const VIDEO_MAX_TEXT = '2 Go';
+const VIDEO_MAX_BYTES = 8 * 1024 ** 3;       // = MAX_TOTAL du Worker
+const VIDEO_MAX_TEXT = '8 Go';
 const VIDEO_CHUNK = 50 * 1024 * 1024;        // morceau d'une grande vidéo (R2 : 5 Mo au moins)
 const isR2Video = (path) => path.startsWith('r2/');
 async function videoChunkHash(blob) {

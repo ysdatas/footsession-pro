@@ -1366,7 +1366,7 @@ code déployé sans sa migration échoue en silence.**
    « Serveur vidéo incomplet : secret VIDEO_URL_SECRET absent ». `keep_vars` (wrangler.jsonc)
    évite qu'un déploiement efface une variable ajoutée à la main.
 
-Les nouvelles vidéos (chemin `r2/{club_id}/{player_id}/…`, 2 Go au plus ; au-delà de 95 Mo, envoi en
+Les nouvelles vidéos (chemin `r2/{club_id}/{player_id}/…`, 8 Go au plus ; au-delà de 95 Mo, envoi en
 morceaux de 50 Mo assemblés par R2, multipart, car le Worker refuse une requête de plus de 100 Mo) vont sur R2 ;
 les anciennes restent lisibles dans le bucket Supabase `player-videos`. Tout passe par
 `videoUrls` / `uploadVideoFile` / `removeVideoFile` (`web/assets/js/supabase-client.js`).

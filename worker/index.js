@@ -28,7 +28,7 @@ import { push } from './push.js';
 
 const TTL = 6 * 3600;                    // validité d'un lien de lecture (s)
 const MAX_BYTES = 95 * 1024 * 1024;      // une requête : le Worker gratuit refuse au-delà de 100 Mo
-const MAX_TOTAL = 2 * 1024 ** 3;         // une vidéo envoyée en morceaux (= VIDEO_MAX_BYTES du site)
+const MAX_TOTAL = 8 * 1024 ** 3;         // une vidéo envoyée en morceaux (= VIDEO_MAX_BYTES du site)
 const MAX_PATHS = 100;
 // r2/<club_id>/<player_id>/<horodatage>.<ext> (vidéos joueurs) ou
 // r2/<club_id>/lib/<horodatage>.<ext> (bibliothèque) : rien d'autre n'entre dans le bucket.

@@ -130,9 +130,9 @@ assert.equal((await mpu('staff7', 'start')).status, 409, 'un nouvel MPU ne rempl
 assert.equal((await mpu('staff7', `${uploadId}-expired&part=1`, { method: 'PUT', body: 'x', headers: { 'content-length': '1' } })).status, 410, 'un MPU expiré est signalé comme reprenable depuis zéro');
 await call('DELETE', `/api/videos/file/${D}`, { token: 'staff7' });
 const big = (await (await mpu('staff7', 'start')).json()).uploadId;
-VIDEOS.mpus.get(big).big = 3 * 1024 ** 3;
+VIDEOS.mpus.get(big).big = 9 * 1024 ** 3;
 await mpu('staff7', `${big}&part=1`, { method: 'PUT', body: 'z', headers: { 'content-length': '1' } });
-assert.equal((await mpu('staff7', big, { body: JSON.stringify({ parts: [{ partNumber: 1, etag: 'e1' }] }) })).status, 413, 'au-delà de 2 Go une fois assemblée : refusée');
+assert.equal((await mpu('staff7', big, { body: JSON.stringify({ parts: [{ partNumber: 1, etag: 'e1' }] }) })).status, 413, 'au-delà de 8 Go une fois assemblée : refusée');
 assert.equal(store.has(D), false, 'et effacée');
 const gone = (await (await mpu('staff7', 'start')).json()).uploadId;
 assert.equal((await mpu('staff7', gone, { body: JSON.stringify({ abort: true }) })).status, 200, 'envoi abandonné');
