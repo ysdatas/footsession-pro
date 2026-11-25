@@ -200,6 +200,10 @@ async function uploadVideoFile(path, file, { onProgress, signal, resume = null, 
   }
 }
 async function removeVideoFile(path) {
+  // Une vidéo de match partagée entre plusieurs joueurs (import Sportscode) : le fichier reste tant qu'une ligne s'en sert
+  // (lmfc_v74.sql ; sans elle, comme avant).
+  const used = await sb.rpc('video_path_in_use', { p_path: path });
+  if (used.data === true) return;
   if (isR2Video(path)) return videoApi(`file/${path}`, { method: 'DELETE' });
   const { error } = await sb.storage.from('player-videos').remove([path]);
   if (error) throw error;

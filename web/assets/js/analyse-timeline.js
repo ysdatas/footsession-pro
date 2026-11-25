@@ -164,7 +164,8 @@ function anTlRender() {
       : `<span class="an-tl-modes" role="group" aria-label="Vue de la timeline">${mode('all', 'Tous les clips')}${mode('video', 'Une vidéo')}</span>
         ${tl.mode === 'all' ? '' : `<label class="an-sel an-sel-sm"><span>Vidéo</span><select data-tl-video>${AN.videos.map(x =>
             `<option value="${x.id}"${x.id === v.id ? ' selected' : ''}>${esc(x.titre)}</option>`).join('')}</select></label>
-          ${anVideoSelect(v, 'poste', 'Poste', general('poste'))}${anVideoSelect(v, 'lieu', 'Lieu', general('lieu'))}`}`}
+          ${anVideoSelect(v, 'poste', 'Poste', general('poste'))}${anVideoSelect(v, 'lieu', 'Lieu', general('lieu'))}
+          <button type="button" class="btn btn-sm" data-tl="import" title="Les actions codées dans Sportscode (Hudl) deviennent des séquences de cette vidéo">Importer un XML Sportscode</button>`}`}
     <span class="an-grow"></span>
     ${last ? `<button type="button" class="btn btn-sm" data-tl="undo" title="⌘Z ou Ctrl+Z">↶ Annuler : ${esc(last.label)}</button>` : ''}
     ${!on ? '' : `<button type="button" class="btn btn-sm" data-tl="zoom" data-value="-1" aria-label="Dézoomer la timeline"${tl.zoom === 1 ? ' disabled' : ''}>−</button>

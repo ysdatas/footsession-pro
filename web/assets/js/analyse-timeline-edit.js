@@ -177,6 +177,7 @@ function anTlClick(e) {
   else if (act === 'step') return anTlStep(Number(b.dataset.value));
   else if (act === 'in' || act === 'out') return anTlMark(act);
   else if (act === 'create') return anTlCreate();
+  else if (act === 'import') return scPick();   // analyse-import.js
   else if (act === 'undo') return anTlUndo();
   else if (act === 'clear') { tl.sel.clear(); anTlSel(); return anTlFollowSel(); }
   else if (act === 'describe') return anOpenBulk(ids);

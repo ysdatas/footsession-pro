@@ -357,6 +357,10 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            la séance d'où il vient ne lui demande plus rien ; témoin
                                            attendance_groupes() ; après lmfc_v72.sql ; retour arrière :
                                            lmfc_v73_retour.sql (« Groupe … » devient « Autre » avec ce motif)
+92. supabase/lmfc_v74.sql                  une vidéo de match pour plusieurs joueurs (import XML Sportscode) : chaque
+                                           joueur a sa ligne player_videos sur le même fichier ; video_path_in_use()
+                                           (témoin) : le fichier n'est retiré qu'à la dernière ligne ; après
+                                           lmfc_v73.sql ; retour arrière : lmfc_v74_retour.sql
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -935,6 +939,14 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   au clavier : menu (Paramètres → Mon menu, enregistré au lâcher), équipes (Mon club,
   `teams.sort_order`), séquences d'une compilation.
 - **FAQ** (`faq.html`) — questions cliquables : prise en main, puis données et calculs.
+- **Import XML Sportscode** (fiche joueur › Analyse › Timeline, vue « Une vidéo », `analyse-import.js`,
+  `analyse-import-ui.js`, lmfc_v74.sql) — la vidéo du match envoyée une fois, son export XML lu dans le navigateur :
+  chaque ligne qui nomme un joueur (« Tigane BRENNER ») est reliée à sa fiche (modifiable, ou « Ne pas importer ») ;
+  chaque action cochée ou non et associée à une action (Passe, Tir…) ou « À coder » (choix retenu sur l'appareil) ;
+  les libellés qui nomment une valeur (« Réussie », « Pied droit ») la remplissent, les autres deviennent des tags.
+  Chaque joueur reçoit le match (même fichier, sans nouvel envoi) et ses séquences ; « Visibles par les joueurs » :
+  chacun voit les siennes, jamais celles des autres. Décalage possible, doublons et actions après la fin de la vidéo
+  laissés. Aucun fichier coupé : les séquences sont des passages de la vidéo.
 - **Vidéos** (`videos.html`, staff) — la liste s'affiche dès que les données sont là : miniatures et
   liens de lecture (Worker) arrivent ensuite, sans bloquer la page. Les appels au Worker échouent au
   bout de 15 s et les requêtes à la base au bout de 30 s (`supabase-client.js`) : jamais de
@@ -1266,6 +1278,8 @@ node tests/v70-sql.test.mjs       # RPE sur deux jours (J-3 refusé), deux équi
 node tests/v71-sql.test.mjs       # un seul RPE par demi-journée (réponse donnée, pas présence), case « en N2 », staff qui déplace, retour (PGlite)
 node tests/v72-sql.test.mjs       # formulaires posés les jours de séance, après séance, après match ; plusieurs par équipe ; retour (PGlite)
 node tests/v73-sql.test.mjs       # « Groupe Espoirs » : renvoi à la séance du groupe de la même demi-journée, suivi, RPE ; retour (PGlite)
+node tests/v74-sql.test.mjs       # vidéo de match partagée : chacun ses séquences, fichier gardé tant qu'une ligne s'en sert ; retour (PGlite)
+node tests/sportscode-import.test.mjs # XML Sportscode : joueur reconnu, rangement par code, valeurs reconnues ou tags, décalage, doublons
 node tests/v69-sql.test.mjs       # douleur sur la silhouette : zones = form-body.js, version ajoutée, « une fois » laissé, alerte, retour (PGlite)
 node tests/v68-sql.test.mjs       # courbatures : fessiers et psoas acceptés, muscle inconnu refusé, retour arrière refusé puis rendu (PGlite)
 node tests/v67-sql.test.mjs       # choix multiple : options exigées, liste rangée sans doublon, choix inconnu refusé, vide, retour arrière (PGlite)
