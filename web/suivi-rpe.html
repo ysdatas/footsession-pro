@@ -53,9 +53,7 @@
         <button type="button" data-sr-view="hist" aria-pressed="false">Historique</button>
       </div>
       <div class="segmented" role="group" aria-label="Séances affichées">
-        <button type="button" data-sr-n="10" aria-pressed="true">10</button>
-        <button type="button" data-sr-n="20" aria-pressed="false">20</button>
-        <button type="button" data-sr-n="50" aria-pressed="false">50</button>
+        <label class="sr-n is-on" data-sr-n="n" for="srN">Les <input type="number" id="srN" min="1" max="200" step="1" value="10" inputmode="numeric"> dernières</label>
         <button type="button" data-sr-n="week" aria-pressed="false">Semaine</button>
         <button type="button" data-sr-n="dates" aria-pressed="false">Dates</button>
       </div>
@@ -110,6 +108,7 @@
   <script src="assets/js/rpe-stats.js"></script>
   <script src="assets/js/suivi-rpe-dash.js"></script>
   <script src="assets/js/form-levels.js"></script>
+  <script src="assets/js/suivi-rpe-grid.js"></script>
   <script src="assets/js/suivi-rpe-resp.js"></script>
   <script src="assets/js/suivi-rpe-hist.js"></script>
   <script src="assets/js/pdf-kit.js"></script>

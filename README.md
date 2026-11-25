@@ -340,6 +340,17 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            part, plus de statut « ailleurs » ; rpe_set, my_rpe_sessions,
                                            rpe_slot_others, match_rpe_set ; témoin rpe_regles() ; après lmfc_v69.sql ;
                                            retour arrière : lmfc_v70_retour.sql (aucune réponse effacée)
+89. supabase/lmfc_v71.sql                  de nouveau un seul RPE par demi-journée, toutes équipes : seule une
+                                           réponse donnée ferme l'autre séance (pas une présence) ; déclencheur,
+                                           rpe_set (le staff déplace), my_rpe_sessions (« ailleurs »),
+                                           rpe_slot_others (+ other_team : case grise « en N2 » du Suivi RPE) ;
+                                           témoin rpe_demi_journee() ; après lmfc_v70.sql ;
+                                           retour arrière : lmfc_v71_retour.sql (aucune réponse effacée)
+90. supabase/lmfc_v72.sql                  tous les moments pour tous les formulaires : planning « seance » (jours de
+                                           séance, au réveil), « apres_seance », « apres_match », autant que voulu par
+                                           équipe ; custom_form_planning_ok, custom_forms_my_pending ; témoin
+                                           custom_form_moments() ; après lmfc_v71.sql ; retour arrière :
+                                           lmfc_v72_retour.sql (refusé si un formulaire utilise un nouveau moment)
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -1246,6 +1257,8 @@ node tests/v65-sql.test.mjs       # quand poser un formulaire : chaque jour, jou
 node tests/v66-sql.test.mjs       # championnats : droits, nom unique, club du match, suppression, retour arrière (PGlite)
 node tests/player-todo.test.mjs   # « À remplir » du joueur : questionnaire pré-séance / après séance, noms sans équipe, deux jours, ordre
 node tests/v70-sql.test.mjs       # RPE sur deux jours (J-3 refusé), deux équipes à la même demi-journée sans « ailleurs », staff, retour (PGlite)
+node tests/v71-sql.test.mjs       # un seul RPE par demi-journée (réponse donnée, pas présence), case « en N2 », staff qui déplace, retour (PGlite)
+node tests/v72-sql.test.mjs       # formulaires posés les jours de séance, après séance, après match ; plusieurs par équipe ; retour (PGlite)
 node tests/v69-sql.test.mjs       # douleur sur la silhouette : zones = form-body.js, version ajoutée, « une fois » laissé, alerte, retour (PGlite)
 node tests/v68-sql.test.mjs       # courbatures : fessiers et psoas acceptés, muscle inconnu refusé, retour arrière refusé puis rendu (PGlite)
 node tests/v67-sql.test.mjs       # choix multiple : options exigées, liste rangée sans doublon, choix inconnu refusé, vide, retour arrière (PGlite)

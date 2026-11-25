@@ -242,9 +242,11 @@ async function calRpe(i, form) {
   const box = document.getElementById('calRpe'), match = i.kind === 'match', upcoming = i.date >= calToday();
   const { data, error } = await sb.from(match ? 'match_rpe' : 'session_rpe').select('rpe, corrige_par').eq(match ? 'match_id' : 'session_id', i.id).maybeSingle();
   if (error) { if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('RPE illisible', error.message); box.remove(); return; }
-  if (!data && (!form || i.todo?.some(t => t.phase === 'post') || !upcoming)) { box.remove(); return; }
-  box.innerHTML = data
-    ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> | ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
+  // Effort déjà noté à une autre séance de la même demi-journée (lmfc_v71.sql) : rien à remplir ici.
+  const away = !match && !data && (await CAL.todoP)?.rpe?.find(r => !r.match && r.id === i.id)?.ailleurs;
+  if (!data && !away && (!form || i.todo?.some(t => t.phase === 'post') || !upcoming)) { box.remove(); return; }
+  box.innerHTML = away ? '<p class="text-muted">Ton effort de cette demi-journée est déjà noté sur l’autre séance : une seule réponse par demi-journée.</p>'
+    : data ? `<p>Ton effort : <strong style="color:${rpeColor(data.rpe)}">${data.rpe}/10</strong> | ${escapeHtml(rpeLabel(data.rpe))}${data.corrige_par ? ' (corrigé par le staff)' : ''}</p>`
     : `<p class="text-muted">Tu pourras répondre après ${match ? 'le match' : 'la séance'}, jusqu’à ${RPE_DAYS} jours après.</p>`;
 }
 

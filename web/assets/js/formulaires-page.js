@@ -1,9 +1,9 @@
 /* Gestion des formulaires (lmfc_v44.sql, lmfc_v47.sql).
    Les formulaires sont versionnés et affectés aux équipes par RPC. Ceux d'origine
    (RPE, courbatures, avis de match) gardent leurs réponses dans leurs tables.
-   L'éditeur est dans formulaires-editor.js. */
-const CF = { profile: null, teams: [], forms: [], responses: [], editing: null, busy: false, demo: false, responseOnly: false };
-const CF_PAGE = 300;   // réponses chargées à la fois
+   L'éditeur est dans formulaires-editor.js, la liste dans formulaires-list.js.
+   Les réponses des joueurs se lisent dans Suivi RPE (Réponses, Historique), plus ici. */
+const CF = { profile: null, teams: [], forms: [], editing: null, busy: false, demo: false };
 /* Les questionnaires d'origine : quand le joueur les reçoit, où lire leurs réponses. */
 const cfSources = {
   rpe_seance: { quand: 'Après chaque séance', lieu: 'Suivi RPE', page: 'suivi-rpe' },
@@ -13,7 +13,7 @@ const cfSources = {
 };
 const cfUid = () => `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.code)
-  ? 'Les migrations lmfc_v44.sql, lmfc_v45.sql et lmfc_v47.sql sont nécessaires pour gérer les formulaires et consulter leurs réponses.'
+  ? 'Les migrations lmfc_v44.sql, lmfc_v45.sql et lmfc_v47.sql sont nécessaires pour gérer les formulaires.'
   : e?.message || 'Une erreur est survenue.';
 
 (async () => {
@@ -37,17 +37,11 @@ const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.co
         { id: 'sommeil', label: 'Comment as-tu dormi ?', type: 'choice', options: ['Bien', 'Moyen', 'Mal'], required: true },
       ] } },
     ];
-    CF.responses = [{ id: 9004, player_name_snapshot: 'Joueur de démonstration', team_name_snapshot: 'Pro',
-      form_title_snapshot: 'Questionnaire de récupération', version_no: 1, submitted_at: new Date().toISOString(),
-      questions_snapshot: [{ id: 'sommeil', label: 'Comment as-tu dormi ?', type: 'choice' }, { id: 'note', label: 'Un commentaire ?', type: 'textarea' }],
-      answers: { sommeil: 'Bien', note: 'Prêt pour la prochaine séance.' } }];
     cfBind();
     fillUserBlock('Aperçu local', 'Administrateur');
     document.getElementById('logoutLink')?.remove();
     document.getElementById('cfPreviewNotice').classList.remove('hidden');
-    document.getElementById('cfResponsesStatus').textContent = '1 réponse – aperçu local';
     cfRender();
-    cfRenderResponses();
     document.getElementById('cfStatus').textContent = `${CF.forms.length} exemples – mode aperçu local`;
     return;
   }
@@ -58,16 +52,11 @@ const cfError = (e) => ['42P01', '42703', 'PGRST202', 'PGRST205'].includes(e?.co
     location.replace('suivi-rpe');
     return;
   }
+  // Coach, analyste : ils lisent les réponses, ne règlent pas les formulaires.
+  if (['coach', 'analyste'].includes(ctx.profile.role)) { location.replace('suivi-rpe?vue=reponses'); return; }
   CF.profile = ctx.profile;
   fillUserBlock(ctx.profile.nom || 'Utilisateur', ROLE_LABELS[ctx.profile.role] || ctx.profile.role);
   document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
-  CF.responseOnly = ['coach', 'analyste'].includes(ctx.profile.role);
-  if (CF.responseOnly) {
-    document.getElementById('cfManage').hidden = true;
-    document.querySelector('[data-cf-new]').hidden = true;
-    document.getElementById('cfSubtitle').textContent = 'Consulte les réponses des joueurs de tes équipes.';
-    document.getElementById('cfResponsesHint').textContent = 'La base filtre automatiquement les réponses selon tes équipes.';
-  }
   cfBind();
   await cfLoad();
 })();
@@ -80,13 +69,15 @@ function cfBind() {
   document.addEventListener('click', cfClick);
   document.getElementById('cfEditorForm').addEventListener('submit', cfSave);
   document.getElementById('cfQuestions').addEventListener('change', cfQuestionChange);
+  document.getElementById('cfQuestions').addEventListener('input', cfQuestionInput);
+  document.getElementById('cfSettings').addEventListener('change', cfSettingsSum);
+  // Champ à compléter dans une partie repliée : elle s'ouvre, le navigateur y mène.
+  document.getElementById('cfEditorForm').addEventListener('invalid', (e) => { for (let d = e.target.closest('details'); d; d = d.parentElement.closest('details')) d.open = true; }, true);
   document.getElementById('cfMoment').addEventListener('change', cfMomentChange);
 }
 
 async function cfLoad() {
   const status = document.getElementById('cfStatus'), list = document.getElementById('cfList');
-  await cfLoadResponses();
-  if (CF.responseOnly) return;
   status.textContent = 'Chargement des formulaires…';
   try {
     const [f, t] = await Promise.all([
@@ -123,63 +114,11 @@ async function cfLoad() {
   }
 }
 
-async function cfLoadResponses(more = false) {
-  const status = document.getElementById('cfResponsesStatus'), button = document.getElementById('cfResponsesMore');
-  const from = more ? CF.responses.length : 0;
-  status.textContent = 'Chargement des réponses…';
-  button.disabled = true;
-  try {
-    const { data, error } = await sb.from('custom_form_responses')
-      .select('id, player_name_snapshot, team_name_snapshot, form_title_snapshot, version_no, questions_snapshot, answers, submitted_at')
-      .order('submitted_at', { ascending: false }).order('id', { ascending: false }).range(from, from + CF_PAGE - 1);
-    if (error) throw error;
-    const rows = data || [];
-    CF.responses = more ? CF.responses.concat(rows) : rows;
-    button.classList.toggle('hidden', rows.length < CF_PAGE);
-    cfRenderResponses();
-    status.textContent = CF.responses.length ? `${CF.responses.length} réponse${CF.responses.length > 1 ? 's' : ''}` : 'Aucune réponse pour le moment.';
-  } catch (e) {
-    console.error('Réponses de formulaires illisibles', e);
-    status.textContent = cfError(e);
-    if (!more) document.getElementById('cfResponses').innerHTML = '';
-  } finally { button.disabled = false; }
-}
-
-function cfRenderResponses() {
-  const list = document.getElementById('cfResponses');
-  const count = document.getElementById('cfResponsesCount');
-  if (!list || !count) return;
-  count.textContent = CF.responses.length ? `${CF.responses.length} réponse${CF.responses.length === 1 ? '' : 's'}` : '';
-  list.innerHTML = CF.responses.length ? CF.responses.map(response => {
-    const date = response.submitted_at ? new Date(response.submitted_at) : null;
-    const when = date && !Number.isNaN(date.getTime()) ? date.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue';
-    return `<article class="cf-response-row"><div><strong>${escapeHtml(response.form_title_snapshot)}</strong>
-      <small>${escapeHtml(response.player_name_snapshot)} | ${escapeHtml(response.team_name_snapshot)} | Version ${Number(response.version_no) || 1} | ${escapeHtml(when)}</small></div>
-      <button class="btn btn-sm" type="button" data-cf-response="${Number(response.id)}">Voir les réponses</button></article>`;
-  }).join('') : '<div class="empty">Aucune réponse visible dans le périmètre de tes équipes.</div>';
-}
-
-function cfOpenResponse(id) {
-  const response = CF.responses.find(x => Number(x.id) === Number(id));
-  if (!response) return;
-  document.getElementById('cfResponseTitle').textContent = response.form_title_snapshot || 'Réponse au formulaire';
-  const date = response.submitted_at ? new Date(response.submitted_at) : null;
-  const when = date && !Number.isNaN(date.getTime()) ? date.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue';
-  document.getElementById('cfResponseMeta').textContent = `${response.player_name_snapshot} – ${response.team_name_snapshot} – Version ${response.version_no} – ${when}`;
-  const answers = response.answers && typeof response.answers === 'object' ? response.answers : {};
-  document.getElementById('cfResponseAnswers').innerHTML = (response.questions_snapshot || []).map(q =>
-    `<div><dt>${escapeHtml(q.label || 'Question')}</dt><dd>${escapeHtml(fqAnswerText(q, answers[q.id]) || 'Sans réponse')}</dd></div>`).join('');
-  openModal('cfResponseModal');
-}
-
 async function cfClick(e) {
   cfMoreClose(e);                 // formulaires-list.js : menu « Plus » refermé hors de lui
   if (cfEditorClick(e)) return;   // formulaires-editor.js : déplacer, niveaux
   const del = e.target.closest('[data-cf-delete]');
   if (del) return cfDelete(Number(del.dataset.cfDelete));
-  const response = e.target.closest('[data-cf-response]');
-  if (response) return cfOpenResponse(response.dataset.cfResponse);
-  if (e.target.closest('#cfResponsesMore')) return cfLoadResponses(true);
   const add = e.target.closest('[data-cf-new]');
   if (add) return cfOpen(null);
   const edit = e.target.closest('[data-cf-edit]');

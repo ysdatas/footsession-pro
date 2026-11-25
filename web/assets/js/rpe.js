@@ -57,9 +57,9 @@ function rpeOpen(iso, heure = null) {
    Seule une absence enregistrée l'exclut. participe : procedure-time.js. */
 const rpeExpected = (row) => !row || participe({ ...row, statut: row.statut || (row.present ? 'present' : 'absent') });
 
-/* Ce qui reste à noter : sans réponse et ouvert. Chaque équipe à part (lmfc_v70.sql : plus de
-   règle de demi-journée, une séance n'est plus notée « ailleurs »). */
-const rpeTodo = (rows) => rows.filter(s => s.rpe == null && rpeOpen(s.date_seance, s.heure));
+/* Ce qui reste à noter : sans réponse, ouvert, et pas déjà noté à une autre séance de la même
+   demi-journée (ailleurs, lmfc_v71.sql : un seul RPE par demi-journée, toutes équipes). */
+const rpeTodo = (rows) => rows.filter(s => s.rpe == null && !s.ailleurs && rpeOpen(s.date_seance, s.heure));
 
 /* Séances et matchs que le joueur peut noter (noté ou non), du plus récent au plus ancien :
    { id, titre, date, date_seance, heure, rpe, corrige, match }. Sans séances lisibles : error. */

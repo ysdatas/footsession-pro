@@ -31,13 +31,6 @@ function cfNewQuestion(kind) {
   if (kind === 'body') Object.assign(q, { corps: true, options: [...FB_DEFAULT] });
   return q;
 }
-const CF_PALETTE = ['#2e7d32', '#ef6c00', '#c62828'];   // couleur proposée pour un nouveau niveau : vert, orange, rouge
-/* Réglages rapides d'une échelle : remplacent les niveaux affichés, modifiables ensuite. */
-const CF_PRESETS = {
-  '0-10': () => cfRange(0, 10), '1-10': () => cfRange(1, 10), '1-5': () => cfRange(1, 5),
-  intensite: () => FQ_RPE_PRESET.map(n => ({ ...n })),
-};
-function cfRange(min, max) { return Array.from({ length: max - min + 1 }, (_, i) => ({ valeur: min + i, libelle: '', couleur: null })); }
 
 function cfOpen(id, copy = false) {
   const found = id == null ? null : CF.forms.find(x => Number(x.id) === Number(id));
@@ -55,7 +48,11 @@ function cfOpen(id, copy = false) {
   document.getElementById('cfTeams').innerHTML = CF.teams.length ? CF.teams.map(team => `<label class="cf-team"><input type="checkbox" value="${team.id}"${form?.team_ids.includes(Number(team.id)) ? ' checked' : ''}><span>${escapeHtml(team.nom)}</span></label>`).join('')
     : '<p class="text-muted">Aucune équipe n’est disponible dans votre périmètre.</p>';
   const questions = form?.version?.questions || [{ id: cfUid(), label: '', type: 'text', required: true }];
-  document.getElementById('cfQuestions').innerHTML = questions.map(cfQuestionHtml).join('');
+  // Un formulaire existant s'ouvre replié : réglages résumés, une ligne par question ; un nouveau, tout ouvert.
+  const fresh = !form?.id;
+  document.getElementById('cfSettings').open = fresh;
+  document.getElementById('cfQuestions').innerHTML = questions.map(q => cfQuestionHtml(q, fresh)).join('');
+  cfSettingsSum();
   cfCountQuestions();
   document.getElementById('cfSave').disabled = false;
   openModal('cfEditor');
@@ -66,6 +63,7 @@ function cfOpen(id, copy = false) {
    Après séance ou match : choisi à la création seulement (le formulaire en devient une copie
    du formulaire d'origine) ; un formulaire d'origine ne règle que sa période. */
 const CF_SOURCES = ['rpe_seance', 'rpe_match'];
+const CF_MODES = ['jour', 'semaine', 'seance', 'avant_match', 'apres_seance', 'apres_match'];   // planning (lmfc_v65.sql, lmfc_v72.sql)
 function cfPlanFill(form, copy) {
   const moment = document.getElementById('cfMoment'), plan = form?.planning || {};
   const fixed = !!form?.source;   // après séance, match, courbatures, avis : la sorte ne change pas
@@ -75,6 +73,7 @@ function cfPlanFill(form, copy) {
   if (fixed && !moment.querySelector(`option[value="${form.source}"]`)) moment.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(form.source)}" data-cf-extra>${escapeHtml(cfSources[form.source]?.quand || form.source)}</option>`);
   moment.value = fixed ? form.source : plan.mode || '';
   moment.disabled = fixed;
+  document.getElementById('cfMomentLock').classList.toggle('hidden', !fixed);
   document.querySelectorAll('#cfDays input').forEach(x => { x.checked = (plan.jours || []).includes(Number(x.value)); });
   document.getElementById('cfMatchWhen').value = plan.quand || 'veille';
   document.getElementById('cfFrom').value = plan.du || '';
@@ -92,7 +91,7 @@ function cfPlanUi() {
 function cfReadPlan(source) {
   const mode = document.getElementById('cfMoment').value, du = document.getElementById('cfFrom').value, au = document.getElementById('cfTo').value;
   const plan = {};
-  if (['jour', 'semaine', 'avant_match'].includes(mode) && !source) plan.mode = mode;
+  if (CF_MODES.includes(mode) && !source) plan.mode = mode;
   if (plan.mode === 'semaine') {
     plan.jours = [...document.querySelectorAll('#cfDays input:checked')].map(x => Number(x.value));
     if (!plan.jours.length) return { error: 'Cochez au moins un jour de la semaine.' };
@@ -119,20 +118,23 @@ function cfMomentChange() {
   }
   const fixed = (base?.version?.questions || []).filter(q => q.fixe);
   CF.editing = base ? { source, copy_of: base.id, version: { questions: fixed } } : null;
-  document.getElementById('cfQuestions').insertAdjacentHTML('afterbegin', fixed.map(cfQuestionHtml).join(''));
+  document.getElementById('cfQuestions').insertAdjacentHTML('afterbegin', fixed.map(q => cfQuestionHtml(q, false)).join(''));
   document.getElementById('cfLead').textContent = base ? CF_LEAD_ORIGIN : CF_LEAD;
   cfCountQuestions();
 }
 
-function cfQuestionHtml(question) {
+/* Une question, repliable : replié, son intitulé et son type de réponse sur une ligne. */
+function cfQuestionHtml(question, open = true) {
   const id = escapeHtml(question.id || cfUid()), choices = Array.isArray(question.options) ? question.options.join('\n') : '';
   const lock = question.fixe ? ' disabled' : '';   // question d'origine : seul son intitulé change (lmfc_v47.sql)
   const kind = cfKindOf(question), type = cfKindType(kind);
   const levels = type === 'scale' && (!question.fixe || question.id === 'rpe');
   const groups = [...new Set(CF_KINDS.map(k => k[2]))].map(g => `<optgroup label="${g}">${CF_KINDS.filter(k => k[2] === g)
     .map(([v, l]) => `<option value="${v}"${kind === v ? ' selected' : ''}>${l}</option>`).join('')}</optgroup>`).join('');
-  return `<fieldset class="cf-question" data-question-id="${id}"${question.fixe ? ' data-fixe' : ''}>
-    <legend class="sr-only">Question</legend>
+  return `<details class="cf-question" data-question-id="${id}"${question.fixe ? ' data-fixe' : ''}${open ? ' open' : ''}>
+    <summary class="cf-q-sum"><span class="cf-q-n" aria-hidden="true"></span><span class="cf-q-title" data-cf-sum>${escapeHtml(question.label || 'Nouvelle question')}</span>
+      <span class="cf-q-chip" data-cf-sum-kind>${escapeHtml(CF_KINDS.find(k => k[0] === kind)?.[1] || '')}</span></summary>
+    <div class="cf-q-body">
     <div class="cf-q-top">
       <div class="field cf-q-label"><label for="cf-label-${id}">Question</label><input id="cf-label-${id}" data-cf-label required maxlength="180" value="${escapeHtml(question.label || '')}" placeholder="Votre question"></div>
       <div class="cf-q-actions">
@@ -149,32 +151,9 @@ function cfQuestionHtml(question) {
     <p class="cf-q-hint" data-cf-hint>${escapeHtml(cfKindHint(kind))}</p>
     <div class="field cf-q-options${['choice', 'multi'].includes(type) && !question.fixe ? '' : ' hidden'}"><label for="cf-options-${id}">Choix proposés, un par ligne</label><textarea id="cf-options-${id}" data-cf-options rows="3" maxlength="1000" placeholder="Option 1\nOption 2">${escapeHtml(choices)}</textarea></div>
     <details class="cf-q-levels${levels ? '' : ' hidden'}" data-cf-levels-box><summary>Régler les niveaux : valeurs, libellés, couleurs</summary>${cfLevelsHtml(question)}</details>
-  </fieldset>`;
+    </div></details>`;
 }
 
-/* Les niveaux d'une échelle : valeur, libellé, couleur (facultative). */
-function cfLevelsHtml(question) {
-  const fixed = !!question.fixe;
-  const levels = question.type === 'scale' ? fqLevels(question) : cfRange(1, 10);
-  return `<p class="cf-levels-head">Niveaux de l’échelle <span class="text-muted">${fixed ? '(valeurs de 1 à 10 : le RPE en dépend)' : '(valeur enregistrée, libellé et couleur montrés au joueur)'}</span></p>
-    <div class="cf-levels-presets" role="group" aria-label="Réglages rapides">
-      ${fixed ? '' : '<button class="btn btn-sm" type="button" data-cf-preset="0-10">0 à 10</button><button class="btn btn-sm" type="button" data-cf-preset="1-10">1 à 10</button><button class="btn btn-sm" type="button" data-cf-preset="1-5">1 à 5</button>'}
-      <button class="btn btn-sm" type="button" data-cf-preset="intensite">Intensité 1 à 10 (libellés)</button>
-    </div>
-    <div class="cf-levels" data-cf-levels>${levels.map(cfLevelRow).join('')}</div>
-    <button class="btn btn-sm" type="button" data-cf-level-add>+ Niveau</button>`;
-}
-
-function cfLevelRow(n) {
-  const uid = cfUid(), color = /^#[0-9a-f]{6}$/i.test(n.couleur || '') ? n.couleur : '';
-  return `<div class="cf-level" data-cf-level>
-    <label class="sr-only" for="cf-lv-v-${uid}">Valeur</label><input id="cf-lv-v-${uid}" class="cf-level-v" type="number" min="0" max="10" step="1" value="${Number(n.valeur)}" data-cf-lv-value required>
-    <label class="sr-only" for="cf-lv-l-${uid}">Libellé</label><input id="cf-lv-l-${uid}" class="cf-level-l" maxlength="60" value="${escapeHtml(n.libelle || '')}" placeholder="Libellé (facultatif)" data-cf-lv-label>
-    <label class="cf-level-c" title="Couleur"><input type="checkbox" data-cf-lv-colored${color ? ' checked' : ''} aria-label="Couleur pour ce niveau">
-      <input type="color" value="${color || CF_PALETTE[Math.min(2, Math.floor(Number(n.valeur) / 4))]}" data-cf-lv-color aria-label="Couleur du niveau"></label>
-    <button class="btn btn-sm cf-level-x" type="button" data-cf-level-remove aria-label="Retirer ce niveau">×</button>
-  </div>`;
-}
 
 /* Clics de l'éditeur : déplacer une question, régler ses niveaux. Rend true si le clic est traité. */
 function cfEditorClick(e) {
@@ -185,27 +164,12 @@ function cfEditorClick(e) {
     if (other) { up ? other.before(row) : other.after(row); move.focus(); }
     return true;
   }
-  const preset = e.target.closest('[data-cf-preset]');
-  if (preset) {
-    preset.closest('[data-cf-levels-box]').querySelector('[data-cf-levels]').innerHTML = CF_PRESETS[preset.dataset.cfPreset]().map(cfLevelRow).join('');
+  if (e.target.closest('[data-cf-fold]')) {   // tout ouvrir, ou tout replier
+    const all = [...document.querySelectorAll('#cfQuestions .cf-question')], open = !all.every(d => d.open);
+    all.forEach(d => { d.open = open; });
     return true;
   }
-  const add = e.target.closest('[data-cf-level-add]');
-  if (add) {
-    const list = add.closest('[data-cf-levels-box]').querySelector('[data-cf-levels]');
-    const used = [...list.querySelectorAll('[data-cf-lv-value]')].map(x => Number(x.value));
-    const next = [...Array(11).keys()].find(v => !used.includes(v) && v > Math.max(-1, ...used)) ?? [...Array(11).keys()].find(v => !used.includes(v));
-    if (next == null || used.length >= 11) { toast('Une échelle a 11 niveaux au plus (de 0 à 10).', 'error'); return true; }
-    list.insertAdjacentHTML('beforeend', cfLevelRow({ valeur: next, libelle: '', couleur: null }));
-    return true;
-  }
-  const remove = e.target.closest('[data-cf-level-remove]');
-  if (remove) {
-    if (remove.closest('[data-cf-levels]').children.length <= 2) { toast('Une échelle garde au moins deux niveaux.', 'error'); return true; }
-    remove.closest('[data-cf-level]').remove();
-    return true;
-  }
-  return false;
+  return cfLevelsClick(e);   // formulaires-levels.js
 }
 
 function cfQuestionChange(e) {
@@ -218,6 +182,19 @@ function cfQuestionChange(e) {
   row.querySelector('.cf-q-options').classList.toggle('hidden', !['choice', 'multi'].includes(type));
   row.querySelector('[data-cf-levels-box]').classList.toggle('hidden', type !== 'scale');
   row.querySelector('[data-cf-hint]').textContent = cfKindHint(kind);
+  row.querySelector('[data-cf-sum-kind]').textContent = select.selectedOptions[0]?.textContent || '';
+}
+
+/* L'intitulé tapé se recopie sur la ligne repliée. */
+function cfQuestionInput(e) {
+  const label = e.target.closest('[data-cf-label]');
+  if (label) label.closest('.cf-question').querySelector('[data-cf-sum]').textContent = label.value.trim() || 'Nouvelle question';
+}
+
+/* Réglages repliés : « Après chaque séance · N2, Espoirs ». */
+function cfSettingsSum() {
+  const moment = document.getElementById('cfMoment'), teams = [...document.querySelectorAll('#cfTeams input:checked')].map(x => x.nextElementSibling.textContent);
+  document.getElementById('cfSettingsSum').textContent = [moment.selectedOptions[0]?.textContent, teams.join(', ') || 'aucune équipe'].filter(Boolean).join(' · ');
 }
 
 function cfCountQuestions() {
@@ -226,31 +203,6 @@ function cfCountQuestions() {
   document.querySelectorAll('[data-cf-add-question]').forEach(b => { b.disabled = count >= 30; });
 }
 
-/* Les niveaux lus dans l'éditeur ; error si une valeur est fausse ou en double. */
-function cfReadLevels(row) {
-  const levels = [...row.querySelectorAll('[data-cf-level]')].map(x => ({
-    valeur: Number(x.querySelector('[data-cf-lv-value]').value),
-    libelle: x.querySelector('[data-cf-lv-label]').value.trim(),
-    couleur: x.querySelector('[data-cf-lv-colored]').checked ? x.querySelector('[data-cf-lv-color]').value : null,
-  })).sort((a, b) => a.valeur - b.valeur);
-  const bad = levels.length < 2 || levels.some(n => !Number.isInteger(n.valeur) || n.valeur < 0 || n.valeur > 10)
-    || new Set(levels.map(n => n.valeur)).size !== levels.length;
-  return { levels, bad };
-}
-
-/* Une échelle : sans libellé ni couleur et sans trou, de simples bornes ; sinon ses niveaux. */
-function cfScale(q, row, fixed) {
-  const { levels, bad } = cfReadLevels(row);
-  if (bad) return { error: `« ${q.label || 'Échelle'} » : de 2 à 11 niveaux, valeurs entières distinctes de 0 à 10.` };
-  const min = fixed ? q.min : levels[0].valeur, max = fixed ? q.max : levels[levels.length - 1].valeur;
-  if (fixed && levels.some(n => n.valeur < min || n.valeur > max)) return { error: `« ${q.label} » : valeurs de ${min} à ${max}.` };
-  const plain = levels.every(n => !n.libelle && !n.couleur) && levels.length === max - min + 1;
-  const out = { ...q, min, max };
-  delete out.niveaux;
-  if (!plain) out.niveaux = levels;
-  if (!fixed && out.min === out.max) return { error: `« ${q.label} » : au moins deux valeurs.` };
-  return { q: out };
-}
 
 function cfReadEditor() {
   let error = null;

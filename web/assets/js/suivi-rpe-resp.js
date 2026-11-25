@@ -1,7 +1,9 @@
 /* ============================================================
    LMFC Performance — suivi-rpe-resp.js (suivi-rpe)
-   Vue « Réponses » : pour chaque séance ou match affiché, ce que chaque
-   joueur a répondu à ses formulaires, sur une seule carte :
+   Vue « Réponses » : un bloc par jour (lundi, mardi…, dans l'ordre), et dans
+   chaque jour une tuile par séance ou match, de la plus tôt à la plus tard,
+   l'heure en gros (la plus récente choisie) ; une tuile touchée montre
+   aussitôt, en dessous, ce que chaque joueur concerné a répondu :
      - le RPE (session_rpe, match_rpe : déjà lus par suivi-rpe-page.js) ;
      - l'avis de match (match_feedback, lmfc_v36.sql) ;
      - les questions ajoutées dans Formulaires (custom_form_responses,
@@ -20,7 +22,7 @@
 const SR_AVIS = [['individuel', 'Sa performance'], ['collectif', 'L’équipe']];   // comme match-feedback.js
 const srOcc = (s) => (s.match ? `m${s.id}` : `s${s.id}`);
 /* Statut du RPE d'un joueur : [clé, ordre de tri après les valeurs, libellé de la pastille]. */
-const SR_STATUS = { ok: [0, 'Ont répondu'], wait: [1, 'En attente'], none: [2, 'Sans réponse'], away: [3, 'Ailleurs'], abs: [4, 'Absents'] };
+const SR_STATUS = { ok: [0, 'Ont répondu'], wait: [1, 'En attente'], none: [2, 'Sans réponse'], away: [3, 'Autre équipe'], abs: [4, 'Absents'] };
 const srStatus = (c) => (c?.v ? 'ok' : c === 'abs' ? 'abs' : c === 'away' ? 'away' : c === 'wait' ? 'wait' : 'none');
 const srInitials = (p) => `${(p.prenom || '')[0] || ''}${(p.nom || '')[0] || ''}`.toUpperCase() || '?';
 
@@ -49,11 +51,35 @@ async function renderSrResp(body) {
     body.classList.remove('is-loading');
     if (SR.view !== 'resp') return;
   }
-  // La plus récente en haut, seule ouverte.
-  const cards = SR.sessions.map((s, j) => ({ s, j })).reverse().map(({ s, j }, i) => srRespCard(s, j, i === 0));
-  swapKeepView(body, `<p class="sr-resp-note">Chaque carte rassemble les réponses du joueur après ${SR.scope === 'match' ? 'le match' : 'la séance'} : RPE${SR.scope === 'match' ? ', avis' : ''} et questions ajoutées.
-      <span class="sr-resp-legend"><span class="sr-resp-none">—</span> pas de réponse au questionnaire <span class="sr-resp-skip">·</span> question laissée vide (facultative)</span>
-      Toucher une réponse longue l’affiche en entier ; le nom d’un joueur ouvre toutes ses réponses.</p>${cards.join('')}`);
+  // Un bloc par jour, dans l'ordre du calendrier (lundi, mardi…), ses séances côte à côte de la plus tôt à la plus tard
+  // (SR.sessions est déjà rangé par date et heure) ; la plus récente est choisie tant qu'aucune autre ne l'est.
+  const list = SR.sessions.map((s, j) => ({ s, j, ...srRespCount(j) }));
+  const sel = list.find(x => x.s.key === SR.respSel) || list.at(-1);
+  SR.respSel = sel.s.key;
+  const days = [...new Set(list.map(x => x.s.date_seance))];
+  swapKeepView(body, `<div class="sr-days" role="group" aria-label="${SR.scope === 'match' ? 'Matchs' : 'Séances'} par jour">${days.map(d => {
+    const day = list.filter(x => x.s.date_seance === d);
+    return `<div class="sr-day" style="--n:${day.length}"><p class="sr-day-h">${escapeHtml(srDayName(d))} <b>${d.slice(8, 10)}/${d.slice(5, 7)}</b>${day.length > 1 ? `<small>${day.length} ${SR.scope === 'match' ? 'matchs' : 'séances'}</small>` : ''}</p>
+      <div class="sr-day-list">${day.map(x => srRespTile(x, x === sel)).join('')}</div></div>`;
+  }).join('')}</div>
+    ${srRespCard(sel.s, sel.j)}`);
+}
+
+/* Joueurs attendus (sans « autre équipe ») et réponses d'une colonne de la grille. */
+function srRespCount(j) {
+  const col = SR.cells.map(row => row[j]).filter(c => c !== null && c !== 'away');
+  return { done: col.filter(c => c?.v).length, total: col.length };
+}
+
+const srDayName = (iso) => { const t = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date(`${iso}T12:00`)); return t[0].toUpperCase() + t.slice(1); };
+
+function srRespTile({ s, done, total }, on) {
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return `<button type="button" class="sr-tile${s.match ? ' is-match' : ''}" data-sr-tile="${escapeHtml(String(s.key))}" aria-pressed="${on}">
+    <span class="sr-tile-when">${s.heure ? escapeHtml(s.heure.slice(0, 5).replace(':', 'h')) : 'Sans heure'}</span>
+    <span class="sr-tile-title">${escapeHtml(s.adversaire ? `Match – ${s.adversaire}` : s.titre || 'Séance')}</span>
+    <span class="sr-tile-n"><b>${done}</b> / ${total} RPE</span>
+    <span class="sr-tile-bar" aria-hidden="true"><i style="width:${pct}%"></i></span></button>`;
 }
 
 /* Le joueur : photo (ou initiales) et nom, lien vers toutes ses réponses. */
@@ -65,7 +91,7 @@ function srRespWho(p) {
 }
 
 /* Une séance ou un match : un tableau joueurs × questions. */
-function srRespCard(s, j, open) {
+function srRespCard(s, j) {
   const occ = srOcc(s), extra = SR.resp.cf.filter(r => r.occurrence === occ);
   const fb = new Map(SR.resp.fb.filter(x => x.match_id === s.id && s.match).map(x => [x.player_id, x]));
   // Questions ajoutées : celles des formulaires répondus, dans leur ordre, sans doublon.
@@ -75,7 +101,6 @@ function srRespCard(s, j, open) {
     (r.questions_snapshot || []).forEach(q => { if (!q.fixe && !seen.has(`${r.form_id}:${q.id}`)) { seen.add(`${r.form_id}:${q.id}`); qs.push({ form: r.form_id, q }); } });
   });
   const rows = SR.players.map((p, i) => ({ p, c: SR.cells[i][j] })).filter(x => x.c !== null);
-  const answered = rows.filter(({ p, c }) => c?.v || fb.has(p.id) || extra.some(r => r.player_id === p.id)).length;
   const head = [{ label: 'RPE' }, ...(s.match ? SR_AVIS.map(([, l]) => ({ label: l })) : []), ...qs.map(x => x.q)];
   const counts = rows.reduce((m, { c }) => m.set(srStatus(c), (m.get(srStatus(c)) || 0) + 1), new Map());
   const chips = [['all', 'Tous', rows.length], ...Object.entries(SR_STATUS).filter(([k]) => counts.get(k)).map(([k, [, l]]) => [k, l, counts.get(k)])];
@@ -83,22 +108,22 @@ function srRespCard(s, j, open) {
   const body = rows.map(({ p, c }) => {
     const st = srStatus(c);
     const rpe = c?.v ? `<td class="is-num" data-sort="${Number(c.v)}"><span class="sr-resp-rpe" style="--rpe:${rpeColor(c.v)}" title="${escapeHtml(rpeLabel(c.v))}">${c.v}</span></td>`
-      : `<td class="is-num" data-grp="${SR_STATUS[st][0]}"><span class="sr-resp-none sr-st-${st}">${c === 'abs' ? 'abs.' : c === 'away' ? 'ailleurs' : c === 'wait' ? 'en attente' : '—'}</span></td>`;
+      : `<td class="is-num" data-grp="${SR_STATUS[st][0]}"><span class="sr-resp-none sr-st-${st}"${c === 'away' ? ` title="${escapeHtml(`RPE donné avec ${srAway(s, p).other_label}`)}"` : ''}>${
+        c === 'abs' ? 'abs.' : c === 'away' ? `en ${escapeHtml(srAwayTeam(srAway(s, p)))} · ${srAway(s, p).other_rpe}` : c === 'wait' ? 'en attente' : '—'}</span></td>`;
     const avis = s.match ? SR_AVIS.map(([k]) => srRespCell({ type: 'textarea', required: false }, fb.get(p.id), fb.get(p.id)?.[k])) : [];
     const more = qs.map(({ form, q }) => { const r = extra.find(x => x.player_id === p.id && x.form_id === form); return srRespCell(q, r, r?.answers?.[q.id]); });
     return `<tr data-st="${st}"><th scope="row" data-sort="${escapeHtml(playerFullName(p).toLocaleLowerCase('fr'))}">${srRespWho(p)}</th>${rpe}${[...avis, ...more].join('')}</tr>`;
   }).join('');
-  return `<details class="card sr-resp"${open ? ' open' : ''}><summary>
-      <span class="sr-resp-when">${escapeHtml(srWhen(s))}</span><span class="sr-resp-title">${escapeHtml(s.adversaire || s.titre || 'Séance')}</span>
-      <span class="sr-resp-count">${answered} / ${rows.length}</span></summary>
+  return `<section class="card sr-resp" aria-label="${escapeHtml(`Réponses : ${s.adversaire || s.titre || 'Séance'}, ${srWhen(s)}`)}">
     <div class="sr-resp-body">
-      <p class="sr-resp-meta"><a href="${srHref(s)}">${s.match ? 'Ouvrir le match' : 'Ouvrir la séance'}</a>${titles.size ? ` | Questions ajoutées : ${[...titles].map(escapeHtml).join(', ')}` : ''}</p>
+      <div class="sr-resp-head"><h2 class="as-h3">${escapeHtml(s.adversaire ? `Match – ${s.adversaire}` : s.titre || 'Séance')}</h2>
+        <p class="sr-resp-meta">${escapeHtml(srWhen(s))} | <a href="${srHref(s)}">${s.match ? 'Ouvrir le match' : 'Ouvrir la séance'}</a>${titles.size ? ` | ${qs.length} question${qs.length > 1 ? 's' : ''} du questionnaire après ${s.match ? 'match' : 'séance'}` : ''}</p></div>
       ${rows.length ? `<div class="sr-resp-filter" role="group" aria-label="Afficher les joueurs">${chips.map(([k, l, n]) =>
         `<button type="button" class="sr-chip sr-st-${k}" data-sr-filter="${k}" aria-pressed="${k === 'all'}">${l} <b>${n}</b></button>`).join('')}</div>
       <div class="sr-resp-wrap"><table class="sr-resp-table"><thead><tr><th scope="col" aria-sort="none">${sortBtn(0, 'Joueur')}</th>${head.map((h, k) =>
         `<th scope="col" aria-sort="none"><div class="sr-th" title="${escapeHtml(h.label || 'Question')}">${sortBtn(k + 1, h.label || 'Question')}</div></th>`).join('')}</tr></thead>
         <tbody>${body}</tbody></table></div>` : '<p class="text-muted">Aucun joueur concerné.</p>'}
-    </div></details>`;
+    </div></section>`;
 }
 
 /* Une réponse, fidèle à ce qui est enregistré : nombre (avec le libellé et la couleur de son niveau),
@@ -116,6 +141,8 @@ function srRespCell(q, row, v) {
 }
 
 document.addEventListener('click', (e) => {
+  const tile = e.target.closest('[data-sr-tile]');
+  if (tile && tile.getAttribute('aria-pressed') !== 'true') { SR.respSel = /^m/.test(tile.dataset.srTile) ? tile.dataset.srTile : Number(tile.dataset.srTile); renderSr(); return; }
   const cell = e.target.closest('[data-sr-open]');
   if (cell) cell.classList.toggle('is-open');
   const sort = e.target.closest('[data-sr-sort]'), filter = e.target.closest('[data-sr-filter]');

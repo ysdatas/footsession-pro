@@ -118,5 +118,6 @@ function soreHtml({ players, days, rows, alerts }) {
         const r = cell.get(`${p.id}:${d}`);
         return r ? `<td><span class="sore-n" style="--rpe:${soreColor(r.niveau)}">${r.niveau}</span>${soreChips(r.muscles, true)}</td>` : '<td class="sore-none">—</td>';
       }).join('')}</tr>`).join('')}</tbody></table></div>
-    <p class="sore-foot">Niveau au réveil (0 à 10) et muscles : <span class="sore-chip is-bas">bas du corps</span> <span class="sore-chip is-haut">haut du corps</span>. Case vide : pas de réponse ce jour-là${silent ? ` (${silent} joueur${silent > 1 ? 's' : ''} sans aucune réponse sur ces jours)` : ''}.</p>`;
+    <p class="sore-foot"><span>Niveau au réveil, 0 à 10</span><span class="sore-chip is-bas">bas du corps</span><span class="sore-chip is-haut">haut du corps</span>
+      <span>— pas de réponse${silent ? ` (${silent} joueur${silent > 1 ? 's' : ''} sans réponse)` : ''}</span></p>`;
 }

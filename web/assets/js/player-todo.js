@@ -26,7 +26,8 @@ const ptDay = (n = 0) => { const d = new Date(); d.setDate(d.getDate() - n); ret
 /* Titre montré au joueur : sans le contexte (« · Séance du 21/11 ») ni ce qui suit « — » (équipes). */
 const ptTitle = (t) => String(t || 'Questionnaire').split(' · ')[0].split(' — ')[0].trim() || 'Questionnaire';
 const ptExtras = (questions) => (questions || []).filter(q => !q.fixe);
-const ptBefore = (f) => /^Avant le match/.test(f.titre || '');   // lmfc_v65.sql : même occurrence « m » qu'après
+// lmfc_v65.sql : même occurrence « m » qu'après ; « Nom du formulaire · Avant le match contre X · date ».
+const ptBefore = (f) => String(f.titre || '').split(' · ').some(x => /^Avant le match/.test(x));
 /* Clé d'un questionnaire : « s12:post », « m4:pre », « j2026-11-23:pre », « f88 » (une fois). */
 const ptKey = (kind, id, phase) => (kind === 'libre' ? `f${id}` : `${kind === 'match' ? 'm' : kind === 'jour' ? 'j' : 's'}${id}:${phase}`);
 /* « aujourd’hui à 16:30 », « hier », « samedi 21 novembre ». */
@@ -60,7 +61,7 @@ async function ptFetch() {
 /* Les questionnaires à remplir, du plus urgent (aujourd'hui, l'heure, avant puis après) aux « une fois ». */
 function ptBuild({ rpe, sore, avis, feedback, forms }) {
   const map = new Map(), today = ptDay(0), from = ptDay(PT_DAYS);
-  const adv = (t) => String(t || '').replace(/^Match contre /, '');   // match : l'adversaire seul
+  const adv = (t) => String(t || '').replace(/^(Avant le match contre|Match contre) /, '');   // match : l'adversaire seul
   // Séance ou match connu par le RPE (noté ou non) : son titre et son heure.
   const known = (kind, id) => rpe.find(r => !!r.match === (kind === 'match') && r.id === Number(id));
   const item = (kind, id, phase, ev = {}) => {
@@ -94,7 +95,7 @@ function ptBuild({ rpe, sore, avis, feedback, forms }) {
     if (!occ) { item('libre', f.version_id, null, { titre: f.titre }).parts.push(part); continue; }
     const id = occ.slice(1);
     if (occ[0] === 's') item('seance', Number(id), 'post', { titre: ctx[0], date: day }).parts.push(part);
-    else if (occ[0] === 'm') item('match', Number(id), ptBefore(f) ? 'pre' : 'post', { titre: ctx[0], date: day }).parts.push(part);
+    else if (occ[0] === 'm') item('match', Number(id), ptBefore(f) ? 'pre' : 'post', { titre: ctx.find(x => /contre /.test(x)) || ctx[0], date: day }).parts.push(part);
     else {
       const s = firstSeance(id);   // questionnaire du jour : avec la séance de ce jour-là, s'il y en a une
       (s ? item('seance', s.id, 'pre', { titre: s.titre, date: s.date, heure: s.heure }) : item('jour', id, 'pre', { date: id })).parts.push(part);

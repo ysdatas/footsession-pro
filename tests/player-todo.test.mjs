@@ -5,6 +5,7 @@
      - questions ajoutées restées seules (RPE déjà noté) : toujours « après séance » ;
      - avant le match / après le match ; jour sans séance : « Questionnaire du jour » ;
      - avis de match : deux jours au plus, pas s'il est donné ;
+     - séance dont la demi-journée est déjà notée ailleurs (lmfc_v71.sql) : rien ;
      - formulaire « une fois » : son nom, sans « — équipes » ; rangés : aujourd'hui d'abord.
    Lancement : node tests/player-todo.test.mjs */
 import assert from 'node:assert/strict';
@@ -22,6 +23,7 @@ const rows = [
   { id: 2, match: false, titre: 'Séance N2', date: day(0), date_seance: day(0), heure: '00:00:00', rpe: 5, form_questions: rpeQs },
   { id: 3, match: false, titre: 'Séance J3', date: day(3), date_seance: day(3), heure: '10:00:00', rpe: null, form_questions: rpeQs },
   { id: 9, match: true, titre: 'Match contre Hope', date: day(1), date_seance: day(1), heure: '15:00:00', rpe: null, form_questions: [] },
+  { id: 5, match: false, titre: 'Séance Pro', date: day(1), date_seance: day(1), heure: '16:00:00', rpe: null, form_questions: rpeQs, ailleurs: 'Séance N2 – N2 à 16:30' },
 ];
 const items = build({
   rpe: rows,
@@ -35,6 +37,8 @@ const items = build({
     { version_id: 52, titre: 'Forme du jour · avant-hier', occurrence: `j${day(2)}`, jour: day(2), questions: [{ id: 'f', label: 'Forme ?', type: 'boolean' }] },
     { version_id: 53, titre: 'Avant le match · Match contre Lens · 24/11/2026', occurrence: 'm12', jour: day(0), questions: [{ id: 'a', label: 'Prêt ?', type: 'boolean' }] },
     { version_id: 54, titre: 'Bilan de la semaine — Espoirs', occurrence: '', jour: null, questions: [{ id: 'b', label: 'Bilan ?', type: 'text' }] },
+    { version_id: 55, titre: 'Forme · Avant le match contre Rennes · 24/11/2026', occurrence: 'm13', jour: day(0), questions: [{ id: 'r', label: 'Prêt ?', type: 'boolean' }] },
+    { version_id: 56, titre: 'Bilan perso · Match contre Hope · 24/11/2026', occurrence: 'm9', jour: day(1), questions: [{ id: 'h', label: 'Bilan ?', type: 'text' }] },
   ],
 });
 const byKey = Object.fromEntries(items.map(x => [x.key, x]));
@@ -45,6 +49,7 @@ assert.deepEqual(byKey['s1:post'].parts.map(p => p.type), ['rpe']);
 assert.deepEqual(byKey['s1:post'].parts[0].extras.map(q => q.id), ['plaisir'], 'les questions ajoutées viennent avec l’effort');
 assert.equal(byKey['s1:post'].titre, 'Séance Espoirs');
 assert.ok(!byKey['s3:post'], 'J-3 : plus proposé');
+assert.ok(!byKey['s5:post'], 'effort de la demi-journée déjà noté à une autre séance (lmfc_v71.sql) : rien à remplir');
 // Courbatures et questionnaire du jour : pré-séance de la séance du jour.
 assert.equal(byKey['s2:pre'].label, 'Questionnaire pré-séance');
 assert.deepEqual(byKey['s2:pre'].parts.map(p => p.type), ['sore', 'form']);
@@ -55,7 +60,8 @@ assert.ok(!JSON.stringify(items.map(x => [x.label, x.titre])).includes('N2 et Es
 assert.equal(byKey[`j${day(2)}:pre`].label, 'Questionnaire du jour', 'jour sans séance');
 assert.equal(byKey['m12:pre'].label, 'Questionnaire avant match');
 assert.equal(byKey['m12:pre'].titre, 'Lens');
-assert.deepEqual(byKey['m9:post'].parts.map(p => p.type), ['rpe', 'avis'], 'après match : effort puis avis');
+assert.equal(byKey['m13:pre'].titre, 'Rennes', 'avant match planifié (lmfc_v65.sql) : nom du formulaire d’abord, puis « Avant le match contre »');
+assert.deepEqual(byKey['m9:post'].parts.map(p => p.type), ['rpe', 'avis', 'form'], 'après match (lmfc_v72.sql) : avec l’effort et l’avis');
 assert.equal(byKey['m9:post'].titre, 'Hope');
 assert.ok(!byKey['m8:post'] && !byKey['m7:post'], 'avis : deux jours au plus, et pas s’il est donné');
 // Une fois : son nom, sans les équipes ; à la fin.

@@ -48,9 +48,11 @@ assert.match(playerJs, /custom_forms_my_history/);
 assert.match(playerJs, /custom_form_submit/);
 assert.match(playerJs, /MF\.demo/);
 assert.match(playerHome, /ptLoad\(\)/, 'l’accueil lit la même liste « À remplir » que Mes formulaires');
-assert.match(js, /custom_form_responses/);
-assert.match(js, /\.range\(from, from \+ CF_PAGE - 1\)/, 'le staff retrouve toutes les réponses, page par page');
-assert.match(page, /id="cfResponsesMore"/);
+// Les réponses des joueurs se lisent dans Suivi RPE (Réponses, Historique), plus dans Formulaires.
+assert.doesNotMatch(page, /cfResponses/, 'plus de liste de réponses dans Formulaires');
+assert.match(read('web/assets/js/suivi-rpe-hist.js'), /custom_form_responses/, 'toutes les réponses : Suivi RPE, Historique');
+assert.match(read('web/assets/js/suivi-rpe-resp.js'), /custom_form_responses/, 'réponses d’une séance : Suivi RPE, Réponses');
+assert.match(page, /href="suivi-rpe\?vue=reponses"/, 'Formulaires mène aux réponses');
 assert.match(playerJs, /p_offset: MF\.history\.length/, 'le joueur retrouve tout son historique');
 assert.match(playerJs, /getElementById\('mfHistoryMore'\)\.addEventListener/, 'le bouton est relié');
 assert.match(page, /formulaires-editor\.js[\s\S]*formulaires-page\.js/, 'l’éditeur est chargé avant la page qui le relie');
@@ -60,14 +62,16 @@ assert.match(editor, /x\.fixe\)/, 'une question d’origine garde tout, sauf son
 assert.match(playerJs, /p_occurrence: p\.form\.occurrence/, 'un questionnaire désigne sa séance');
 assert.match(playerJs, /p_occurrence: occ/, 'les questions ajoutées suivent la réponse d’origine, même séance');
 assert.match(readme, /65\. supabase\/lmfc_v47\.sql/);
-assert.match(js, /CF\.responseOnly/);
+assert.match(js, /\['coach', 'analyste'\]\.includes\(ctx\.profile\.role\)\) \{ location\.replace\('suivi-rpe\?vue=reponses'\)/, 'coach, analyste : vers les réponses');
 assert.match(readme, /63\. supabase\/lmfc_v45\.sql/);
 // lmfc_v63.sql : une échelle part en nombre, jamais en texte ; échelles à niveaux ; suppression.
 assert.match(playerJs, /kind === 'number'[\s\S]*Number\(raw\.replace\(',', '\.'\)\)/, 'une échelle ou un nombre part en nombre');
 assert.match(playerJs, /fqLevels\(q\)/, 'les niveaux réglés sont montrés au joueur');
 assert.match(playerPage, /form-levels\.js[\s\S]*player-todo\.js[\s\S]*todo-parts\.js[\s\S]*mes-formulaires-page\.js/);
 assert.match(editor, /data-cf-move/, 'les questions se déplacent');
-assert.match(editor, /cfReadLevels/, 'les niveaux d’une échelle se règlent');
+assert.match(read('web/assets/js/formulaires-levels.js'), /function cfReadLevels/, 'les niveaux d’une échelle se règlent');
+assert.match(page, /formulaires-levels\.js[\s\S]*formulaires-editor\.js/);
+assert.match(editor, /<details class="cf-question"/, 'une question se replie sur une ligne');
 assert.match(js, /custom_form_delete/, 'un formulaire se supprime, ses réponses restent');
 assert.match(readme, /81\. supabase\/lmfc_v63\.sql/);
 console.log('custom-forms-contract : OK');

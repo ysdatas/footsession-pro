@@ -34,7 +34,7 @@
         <p class="subtitle" id="cfSubtitle">Les questionnaires que reçoivent tes joueurs, avant et après la séance ou le match.</p>
       </div>
       <div class="page-actions">
-        <a class="btn" href="suivi-rpe">Suivi RPE</a>
+        <a class="btn" href="suivi-rpe?vue=reponses">Voir les réponses</a>
         <button class="btn btn-primary" type="button" data-cf-new>Nouveau formulaire</button>
       </div>
     </div>
@@ -44,23 +44,8 @@
       <div class="cf-list" id="cfList"></div>
       <p class="cf-foot">Modifier un formulaire crée une nouvelle version, le supprimer ne supprime jamais ses réponses : celles déjà reçues ne changent pas.</p>
     </div>
-    <section class="cf-responses" id="cfResponsesWrap" aria-labelledby="cfResponsesTitle">
-      <div class="cf-responses-head"><div><h2 id="cfResponsesTitle">Réponses des joueurs</h2><p class="text-muted" id="cfResponsesHint">Les réponses visibles suivent les droits de tes équipes.</p></div><span class="cf-count" id="cfResponsesCount"></span></div>
-      <p class="cf-status" id="cfResponsesStatus" role="status" aria-live="polite">Chargement des réponses…</p>
-      <div class="cf-response-list" id="cfResponses"></div>
-      <button class="btn cf-responses-more hidden" id="cfResponsesMore" type="button">Charger les réponses précédentes</button>
-    </section>
   </main>
 
-  <div class="modal-backdrop" id="cfResponseModal">
-    <section class="modal cf-modal" role="dialog" aria-modal="true" aria-labelledby="cfResponseTitle">
-      <button class="modal-x" type="button" data-close="cfResponseModal" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      <h2 class="as-h3" id="cfResponseTitle">Réponse</h2>
-      <p class="text-muted cf-response-meta" id="cfResponseMeta"></p>
-      <dl class="cf-response-answers" id="cfResponseAnswers"></dl>
-      <div class="modal-actions"><button class="btn" type="button" data-close="cfResponseModal">Fermer</button></div>
-    </section>
-  </div>
 
   <div class="modal-backdrop" id="cfEditor">
     <section class="modal cf-modal" role="dialog" aria-modal="true" aria-labelledby="cfTitle">
@@ -68,6 +53,9 @@
       <h2 class="as-h3" id="cfTitle">Nouveau formulaire</h2>
       <p class="text-muted cf-modal-lead" id="cfLead"></p>
       <form id="cfEditorForm">
+        <details class="cf-sec" id="cfSettings" open>
+        <summary class="cf-sec-sum"><span class="cf-sec-t">Réglages</span><span class="cf-sec-s" id="cfSettingsSum"></span></summary>
+        <div class="cf-sec-body">
         <div class="field"><label for="cfName">Nom</label><input id="cfName" required maxlength="100" autocomplete="off" aria-describedby="cfNameHint">
           <p class="text-muted cf-hint" id="cfNameHint">Le joueur voit « Questionnaire pré-séance » ou « après séance » ; seul un formulaire à remplir une fois garde ce nom.</p></div>
         <div class="field"><label for="cfDescription">Consigne <span class="text-muted">(facultatif, montrée aux joueurs)</span></label><textarea id="cfDescription" rows="2" maxlength="1000"></textarea></div>
@@ -76,12 +64,20 @@
           <div class="field"><label for="cfMoment">Moment</label>
             <select id="cfMoment">
               <option value="">Une fois, dans « Mes formulaires »</option>
-              <option value="jour">Chaque jour</option>
-              <option value="semaine">Certains jours de la semaine</option>
-              <option value="avant_match">Avant chaque match</option>
-              <option value="rpe_seance">Après chaque séance, avec le RPE (Suivi RPE)</option>
-              <option value="rpe_match">Après chaque match, avec le RPE (Suivi RPE)</option>
+              <optgroup label="Avant">
+                <option value="seance">Les jours de séance, au réveil</option>
+                <option value="jour">Chaque jour</option>
+                <option value="semaine">Certains jours de la semaine</option>
+                <option value="avant_match">Avant chaque match</option>
+              </optgroup>
+              <optgroup label="Après">
+                <option value="apres_seance">Après chaque séance</option>
+                <option value="apres_match">Après chaque match</option>
+                <option value="rpe_seance">Après chaque séance, avec l’effort (RPE)</option>
+                <option value="rpe_match">Après chaque match, avec l’effort (RPE)</option>
+              </optgroup>
             </select></div>
+          <p class="text-muted cf-hint hidden" id="cfMomentLock">Moment fixe : ce questionnaire d’origine alimente le Suivi RPE (effort, courbatures ou avis de match). Pour le poser à un autre moment, créez un nouveau formulaire : tous les moments y sont proposés.</p>
           <div class="cf-days hidden" id="cfDays" role="group" aria-label="Jours de la semaine">
             <label class="cf-day"><input type="checkbox" value="1"><span>Lun.</span></label><label class="cf-day"><input type="checkbox" value="2"><span>Mar.</span></label>
             <label class="cf-day"><input type="checkbox" value="3"><span>Mer.</span></label><label class="cf-day"><input type="checkbox" value="4"><span>Jeu.</span></label>
@@ -100,8 +96,11 @@
           <legend>Équipes</legend>
           <div class="cf-team-list" id="cfTeams"></div>
         </fieldset>
-        <fieldset class="cf-fieldset">
+        <label class="check cf-active"><input type="checkbox" id="cfActive" checked> Formulaire actif</label>
+        </div></details>
+        <fieldset class="cf-fieldset cf-qs">
           <legend>Questions <span class="text-muted" id="cfQuestionCount"></span></legend>
+          <button class="btn btn-sm cf-fold" type="button" data-cf-fold>Tout ouvrir ou replier</button>
           <div class="cf-question-list" id="cfQuestions"></div>
           <div class="cf-add" role="group" aria-labelledby="cfAddLabel"><span id="cfAddLabel">Ajouter une question</span>
             <button class="btn btn-sm" type="button" data-cf-add-question="scale">Curseur</button>
@@ -111,7 +110,6 @@
             <button class="btn btn-sm" type="button" data-cf-add-question="textarea">Texte</button>
           </div>
         </fieldset>
-        <label class="check cf-active"><input type="checkbox" id="cfActive" checked> Formulaire actif</label>
         <p class="cf-status" id="cfEditorStatus" role="status" aria-live="polite"></p>
         <div class="modal-actions">
           <button class="btn" type="button" data-close="cfEditor">Annuler</button>
@@ -129,6 +127,7 @@
   <script src="assets/js/app.js"></script>
   <script src="assets/js/form-levels.js"></script>
   <script src="assets/js/form-body.js"></script>
+  <script src="assets/js/formulaires-levels.js"></script>
   <script src="assets/js/formulaires-editor.js"></script>
   <script src="assets/js/formulaires-list.js"></script>
   <script src="assets/js/formulaires-page.js"></script>
