@@ -126,7 +126,7 @@ async function anTlUndo() {
 /* Début (I) et fin (O) marqués : le clip est créé tout de suite, à coder, et s'ouvre dans le panneau (⌘Z le retire). */
 async function anTlCreate() {
   const tl = AN.tl, v = AN.videos.find(x => x.id === tl.video), code = anCodePayload({ tags: [] });
-  if (tl.mode !== 'video') return;
+  if (tl.mode !== 'video' || AN.players) return;   // analyse d'un match : pas de création ici
   if (!v || tl.in == null || tl.out == null || tl.out - tl.in < 0.5) return toast('Marquez le début (I) puis la fin (O), à une demi-seconde au moins.', 'error');
   anVid().pause();
   try {
@@ -142,7 +142,7 @@ async function anTlCreate() {
 
 function anTlMark(which) {
   const tl = AN.tl, t = anTlTime(tl.video);
-  if (tl.mode !== 'video') return;
+  if (tl.mode !== 'video' || AN.players) return;
   if (t == null) return toast('La vidéo n’est pas chargée.', 'error');
   tl[which] = Math.round(t * 10) / 10;
   if (tl.in != null && tl.out != null && tl.out <= tl.in) tl[which === 'in' ? 'out' : 'in'] = null;   // marques croisées : on garde la dernière posée

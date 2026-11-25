@@ -160,11 +160,11 @@ function anTlRender() {
   const mode = (k, l) => `<button type="button" class="an-chip${tl.mode === k ? ' is-on' : ''}" data-tl="mode" data-value="${k}" aria-pressed="${tl.mode === k}">${l}</button>`;
   anDockEl('bar').innerHTML = `<button type="button" class="btn btn-sm btn-primary" data-tl="toggle" aria-expanded="${tl.open}">Timeline / Codage vidéo</button>
     <span class="an-on">${anPlural(AN.clips.length - todo, 'codé')}, ${todo} à coder</span>
-    ${!tl.open ? '' : !v ? '<span class="text-muted">Aucune vidéo pour ce joueur : envoyez-en une dans l’onglet Vidéos.</span>'
+    ${!tl.open ? '' : !v ? `<span class="text-muted">${AN.players ? 'Aucune vidéo pour ce match : envoyez-la depuis Retours de match.' : 'Aucune vidéo pour ce joueur : envoyez-en une dans l’onglet Vidéos.'}</span>`
       : `<span class="an-tl-modes" role="group" aria-label="Vue de la timeline">${mode('all', 'Tous les clips')}${mode('video', 'Une vidéo')}</span>
         ${tl.mode === 'all' ? '' : `<label class="an-sel an-sel-sm"><span>Vidéo</span><select data-tl-video>${AN.videos.map(x =>
             `<option value="${x.id}"${x.id === v.id ? ' selected' : ''}>${esc(x.titre)}</option>`).join('')}</select></label>
-          ${anVideoSelect(v, 'poste', 'Poste', general('poste'))}${anVideoSelect(v, 'lieu', 'Lieu', general('lieu'))}
+          ${AN.players ? '' : `${anVideoSelect(v, 'poste', 'Poste', general('poste'))}${anVideoSelect(v, 'lieu', 'Lieu', general('lieu'))}`}
           <button type="button" class="btn btn-sm" data-tl="import" title="Les actions codées dans Sportscode (Hudl) deviennent des séquences de cette vidéo">Importer un XML Sportscode</button>`}`}
     <span class="an-grow"></span>
     ${last ? `<button type="button" class="btn btn-sm" data-tl="undo" title="⌘Z ou Ctrl+Z">↶ Annuler : ${esc(last.label)}</button>` : ''}
@@ -197,7 +197,7 @@ function anTlTrack(items) {
   const seg = ({ c, at, dur, hi, lo }) => `<button type="button" class="an-seg is-${laneOf(c)}${hi ? ' is-hi' : ''}${lo ? ' is-lo' : ''}"
       data-seq="${c.id}" style="left:${pct(at)}%;width:${pct(dur)}%"
       title="${esc(anClipName(c))}" aria-label="${esc(anClipName(c))}" aria-pressed="false">
-      <i class="an-seg-h is-start" data-trim="start" title="Tirer : changer le début"></i><span class="an-seg-t">${esc(all ? c.video_title : c.label || 'Séquence')}</span><i class="an-seg-h is-end" data-trim="end" title="Tirer : changer la fin"></i></button>`;
+      <i class="an-seg-h is-start" data-trim="start" title="Tirer : changer le début"></i><span class="an-seg-t">${esc(all ? c.video_title : [c.player_name, c.label || 'Séquence'].filter(Boolean).join(' · '))}</span><i class="an-seg-h is-end" data-trim="end" title="Tirer : changer la fin"></i></button>`;
   const track = anDockEl('track');
   track.style.width = `${AN.tl.zoom * 100}%`;
   track.innerHTML = `<div class="an-tl-ruler">${anTicks(D, AN.tl.zoom).map(t => `<span style="left:${pct(t)}%">${fmtT(t)}</span>`).join('')}</div>
@@ -239,6 +239,8 @@ function anTlMarks() {
     return;
   }
   const { in: a, out: b } = tl, D = anTlDur(), ok = a != null && b != null && b - a >= 0.5;
+  // Analyse d'un match : une séquence appartient à un joueur ; elle se crée depuis sa fiche ou par l'import XML.
+  if (AN.players) { box.innerHTML = '<span class="text-muted">Nouvelle séquence : import XML, ou fiche du joueur › Analyse</span>'; if (mark) mark.hidden = true; return; }
   box.innerHTML = `<button type="button" class="btn btn-sm" data-tl="in" title="Touche I">⇤ Début</button><output>${a == null ? '–' : fmtT(a)}</output>
     <button type="button" class="btn btn-sm" data-tl="out" title="Touche O">Fin ⇥</button><output>${b == null ? '–' : fmtT(b)}</output>
     <button type="button" class="btn btn-sm btn-primary" data-tl="create" title="Touche Entrée"${ok ? '' : ' disabled'}>Créer le clip</button>`;

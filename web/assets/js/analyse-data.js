@@ -32,6 +32,30 @@ async function anFetch(playerId) {
   return { videos: v.data, clips: anMerge(v.data, s.data, c.data), descs: d.data };
 }
 
+/* Analyse d'un match (analyse-match-page.js, lmfc_v75.sql) : les vidéos du match, une ligne par joueur sur le même
+   fichier. La timeline et les terrains n'en voient qu'une par fichier (la première) ; chaque clip garde sa vraie ligne
+   (own_video) pour l'écriture, son joueur (player_id, player_name) pour le filtre « Joueur ». */
+async function anFetchMatch(matchId) {
+  const v = await sb.from('player_videos').select('*').eq('match_id', matchId).order('created_at');
+  if (v.error) throw anDbError('lecture impossible', v.error);
+  const rows = v.data || [], ids = rows.map(r => r.id), pids = [...new Set(rows.map(r => r.player_id))], none = { data: [] };
+  const [s, c, d, p] = await Promise.all([
+    ids.length ? sb.from('video_sequences').select('id, video_id, club_id, label, start_sec, end_sec').in('video_id', ids).order('start_sec') : none,
+    pids.length ? sb.from('sequence_codes').select('*').in('player_id', pids) : none,
+    sb.from('sequence_descriptors').select('*').order('nom'),
+    pids.length ? sb.from('players').select('id, nom, prenom').in('id', pids).order('nom') : none,
+  ]);
+  const err = s.error || c.error || d.error || p.error;
+  if (err) throw anDbError('lecture impossible', err);
+  const canon = new Map(), byId = new Map(rows.map(r => [r.id, r])), who = new Map((p.data || []).map(x => [x.id, x]));
+  rows.forEach(r => { if (!canon.has(r.storage_path)) canon.set(r.storage_path, r); });
+  const clips = anMerge(rows, s.data, c.data).map(clip => {
+    const own = byId.get(clip.video_id), pl = who.get(own.player_id);
+    return { ...clip, own_video: own.id, video_id: canon.get(own.storage_path).id, player_id: own.player_id, player_name: pl ? playerFullName(pl) : '' };
+  });
+  return { videos: [...canon.values()], clips, descs: d.data, players: p.data || [], allVideos: rows };
+}
+
 async function anRpc(context, fn, args) {
   const { data, error } = await sb.rpc(fn, args);
   if (error) throw anDbError(context, error);
@@ -47,7 +71,7 @@ function anCodePayload(draft) {
   return code;
 }
 function anSaveCode(clip, draft) {
-  return anRpc(`clip ${clip.id ?? 'nouveau'} refusé`, 'save_sequence_code', { p_sequence_id: clip.id ?? null, p_video_id: clip.video_id,
+  return anRpc(`clip ${clip.id ?? 'nouveau'} refusé`, 'save_sequence_code', { p_sequence_id: clip.id ?? null, p_video_id: clip.own_video ?? clip.video_id,
     p_label: clip.label ?? null, p_start: draft.start_sec, p_end: draft.end_sec, p_code: anCodePayload(draft) });
 }
 
@@ -55,7 +79,7 @@ function anSaveCode(clip, draft) {
    réservée au staff comme tout clip créé ici ; avec son codage et ses tags, ou à coder. Rend l'id de la copie.
    at : { start_sec, end_sec, code } pour la poser ailleurs dans la vidéo ou avec un autre codage (⌥ + glisser). */
 function anDuplicate(clip, withCode, at = {}) {
-  return anRpc(`copie du clip ${clip.id} refusée`, 'save_sequence_code', { p_sequence_id: null, p_video_id: clip.video_id,
+  return anRpc(`copie du clip ${clip.id} refusée`, 'save_sequence_code', { p_sequence_id: null, p_video_id: clip.own_video ?? clip.video_id,
     p_label: `${clip.label || 'Séquence'} (copie)`, p_start: at.start_sec ?? clip.start_sec, p_end: at.end_sec ?? clip.end_sec,
     p_code: at.code ?? (withCode ? anCodePayload(clip) : {}) });
 }
@@ -69,7 +93,7 @@ async function anDeleteClips(ids) {
 
 /* Découpage seul (bord d'un clip tiré sur la timeline) : même transaction, codage intact. */
 function anSaveTimes(clip, { start_sec, end_sec }) {
-  return anRpc(`découpage du clip ${clip.id} refusé`, 'save_sequence_code', { p_sequence_id: clip.id, p_video_id: clip.video_id, p_label: null,
+  return anRpc(`découpage du clip ${clip.id} refusé`, 'save_sequence_code', { p_sequence_id: clip.id, p_video_id: clip.own_video ?? clip.video_id, p_label: null,
     p_start: start_sec, p_end: end_sec, p_code: {} });
 }
 

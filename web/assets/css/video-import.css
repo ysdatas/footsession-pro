@@ -38,3 +38,4 @@
 #mvFile:focus-visible + .mv-prog, .mv-tools label.btn:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
 .mv-prog { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--text-secondary); }
 .mv-prog progress { width: 160px; accent-color: var(--gold); }
+.mv-open { justify-self: start; }

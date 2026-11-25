@@ -8,7 +8,8 @@
      - une vidéo par fichier, avec le nombre de joueurs qui l'ont ; « Donner à
        toute la feuille » : ceux ajoutés depuis la reçoivent aussi ;
      - « Importer un XML Sportscode » : la fenêtre de l'Analyse (analyse-import-ui.js),
-       chaque ligne du XML reliée à un joueur, ses séquences sur sa ligne de vidéo.
+       chaque ligne du XML reliée à un joueur, ses séquences sur sa ligne de vidéo ;
+     - « Ouvrir l'analyse du match » : analyse-match?id= (toute l'équipe, filtre joueur).
    Staff vidéo seulement (admin, coach, analyste) ; la base décide joueur par
    joueur (RLS de player_videos) : un refus est compté, le reste passe.
    Dépend de matchs-page.js (editing, myProfile, clubPlayers, playerOf, playerName),
@@ -54,7 +55,8 @@ function mvDraw() {
       <div class="mv-acts"><button type="button" class="btn btn-sm btn-primary" data-mv-xml="${i}">Importer un XML Sportscode</button>
         ${missing ? `<button type="button" class="btn btn-sm" data-mv-give="${i}">La donner aussi à ${missing} joueur${missing > 1 ? 's' : ''} de la feuille</button>` : ''}</div>
     </article>`;
-  }).join('') : '<p class="text-muted mv-empty">Aucune vidéo pour ce match. Envoyez-la une fois : chaque joueur de la feuille la reçoit.</p>';
+  }).join('') + `<a class="btn btn-sm mv-open" href="analyse-match?id=${MV.match.id}">Ouvrir l’analyse du match</a>`
+    : '<p class="text-muted mv-empty">Aucune vidéo pour ce match. Envoyez-la une fois : chaque joueur de la feuille la reçoit.</p>';
 }
 
 /* Lignes de vidéo pour ces joueurs, sur le fichier de `from` ; rend le nombre de refus (RLS). */

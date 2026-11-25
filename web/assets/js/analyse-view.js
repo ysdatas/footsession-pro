@@ -48,7 +48,7 @@ async function mountAnalyse(root, { player, profile, canCode }) {
 async function anReload() {
   const token = AN.token;
   try {
-    Object.assign(AN, await anFetch(AN.player.id), { error: null });
+    Object.assign(AN, await (AN.load ? AN.load() : anFetch(AN.player.id)), { error: null });   // AN.load : analyse d'un match
   } catch (err) {
     AN.error = err.message;
   }
@@ -77,7 +77,7 @@ function anAllTags() { return [...new Set(AN.clips.flatMap(c => c.tags))].sort((
 /* Match · séquence · minutage, puis action, résultat et tags une fois codé. */
 function anClipName(c) {
   const A = AN_ACTIONS[c.action];
-  return [c.video_title, c.label || 'Séquence', fmtT(c.start_sec), c.minute_match != null && `${c.minute_match}'`, A?.one,
+  return [c.player_name, c.video_title, c.label || 'Séquence', fmtT(c.start_sec), c.minute_match != null && `${c.minute_match}'`, A?.one,
     A && c.resultat && anLabel(A.res, c.resultat), ...c.tags.map(t => `#${t}`)]
     .filter(Boolean).join(' · ');
 }
@@ -104,7 +104,9 @@ function anRenderFilters() {
   const chips = chosen.map(t => `<button type="button" class="an-chip is-on" data-an="untag" data-value="${esc(t)}"
     aria-label="Retirer le tag ${esc(t)} des filtres">${esc(t)}<span class="arr arr-x" aria-hidden="true"></span></button>`).join('');
   const any = Object.values(AN.f).some(f => Object.keys(f).length);
-  document.getElementById('anFilters').innerHTML = `<div class="an-sel-grid">${AN_GENERAL.map(d => anSelect('general', d)).join('')}${tagSel}
+  // Analyse d'un match : un menu « Joueur » en plus (player_id de chaque clip).
+  const who = AN.players ? [anF('player_id', 'Joueur', AN.players.map(p => [String(p.id), playerFullName(p)]))] : [];
+  document.getElementById('anFilters').innerHTML = `<div class="an-sel-grid">${[...who, ...AN_GENERAL].map(d => anSelect('general', d)).join('')}${tagSel}
     <button type="button" class="btn btn-sm an-reset" data-an="reset-all"${any ? '' : ' disabled'}>Réinitialiser</button></div>
     <div class="an-filters-foot">${chips}</div>`;
 }
@@ -202,10 +204,12 @@ function anExport() {
 
 /* Lit les clips de la sous-rubrique ouverte, filtres compris, à la suite. */
 function anPlay(space) {
-  const items = anActionClips(AN.clips, AN.f, AN.tab[space]).map(c => ({ seqId: c.id, label: anClipName(c), player: AN.player,
-    video: AN.videos.find(v => v.id === c.video_id) })).filter(it => it.video);
+  // Analyse d'un match : chaque clip avec son joueur et sa vraie ligne de vidéo.
+  const items = anActionClips(AN.clips, AN.f, AN.tab[space]).map(c => ({ seqId: c.id, label: anClipName(c),
+    player: AN.players?.find(p => p.id === c.player_id) || AN.player,
+    video: (AN.allVideos || AN.videos).find(v => v.id === (c.own_video ?? c.video_id)) })).filter(it => it.video);
   document.getElementById('anVideo')?.pause();
-  if (items[0]) openVideoWorkspace({ video: items[0].video, player: AN.player, profile: AN.profile, seqId: items[0].seqId, playlist: items, onChange: anReload });
+  if (items[0]) openVideoWorkspace({ video: items[0].video, player: items[0].player, profile: AN.profile, seqId: items[0].seqId, playlist: items, onChange: anReload });
 }
 
 /* Départ ↔ arrivée des passes : le filtre de hauteur suit l'extrémité regardée. */

@@ -954,6 +954,11 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   du match envoyée une fois depuis le match : chaque joueur de la feuille la reçoit (une ligne player_videos par
   joueur sur le même fichier, reliée au match), « La donner aussi » aux joueurs ajoutés depuis ; « Importer un XML
   Sportscode » ouvre la même fenêtre que l'Analyse. Staff vidéo (admin, coach, analyste) ; la RLS décide par joueur.
+- **Analyse d'un match** (`analyse-match.html?id=`, `analyse-match-page.js`, « Ouvrir l'analyse du match » depuis la
+  rubrique) — les blocs de l'onglet Analyse (Avec ballon / Sans ballon, terrains, zones, tableaux, lecture) pour tous
+  les joueurs qui ont la vidéo du match, menu « Joueur » en plus (anFetchMatch) ; timeline du match : la vidéo
+  commune, chaque segment au nom de son joueur, on y corrige et on y code ; chaque écriture va sur la ligne de vidéo
+  du joueur (own_video). Pas de création de séquence ici : import XML ou fiche du joueur.
 - **Vidéos** (`videos.html`, staff) — la liste s'affiche dès que les données sont là : miniatures et
   liens de lecture (Worker) arrivent ensuite, sans bloquer la page. Les appels au Worker échouent au
   bout de 15 s et les requêtes à la base au bout de 30 s (`supabase-client.js`) : jamais de
