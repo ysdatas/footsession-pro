@@ -282,6 +282,7 @@ async function openMatch(m) {
     renderFeedback(fb);
   }
   renderRows();
+  mvShow(m);   // vidéo du match et import Sportscode (match-video.js)
   editing.snap = matchSnapshot();
   // Relances (lmfc_v59.sql) : match enregistré, déjà joué, staff qui relance.
   document.getElementById('mRemind').classList.toggle('hidden', !(m?.id && m.date_match <= new Date().toISOString().slice(0, 10)

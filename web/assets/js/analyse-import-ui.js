@@ -16,11 +16,13 @@
        elles restent réservées au staff (staff_only).
    Écriture : player_videos (insert), save_sequence_code une séquence à la fois,
    puis staff_only = false ; tout passe par la RLS (staff vidéo, joueur modifiable).
-   ⌘Z retire l'import quand il ne touche que le joueur ouvert.
+   Ouverte depuis la timeline d'Analyse (scPick, ⌘Z retire l'import quand il ne
+   touche que le joueur ouvert) ou depuis un match (scOpen, match-video.js).
    ============================================================ */
 
 const SC_MAX = 20 * 1024 * 1024;   // un export XML de match pèse quelques centaines de Ko
-const SC = { plan: null, assign: {}, picks: {}, players: null, busy: false, done: false, file: '' };
+const SC = { plan: null, assign: {}, picks: {}, players: null, busy: false, done: false, file: '', ctx: null };
+const scPlural = (n, one, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
 const scMapLoad = () => { try { return JSON.parse(localStorage.getItem('lmfc.sc.map')) || {}; } catch { return {}; } };
 function scMapSave() {
   const map = scMapLoad();
@@ -28,7 +30,7 @@ function scMapSave() {
   try { localStorage.setItem('lmfc.sc.map', JSON.stringify(map)); } catch { /* sans stockage : deviné la prochaine fois */ }
 }
 const scName = (id) => playerFullName(SC.players.find(p => p.id === Number(id)) || {});
-const scVideo = () => AN.videos.find(x => x.id === AN.tl.video);
+const scVideo = () => SC.ctx.video;
 
 function scEnsure() {
   if (document.getElementById('scImport')) return;
@@ -60,13 +62,24 @@ function scEnsure() {
   document.getElementById('scGo').addEventListener('click', scCreate);
 }
 
-/* Bouton de la timeline (vue « Une vidéo ») : choisir le fichier. */
-function scPick() {
-  if (AN.tl.mode !== 'video' || !scVideo()) return toast('Choisissez d’abord la vue « Une vidéo » et la vidéo du match.', 'error');
+/* Ouvre l'import sur une vidéo : ctx = { video (ligne player_videos), clips() (ses séquences déjà là), dur() (durée connue, 0 sinon),
+   done(made) (après la création) }. La timeline d'Analyse (scPick) et le match (match-video.js) l'appellent. */
+function scOpen(ctx) {
+  SC.ctx = ctx;
   scEnsure();
   const input = document.getElementById('scFile');
   input.value = '';
   input.click();
+}
+
+/* Bouton de la timeline d'Analyse (vue « Une vidéo ») : la vidéo ouverte ; ⌘Z retire l'import s'il ne touche que ce joueur. */
+function scPick() {
+  const v = AN.videos.find(x => x.id === AN.tl.video);
+  if (AN.tl.mode !== 'video' || !v) return toast('Choisissez d’abord la vue « Une vidéo » et la vidéo du match.', 'error');
+  scOpen({ video: v, clips: () => AN.clips.filter(c => c.video_id === v.id), dur: () => (AN.tl.loaded === v.id ? AN.tl.dur : 0),
+    done: async (made) => {
+          await anReload();
+    } });
 }
 
 async function scFileChosen(e) {
@@ -96,27 +109,27 @@ async function scFileChosen(e) {
 
 function scDraw() {
   const linked = SC.plan.rows.filter(r => r.player_id != null).length;
-  document.getElementById('scSub').textContent = `${SC.plan.total} actions dans « ${SC.file} » : ${anPlural(linked, 'joueur reconnu', 'joueurs reconnus')}`
+  document.getElementById('scSub').textContent = `${SC.plan.total} actions dans « ${SC.file} » : ${scPlural(linked, 'joueur reconnu', 'joueurs reconnus')}`
     + `${SC.plan.rows.length > linked ? `, ${SC.plan.rows.length - linked} ligne${SC.plan.rows.length - linked > 1 ? 's' : ''} à relier` : ''}. Vidéo « ${scVideo()?.titre || ''} ».`;
   const team = (p) => (window.CLUB_TEAMS || []).find(t => t.id === p.team_id)?.nom;
   const people = SC.players.map(p => [p.id, `${playerFullName(p)}${team(p) ? ` – ${team(p)}` : ''}`]);
   document.getElementById('scRows').innerHTML = SC.plan.rows.map(r => `<div class="sc-row${SC.assign[r.key] ? '' : ' is-off'}">
-      <span class="sc-pick"><b>${esc(r.name)}</b><small>${r.items.length}</small></span>
-      <select data-sc-who="${esc(r.key)}" aria-label="Fiche joueur pour « ${esc(r.name)} »"><option value="">Ne pas importer</option>${people.map(([id, l]) =>
-        `<option value="${id}"${String(id) === String(SC.assign[r.key]) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`).join('');
+      <span class="sc-pick"><b>${escapeHtml(r.name)}</b><small>${r.items.length}</small></span>
+      <select data-sc-who="${escapeHtml(r.key)}" aria-label="Fiche joueur pour « ${escapeHtml(r.name)} »"><option value="">Ne pas importer</option>${people.map(([id, l]) =>
+        `<option value="${id}"${String(id) === String(SC.assign[r.key]) ? ' selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select></div>`).join('');
   const opts = [['', 'À coder'], ...Object.entries(AN_ACTIONS).map(([a, A]) => [a, A.one])];
   const types = scTypes(SC.plan, SC.assign);
   types.forEach(([t]) => { SC.picks[t] ??= { action: scGuess(t), on: true }; });
   document.getElementById('scTypes').innerHTML = types.length ? types.map(([t, n]) => `<div class="sc-row${SC.picks[t].on ? '' : ' is-off'}">
-      <label class="sc-pick"><input type="checkbox" data-sc-on="${esc(t)}"${SC.picks[t].on ? ' checked' : ''}><b>${esc(t)}</b><small>${n}</small></label>
-      <select data-sc-act="${esc(t)}" aria-label="Action de l’Analyse pour « ${esc(t)} »">${opts.map(([v, l]) =>
-        `<option value="${v}"${v === SC.picks[t].action ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`).join('')
+      <label class="sc-pick"><input type="checkbox" data-sc-on="${escapeHtml(t)}"${SC.picks[t].on ? ' checked' : ''}><b>${escapeHtml(t)}</b><small>${n}</small></label>
+      <select data-sc-act="${escapeHtml(t)}" aria-label="Action de l’Analyse pour « ${escapeHtml(t)} »">${opts.map(([v, l]) =>
+        `<option value="${v}"${v === SC.picks[t].action ? ' selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select></div>`).join('')
     : '<p class="sc-none">Reliez au moins une ligne à un joueur.</p>';
   scCount();
 }
 
 const scOff = () => Number(document.getElementById('scOff').value) || 0;
-const scDur = () => (AN.tl.loaded === AN.tl.video ? AN.tl.dur : 0);
+const scDur = () => SC.ctx.dur();
 /* Séquences par joueur choisi : { pid: items }. */
 function scByPlayer() {
   const by = new Map();
@@ -126,9 +139,9 @@ function scByPlayer() {
 function scCount() {
   const v = scVideo(), by = scByPlayer();
   let n = 0;
-  by.forEach((items, pid) => { n += scDrafts(items, SC.picks, pid === v.player_id ? AN.clips.filter(c => c.video_id === v.id) : [], { off: scOff(), dur: scDur() }).out.length; });
+  by.forEach((items, pid) => { n += scDrafts(items, SC.picks, pid === v.player_id ? SC.ctx.clips() : [], { off: scOff(), dur: scDur() }).out.length; });
   const go = document.getElementById('scGo');
-  go.textContent = n ? `Créer ${anPlural(n, 'séquence')}${by.size > 1 ? ` pour ${by.size} joueurs` : ''}` : 'Rien à créer';
+  go.textContent = n ? `Créer ${scPlural(n, 'séquence')}${by.size > 1 ? ` pour ${by.size} joueurs` : ''}` : 'Rien à créer';
   go.disabled = !n || SC.busy;
   document.getElementById('scStatus').textContent = '';
 }
@@ -141,7 +154,8 @@ async function scVideos(v, pids, errors) {
   if (error) throw error;
   (data || []).forEach(h => vids.set(h.player_id, h.id));
   for (const pid of others.filter(p => !vids.has(p))) {
-    const row = { club_id: v.club_id, player_id: pid, storage_path: v.storage_path, titre: v.titre, description: v.description ?? null, lieu: v.lieu ?? null, ...(v.thumb ? { thumb: v.thumb } : {}) };
+    const row = { club_id: v.club_id, player_id: pid, storage_path: v.storage_path, titre: v.titre, description: v.description ?? null, lieu: v.lieu ?? null,
+      ...(v.thumb ? { thumb: v.thumb } : {}), ...(v.match_id ? { match_id: v.match_id } : {}) };   // match : lmfc_v75.sql
     const { data: got, error: err } = await sb.from('player_videos').insert(row).select('id').single();
     if (err) errors.push(`${scName(pid)} : ${err.message}`); else vids.set(pid, got.id);
   }
@@ -185,6 +199,6 @@ async function scCreate() {
     Object.assign(go, { textContent: 'Fermer', disabled: false });
     SC.done = true;   // le bouton ferme : rien n'est recréé
   } else closeModal('scImport');
-  await anReload();
-  if (made.length) toast(`${anPlural(made.length, 'séquence créée', 'séquences créées')} pour ${anPlural(new Set(made.map(x => x.pid)).size, 'joueur')}${visible ? ', visibles par chacun' : ''}.`, 'success');
+  await SC.ctx.done(made);
+  if (made.length) toast(`${scPlural(made.length, 'séquence créée', 'séquences créées')} pour ${scPlural(new Set(made.map(x => x.pid)).size, 'joueur')}${visible ? ', visibles par chacun' : ''}.`, 'success');
 }

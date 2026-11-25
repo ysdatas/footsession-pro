@@ -1,0 +1,40 @@
+/* ============================================================
+   LMFC Performance — video-import.css
+   Import XML Sportscode (analyse-import-ui.js) et vidéo d'un match
+   (match-video.js) : fiche joueur › Analyse, et Retours de match.
+   ============================================================ */
+/* Import d'un XML Sportscode (analyse-import.js) : un code par ligne, coché ou non, et l'action qu'il devient. */
+.sc-modal { width: min(560px, 100%); }
+.sc-sub { margin: 0 0 12px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.sc-head { display: flex; justify-content: space-between; padding: 0 10px 4px; font-size: var(--fs-xs); color: var(--text-muted); }
+.sc-groups { display: grid; gap: 6px; max-height: min(46vh, 420px); overflow-y: auto; }
+.sc-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-surface); }
+.sc-row.is-off { opacity: .55; }
+.sc-pick { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; margin: 0; font-size: var(--fs-sm); text-transform: none; letter-spacing: normal; cursor: pointer; }
+.sc-pick b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-weight: 600; }
+.sc-pick small { flex: none; min-width: 26px; padding: 1px 6px; border-radius: 6px; background: var(--bg-hover); color: var(--text-secondary); font: 600 var(--fs-xs)/1.4 var(--font-num); text-align: center; }
+.sc-row select { flex: none; width: 170px; min-height: 32px; }
+.sc-sec { margin: 14px 0 6px; }
+.sc-none { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.sc-check { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 12px 0 0; font-size: var(--fs-sm); text-transform: none; letter-spacing: normal; }
+.sc-check small { flex-basis: 100%; padding-left: 26px; color: var(--text-muted); font-size: var(--fs-xs); }
+.sc-off { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 12px 0 0; font-size: var(--fs-sm); text-transform: none; letter-spacing: normal; }
+.sc-off input { width: 6em; min-height: 32px; }
+.sc-off small { flex-basis: 100%; color: var(--text-muted); font-size: var(--fs-xs); }
+.sc-status { min-height: 1.2em; margin: 8px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+@media (max-width: 520px) { .sc-row { flex-wrap: wrap; } .sc-row select { width: 100%; } }
+
+/* Retours de match › « Vidéo et analyse » (match-video.js) : les vidéos du match, puis l'envoi. */
+.mv-box { margin: 14px 0 0; }
+.mv-list { display: grid; gap: 8px; }
+.mv-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-surface); }
+.mv-what { display: grid; gap: 2px; flex: 1; min-width: 180px; }
+.mv-what b { color: var(--text-primary); font-weight: 600; }
+.mv-what small { color: var(--text-muted); font-size: var(--fs-xs); }
+.mv-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.mv-empty { margin: 0; font-size: var(--fs-sm); }
+.mv-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 0; }
+.mv-tools label.btn { margin: 0; text-transform: none; letter-spacing: normal; cursor: pointer; }
+#mvFile:focus-visible + .mv-prog, .mv-tools label.btn:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
+.mv-prog { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.mv-prog progress { width: 160px; accent-color: var(--gold); }

@@ -361,6 +361,9 @@ staff les partage. Ce n'est plus « un coach ne voit que ses données ».
                                            joueur a sa ligne player_videos sur le même fichier ; video_path_in_use()
                                            (témoin) : le fichier n'est retiré qu'à la dernière ligne ; après
                                            lmfc_v73.sql ; retour arrière : lmfc_v74_retour.sql
+93. supabase/lmfc_v75.sql                  la vidéo d'un match : player_videos.match_id (Retours de match › « Vidéo et
+                                           analyse », envoyée une fois, une ligne par joueur de la feuille) ; témoin
+                                           match_videos_ok() ; après lmfc_v74.sql ; retour arrière : lmfc_v75_retour.sql
 ```
 
 ### `lmfc_v24.sql` + `lmfc_v25.sql` — bibliothèque vidéo
@@ -947,6 +950,10 @@ prénom/nom, et les valeurs numériques ne peuvent pas être prises pour un nom.
   Chaque joueur reçoit le match (même fichier, sans nouvel envoi) et ses séquences ; « Visibles par les joueurs » :
   chacun voit les siennes, jamais celles des autres. Décalage possible, doublons et actions après la fin de la vidéo
   laissés. Aucun fichier coupé : les séquences sont des passages de la vidéo.
+- **Vidéo et analyse d'un match** (Retours de match › un match enregistré, `match-video.js`, lmfc_v75.sql) — la vidéo
+  du match envoyée une fois depuis le match : chaque joueur de la feuille la reçoit (une ligne player_videos par
+  joueur sur le même fichier, reliée au match), « La donner aussi » aux joueurs ajoutés depuis ; « Importer un XML
+  Sportscode » ouvre la même fenêtre que l'Analyse. Staff vidéo (admin, coach, analyste) ; la RLS décide par joueur.
 - **Vidéos** (`videos.html`, staff) — la liste s'affiche dès que les données sont là : miniatures et
   liens de lecture (Worker) arrivent ensuite, sans bloquer la page. Les appels au Worker échouent au
   bout de 15 s et les requêtes à la base au bout de 30 s (`supabase-client.js`) : jamais de
@@ -1279,6 +1286,7 @@ node tests/v71-sql.test.mjs       # un seul RPE par demi-journée (réponse donn
 node tests/v72-sql.test.mjs       # formulaires posés les jours de séance, après séance, après match ; plusieurs par équipe ; retour (PGlite)
 node tests/v73-sql.test.mjs       # « Groupe Espoirs » : renvoi à la séance du groupe de la même demi-journée, suivi, RPE ; retour (PGlite)
 node tests/v74-sql.test.mjs       # vidéo de match partagée : chacun ses séquences, fichier gardé tant qu'une ligne s'en sert ; retour (PGlite)
+node tests/v75-sql.test.mjs       # vidéo reliée au match : droits du staff, lecture du joueur, match supprimé ; retour (PGlite)
 node tests/sportscode-import.test.mjs # XML Sportscode : joueur reconnu, rangement par code, valeurs reconnues ou tags, décalage, doublons
 node tests/v69-sql.test.mjs       # douleur sur la silhouette : zones = form-body.js, version ajoutée, « une fois » laissé, alerte, retour (PGlite)
 node tests/v68-sql.test.mjs       # courbatures : fessiers et psoas acceptés, muscle inconnu refusé, retour arrière refusé puis rendu (PGlite)

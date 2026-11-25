@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/session.css">
   <link rel="stylesheet" href="assets/css/matches.css">
+  <link rel="stylesheet" href="assets/css/video-import.css">
   <script src="assets/js/theme.js"></script>
 </head>
 <body class="app">
@@ -99,6 +100,14 @@
         <button class="btn btn-sm" type="button" data-remind="avis">Avis manquants</button>
       </div>
 
+      <!-- Vidéo du match et import Sportscode (lmfc_v74.sql, lmfc_v75.sql) : match-video.js -->
+      <section class="mv-box hidden" id="mvBox" aria-labelledby="mvTitle">
+        <h3 class="form-kicker mt-h" id="mvTitle">Vidéo et analyse</h3>
+        <div class="mv-list" id="mvList"></div>
+        <div class="mv-tools"><input type="file" id="mvFile" accept="video/*" class="sr-only"><label class="btn btn-sm" for="mvFile">Envoyer la vidéo du match</label>
+          <div class="mv-prog hidden" id="mvProg"><progress max="100" value="0"></progress><span role="status" aria-live="polite"></span></div></div>
+      </section>
+
       <p class="form-kicker">Bilan</p>
       <div class="field"><label for="m-comment">Commentaire général</label><textarea id="m-comment" rows="3"></textarea></div>
       <div class="field"><label for="m-retenir">À retenir</label><textarea id="m-retenir" rows="2" placeholder="Points à travailler, enseignements…"></textarea></div>
@@ -178,5 +187,13 @@
   <script src="assets/js/matchs-fff.js"></script>
   <script src="assets/js/match-sheet.js"></script>
   <script src="assets/js/match-sheet-ui.js"></script>
+  <!-- Vidéo du match et import XML Sportscode (analyse-import*.js : lecture et fenêtre partagées avec l'Analyse) -->
+  <script src="assets/js/video-status.js"></script>
+  <script src="assets/js/analyse-model.js"></script>
+  <script src="assets/js/analyse-coding.js"></script>
+  <script src="assets/js/analyse-data.js"></script>
+  <script src="assets/js/analyse-import.js"></script>
+  <script src="assets/js/analyse-import-ui.js"></script>
+  <script src="assets/js/match-video.js"></script>
 </body>
 </html>
